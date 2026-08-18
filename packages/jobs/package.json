@@ -1,0 +1,16 @@
+{
+  "name": "jobs",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./variantPublish": "./src/variantPublish.ts",
+    "./feedSync": "./src/feedSync.ts",
+    "./dunning": "./src/dunning.ts"
+  },
+  "dependencies": {
+    "inngest": "^4.18.1",
+    "rss-parser": "^3.13.0",
+    "web": "^0.1.0"
+  }
+}

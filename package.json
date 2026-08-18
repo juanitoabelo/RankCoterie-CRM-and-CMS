@@ -1,0 +1,25 @@
+{
+  "name": "canopy-v2",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Canopy V2 monorepo — paid SEO directory + lead-gen + CRM platform (Next.js)",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=web",
+    "build": "npm run build --workspace=web",
+    "test": "npm run test --workspaces --if-present",
+    "db:generate": "npm run db:generate --workspace=db"
+  },
+  "devDependencies": {
+    "@types/node": "26.2.0"
+  },
+  "allowScripts": {
+    "@prisma/engines@6.19.3": true
+  }
+}

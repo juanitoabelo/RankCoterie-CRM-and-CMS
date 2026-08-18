@@ -1,0 +1,485 @@
+// Canopy V2 — draft Prisma schema (Phase 0)
+// WIP: maps the legacy MariaDB (masternet.sql) into PostgreSQL per canopy-architecture.md §6.5 / §6.7.
+// Naming follows the legacy domain (tbl* → PascalCase) so the migration script stays 1:1.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Tenancy / auth
+// ---------------------------------------------------------------------------
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  domainKey String   @unique // primary domain, e.g. "masternet.org" (legacy RFC_DOMAIN_NAME)
+  theme     Json @default("{}") // brand theme (autoloaded by hostname)
+  companyId String?  // resolves to a Company profile
+  createdAt DateTime @default(now())
+  users     User[]
+}
+
+model User {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  email       String
+  passwordHash String // argon2 — replaces legacy SHA1
+  firstName   String?
+  lastName    String?
+  department  String?
+  isRep       Boolean  @default(false) // legacy IsRep / IsCloser
+  isCloser    Boolean  @default(false)
+  authorUrl   String?  // staff/author pages
+  authorBio   String?
+  imageUrl    String?
+  jobTitle    String?
+  phone       String?
+  active      Boolean  @default(true)
+  roles       UserRole[] // replaces tblUserPermissions
+  createdAt   DateTime @default(now())
+  @@unique([tenantId, email])
+}
+
+enum Role {
+  ADMIN
+  MARKETING
+  GRACE_COACH
+  REVIEWER // new: listing approval queue
+  SALES_REP
+}
+
+model UserRole {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  role   Role
+  scope  String @default("all") // "all" | "own" (own leads only) — legacy allleads/allcompanies perms
+  @@unique([userId, role])
+}
+
+// ---------------------------------------------------------------------------
+// Localization universe (legacy tblRegions + hierarchy)
+// ---------------------------------------------------------------------------
+
+enum AreaPart {
+  ALL
+  NORTHERN
+  SOUTHERN
+  EASTERN
+  WESTERN
+  CENTRAL
+}
+
+model Region {
+  id         String    @id // legacy RegionCode, e.g. "CA San Diego"
+  tenantId   String
+  state      String // "CA"
+  stateFull  String // "California"
+  city       String? // null = state row
+  areaPart   AreaPart?
+  slug       String    @unique // legacy DomainKey "San-Diego-California-CA"
+  custom1    String? // localized intro HTML, tokens allowed
+  custom2    String?
+  priority   Int       @default(999)
+  zipCodes   String[]  @default([])
+  createdAt  DateTime  @default(now())
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  tenantId    String
+  slug        String // legacy DomainKey, e.g. "wilderness-therapy"
+  title       String
+  description String? // category-level blob, tokens allowed (catalog description)
+  parentId    String? // legacy tblSearchCategoryParent / Sub hierarchy
+  parent      Category? @relation("CatTree", fields: [parentId], references: [id])
+  children    Category[] @relation("CatTree")
+  stateInit   String? // state intro, {{region}} tokens allowed
+  stateDesc   String?
+  cityInit    String?
+  cityDesc    String?
+  altIntros   Json?  // areaPart-keyed overrides
+  sections    Json?
+  status      String @default("LIVE")
+  regionContent CategoryRegionContent[]
+  regionFeeds    CategoryRegionFeed[]
+  listingCategories ListingCategory[]
+  @@unique([tenantId, slug])
+}
+
+model CategoryRegionContent {
+  id          String   @id @default(cuid())
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  state       String // 2-letter
+  areaPart    AreaPart @default(NORTHERN)
+  customText  String
+  @@unique([categoryId, state, areaPart])
+}
+
+model CategoryRegionFeed {
+  id          String   @id @default(cuid())
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  state       String
+  areaPart    AreaPart @default(NORTHERN)
+  feedId      String
+  feed        Feed     @relation(fields: [feedId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
+// Directory listings + paid tier + suppression (legacy §4.1, §4.10 → §6.7)
+// ---------------------------------------------------------------------------
+
+enum ListingTier {
+  SUPPRESSED // admin opt-out — NEVER rendered
+  FREE // migrated legacy listings: hidden after grace period
+  STANDARD // paid, listed
+  PREMIUM // paid, featured
+}
+
+enum ListingStatus {
+  DRAFT
+  PENDING_REVIEW
+  LIVE
+  SUSPENDED // unpaid / dunning
+  EXPIRED
+}
+
+model Listing {
+  id           String        @id @default(cuid())
+  tenantId     String
+  tier         ListingTier   @default(FREE)
+  status       ListingStatus @default(DRAFT) // mirrors ListingSubscription.status when paid
+  title        String
+  slug         String        @unique
+  domainKey    String? // drives exclusion matching (e.g. "clearview-horizon")
+  contentHtml  String?
+  keywords     String?
+  description  String?
+  isArticlePage Boolean      @default(false)
+  articleTemplate String?
+  isLandingPage Boolean      @default(false)
+  freeGraceUntil DateTime? // FREE listings stay visible until this migration grace end
+
+  companyId    String?       // profile-owned listing
+  companyName  String?
+  phone        String?
+  email        String?
+  website      String?
+  address      String?
+  city         String?
+  state        String?
+  zip          String?
+
+  avatarImage  String?
+  feedImage    String?
+  videoUrl     String?
+  summary      String?
+  staff        String?
+  clientFocus  String?
+  credentials  String?
+  isSlidingScale Boolean     @default(false)
+  freeInitial   Boolean      @default(false)
+  acceptsPayment Json @default("{}") // ACH/Amex/Cash/... legacy flags
+  hasMalpractice Boolean     @default(false)
+  social       Json          @default("{}") // FB/TW/YT/LI/IG/GP/Pinterest/Quora
+  ageGroups    Json          @default("{}")
+  clientGender String?
+  religion     String?
+  languages    Json          @default("[]")
+  pricing      Json          @default("{}") // Price1/2, Duration1/2, sliding scale
+
+  authorId     String?       // legacy UserID (staff page)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  categories   ListingCategory[]
+  regions      ListingRegion[]
+  subscription ListingSubscription?
+  articles     SearchArticle[]
+  merchants    Merchant[]
+  @@index([tenantId, tier, status])
+}
+
+model ListingCategory {
+  id         String   @id @default(cuid())
+  listingId  String
+  listing    Listing  @relation(fields: [listingId], references: [id])
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  @@unique([listingId, categoryId])
+}
+
+model ListingRegion {
+  id        String  @id @default(cuid())
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id])
+  regionId  String // legacy "Nearby Areas" — recommend 3–5 per listing
+  @@unique([listingId, regionId])
+}
+
+model ExcludedCompany {
+  id          String   @id @default(cuid())
+  tenantId    String
+  companyName String
+  domainKey   String? // auto-matches future listings
+  listingId   String?
+  reason      String?
+  addedById   String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  @@index([tenantId, isActive])
+}
+
+model ListingSubscription {
+  id               String        @id @default(cuid())
+  listingId        String        @unique
+  listing          Listing       @relation(fields: [listingId], references: [id])
+  tier             ListingTier
+  status           ListingStatus
+  stripeCustomerId String?
+  stripeSubId      String?      @unique
+  priceId          String?
+  currentPeriodEnd DateTime?
+  trialEndsAt      DateTime?
+  paymentGraceUntil DateTime?
+  approvedById     String?
+  approvedAt       DateTime?
+  canceledAt       DateTime?
+  createdAt        DateTime      @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Localization content: templates → per-region variants (§6.5)
+// ---------------------------------------------------------------------------
+
+enum ContentStatus {
+  DRAFT
+  SCHEDULED
+  LIVE
+  DISABLED
+}
+
+model ContentTemplate {
+  id          String   @id @default(cuid())
+  tenantId    String
+  title       String // one piece of content, e.g. "Wilderness Therapy for Troubled Teen Girls"
+  body        String // tokens: {{region}} {{in region}} {{around region}} {{near region}} ...
+  metaDesc    String?
+  categoryId  String?
+  status      ContentStatus @default(DRAFT)
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  variants    ContentVariant[]
+}
+
+model ContentVariant {
+  id         String        @id @default(cuid())
+  templateId String
+  template   ContentTemplate @relation(fields: [templateId], references: [id])
+  regionId   String // one row per selected region (materialized on publish)
+  body       String // rendered output with region substituted
+  status     ContentStatus @default(DRAFT)
+  publishAt  DateTime? // per-region scheduling (new vs legacy)
+  revision   Int          @default(1)
+  createdAt  DateTime     @default(now())
+  @@unique([templateId, regionId])
+}
+
+// ---------------------------------------------------------------------------
+// Feeds / articles / topics (legacy §4.3)
+// ---------------------------------------------------------------------------
+
+model Feed {
+  id            String   @id @default(cuid())
+  tenantId      String
+  name          String
+  domainKey     String?
+  url           String? // ingestion source (RSS/Atom); null → manual curation only
+  type          String   @default("RSS") // RSS | ATOM
+  status        String   @default("ACTIVE") // ACTIVE | INACTIVE
+  lastFetchedAt DateTime?
+  lastError     String?
+  items         FeedItem[]
+  categories    CategoryRegionFeed[]
+}
+
+model FeedItem {
+  id          String   @id @default(cuid())
+  feedId      String
+  feed        Feed     @relation(fields: [feedId], references: [id])
+  fingerprint String   @unique // sha1 of title|url|feedDate — ingestion idempotency
+  title       String
+  url         String?
+  body        String?
+  author      String?
+  keywords    String? // feed categories / tags; matched by curation
+  feedDate    DateTime?
+  status      String   @default("NEW") // NEW | APPROVED | TRASHED
+  curatedAt   DateTime?
+  createdAt   DateTime @default(now())
+}
+
+model SearchArticle {
+  id          String   @id @default(cuid())
+  tenantId    String
+  listingId   String?
+  listing     Listing? @relation(fields: [listingId], references: [id])
+  authorId    String?
+  title       String
+  body        String? // tokens allowed → may become ContentTemplate
+  domainKey   String?
+  metaDesc    String?
+  tags        String?
+  feedImage   String?
+  isApproved  Boolean  @default(false)
+  isRejected  Boolean  @default(false)
+  reviewedById String?
+  reviewedAt  DateTime?
+  postDate    DateTime?
+  createdAt   DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Leads / clients / billing (legacy §4.5, §4.6 — trimmed for Phase 0)
+// ---------------------------------------------------------------------------
+
+model Lead {
+  id            String   @id @default(cuid())
+  tenantId      String
+  firstName     String?
+  lastName      String?
+  email         String?
+  phones        Json     @default("{}")
+  addresses     Json     @default("{}")
+  status        String   @default("NEW") // disposition lifecycle
+  disposition   String?
+  initialDisposition String?
+  statusDate    DateTime?
+  lastModified  DateTime @updatedAt
+  assignedToId  String? // legacy CSUserID
+  closeUserId   String?
+  campaignId    String?
+  productId     String?
+  publisherId   String?
+  subId         String?
+  clickId       String?
+  landingPageId String?
+  // clinical intake (legacy extended fields)
+  intake        Json     @default("{}") // patient/insurance/diagnosis/trauma/court flags...
+  createdAt     DateTime @default(now())
+  notes         LeadNote[]
+  todos         ToDo[]
+}
+
+model LeadNote {
+  id      String   @id @default(cuid())
+  leadId  String
+  lead    Lead     @relation(fields: [leadId], references: [id])
+  note    String
+  userId  String?
+  createdAt DateTime @default(now())
+}
+
+model ToDo {
+  id        String   @id @default(cuid())
+  leadId    String?
+  lead      Lead?    @relation(fields: [leadId], references: [id])
+  assigneeId String?
+  text      String
+  dueAt     DateTime?
+  finishedAt DateTime?
+  status    String   @default("OPEN")
+  createdAt DateTime @default(now())
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  tenantId  String
+  firstName String?
+  lastName  String?
+  email     String?
+  phones    Json     @default("{}")
+  addresses Json     @default("{}")
+  maskedCard String? // legacy First4/Last4/MaskedCard
+  leadId    String?
+  campaignId String?
+  productId String?
+  publisherId String?
+  subId     String?
+  clickId   String?
+  landingPageId String?
+  isPartial Boolean  @default(false)
+  createdAt DateTime @default(now())
+  invoices  Invoice[]
+}
+
+model Invoice {
+  id            String  @id @default(cuid())
+  clientId      String
+  client        Client  @relation(fields: [clientId], references: [id])
+  amount        Decimal
+  chargeDate    DateTime?
+  status        String // ATTEMPTED/APPROVED/DECLINED/ERROR/REFUNDED/CHARGEDBACK
+  isRecurring   Boolean @default(false)
+  interval      String? // legacy BillInterval
+  retries       Int     @default(0)
+  stripePaymentId String?
+  responseMsg   String?
+  createdAt     DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Stripe Connect merchant pool (legacy §4.6) — programs paid out via Connect.
+// ---------------------------------------------------------------------------
+
+model Merchant {
+  id              String   @id @default(cuid())
+  tenantId        String
+  name            String
+  contactName     String?
+  email           String?
+  listingId       String? // the paid-listing operator, when they are one
+  listing         Listing? @relation(fields: [listingId], references: [id])
+  stripeAccountId String? // Connect account (acct_...)
+  status          String   @default("INACTIVE") // ACTIVE | INACTIVE
+  payoutMethod    String? // CHECK | ACH | CARD | STRIPE_CONNECT (legacy method)
+  feePercent      Decimal  @default(0)
+  createdAt       DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// CMS + audit + ops (legacy §4.7, §4.9)
+// ---------------------------------------------------------------------------
+
+model Page {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  layout    String?
+  data      String? // builder blocks JSON
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  actorId   String?
+  action    String // SUPPRESS_ADD, LISTING_APPROVE, REFUND, TIER_CHANGE ...
+  entity    String // entity type
+  entityId  String
+  reason    String?
+  meta      Json?
+  createdAt DateTime @default(now())
+  @@index([tenantId, entity, entityId])
+}
