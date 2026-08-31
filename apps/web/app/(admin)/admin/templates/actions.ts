@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { ContentStatus } from "@prisma/client";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { logAudit } from "@/lib/audit";
 
@@ -57,7 +58,7 @@ export async function updateTemplate(
   try {
     await prisma.contentTemplate.update({
       where: { id },
-      data: { title, slug, body, categoryId: categoryId || null, status },
+      data: { title, slug, body, categoryId: categoryId || null, status: status as ContentStatus },
     });
     await logAudit({
       action: "TEMPLATE_UPDATE",

@@ -112,6 +112,7 @@ model Category {
   regionContent CategoryRegionContent[]
   regionFeeds    CategoryRegionFeed[]
   listingCategories ListingCategory[]
+  contentTemplates  ContentTemplate[]
   @@unique([tenantId, slug])
 }
 
@@ -277,6 +278,7 @@ model ContentTemplate {
   body        String // tokens: {{region}} {{in region}} {{around region}} {{near region}} ...
   metaDesc    String?
   categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
   status      ContentStatus @default(DRAFT)
   publishedAt DateTime?
   createdAt   DateTime @default(now())
@@ -476,6 +478,18 @@ model Page {
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
   @@unique([tenantId, slug])
+}
+
+model Asset {
+  id        String   @id @default(cuid())
+  tenantId  String
+  kind      String   @default("image") // image | file
+  mimeType  String
+  size      Int
+  bytes     Bytes
+  filename  String?
+  createdAt DateTime @default(now())
+  @@index([tenantId])
 }
 
 model AuditLog {

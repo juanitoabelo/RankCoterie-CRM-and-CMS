@@ -3,20 +3,31 @@
 import { useState, useCallback, useTransition } from "react";
 import {
   DndContext,
-  closestCenter,
   KeyboardSensor,
+  MeasuringStrategy,
   PointerSensor,
+  closestCenter,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  arrayMove,
-} from "@dnd-kit/sortable";
-import { BLOCK_DEFINITIONS, createBlock, type Block, type BlockType } from "@/lib/page-builder/types";
+  BLOCK_DEFINITIONS,
+  createBlock,
+  isRowBlock,
+  PALETTE_PREFIX,
+  type Block,
+  type BlockType,
+} from "@/lib/page-builder/types";
+import {
+  addBlockFromPalette,
+  findColumnForBlock,
+  moveBlock,
+  removeBlock as removeBlockFromTree,
+  updateBlockProps as updatePropsInTree,
+} from "@/lib/page-builder/tree";
 import BlockPalette from "./BlockPalette";
 import BuilderCanvas from "./BuilderCanvas";
 import BlockEditor from "./BlockEditor";
@@ -32,6 +43,7 @@ export default function PageBuilder({
 }) {
   const [blocks, setBlocks] = useState<Block[]>(initialBlocks);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedColumnId, setSelectedColumnId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -42,31 +54,72 @@ export default function PageBuilder({
 
   const selectedBlock = blocks.find((b) => b.id === selectedId) ?? null;
 
-  const addBlock = useCallback((type: BlockType) => {
-    const newBlock = createBlock(type);
-    setBlocks((prev) => [...prev, newBlock]);
-    setSelectedId(newBlock.id);
+  const addBlock = useCallback(
+    (type: BlockType) => {
+      const newBlock = createBlock(type);
+      if (isRowBlock(newBlock) || !selectedColumnId) {
+        setBlocks((prev) => [...prev, newBlock]);
+      } else {
+        setBlocks((prev) => addBlockFromPalette(prev, newBlock, selectedColumnId));
+      }
+      setSelectedId(newBlock.id);
+    },
+    [selectedColumnId],
+  );
+
+  const onSelectBlock = useCallback(
+    (id: string) => {
+      const col = findColumnForBlock(blocks, id);
+      setSelectedColumnId(col?.column.id ?? null);
+      setSelectedId(id);
+    },
+    [blocks],
+  );
+
+  const onSelectColumn = useCallback((columnId: string) => {
+    setSelectedColumnId(columnId);
+    setSelectedId(null);
   }, []);
 
   const removeBlock = useCallback((id: string) => {
-    setBlocks((prev) => prev.filter((b) => b.id !== id));
+    setBlocks((prev) => removeBlockFromTree(prev, id));
     setSelectedId((prev) => (prev === id ? null : prev));
+    setSelectedColumnId(null);
   }, []);
 
   const updateBlockProps = useCallback((id: string, props: Block["props"]) => {
-    setBlocks((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, props } as Block : b)),
-    );
+    setBlocks((prev) => updatePropsInTree(prev, id, props));
   }, []);
+
+  const addToColumn = useCallback((columnId: string, type: BlockType) => {
+    const newBlock = createBlock(type);
+    setBlocks((prev) => addBlockFromPalette(prev, newBlock, columnId));
+    setSelectedId(newBlock.id);
+  }, []);
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const id = String(event.active.id);
+    if (id.startsWith(PALETTE_PREFIX)) return;
+    setSelectedId(id);
+    const col = findColumnForBlock(blocks, id);
+    setSelectedColumnId(col?.column.id ?? null);
+  }, [blocks]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    setBlocks((prev) => {
-      const oldIndex = prev.findIndex((b) => b.id === active.id);
-      const newIndex = prev.findIndex((b) => b.id === over.id);
-      return arrayMove(prev, oldIndex, newIndex);
-    });
+    if (!over) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+
+    if (activeId.startsWith(PALETTE_PREFIX)) {
+      const type = activeId.slice(PALETTE_PREFIX.length) as BlockType;
+      const newBlock = createBlock(type);
+      setBlocks((prev) => addBlockFromPalette(prev, newBlock, overId));
+      setSelectedId(newBlock.id);
+      return;
+    }
+
+    setBlocks((prev) => moveBlock(prev, activeId, overId));
   }, []);
 
   const handleSave = () => {
@@ -83,24 +136,30 @@ export default function PageBuilder({
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
+          measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+          onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <SortableContext
-            items={blocks.map((b) => b.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            <BuilderCanvas
-              blocks={blocks}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              onRemove={removeBlock}
-            />
-          </SortableContext>
+          <BuilderCanvas
+            blocks={blocks}
+            selectedId={selectedId}
+            selectedColumnId={selectedColumnId}
+            onSelect={onSelectBlock}
+            onSelectColumn={onSelectColumn}
+            onRemove={removeBlock}
+          />
         </DndContext>
       </div>
 
       <div className="w-80 shrink-0 space-y-4">
         <BlockPalette onAdd={addBlock} />
+
+        {selectedColumnId && !selectedBlock && (
+          <div className="rounded-xl border border-zinc-200 bg-white p-4 text-xs text-zinc-500">
+            Adding blocks will drop them into the selected column. Drag a block type over a
+            column to place it exactly.
+          </div>
+        )}
 
         {selectedBlock && (
           <div className="rounded-xl border border-zinc-200 bg-white p-4">
@@ -120,6 +179,7 @@ export default function PageBuilder({
               <BlockEditor
                 block={selectedBlock}
                 onChange={(props) => updateBlockProps(selectedBlock.id, props)}
+                onAddToColumn={addToColumn}
               />
             </div>
           </div>

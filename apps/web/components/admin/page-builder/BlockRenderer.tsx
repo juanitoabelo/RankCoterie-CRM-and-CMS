@@ -1,4 +1,19 @@
-import type { Block } from "@/lib/page-builder/types";
+import { type Block, type RowBlock } from "@/lib/page-builder/types";
+
+const SPAN_CLASS: Record<number, string> = {
+  1: "md:col-span-1",
+  2: "md:col-span-2",
+  3: "md:col-span-3",
+  4: "md:col-span-4",
+  5: "md:col-span-5",
+  6: "md:col-span-6",
+  7: "md:col-span-7",
+  8: "md:col-span-8",
+  9: "md:col-span-9",
+  10: "md:col-span-10",
+  11: "md:col-span-11",
+  12: "md:col-span-12",
+};
 
 function HeroBlock({ block }: { block: Block & { type: "hero" } }) {
   return (
@@ -19,10 +34,16 @@ function HeroBlock({ block }: { block: Block & { type: "hero" } }) {
 }
 
 function TextBlock({ block }: { block: Block & { type: "text" } }) {
+  const alignCls =
+    block.props.align === "center"
+      ? "text-center"
+      : block.props.align === "right"
+        ? "text-right"
+        : "text-left";
   return (
     <section className="px-6 py-10">
       <div
-        className={`mx-auto max-w-3xl text-zinc-700 leading-relaxed text-${block.props.align}`}
+        className={`mx-auto max-w-3xl leading-relaxed text-zinc-700 ${alignCls}`}
         dangerouslySetInnerHTML={{ __html: block.props.content }}
       />
     </section>
@@ -127,24 +148,54 @@ function DividerBlock() {
   );
 }
 
+function RowBlock({ block }: { block: RowBlock }) {
+  return (
+    <section className="px-6 py-6">
+      <div
+        className="grid grid-cols-12"
+        style={{ gap: block.props.gap, alignItems: block.props.align }}
+      >
+        {block.props.columns.map((column) => (
+          <div
+            key={column.id}
+            className={`col-span-12 ${SPAN_CLASS[column.span] ?? "md:col-span-6"}`}
+            style={{ minWidth: 0 }}
+          >
+            <RenderBlocks blocks={column.blocks} />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 const RENDERERS: Record<string, React.ComponentType<{ block: Block }>> = {
-  hero: HeroBlock,
-  text: TextBlock,
-  image: ImageBlock,
-  cta: CtaBlock,
-  features: FeaturesBlock,
-  spacer: SpacerBlock,
-  divider: DividerBlock,
+  hero: HeroBlock as React.ComponentType<{ block: Block }>,
+  text: TextBlock as React.ComponentType<{ block: Block }>,
+  image: ImageBlock as React.ComponentType<{ block: Block }>,
+  cta: CtaBlock as React.ComponentType<{ block: Block }>,
+  features: FeaturesBlock as React.ComponentType<{ block: Block }>,
+  spacer: SpacerBlock as React.ComponentType<{ block: Block }>,
+  divider: DividerBlock as React.ComponentType<{ block: Block }>,
+  row: RowBlock as React.ComponentType<{ block: Block }>,
 };
 
-export default function BlockRenderer({ blocks }: { blocks: Block[] }) {
+function RenderBlocks({ blocks }: { blocks: Block[] }) {
   return (
-    <div>
+    <>
       {blocks.map((block) => {
         const Renderer = RENDERERS[block.type];
         if (!Renderer) return null;
         return <Renderer key={block.id} block={block} />;
       })}
+    </>
+  );
+}
+
+export default function BlockRenderer({ blocks }: { blocks: Block[] }) {
+  return (
+    <div>
+      <RenderBlocks blocks={blocks} />
     </div>
   );
 }

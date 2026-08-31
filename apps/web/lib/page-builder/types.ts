@@ -63,9 +63,53 @@ export interface DividerBlock extends BlockBase {
   props: Record<string, never>;
 }
 
-export type Block = HeroBlock | TextBlock | ImageBlock | CtaBlock | FeaturesBlock | SpacerBlock | DividerBlock;
+export const COLUMN_SPANS = [3, 4, 6, 8, 12] as const;
+export type ColumnSpan = (typeof COLUMN_SPANS)[number];
+
+export interface ColumnData {
+  id: string;
+  span: number; // grid units out of a 12-column grid
+  blocks: Block[];
+}
+
+export interface RowBlock extends BlockBase {
+  type: "row";
+  props: {
+    columns: ColumnData[];
+    gap: number; // px between columns
+    align: "start" | "center" | "end" | "stretch";
+  };
+}
+
+export type Block =
+  | HeroBlock
+  | TextBlock
+  | ImageBlock
+  | CtaBlock
+  | FeaturesBlock
+  | SpacerBlock
+  | DividerBlock
+  | RowBlock;
 
 export type BlockType = Block["type"];
+
+export function isRowBlock(block: Block): block is RowBlock {
+  return block.type === "row";
+}
+
+/** Block types allowed inside a row column (i.e. everything except rows). */
+export const LEAF_BLOCK_TYPES: BlockType[] = [
+  "hero",
+  "text",
+  "image",
+  "cta",
+  "features",
+  "spacer",
+  "divider",
+];
+
+/** Id prefix used by draggable palette items so drag events can be distinguished from real blocks. */
+export const PALETTE_PREFIX = "palette:";
 
 export interface BlockDefinition {
   type: BlockType;
@@ -75,6 +119,12 @@ export interface BlockDefinition {
 }
 
 export const BLOCK_DEFINITIONS: BlockDefinition[] = [
+  {
+    type: "row",
+    label: "Row / Columns",
+    icon: "▦",
+    defaults: { columns: [], gap: 24, align: "stretch" },
+  },
   {
     type: "hero",
     label: "Hero",
@@ -149,9 +199,34 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
 export function createBlock(type: BlockType): Block {
   const def = BLOCK_DEFINITIONS.find((d) => d.type === type);
   if (!def) throw new Error(`Unknown block type: ${type}`);
+
+  if (type === "row") {
+    return {
+      id: crypto.randomUUID(),
+      type: "row",
+      props: {
+        columns: [
+          { id: crypto.randomUUID(), span: 6, blocks: [] },
+          { id: crypto.randomUUID(), span: 6, blocks: [] },
+        ],
+        gap: 24,
+        align: "stretch",
+      },
+    } as Block;
+  }
+
+  const defaults = def.defaults as Record<string, unknown>;
+  const props =
+    type === "features"
+      ? {
+          ...defaults,
+          items: (defaults.items as Array<Record<string, unknown>>).map((i) => ({ ...i })),
+        }
+      : { ...defaults };
+
   return {
     id: crypto.randomUUID(),
     type,
-    props: { ...def.defaults } as Block["props"],
+    props,
   } as Block;
 }

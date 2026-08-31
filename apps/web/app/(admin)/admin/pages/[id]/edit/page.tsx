@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/directory/prismaCatalog";
 import PageBuilder from "@/components/admin/page-builder/PageBuilder";
 import PageMetaEditor from "./PageMetaEditor";
-import { updatePageBlocks } from "../actions";
+import { updatePageBlocks } from "../../actions";
 
 export const revalidate = 0;
 

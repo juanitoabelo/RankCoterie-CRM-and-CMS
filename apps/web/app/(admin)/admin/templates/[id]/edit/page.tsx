@@ -4,7 +4,7 @@ import VariantPublisher, {
   type TemplateOption,
 } from "@/components/admin/VariantPublisher";
 import type { PickerRegion } from "@/components/regions/RegionPicker";
-import { updateTemplate } from "../actions";
+import { updateTemplate } from "../../actions";
 
 export const revalidate = 0;
 
