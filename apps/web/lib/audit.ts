@@ -29,7 +29,19 @@ export type AuditAction =
   | "REFUND"
   | "CHARGEBACK"
   | "MERCHANT_CREATE"
-  | "MERCHANT_TOGGLE";
+  | "MERCHANT_TOGGLE"
+  | "CATEGORY_CREATE"
+  | "CATEGORY_UPDATE"
+  | "CATEGORY_DELETE"
+  | "PAGE_CREATE"
+  | "PAGE_UPDATE"
+  | "PAGE_DELETE"
+  | "ARTICLE_CREATE"
+  | "ARTICLE_UPDATE"
+  | "ARTICLE_DELETE"
+  | "TEMPLATE_CREATE"
+  | "TEMPLATE_UPDATE"
+  | "TEMPLATE_DELETE";
 
 export interface AuditInput {
   action: AuditAction;

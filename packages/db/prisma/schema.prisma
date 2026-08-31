@@ -7,8 +7,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------------------------
@@ -271,6 +272,7 @@ enum ContentStatus {
 model ContentTemplate {
   id          String   @id @default(cuid())
   tenantId    String
+  slug        String   @default("")
   title       String // one piece of content, e.g. "Wilderness Therapy for Troubled Teen Girls"
   body        String // tokens: {{region}} {{in region}} {{around region}} {{near region}} ...
   metaDesc    String?
@@ -280,6 +282,7 @@ model ContentTemplate {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   variants    ContentVariant[]
+  @@unique([tenantId, slug])
 }
 
 model ContentVariant {
@@ -465,10 +468,14 @@ model Page {
   id        String   @id @default(cuid())
   tenantId  String
   name      String
+  slug      String   @default("")
+  title     String   @default("")
+  status    String   @default("DRAFT") // DRAFT | LIVE | DISABLED
   layout    String?
   data      String? // builder blocks JSON
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
+  @@unique([tenantId, slug])
 }
 
 model AuditLog {

@@ -13,8 +13,9 @@ const TENANT_ID = "tenant-masternet";
 const TODAY = new Date("2026-01-15T00:00:00Z");
 
 async function main() {
-  await prisma.$transaction(async (tx) => {
-    // Idempotent reset (FK order matters).
+  await prisma.$transaction(
+    async (tx) => {
+      // Idempotent reset (FK order matters).
     await tx.feedItem.deleteMany({});
     await tx.feed.deleteMany({});
     await tx.searchArticle.deleteMany({});
@@ -398,7 +399,9 @@ async function main() {
       `Seeded: 1 tenant, 4 regions, 2 categories, 1 region-content, ${createdListings.length} listings, 2 exclusions, 1 template, 1 demo feed, 2 leads, 1 client, 3 invoices, 1 merchant.`,
     );
     void catRegionContent;
-  });
+  },
+    { timeout: 120_000 },
+  );
 }
 
 main()

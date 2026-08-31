@@ -3,6 +3,7 @@ import { adminLogout } from "./login/actions";
 
 const NAV = [
   { href: "/admin", label: "Dashboard" },
+  { href: "/admin/categories", label: "Categories" },
   { href: "/admin/listings", label: "Listings" },
   { href: "/admin/listings?status=PENDING_REVIEW", label: "Review queue" },
   { href: "/admin/exclusions", label: "Exclusions" },
@@ -11,8 +12,10 @@ const NAV = [
   { href: "/admin/clients", label: "Clients" },
   { href: "/admin/invoices", label: "Invoices" },
   { href: "/admin/merchants", label: "Merchants" },
+  { href: "/admin/pages", label: "Pages" },
+  { href: "/admin/articles", label: "Articles" },
+  { href: "/admin/templates", label: "Templates" },
   { href: "/admin/reports", label: "Reports" },
-  { href: "/admin/content", label: "Localization" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
