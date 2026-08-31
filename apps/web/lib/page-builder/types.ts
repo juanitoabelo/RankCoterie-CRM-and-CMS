@@ -51,6 +51,41 @@ export interface FeaturesBlock extends BlockBase {
   };
 }
 
+export interface ButtonBlock extends BlockBase {
+  type: "button";
+  props: {
+    text: string;
+    url: string;
+    align: "left" | "center" | "right";
+    variant: "solid" | "outline";
+  };
+}
+
+export interface EmbedBlock extends BlockBase {
+  type: "embed";
+  props: {
+    html: string;
+  };
+}
+
+export interface FaqBlock extends BlockBase {
+  type: "faq";
+  props: {
+    heading: string;
+    items: Array<{ question: string; answer: string }>;
+  };
+}
+
+export interface TestimonialBlock extends BlockBase {
+  type: "testimonial";
+  props: {
+    quote: string;
+    author: string;
+    role: string;
+    rating: 0 | 1 | 2 | 3 | 4 | 5;
+  };
+}
+
 export interface SpacerBlock extends BlockBase {
   type: "spacer";
   props: {
@@ -87,6 +122,10 @@ export type Block =
   | ImageBlock
   | CtaBlock
   | FeaturesBlock
+  | ButtonBlock
+  | EmbedBlock
+  | FaqBlock
+  | TestimonialBlock
   | SpacerBlock
   | DividerBlock
   | RowBlock;
@@ -104,12 +143,20 @@ export const LEAF_BLOCK_TYPES: BlockType[] = [
   "image",
   "cta",
   "features",
+  "button",
+  "embed",
+  "faq",
+  "testimonial",
   "spacer",
   "divider",
 ];
 
 /** Id prefix used by draggable palette items so drag events can be distinguished from real blocks. */
 export const PALETTE_PREFIX = "palette:";
+/** Id prefix used by draggable prebuilt row-layout items. */
+export const LAYOUT_PREFIX = "layout:";
+/** Id prefix used by draggable snippet items. */
+export const SNIPPET_PREFIX = "snippet:";
 
 export interface BlockDefinition {
   type: BlockType;
@@ -183,6 +230,47 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     },
   },
   {
+    type: "button",
+    label: "Button / Link",
+    icon: "🔗",
+    defaults: {
+      text: "Learn more",
+      url: "#",
+      align: "left",
+      variant: "solid",
+    },
+  },
+  {
+    type: "embed",
+    label: "Embed / HTML",
+    icon: "</>",
+    defaults: {
+      html: "",
+    },
+  },
+  {
+    type: "faq",
+    label: "FAQ / Accordion",
+    icon: "❓",
+    defaults: {
+      heading: "Frequently Asked Questions",
+      items: [
+        { question: "Your question here?", answer: "The answer goes here." },
+      ],
+    },
+  },
+  {
+    type: "testimonial",
+    label: "Testimonial",
+    icon: "💬",
+    defaults: {
+      quote: "This changed everything for us.",
+      author: "Jane Doe",
+      role: "Founder, Acme Co.",
+      rating: 5,
+    },
+  },
+  {
     type: "spacer",
     label: "Spacer",
     icon: "↕",
@@ -196,6 +284,55 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
   },
 ];
 
+export interface RowLayout {
+  id: string;
+  label: string;
+  icon: string;
+  spans: number[];
+}
+
+/** Prebuilt row layouts — clicking/dragging one inserts a fully formed row. */
+export const ROW_LAYOUTS: RowLayout[] = [
+  { id: "two-halves", label: "2 columns (6+6)", icon: "▥", spans: [6, 6] },
+  { id: "main-sidebar", label: "Main + sidebar (8+4)", icon: "▤", spans: [8, 4] },
+  { id: "sidebar-main", label: "Sidebar + main (4+8)", icon: "▧", spans: [4, 8] },
+  { id: "three", label: "3 columns (4+4+4)", icon: "▦", spans: [4, 4, 4] },
+  { id: "wide-narrow", label: "Wide + narrow (9+3)", icon: "▧", spans: [9, 3] },
+];
+
+function freshColumn(span: number): ColumnData {
+  return { id: crypto.randomUUID(), span, blocks: [] };
+}
+
+/** Build a row block from a prebuilt layout preset. */
+export function createRowLayout(layoutId: string): RowBlock {
+  const layout = ROW_LAYOUTS.find((l) => l.id === layoutId);
+  const spans = layout?.spans ?? [6, 6];
+  return {
+    id: crypto.randomUUID(),
+    type: "row",
+    props: {
+      columns: spans.map(freshColumn),
+      gap: 24,
+      align: "stretch",
+    },
+  };
+}
+
+/** Deep-copy any non-row block props (arrays are cloned so trees never share state). */
+function cloneProps(type: BlockType, defaults: Block["props"]): Block["props"] {
+  const src = defaults as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(src)) {
+    out[key] = Array.isArray(src[key])
+      ? (src[key] as unknown[]).map((item) =>
+          item && typeof item === "object" ? { ...(item as object) } : item,
+        )
+      : src[key];
+  }
+  return out as Block["props"];
+}
+
 export function createBlock(type: BlockType): Block {
   const def = BLOCK_DEFINITIONS.find((d) => d.type === type);
   if (!def) throw new Error(`Unknown block type: ${type}`);
@@ -205,28 +342,16 @@ export function createBlock(type: BlockType): Block {
       id: crypto.randomUUID(),
       type: "row",
       props: {
-        columns: [
-          { id: crypto.randomUUID(), span: 6, blocks: [] },
-          { id: crypto.randomUUID(), span: 6, blocks: [] },
-        ],
+        columns: [freshColumn(6), freshColumn(6)],
         gap: 24,
         align: "stretch",
       },
     } as Block;
   }
 
-  const defaults = def.defaults as Record<string, unknown>;
-  const props =
-    type === "features"
-      ? {
-          ...defaults,
-          items: (defaults.items as Array<Record<string, unknown>>).map((i) => ({ ...i })),
-        }
-      : { ...defaults };
-
   return {
     id: crypto.randomUUID(),
     type,
-    props,
+    props: cloneProps(type, def.defaults),
   } as Block;
 }

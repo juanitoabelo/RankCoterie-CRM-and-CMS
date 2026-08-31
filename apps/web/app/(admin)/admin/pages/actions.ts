@@ -42,12 +42,16 @@ export async function createPage(formData: FormData): Promise<ActionResult> {
 export async function updatePageBlocks(
   pageId: string,
   blocksJson: string,
+  opts: { createRevision?: boolean } = {},
 ): Promise<ActionResult> {
   try {
     await prisma.page.update({
       where: { id: pageId },
       data: { data: blocksJson },
     });
+    if (opts.createRevision) {
+      await snapshotPageRevision(pageId, blocksJson);
+    }
     await logAudit({
       action: "PAGE_UPDATE",
       entity: "Page",
@@ -58,6 +62,86 @@ export async function updatePageBlocks(
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to save blocks." };
+  }
+}
+
+const MAX_REVISIONS = 30;
+
+async function snapshotPageRevision(pageId: string, data: string): Promise<void> {
+  await prisma.pageRevision.create({ data: { pageId, data } });
+  const latest = await prisma.pageRevision.findMany({
+    where: { pageId },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+    take: MAX_REVISIONS + 1,
+  });
+  const excess = latest.slice(MAX_REVISIONS).map((r) => r.id);
+  if (excess.length > 0) {
+    await prisma.pageRevision.deleteMany({ where: { id: { in: excess } } });
+  }
+}
+
+export interface PageRevisionRow {
+  id: string;
+  createdAt: Date;
+}
+
+export async function listPageRevisions(pageId: string): Promise<PageRevisionRow[]> {
+  return prisma.pageRevision.findMany({
+    where: { pageId },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, createdAt: true },
+    take: MAX_REVISIONS,
+  });
+}
+
+export async function restorePageRevision(
+  pageId: string,
+  revisionId: string,
+): Promise<ActionResult & { data?: string }> {
+  const revision = await prisma.pageRevision.findFirst({
+    where: { id: revisionId, pageId },
+  });
+  if (!revision) return { ok: false, error: "Revision not found." };
+  try {
+    await prisma.page.update({
+      where: { id: pageId },
+      data: { data: revision.data },
+    });
+    await snapshotPageRevision(pageId, revision.data);
+    await logAudit({
+      action: "PAGE_RESTORE",
+      entity: "Page",
+      entityId: pageId,
+      meta: { revisionId },
+    });
+    revalidatePath("/admin/pages");
+    revalidatePath(`/admin/pages/${pageId}/edit`);
+    return { ok: true, data: revision.data };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to restore revision." };
+  }
+}
+
+const PAGE_STATUSES = ["DRAFT", "LIVE", "DISABLED"];
+
+export async function setPageStatus(pageId: string, status: string): Promise<ActionResult> {
+  if (!PAGE_STATUSES.includes(status)) {
+    return { ok: false, error: "Invalid status." };
+  }
+  try {
+    await prisma.page.update({ where: { id: pageId }, data: { status } });
+    await logAudit({
+      action: "PAGE_STATUS",
+      entity: "Page",
+      entityId: pageId,
+      meta: { status },
+    });
+    revalidatePath("/admin/pages");
+    revalidatePath(`/admin/pages/${pageId}/edit`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to update status." };
   }
 }
 

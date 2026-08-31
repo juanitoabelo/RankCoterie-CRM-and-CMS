@@ -87,6 +87,97 @@ export function updateBlockProps(blocks: Block[], id: string, props: Block["prop
   return mapBlocks(blocks, (b) => (b.id === id ? ({ ...b, props } as Block) : b));
 }
 
+/** Deep-clone a block with fresh ids for itself and any nested structure. */
+export function cloneBlock(block: Block): Block {
+  if (isRowBlock(block)) {
+    return {
+      ...block,
+      id: crypto.randomUUID(),
+      props: {
+        ...block.props,
+        columns: block.props.columns.map((col) => ({
+          ...col,
+          id: crypto.randomUUID(),
+          blocks: col.blocks.map((child) => cloneBlock(child)),
+        })),
+      },
+    } as Block;
+  }
+  return { ...block, id: crypto.randomUUID(), props: structuredClone(block.props) } as Block;
+}
+
+/** Insert a copy of `id` right after the original (top level or inside its column). */
+export function duplicateBlock(blocks: Block[], id: string): Block[] {
+  const target = findBlock(blocks, id);
+  if (!target) return blocks;
+  const copy = cloneBlock(target);
+
+  const topIndex = blocks.findIndex((b) => b.id === id);
+  if (topIndex !== -1) {
+    const next = [...blocks];
+    next.splice(topIndex + 1, 0, copy);
+    return next;
+  }
+
+  const column = findColumnForBlock(blocks, id);
+  if (!column) return blocks;
+
+  return mapBlocks(blocks, (b) => {
+    if (!isRowBlock(b)) return b;
+    return {
+      ...b,
+      props: {
+        ...b.props,
+        columns: b.props.columns.map((col) => {
+          if (col.id !== column.columnId) return col;
+          const idx = col.blocks.findIndex((x) => x.id === id);
+          if (idx === -1) return col;
+          const next = [...col.blocks];
+          next.splice(idx + 1, 0, copy);
+          return { ...col, blocks: next };
+        }),
+      },
+    } as Block;
+  });
+}
+
+/** Replace a block in place (kept for conversions where the id should be preserved). */
+export function replaceBlock(blocks: Block[], id: string, next: Block): Block[] {
+  const topIndex = blocks.findIndex((b) => b.id === id);
+  if (topIndex !== -1) {
+    const arr = [...blocks];
+    arr[topIndex] = next;
+    return arr;
+  }
+  return mapBlocks(blocks, (b) => {
+    if (!isRowBlock(b)) return b;
+    return {
+      ...b,
+      props: {
+        ...b.props,
+        columns: b.props.columns.map((col) => ({
+          ...col,
+          blocks: col.blocks.map((x) => (x.id === id ? next : x)),
+        })),
+      },
+    } as Block;
+  });
+}
+
+/** Flat visual ordering of rows + leaf blocks (used for keyboard navigation). */
+export function flattenIds(blocks: Block[]): string[] {
+  const ids: string[] = [];
+  for (const b of blocks) {
+    ids.push(b.id);
+    if (isRowBlock(b)) {
+      for (const col of b.props.columns) {
+        for (const child of col.blocks) ids.push(child.id);
+      }
+    }
+  }
+  return ids;
+}
+
 export function removeBlock(blocks: Block[], id: string): Block[] {
   const next: Block[] = [];
   for (const b of blocks) {

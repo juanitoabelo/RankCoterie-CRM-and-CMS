@@ -36,6 +36,8 @@ export type AuditAction =
   | "PAGE_CREATE"
   | "PAGE_UPDATE"
   | "PAGE_DELETE"
+  | "PAGE_RESTORE"
+  | "PAGE_STATUS"
   | "ARTICLE_CREATE"
   | "ARTICLE_UPDATE"
   | "ARTICLE_DELETE"

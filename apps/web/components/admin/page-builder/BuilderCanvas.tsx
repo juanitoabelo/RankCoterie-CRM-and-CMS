@@ -10,6 +10,7 @@ import {
   type ColumnData,
   type RowBlock,
 } from "@/lib/page-builder/types";
+import { BlockPreview } from "./BlockPreview";
 
 function ColumnCell({
   column,
@@ -18,6 +19,9 @@ function ColumnCell({
   onSelect,
   onSelectColumn,
   onRemove,
+  onDuplicate,
+  inlineEditing,
+  onUpdateProps,
 }: {
   column: ColumnData;
   selected: string | null;
@@ -25,6 +29,9 @@ function ColumnCell({
   onSelect: (id: string) => void;
   onSelectColumn: (id: string) => void;
   onRemove: (id: string) => void;
+  onDuplicate: (id: string) => void;
+  inlineEditing?: boolean;
+  onUpdateProps?: (id: string, props: Block["props"]) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const isActive = selectedColumnId === column.id;
@@ -36,6 +43,8 @@ function ColumnCell({
         e.stopPropagation();
         onSelectColumn(column.id);
       }}
+      role="button"
+      aria-label={`Column ${column.span}/12`}
       className={`rounded-md border-2 border-dashed p-2 transition-colors ${
         isActive
           ? "border-zinc-400 bg-zinc-100/60"
@@ -73,6 +82,9 @@ function ColumnCell({
                 onSelect={onSelect}
                 onSelectColumn={onSelectColumn}
                 onRemove={onRemove}
+                onDuplicate={onDuplicate}
+                inlineEditing={inlineEditing}
+                onUpdateProps={onUpdateProps}
               />
             ))
           )}
@@ -89,6 +101,9 @@ function RowBody({
   onSelect,
   onSelectColumn,
   onRemove,
+  onDuplicate,
+  inlineEditing,
+  onUpdateProps,
 }: {
   block: RowBlock;
   selected: string | null;
@@ -96,6 +111,9 @@ function RowBody({
   onSelect: (id: string) => void;
   onSelectColumn: (id: string) => void;
   onRemove: (id: string) => void;
+  onDuplicate: (id: string) => void;
+  inlineEditing?: boolean;
+  onUpdateProps?: (id: string, props: Block["props"]) => void;
 }) {
   return (
     <div
@@ -111,6 +129,9 @@ function RowBody({
           onSelect={onSelect}
           onSelectColumn={onSelectColumn}
           onRemove={onRemove}
+          onDuplicate={onDuplicate}
+          inlineEditing={inlineEditing}
+          onUpdateProps={onUpdateProps}
         />
       ))}
     </div>
@@ -124,6 +145,9 @@ function SortableBlock({
   onSelect,
   onSelectColumn,
   onRemove,
+  onDuplicate,
+  inlineEditing,
+  onUpdateProps,
 }: {
   block: Block;
   selected: string | null;
@@ -131,6 +155,9 @@ function SortableBlock({
   onSelect: (id: string) => void;
   onSelectColumn: (id: string) => void;
   onRemove: (id: string) => void;
+  onDuplicate: (id: string) => void;
+  inlineEditing?: boolean;
+  onUpdateProps?: (id: string, props: Block["props"]) => void;
 }) {
   const {
     attributes,
@@ -159,6 +186,9 @@ function SortableBlock({
         e.stopPropagation();
         onSelect(block.id);
       }}
+      role="button"
+      aria-pressed={isSelected}
+      aria-label={label}
       className={`group relative rounded-lg border-2 bg-white transition-all ${
         isSelected ? "border-zinc-900 shadow-md" : "border-zinc-200 hover:border-zinc-400"
       }`}
@@ -169,6 +199,7 @@ function SortableBlock({
             type="button"
             {...attributes}
             {...listeners}
+            aria-label={`Drag ${label} to reorder`}
             className="cursor-grab text-zinc-400 hover:text-zinc-600 active:cursor-grabbing"
             title="Drag to reorder"
           >
@@ -178,16 +209,32 @@ function SortableBlock({
             {def?.icon} {label}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove(block.id);
-          }}
-          className="text-xs text-zinc-400 opacity-0 group-hover:opacity-100 hover:text-red-500"
-        >
-          ✕
-        </button>
+        <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDuplicate(block.id);
+            }}
+            aria-label={`Duplicate ${label}`}
+            title="Duplicate"
+            className="text-xs text-zinc-400 hover:text-zinc-700"
+          >
+            ⧉
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(block.id);
+            }}
+            aria-label={`Delete ${label}`}
+            title="Delete"
+            className="text-xs text-zinc-400 hover:text-red-500"
+          >
+            ✕
+          </button>
+        </div>
       </div>
 
       {isRowBlock(block) ? (
@@ -198,86 +245,19 @@ function SortableBlock({
           onSelect={onSelect}
           onSelectColumn={onSelectColumn}
           onRemove={onRemove}
+          onDuplicate={onDuplicate}
+          inlineEditing={inlineEditing}
+          onUpdateProps={onUpdateProps}
         />
       ) : (
-        <BlockPreview block={block} />
+        <BlockPreview
+          block={block}
+          inlineEditing={inlineEditing && isSelected}
+          onUpdateProps={onUpdateProps}
+        />
       )}
     </div>
   );
-}
-
-function BlockPreview({ block }: { block: Block }) {
-  switch (block.type) {
-    case "hero":
-      return (
-        <div
-          className="mx-2 mb-2 rounded-md px-4 py-6 text-center text-xs"
-          style={{ backgroundColor: block.props.bgColor, color: block.props.textColor }}
-        >
-          <div className="font-semibold">{block.props.heading || "Hero heading"}</div>
-          <div className="mt-1 opacity-70">{block.props.subheading || "Subheading"}</div>
-        </div>
-      );
-    case "text":
-      return (
-        <div className="mx-2 mb-2 rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
-          <div
-            className={`line-clamp-3 ${block.props.align === "center" ? "text-center" : block.props.align === "right" ? "text-right" : "text-left"}`}
-            dangerouslySetInnerHTML={{ __html: block.props.content }}
-          />
-        </div>
-      );
-    case "image":
-      return (
-        <div className="mx-2 mb-2 rounded-md bg-zinc-100 px-3 py-4 text-center text-xs text-zinc-400">
-          {block.props.src ? (
-            <img
-              src={block.props.src}
-              alt={block.props.alt}
-              className="mx-auto max-h-24 rounded object-cover"
-            />
-          ) : (
-            "🖼 Image placeholder"
-          )}
-        </div>
-      );
-    case "cta":
-      return (
-        <div
-          className="mx-2 mb-2 rounded-md px-4 py-4 text-center text-xs"
-          style={{ backgroundColor: block.props.bgColor }}
-        >
-          <div className="font-medium text-zinc-900">{block.props.heading || "CTA heading"}</div>
-          <div className="mt-1 text-zinc-600">{block.props.body || "CTA body"}</div>
-          <div className="mt-2 inline-block rounded bg-zinc-900 px-3 py-1 text-xs text-white">
-            {block.props.buttonText || "Button"}
-          </div>
-        </div>
-      );
-    case "features":
-      return (
-        <div className="mx-2 mb-2 rounded-md bg-zinc-50 px-3 py-2 text-xs">
-          <div className="font-medium text-zinc-700">{block.props.heading || "Features"}</div>
-          <div className="mt-1 text-zinc-500">
-            {block.props.items.length} items · {block.props.columns} columns
-          </div>
-        </div>
-      );
-    case "spacer":
-      return (
-        <div className="mx-2 mb-2 flex items-center justify-center text-xs text-zinc-300">
-          ↕ {block.props.height}px
-        </div>
-      );
-    case "divider":
-      return (
-        <div className="mx-2 mb-2">
-          <hr className="border-zinc-200" />
-        </div>
-      );
-    default:
-      return null;
-  }
 }
 
 export default function BuilderCanvas({
@@ -287,6 +267,9 @@ export default function BuilderCanvas({
   onSelect,
   onSelectColumn,
   onRemove,
+  onDuplicate,
+  inlineEditing,
+  onUpdateProps,
 }: {
   blocks: Block[];
   selectedId: string | null;
@@ -294,6 +277,9 @@ export default function BuilderCanvas({
   onSelect: (id: string) => void;
   onSelectColumn: (id: string) => void;
   onRemove: (id: string) => void;
+  onDuplicate: (id: string) => void;
+  inlineEditing?: boolean;
+  onUpdateProps?: (id: string, props: Block["props"]) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: "canvas" });
 
@@ -304,6 +290,8 @@ export default function BuilderCanvas({
     >
       <div
         ref={setNodeRef}
+        role="list"
+        aria-label="Page canvas"
         className={`space-y-3 rounded-xl p-1 transition-colors ${
           isOver ? "bg-emerald-50/50" : ""
         }`}
@@ -325,6 +313,9 @@ export default function BuilderCanvas({
             onSelect={onSelect}
             onSelectColumn={onSelectColumn}
             onRemove={onRemove}
+            onDuplicate={onDuplicate}
+            inlineEditing={inlineEditing}
+            onUpdateProps={onUpdateProps}
           />
         ))}
       </div>

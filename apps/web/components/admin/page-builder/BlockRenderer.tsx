@@ -1,4 +1,5 @@
 import { type Block, type RowBlock } from "@/lib/page-builder/types";
+import { renderLocalizedContent, type RegionContext } from "@/lib/localization/render";
 
 const SPAN_CLASS: Record<number, string> = {
   1: "md:col-span-1",
@@ -15,7 +16,7 @@ const SPAN_CLASS: Record<number, string> = {
   12: "md:col-span-12",
 };
 
-function HeroBlock({ block }: { block: Block & { type: "hero" } }) {
+function HeroBlock({ block, ctx }: { block: Block & { type: "hero" }; ctx: RegionContext }) {
   return (
     <section
       className="px-6 py-20 text-center"
@@ -23,17 +24,19 @@ function HeroBlock({ block }: { block: Block & { type: "hero" } }) {
     >
       <div className="mx-auto max-w-4xl">
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-          {block.props.heading}
+          {renderLocalizedContent(block.props.heading, ctx)}
         </h1>
         {block.props.subheading && (
-          <p className="mt-4 text-lg opacity-80">{block.props.subheading}</p>
+          <p className="mt-4 text-lg opacity-80">
+            {renderLocalizedContent(block.props.subheading, ctx)}
+          </p>
         )}
       </div>
     </section>
   );
 }
 
-function TextBlock({ block }: { block: Block & { type: "text" } }) {
+function TextBlock({ block, ctx }: { block: Block & { type: "text" }; ctx: RegionContext }) {
   const alignCls =
     block.props.align === "center"
       ? "text-center"
@@ -44,7 +47,7 @@ function TextBlock({ block }: { block: Block & { type: "text" } }) {
     <section className="px-6 py-10">
       <div
         className={`mx-auto max-w-3xl leading-relaxed text-zinc-700 ${alignCls}`}
-        dangerouslySetInnerHTML={{ __html: block.props.content }}
+        dangerouslySetInnerHTML={{ __html: renderLocalizedContent(block.props.content, ctx) }}
       />
     </section>
   );
@@ -62,9 +65,12 @@ function ImageBlock({ block }: { block: Block & { type: "image" } }) {
     <section className="px-6 py-6">
       <figure className={`mx-auto ${widthClass}`}>
         {block.props.src && (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={block.props.src}
             alt={block.props.alt}
+            loading="lazy"
+            referrerPolicy="no-referrer"
             className="w-full rounded-lg object-cover"
           />
         )}
@@ -78,23 +84,25 @@ function ImageBlock({ block }: { block: Block & { type: "image" } }) {
   );
 }
 
-function CtaBlock({ block }: { block: Block & { type: "cta" } }) {
+function CtaBlock({ block, ctx }: { block: Block & { type: "cta" }; ctx: RegionContext }) {
   return (
     <section
       className="px-6 py-16 text-center"
       style={{ backgroundColor: block.props.bgColor }}
     >
       <div className="mx-auto max-w-2xl">
-        <h2 className="text-3xl font-bold text-zinc-900">{block.props.heading}</h2>
+        <h2 className="text-3xl font-bold text-zinc-900">
+          {renderLocalizedContent(block.props.heading, ctx)}
+        </h2>
         {block.props.body && (
-          <p className="mt-3 text-zinc-600">{block.props.body}</p>
+          <p className="mt-3 text-zinc-600">{renderLocalizedContent(block.props.body, ctx)}</p>
         )}
         {block.props.buttonText && (
           <a
             href={block.props.buttonUrl}
             className="mt-6 inline-block rounded-lg bg-zinc-900 px-6 py-3 text-sm font-medium text-white hover:bg-zinc-700"
           >
-            {block.props.buttonText}
+            {renderLocalizedContent(block.props.buttonText, ctx)}
           </a>
         )}
       </div>
@@ -102,7 +110,7 @@ function CtaBlock({ block }: { block: Block & { type: "cta" } }) {
   );
 }
 
-function FeaturesBlock({ block }: { block: Block & { type: "features" } }) {
+function FeaturesBlock({ block, ctx }: { block: Block & { type: "features" }; ctx: RegionContext }) {
   const cols =
     block.props.columns === 2
       ? "sm:grid-cols-2"
@@ -115,7 +123,7 @@ function FeaturesBlock({ block }: { block: Block & { type: "features" } }) {
       <div className="mx-auto max-w-5xl">
         {block.props.heading && (
           <h2 className="text-center text-2xl font-bold text-zinc-900">
-            {block.props.heading}
+            {renderLocalizedContent(block.props.heading, ctx)}
           </h2>
         )}
         <div className={`mt-10 grid gap-8 ${cols}`}>
@@ -124,14 +132,102 @@ function FeaturesBlock({ block }: { block: Block & { type: "features" } }) {
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-xl text-zinc-700">
                 {item.icon}
               </div>
-              <h3 className="mt-4 font-semibold text-zinc-900">{item.title}</h3>
+              <h3 className="mt-4 font-semibold text-zinc-900">
+                {renderLocalizedContent(item.title, ctx)}
+              </h3>
               {item.description && (
-                <p className="mt-2 text-sm text-zinc-600">{item.description}</p>
+                <p className="mt-2 text-sm text-zinc-600">
+                  {renderLocalizedContent(item.description, ctx)}
+                </p>
               )}
             </div>
           ))}
         </div>
       </div>
+    </section>
+  );
+}
+
+function ButtonBlock({ block, ctx }: { block: Block & { type: "button" }; ctx: RegionContext }) {
+  const alignCls =
+    block.props.align === "center"
+      ? "flex justify-center"
+      : block.props.align === "right"
+        ? "flex justify-end"
+        : "flex justify-start";
+  return (
+    <section className="px-6 py-4">
+      <div className={`mx-auto max-w-6xl ${alignCls}`}>
+        <a
+          href={block.props.url}
+          className={`inline-block rounded-lg px-6 py-3 text-sm font-medium transition-colors ${
+            block.props.variant === "outline"
+              ? "border border-zinc-900 text-zinc-900 hover:bg-zinc-100"
+              : "bg-zinc-900 text-white hover:bg-zinc-700"
+          }`}
+        >
+          {renderLocalizedContent(block.props.text, ctx)}
+        </a>
+      </div>
+    </section>
+  );
+}
+
+function EmbedBlock({ block }: { block: Block & { type: "embed" } }) {
+  return (
+    <section className="px-6 py-6">
+      <div
+        className="mx-auto max-w-6xl"
+        dangerouslySetInnerHTML={{ __html: block.props.html }}
+      />
+    </section>
+  );
+}
+
+function FaqBlock({ block, ctx }: { block: Block & { type: "faq" }; ctx: RegionContext }) {
+  return (
+    <section className="px-6 py-16">
+      <div className="mx-auto max-w-3xl">
+        {block.props.heading && (
+          <h2 className="text-center text-2xl font-bold text-zinc-900">
+            {renderLocalizedContent(block.props.heading, ctx)}
+          </h2>
+        )}
+        <div className="mt-8 space-y-3">
+          {block.props.items.map((item, i) => (
+            <details
+              key={i}
+              className="group rounded-lg border border-zinc-200 bg-white open:shadow-sm"
+            >
+              <summary className="flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-medium text-zinc-900">
+                {renderLocalizedContent(item.question, ctx)}
+                <span className="text-zinc-400 transition-transform group-open:rotate-45">＋</span>
+              </summary>
+              <div className="border-t border-zinc-100 px-4 py-3 text-sm leading-relaxed text-zinc-600">
+                {renderLocalizedContent(item.answer, ctx)}
+              </div>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TestimonialBlock({ block, ctx }: { block: Block & { type: "testimonial" }; ctx: RegionContext }) {
+  return (
+    <section className="px-6 py-12">
+      <figure className="mx-auto max-w-3xl rounded-2xl bg-zinc-50 px-8 py-10 text-center">
+        <div className="text-amber-400">
+          {"★".repeat(Math.max(0, Math.min(5, block.props.rating)))}</div>
+        <blockquote className="mt-4 text-xl font-medium leading-relaxed text-zinc-800">
+          “{renderLocalizedContent(block.props.quote, ctx)}”
+        </blockquote>
+        <figcaption className="mt-4 text-sm text-zinc-500">
+          — {block.props.author}
+          {block.props.role ? `, ${block.props.role}` : ""}
+        </figcaption>
+      </figure>
     </section>
   );
 }
@@ -148,7 +244,7 @@ function DividerBlock() {
   );
 }
 
-function RowBlock({ block }: { block: RowBlock }) {
+function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
   return (
     <section className="px-6 py-6">
       <div
@@ -161,7 +257,7 @@ function RowBlock({ block }: { block: RowBlock }) {
             className={`col-span-12 ${SPAN_CLASS[column.span] ?? "md:col-span-6"}`}
             style={{ minWidth: 0 }}
           >
-            <RenderBlocks blocks={column.blocks} />
+            <RenderBlocks blocks={column.blocks} ctx={ctx} />
           </div>
         ))}
       </div>
@@ -169,33 +265,49 @@ function RowBlock({ block }: { block: RowBlock }) {
   );
 }
 
-const RENDERERS: Record<string, React.ComponentType<{ block: Block }>> = {
-  hero: HeroBlock as React.ComponentType<{ block: Block }>,
-  text: TextBlock as React.ComponentType<{ block: Block }>,
-  image: ImageBlock as React.ComponentType<{ block: Block }>,
-  cta: CtaBlock as React.ComponentType<{ block: Block }>,
-  features: FeaturesBlock as React.ComponentType<{ block: Block }>,
-  spacer: SpacerBlock as React.ComponentType<{ block: Block }>,
-  divider: DividerBlock as React.ComponentType<{ block: Block }>,
-  row: RowBlock as React.ComponentType<{ block: Block }>,
+const RENDERERS: Record<string, React.ComponentType<{ block: Block; ctx: RegionContext }>> = {
+  hero: HeroBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  text: TextBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  image: ImageBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  cta: CtaBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  features: FeaturesBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  button: ButtonBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  embed: EmbedBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  faq: FaqBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  testimonial: TestimonialBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  spacer: SpacerBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  divider: DividerBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  row: RowBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
 };
 
-function RenderBlocks({ blocks }: { blocks: Block[] }) {
+function RenderBlocks({
+  blocks,
+  ctx,
+}: {
+  blocks: Block[];
+  ctx: RegionContext;
+}) {
   return (
     <>
       {blocks.map((block) => {
         const Renderer = RENDERERS[block.type];
         if (!Renderer) return null;
-        return <Renderer key={block.id} block={block} />;
+        return <Renderer key={block.id} block={block} ctx={ctx} />;
       })}
     </>
   );
 }
 
-export default function BlockRenderer({ blocks }: { blocks: Block[] }) {
+export default function BlockRenderer({
+  blocks,
+  ctx = {},
+}: {
+  blocks: Block[];
+  ctx?: RegionContext;
+}) {
   return (
     <div>
-      <RenderBlocks blocks={blocks} />
+      <RenderBlocks blocks={blocks} ctx={ctx} />
     </div>
   );
 }

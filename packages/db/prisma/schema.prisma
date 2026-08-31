@@ -475,9 +475,29 @@ model Page {
   status    String   @default("DRAFT") // DRAFT | LIVE | DISABLED
   layout    String?
   data      String? // builder blocks JSON
+  revisions PageRevision[]
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
   @@unique([tenantId, slug])
+}
+
+model PageRevision {
+  id        String   @id @default(cuid())
+  pageId    String
+  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  data      String // builder blocks JSON snapshot
+  createdAt DateTime @default(now())
+  @@index([pageId, createdAt])
+}
+
+model Snippet {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  block     Json // builder block snapshot (rows may contain nested blocks)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([tenantId, updatedAt])
 }
 
 model Asset {

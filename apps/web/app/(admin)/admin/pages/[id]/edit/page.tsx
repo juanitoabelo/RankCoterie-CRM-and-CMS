@@ -1,7 +1,12 @@
 import { prisma } from "@/lib/directory/prismaCatalog";
 import PageBuilder from "@/components/admin/page-builder/PageBuilder";
 import PageMetaEditor from "./PageMetaEditor";
-import { updatePageBlocks } from "../../actions";
+import {
+  listPageRevisions,
+  restorePageRevision,
+  setPageStatus,
+  updatePageBlocks,
+} from "../../actions";
 
 export const revalidate = 0;
 
@@ -19,9 +24,28 @@ export default async function PageEditPage({
 
   const blocks = page.data ? JSON.parse(page.data) : [];
 
-  const saveBlocks = async (pageId: string, blocksJson: string) => {
+  const saveBlocks = async (
+    pageId: string,
+    blocksJson: string,
+    opts?: { createRevision?: boolean },
+  ) => {
     "use server";
-    return updatePageBlocks(pageId, blocksJson);
+    return updatePageBlocks(pageId, blocksJson, opts);
+  };
+
+  const setStatus = async (pageId: string, status: string) => {
+    "use server";
+    return setPageStatus(pageId, status);
+  };
+
+  const listRevisions = async (pageId: string) => {
+    "use server";
+    return listPageRevisions(pageId);
+  };
+
+  const restore = async (pageId: string, revisionId: string) => {
+    "use server";
+    return restorePageRevision(pageId, revisionId);
   };
 
   return (
@@ -34,7 +58,7 @@ export default async function PageEditPage({
         <h1 className="text-2xl font-semibold text-zinc-900">
           Edit: {page.title || page.name}
         </h1>
-        {page.slug && (
+        {page.slug && page.status === "LIVE" && (
           <a
             href={`/p/${page.slug}`}
             target="_blank"
@@ -56,7 +80,11 @@ export default async function PageEditPage({
         <PageBuilder
           pageId={page.id}
           initialBlocks={blocks}
+          initialStatus={page.status}
           onSave={saveBlocks}
+          onSetStatus={setStatus}
+          onListRevisions={listRevisions}
+          onRestoreRevision={restore}
         />
       </div>
     </div>

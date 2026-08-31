@@ -7,10 +7,14 @@ import {
 } from "./types";
 import {
   addBlockFromPalette,
+  cloneBlock,
+  duplicateBlock,
   findBlock,
   findColumnForBlock,
+  flattenIds,
   moveBlock,
   removeBlock,
+  replaceBlock,
   updateBlockProps,
 } from "./tree";
 
@@ -160,5 +164,76 @@ describe("addBlockFromPalette", () => {
       ...(blocks[0] as RowBlock).props.columns[0].blocks.map((b) => b.id),
       mb.id,
     ]);
+  });
+});
+
+describe("duplicateBlock", () => {
+  it("duplicates a top-level block with a fresh id", () => {
+    const { blocks, textTop } = fixture();
+    const next = duplicateBlock(blocks, textTop.id);
+    expect(next).toHaveLength(4);
+    expect(next[1].id).toBe(textTop.id);
+    const copy = next[2];
+    expect(copy.id).not.toBe(textTop.id);
+    expect(copy.type).toBe(textTop.type);
+    expect(next.map((b) => b.id).filter((id) => id === textTop.id)).toHaveLength(1);
+  });
+
+  it("duplicates a nested block inside its column right after the original", () => {
+    const { blocks, textA } = fixture();
+    const next = duplicateBlock(blocks, textA.id);
+    const col = findColumnForBlock(next, textA.id)!.column;
+    expect(col.blocks).toHaveLength(2);
+    expect(col.blocks[1].id).not.toBe(textA.id);
+    expect(findColumnForBlock(next, col.blocks[1].id)?.columnId).toBe("col-a");
+    expect(next).toHaveLength(3);
+  });
+
+  it("duplicates a row with fresh column and child ids", () => {
+    const { blocks, rowA, textA } = fixture();
+    const next = duplicateBlock(blocks, rowA.id);
+    expect(next).toHaveLength(4);
+    const copy = next[1];
+    expect(copy.type).toBe("row");
+    const copyCol = (copy as RowBlock).props.columns[0];
+    expect(copyCol.id).not.toBe("col-a");
+    expect(copyCol.blocks[0].id).not.toBe(textA.id);
+  });
+});
+
+describe("cloneBlock", () => {
+  it("produces an independent deep copy", () => {
+    const original = createBlock("features");
+    const items = (original.props as unknown as { items: Array<{ title: string }> }).items;
+    const copy = cloneBlock(original);
+    expect(copy.id).not.toBe(original.id);
+    const copyItems = (copy.props as unknown as { items: Array<{ title: string }> }).items;
+    expect(copyItems).not.toBe(items);
+    copyItems[0].title = "mutated";
+    expect(items[0].title).not.toBe("mutated");
+  });
+});
+
+describe("replaceBlock", () => {
+  it("replaces a top-level block but keeps its id", () => {
+    const { blocks, textTop } = fixture();
+    const hero = { ...createBlock("hero"), id: textTop.id };
+    const next = replaceBlock(blocks, textTop.id, hero);
+    expect(next[1].id).toBe(textTop.id);
+    expect(next[1].type).toBe("hero");
+  });
+
+  it("replaces a nested block in place", () => {
+    const { blocks, textA } = fixture();
+    const button = { ...createBlock("button"), id: textA.id };
+    const next = replaceBlock(blocks, textA.id, button);
+    expect(findColumnForBlock(next, textA.id)?.column.blocks[0].type).toBe("button");
+  });
+});
+
+describe("flattenIds", () => {
+  it("returns rows and nested leaves in visual order", () => {
+    const { blocks, rowA, textA, textTop, rowB, textB } = fixture();
+    expect(flattenIds(blocks)).toEqual([rowA.id, textA.id, textTop.id, rowB.id, textB.id]);
   });
 });

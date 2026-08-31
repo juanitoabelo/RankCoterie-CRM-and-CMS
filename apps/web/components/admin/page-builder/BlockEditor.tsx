@@ -366,6 +366,221 @@ function SpacerEditor({
   );
 }
 
+function ButtonEditor({
+  block,
+  onChange,
+}: {
+  block: Block & { type: "button" };
+  onChange: (props: Block["props"]) => void;
+}) {
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Text</label>
+          <input
+            className={inputCls}
+            value={block.props.text}
+            onChange={(e) => onChange({ ...block.props, text: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>URL</label>
+          <input
+            className={inputCls}
+            value={block.props.url}
+            onChange={(e) => onChange({ ...block.props, url: e.target.value })}
+            placeholder="https://… or /path"
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Align</label>
+          <select
+            className={inputCls}
+            value={block.props.align}
+            onChange={(e) => onChange({ ...block.props, align: e.target.value as "left" })}
+          >
+            <option value="left">Left</option>
+            <option value="center">Center</option>
+            <option value="right">Right</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Style</label>
+          <select
+            className={inputCls}
+            value={block.props.variant}
+            onChange={(e) => onChange({ ...block.props, variant: e.target.value as "solid" })}
+          >
+            <option value="solid">Solid</option>
+            <option value="outline">Outline</option>
+          </select>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function EmbedEditor({
+  block,
+  onChange,
+}: {
+  block: Block & { type: "embed" };
+  onChange: (props: Block["props"]) => void;
+}) {
+  return (
+    <div>
+      <label className={labelCls}>HTML / embed code</label>
+      <textarea
+        rows={6}
+        className={`${inputCls} font-mono text-xs`}
+        value={block.props.html}
+        onChange={(e) => onChange({ ...block.props, html: e.target.value })}
+        placeholder={'<iframe src="https://…"></iframe>'}
+      />
+      <p className="mt-1 text-[11px] leading-snug text-zinc-400">
+        Paste raw HTML (YouTube, forms, maps, custom markup).
+      </p>
+    </div>
+  );
+}
+
+function FaqEditor({
+  block,
+  onChange,
+}: {
+  block: Block & { type: "faq" };
+  onChange: (props: Block["props"]) => void;
+}) {
+  const updateItem = (index: number, field: "question" | "answer", value: string) => {
+    const items = [...block.props.items];
+    items[index] = { ...items[index], [field]: value };
+    onChange({ ...block.props, items });
+  };
+
+  const addItem = () => {
+    onChange({
+      ...block.props,
+      items: [...block.props.items, { question: "", answer: "" }],
+    });
+  };
+
+  const removeItem = (index: number) => {
+    onChange({
+      ...block.props,
+      items: block.props.items.filter((_, i) => i !== index),
+    });
+  };
+
+  return (
+    <>
+      <div>
+        <label className={labelCls}>Heading</label>
+        <input
+          className={inputCls}
+          value={block.props.heading}
+          onChange={(e) => onChange({ ...block.props, heading: e.target.value })}
+        />
+      </div>
+      <div className="space-y-3">
+        <label className={labelCls}>Questions</label>
+        {block.props.items.map((item, i) => (
+          <div key={i} className="space-y-2 rounded-lg border border-zinc-200 p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-zinc-500">Question {i + 1}</span>
+              <button
+                type="button"
+                onClick={() => removeItem(i)}
+                className="text-xs text-red-500 hover:text-red-700"
+              >
+                Remove
+              </button>
+            </div>
+            <input
+              className={inputCls}
+              value={item.question}
+              onChange={(e) => updateItem(i, "question", e.target.value)}
+              placeholder="Question"
+            />
+            <textarea
+              rows={2}
+              className={inputCls}
+              value={item.answer}
+              onChange={(e) => updateItem(i, "answer", e.target.value)}
+              placeholder="Answer"
+            />
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={addItem}
+          className="rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-500 hover:border-zinc-400 hover:text-zinc-700"
+        >
+          + Add question
+        </button>
+      </div>
+    </>
+  );
+}
+
+function TestimonialEditor({
+  block,
+  onChange,
+}: {
+  block: Block & { type: "testimonial" };
+  onChange: (props: Block["props"]) => void;
+}) {
+  return (
+    <>
+      <div>
+        <label className={labelCls}>Quote</label>
+        <textarea
+          rows={3}
+          className={inputCls}
+          value={block.props.quote}
+          onChange={(e) => onChange({ ...block.props, quote: e.target.value })}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Author</label>
+          <input
+            className={inputCls}
+            value={block.props.author}
+            onChange={(e) => onChange({ ...block.props, author: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Role</label>
+          <input
+            className={inputCls}
+            value={block.props.role}
+            onChange={(e) => onChange({ ...block.props, role: e.target.value })}
+          />
+        </div>
+      </div>
+      <div>
+        <label className={labelCls}>Rating</label>
+        <select
+          className={inputCls}
+          value={String(block.props.rating)}
+          onChange={(e) =>
+            onChange({ ...block.props, rating: Number(e.target.value) as 0 | 1 | 2 | 3 | 4 | 5 })
+          }
+        >
+          {[0, 1, 2, 3, 4, 5].map((n) => (
+            <option key={n} value={n}>
+              {"★".repeat(n) || "No stars"}
+            </option>
+          ))}
+        </select>
+      </div>
+    </>
+  );
+}
+
 function DividerEditor() {
   return (
     <p className="text-xs text-zinc-400">No settings — this renders a horizontal line.</p>
@@ -506,6 +721,10 @@ const EDITORS: Record<string, React.ComponentType<EditorProps>> = {
   image: ImageEditor as React.ComponentType<EditorProps>,
   cta: CtaEditor as React.ComponentType<EditorProps>,
   features: FeaturesEditor as React.ComponentType<EditorProps>,
+  button: ButtonEditor as React.ComponentType<EditorProps>,
+  embed: EmbedEditor as React.ComponentType<EditorProps>,
+  faq: FaqEditor as React.ComponentType<EditorProps>,
+  testimonial: TestimonialEditor as React.ComponentType<EditorProps>,
   spacer: SpacerEditor as React.ComponentType<EditorProps>,
   divider: DividerEditor as React.ComponentType<EditorProps>,
   row: RowEditor as React.ComponentType<EditorProps>,
