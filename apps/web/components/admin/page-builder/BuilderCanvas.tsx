@@ -12,8 +12,19 @@ import {
 } from "@/lib/page-builder/types";
 import { BlockPreview } from "./BlockPreview";
 
+const SPAN_CLASS: Record<number, string> = {
+  3: "md:col-span-3",
+  4: "md:col-span-4",
+  6: "md:col-span-6",
+  8: "md:col-span-8",
+  9: "md:col-span-9",
+  12: "md:col-span-12",
+};
+
 function ColumnCell({
   column,
+  spanClass,
+  viewport,
   selected,
   selectedColumnId,
   onSelect,
@@ -24,6 +35,8 @@ function ColumnCell({
   onUpdateProps,
 }: {
   column: ColumnData;
+  spanClass: string;
+  viewport: "desktop" | "tablet" | "mobile";
   selected: string | null;
   selectedColumnId: string | null;
   onSelect: (id: string) => void;
@@ -45,18 +58,19 @@ function ColumnCell({
       }}
       role="button"
       aria-label={`Column ${column.span}/12`}
-      className={`rounded-md border-2 border-dashed p-2 transition-colors ${
+      className={`col-span-12 rounded-md border-2 border-dashed p-2 transition-colors ${spanClass} ${
         isActive
           ? "border-zinc-400 bg-zinc-100/60"
           : isOver
             ? "border-emerald-400 bg-emerald-50"
             : "border-zinc-200 bg-zinc-50/60"
       }`}
-      style={{ width: `${(column.span / 12) * 100}%`, minWidth: 80 }}
+      style={{ minWidth: 0 }}
     >
       <div className="mb-1 flex items-center justify-between">
         <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">
           Column · {column.span}/12
+          {spanClass === "col-span-12" ? " · full width (stacked)" : ""}
         </span>
       </div>
       <SortableContext
@@ -77,6 +91,7 @@ function ColumnCell({
               <SortableBlock
                 key={block.id}
                 block={block}
+                viewport={viewport}
                 selected={selected}
                 selectedColumnId={selectedColumnId}
                 onSelect={onSelect}
@@ -96,6 +111,7 @@ function ColumnCell({
 
 function RowBody({
   block,
+  viewport,
   selected,
   selectedColumnId,
   onSelect,
@@ -106,6 +122,7 @@ function RowBody({
   onUpdateProps,
 }: {
   block: RowBlock;
+  viewport: "desktop" | "tablet" | "mobile";
   selected: string | null;
   selectedColumnId: string | null;
   onSelect: (id: string) => void;
@@ -115,15 +132,20 @@ function RowBody({
   inlineEditing?: boolean;
   onUpdateProps?: (id: string, props: Block["props"]) => void;
 }) {
+  const stackOnMobile = viewport === "mobile" && block.props.stackOnMobile !== false;
   return (
     <div
-      className="mb-2 flex px-2"
+      className="mb-2 grid grid-cols-12 px-2"
       style={{ gap: block.props.gap, alignItems: block.props.align }}
     >
       {block.props.columns.map((column) => (
         <ColumnCell
           key={column.id}
           column={column}
+          spanClass={
+            stackOnMobile ? "col-span-12" : SPAN_CLASS[column.span] ?? "col-span-12"
+          }
+          viewport={viewport}
           selected={selected}
           selectedColumnId={selectedColumnId}
           onSelect={onSelect}
@@ -140,6 +162,7 @@ function RowBody({
 
 function SortableBlock({
   block,
+  viewport,
   selected,
   selectedColumnId,
   onSelect,
@@ -150,6 +173,7 @@ function SortableBlock({
   onUpdateProps,
 }: {
   block: Block;
+  viewport: "desktop" | "tablet" | "mobile";
   selected: string | null;
   selectedColumnId: string | null;
   onSelect: (id: string) => void;
@@ -240,6 +264,7 @@ function SortableBlock({
       {isRowBlock(block) ? (
         <RowBody
           block={block}
+          viewport={viewport}
           selected={selected}
           selectedColumnId={selectedColumnId}
           onSelect={onSelect}
@@ -262,6 +287,7 @@ function SortableBlock({
 
 export default function BuilderCanvas({
   blocks,
+  viewport = "desktop",
   selectedId,
   selectedColumnId,
   onSelect,
@@ -272,6 +298,7 @@ export default function BuilderCanvas({
   onUpdateProps,
 }: {
   blocks: Block[];
+  viewport?: "desktop" | "tablet" | "mobile";
   selectedId: string | null;
   selectedColumnId: string | null;
   onSelect: (id: string) => void;
@@ -308,6 +335,7 @@ export default function BuilderCanvas({
           <SortableBlock
             key={block.id}
             block={block}
+            viewport={viewport}
             selected={selectedId}
             selectedColumnId={selectedColumnId}
             onSelect={onSelect}

@@ -113,6 +113,7 @@ export interface RowBlock extends BlockBase {
     columns: ColumnData[];
     gap: number; // px between columns
     align: "start" | "center" | "end" | "stretch";
+    stackOnMobile: boolean; // columns become full-width on small screens
   };
 }
 
@@ -170,7 +171,7 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     type: "row",
     label: "Row / Columns",
     icon: "▦",
-    defaults: { columns: [], gap: 24, align: "stretch" },
+    defaults: { columns: [], gap: 24, align: "stretch", stackOnMobile: true },
   },
   {
     type: "hero",
@@ -315,6 +316,7 @@ export function createRowLayout(layoutId: string): RowBlock {
       columns: spans.map(freshColumn),
       gap: 24,
       align: "stretch",
+      stackOnMobile: true,
     },
   };
 }
@@ -345,6 +347,7 @@ export function createBlock(type: BlockType): Block {
         columns: [freshColumn(6), freshColumn(6)],
         gap: 24,
         align: "stretch",
+        stackOnMobile: true,
       },
     } as Block;
   }

@@ -156,7 +156,7 @@ export default function PageBuilder({
   const [revisionLoading, setRevisionLoading] = useState(false);
 
   const selectedBlock = useMemo(
-    () => blocks.find((b) => b.id === selectedId) ?? null,
+    () => (selectedId ? findBlock(blocks, selectedId) : null),
     [blocks, selectedId],
   );
 

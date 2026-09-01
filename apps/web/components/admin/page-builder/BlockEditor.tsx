@@ -644,6 +644,25 @@ function RowEditor({
         </div>
       </div>
       <div>
+        <label className={labelCls}>Responsive (mobile)</label>
+        <div className="mt-1 flex items-center gap-2">
+          <input
+            id={`stack-mobile-${block.id}`}
+            type="checkbox"
+            checked={block.props.stackOnMobile}
+            onChange={(e) => onChange({ ...block.props, stackOnMobile: e.target.checked })}
+            className="h-4 w-4 rounded border-zinc-300 text-zinc-900"
+          />
+          <label htmlFor={`stack-mobile-${block.id}`} className="text-sm text-zinc-700">
+            Stack columns to full width on mobile
+          </label>
+        </div>
+        <p className="mt-1 text-[11px] leading-snug text-zinc-400">
+          When off, columns stay side-by-side even on small screens. Use the 📲 Mobile preview to
+          check the result.
+        </p>
+      </div>
+      <div>
         <label className={labelCls}>Columns</label>
         <p className="mt-1 text-[11px] leading-snug text-zinc-400">
           Drag blocks between columns, or use “Add block” below a column. Click a column in the
