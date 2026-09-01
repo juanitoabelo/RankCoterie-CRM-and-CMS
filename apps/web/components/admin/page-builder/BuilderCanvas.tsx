@@ -10,16 +10,8 @@ import {
   type ColumnData,
   type RowBlock,
 } from "@/lib/page-builder/types";
+import { canvasColumnSpanClass } from "@/lib/page-builder/spans";
 import { BlockPreview } from "./BlockPreview";
-
-const SPAN_CLASS: Record<number, string> = {
-  3: "md:col-span-3",
-  4: "md:col-span-4",
-  6: "md:col-span-6",
-  8: "md:col-span-8",
-  9: "md:col-span-9",
-  12: "md:col-span-12",
-};
 
 function ColumnCell({
   column,
@@ -142,9 +134,7 @@ function RowBody({
         <ColumnCell
           key={column.id}
           column={column}
-          spanClass={
-            stackOnMobile ? "col-span-12" : SPAN_CLASS[column.span] ?? "col-span-12"
-          }
+          spanClass={canvasColumnSpanClass(column.span, viewport, stackOnMobile)}
           viewport={viewport}
           selected={selected}
           selectedColumnId={selectedColumnId}

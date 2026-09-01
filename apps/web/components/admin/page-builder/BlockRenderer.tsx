@@ -1,35 +1,6 @@
 import { type Block, type RowBlock } from "@/lib/page-builder/types";
+import { renderColumnSpanClass } from "@/lib/page-builder/spans";
 import { renderLocalizedContent, type RegionContext } from "@/lib/localization/render";
-
-const SPAN_CLASS: Record<number, string> = {
-  1: "md:col-span-1",
-  2: "md:col-span-2",
-  3: "md:col-span-3",
-  4: "md:col-span-4",
-  5: "md:col-span-5",
-  6: "md:col-span-6",
-  7: "md:col-span-7",
-  8: "md:col-span-8",
-  9: "md:col-span-9",
-  10: "md:col-span-10",
-  11: "md:col-span-11",
-  12: "md:col-span-12",
-};
-
-const FIXED_SPAN_CLASS: Record<number, string> = {
-  1: "col-span-1",
-  2: "col-span-2",
-  3: "col-span-3",
-  4: "col-span-4",
-  5: "col-span-5",
-  6: "col-span-6",
-  7: "col-span-7",
-  8: "col-span-8",
-  9: "col-span-9",
-  10: "col-span-10",
-  11: "col-span-11",
-  12: "col-span-12",
-};
 
 function HeroBlock({ block, ctx }: { block: Block & { type: "hero" }; ctx: RegionContext }) {
   return (
@@ -269,11 +240,7 @@ function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
         {block.props.columns.map((column) => (
           <div
             key={column.id}
-            className={
-              block.props.stackOnMobile === false
-                ? FIXED_SPAN_CLASS[column.span] ?? "col-span-6"
-                : `col-span-12 ${SPAN_CLASS[column.span] ?? "md:col-span-6"}`
-            }
+            className={renderColumnSpanClass(column.span, block.props.stackOnMobile)}
             style={{ minWidth: 0 }}
           >
             <RenderBlocks blocks={column.blocks} ctx={ctx} />

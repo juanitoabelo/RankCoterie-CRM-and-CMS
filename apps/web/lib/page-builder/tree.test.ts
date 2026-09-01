@@ -231,6 +231,48 @@ describe("replaceBlock", () => {
   });
 });
 
+describe("findBlock", () => {
+  it("returns null for a non-existent id", () => {
+    const { blocks } = fixture();
+    expect(findBlock(blocks, "nonexistent")).toBeNull();
+  });
+
+  it("finds a top-level block", () => {
+    const { blocks, textTop } = fixture();
+    expect(findBlock(blocks, textTop.id)?.type).toBe("text");
+  });
+
+  it("finds a nested block inside a row column", () => {
+    const { blocks, textA } = fixture();
+    expect(findBlock(blocks, textA.id)?.type).toBe("text");
+  });
+
+  it("finds a nested block across multiple rows", () => {
+    const { blocks, textB } = fixture();
+    expect(findBlock(blocks, textB.id)?.type).toBe("spacer");
+  });
+
+  it("finds blocks in multi-column rows", () => {
+    const row = rowBlock();
+    const innerA = textBlock();
+    const innerB = textBlock();
+    const blocks: Block[] = [
+      {
+        ...row,
+        props: {
+          ...row.props,
+          columns: [
+            { id: "c1", span: 6, blocks: [innerA] },
+            { id: "c2", span: 6, blocks: [innerB] },
+          ],
+        },
+      },
+    ];
+    expect(findBlock(blocks, innerA.id)?.id).toBe(innerA.id);
+    expect(findBlock(blocks, innerB.id)?.id).toBe(innerB.id);
+  });
+});
+
 describe("flattenIds", () => {
   it("returns rows and nested leaves in visual order", () => {
     const { blocks, rowA, textA, textTop, rowB, textB } = fixture();
