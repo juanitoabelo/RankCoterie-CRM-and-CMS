@@ -75,6 +75,35 @@ export function validateBlock(block: Block): string[] {
     case "testimonial":
       if (!stripHtml(block.props.quote)) errors.push("Quote is required.");
       break;
+    case "heading":
+      if (!stripHtml(block.props.text)) errors.push("Heading text is required.");
+      break;
+    case "list": {
+      const filled = block.props.items.filter((item) => stripHtml(item).trim());
+      if (filled.length === 0) errors.push("Add at least one list item.");
+      break;
+    }
+    case "slider": {
+      const withSrc = block.props.slides.filter((s) => s.src.trim());
+      if (withSrc.length === 0) errors.push("Add at least one slide with an image.");
+      const perView = block.props.itemsPerView ?? 1;
+      if (!(perView >= 1 && perView <= 8)) {
+        errors.push("Slides per view must be between 1 and 8.");
+      }
+      block.props.slides.forEach((s, i) => {
+        if (s.src.trim() && !s.alt.trim()) errors.push(`Slide ${i + 1} is missing alt text (SEO).`);
+        if (s.url.trim() && !isValidUrl(s.url)) errors.push(`Slide ${i + 1} link is invalid.`);
+      });
+      break;
+    }
+    case "contentGrid":
+      if (block.props.heading.trim() && block.props.source !== "articles" && block.props.source !== "feeds") {
+        errors.push("Choose a content source.");
+      }
+      if (!(block.props.perPage >= 1 && block.props.perPage <= 48)) {
+        errors.push("Items per page must be between 1 and 48.");
+      }
+      break;
     case "divider":
     case "spacer":
     case "row":

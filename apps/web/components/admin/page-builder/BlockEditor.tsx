@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BLOCK_DEFINITIONS,
   LEAF_BLOCK_TYPES,
@@ -8,8 +8,17 @@ import {
   type BlockType,
   type ColumnData,
   type RowBlock,
+  type SliderSlide,
+  type StyleBreakpoints,
 } from "@/lib/page-builder/types";
-import { BackgroundFields, inputCls, labelCls, ResponsiveSpanFields } from "./settings";
+import { cloneBlock } from "@/lib/page-builder/tree";
+import {
+  BackgroundFields,
+  inputCls,
+  labelCls,
+  ResponsiveSpanFields,
+  StyleGuideEditor,
+} from "./settings";
 import RichTextEditor from "./RichTextEditor";
 
 type EditorProps = {
@@ -17,6 +26,16 @@ type EditorProps = {
   onChange: (props: Block["props"]) => void;
   onAddToColumn?: (columnId: string, type: BlockType) => void;
 };
+
+/** Style-guide settings for any text-bearing block. */
+function styleFields(block: Block, onChange: (props: Block["props"]) => void) {
+  return (
+    <StyleGuideEditor
+      style={(block.props as { style?: StyleBreakpoints }).style}
+      onChange={(style) => onChange({ ...block.props, style })}
+    />
+  );
+}
 
 function HeroEditor({
   block,
@@ -63,6 +82,7 @@ function HeroEditor({
           />
         </div>
       </div>
+      {styleFields(block, onChange)}
     </>
   );
 }
@@ -103,6 +123,7 @@ function TextEditor({
           <option value="right">Right</option>
         </select>
       </div>
+      {styleFields(block, onChange)}
     </>
   );
 }
@@ -249,6 +270,7 @@ function CtaEditor({
           onChange={(e) => onChange({ ...block.props, bgColor: e.target.value })}
         />
       </div>
+      {styleFields(block, onChange)}
     </>
   );
 }
@@ -346,6 +368,7 @@ function FeaturesEditor({
           + Add item
         </button>
       </div>
+      {styleFields(block, onChange)}
     </>
   );
 }
@@ -425,6 +448,7 @@ function ButtonEditor({
           </select>
         </div>
       </div>
+      {styleFields(block, onChange)}
     </>
   );
 }
@@ -526,6 +550,7 @@ function FaqEditor({
           + Add question
         </button>
       </div>
+      {styleFields(block, onChange)}
     </>
   );
 }
@@ -584,6 +609,490 @@ function TestimonialEditor({
           ))}
         </select>
       </div>
+      {styleFields(block, onChange)}
+    </>
+  );
+}
+
+function HeadingEditor({
+  block,
+  onChange,
+}: {
+  block: Block & { type: "heading" };
+  onChange: (props: Block["props"]) => void;
+}) {
+  return (
+    <>
+      <div>
+        <label className={labelCls}>Text</label>
+        <input
+          className={inputCls}
+          value={block.props.text}
+          onChange={(e) => onChange({ ...block.props, text: e.target.value })}
+          placeholder="Section heading"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Level</label>
+          <select
+            className={inputCls}
+            value={block.props.level}
+            onChange={(e) =>
+              onChange({
+                ...block.props,
+                level: Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6,
+              })
+            }
+          >
+            {[1, 2, 3, 4, 5, 6].map((n) => (
+              <option key={n} value={n}>
+                H{n}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Alignment</label>
+          <select
+            className={inputCls}
+            value={block.props.align}
+            onChange={(e) => onChange({ ...block.props, align: e.target.value as "left" })}
+          >
+            <option value="left">Left</option>
+            <option value="center">Center</option>
+            <option value="right">Right</option>
+          </select>
+        </div>
+      </div>
+      {styleFields(block, onChange)}
+    </>
+  );
+}
+
+function ListEditor({
+  block,
+  onChange,
+}: {
+  block: Block & { type: "list" };
+  onChange: (props: Block["props"]) => void;
+}) {
+  return (
+    <>
+      <div>
+        <label className={labelCls}>List type</label>
+        <div className="mt-1 flex items-center gap-4">
+          <label className="flex items-center gap-1.5 text-sm text-zinc-700">
+            <input
+              type="radio"
+              name={`list-type-${block.id}`}
+              checked={!block.props.ordered}
+              onChange={() => onChange({ ...block.props, ordered: false })}
+              className="h-4 w-4 rounded border-zinc-300 text-zinc-900"
+            />
+            Bullets
+          </label>
+          <label className="flex items-center gap-1.5 text-sm text-zinc-700">
+            <input
+              type="radio"
+              name={`list-type-${block.id}`}
+              checked={block.props.ordered}
+              onChange={() => onChange({ ...block.props, ordered: true })}
+              className="h-4 w-4 rounded border-zinc-300 text-zinc-900"
+            />
+            Numbers
+          </label>
+        </div>
+      </div>
+      <div>
+        <label className={labelCls}>Items (one per line)</label>
+        <textarea
+          className={`${inputCls} font-mono`}
+          rows={8}
+          value={block.props.items.join("\n")}
+          onChange={(e) => onChange({ ...block.props, items: e.target.value.split("\n") })}
+          placeholder={"First item\nSecond item\nThird item"}
+        />
+        <p className="mt-1 text-[11px] leading-snug text-zinc-400">
+          One item per line — blank lines are skipped on the published page.
+        </p>
+      </div>
+      {styleFields(block, onChange)}
+    </>
+  );
+}
+
+function SlideCard({
+  slide,
+  index,
+  total,
+  onChange,
+  onRemove,
+  onMove,
+}: {
+  slide: SliderSlide;
+  index: number;
+  total: number;
+  onChange: (patch: Partial<SliderSlide>) => void;
+  onRemove: () => void;
+  onMove: (dir: -1 | 1) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFile = async (file: File) => {
+    if (!file) return;
+    setError(null);
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/uploads", { method: "POST", body: formData });
+      const json = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (!res.ok || !json.url) {
+        throw new Error(json.error ?? "Upload failed.");
+      }
+      onChange({ src: json.url });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2 rounded-lg border border-zinc-200 p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-zinc-500">Slide {index + 1}</span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onMove(-1)}
+            disabled={index === 0}
+            className="text-xs text-zinc-500 hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            onClick={() => onMove(1)}
+            disabled={index === total - 1}
+            className="text-xs text-zinc-500 hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            ↓
+          </button>
+          <button
+            type="button"
+            onClick={onRemove}
+            disabled={total <= 1}
+            className="text-xs text-red-500 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Remove
+          </button>
+        </div>
+      </div>
+      {slide.src && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={slide.src}
+          alt={slide.alt || ""}
+          className="h-24 w-full rounded-md object-cover"
+        />
+      )}
+      <div>
+        <label className={labelCls}>Image URL</label>
+        <input
+          className={inputCls}
+          value={slide.src}
+          onChange={(e) => onChange({ src: e.target.value })}
+          placeholder="https://... or /api/assets/..."
+        />
+      </div>
+      <div>
+        <input
+          type="file"
+          accept="image/*"
+          className="block w-full text-sm text-zinc-500 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-900 file:px-3 file:py-2 file:text-xs file:font-medium file:text-white"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleFile(file);
+          }}
+        />
+        {uploading && <p className="mt-1 text-xs text-zinc-500">Uploading…</p>}
+        {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      </div>
+      <div>
+        <label className={labelCls}>Alt text</label>
+        <input
+          className={inputCls}
+          value={slide.alt}
+          onChange={(e) => onChange({ alt: e.target.value })}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Title</label>
+          <input
+            className={inputCls}
+            value={slide.title}
+            onChange={(e) => onChange({ title: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Link URL</label>
+          <input
+            className={inputCls}
+            value={slide.url}
+            onChange={(e) => onChange({ url: e.target.value })}
+            placeholder="https://…"
+          />
+        </div>
+      </div>
+      <div>
+        <label className={labelCls}>Caption</label>
+        <input
+          className={inputCls}
+          value={slide.caption}
+          onChange={(e) => onChange({ caption: e.target.value })}
+        />
+      </div>
+    </div>
+  );
+}
+
+function SliderEditor({
+  block,
+  onChange,
+}: {
+  block: Block & { type: "slider" };
+  onChange: (props: Block["props"]) => void;
+}) {
+  const updateSlides = (slides: SliderSlide[]) => onChange({ ...block.props, slides });
+
+  const updateSlide = (i: number, patch: Partial<SliderSlide>) => {
+    updateSlides(block.props.slides.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+  };
+
+  const addSlide = () => {
+    updateSlides([...block.props.slides, { src: "", alt: "", title: "", caption: "", url: "" }]);
+  };
+
+  const removeSlide = (i: number) => {
+    if (block.props.slides.length <= 1) return;
+    updateSlides(block.props.slides.filter((_, idx) => idx !== i));
+  };
+
+  const moveSlide = (i: number, dir: -1 | 1) => {
+    const slides = [...block.props.slides];
+    const j = i + dir;
+    if (j < 0 || j >= slides.length) return;
+    const moving = slides[i];
+    slides[i] = slides[j];
+    slides[j] = moving;
+    updateSlides(slides);
+  };
+
+  return (
+    <>
+      <div>
+        <label className={labelCls}>Image height</label>
+        <select
+          className={inputCls}
+          value={block.props.height}
+          onChange={(e) => onChange({ ...block.props, height: e.target.value as "sm" | "md" | "lg" })}
+        >
+          <option value="sm">Small</option>
+          <option value="md">Medium</option>
+          <option value="lg">Large</option>
+        </select>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Slides per view</label>
+          <input
+            type="number"
+            min={1}
+            max={8}
+            className={inputCls}
+            value={block.props.itemsPerView ?? 1}
+            onChange={(e) => onChange({ ...block.props, itemsPerView: Number(e.target.value) })}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Image fit</label>
+          <select
+            className={inputCls}
+            value={block.props.imageFit ?? "cover"}
+            onChange={(e) => onChange({ ...block.props, imageFit: e.target.value as "cover" | "fluid" })}
+          >
+            <option value="cover">Full (cropped)</option>
+            <option value="fluid">Fluid (fit, no crop)</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className={labelCls}>Caption position</label>
+        <select
+          className={inputCls}
+          value={block.props.captionLayout ?? "bottom"}
+          onChange={(e) =>
+            onChange({ ...block.props, captionLayout: e.target.value as "bottom" | "center" })
+          }
+        >
+          <option value="bottom">Bottom overlay</option>
+          <option value="center">Center over image</option>
+        </select>
+      </div>
+      <div>
+        <label className={labelCls}>Slides</label>
+        <div className="mt-2 space-y-2">
+          {block.props.slides.map((slide, i) => (
+            <SlideCard
+              key={i}
+              slide={slide}
+              index={i}
+              total={block.props.slides.length}
+              onChange={(patch) => updateSlide(i, patch)}
+              onRemove={() => removeSlide(i)}
+              onMove={(dir) => moveSlide(i, dir)}
+            />
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={addSlide}
+          className="mt-2 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-500 hover:border-zinc-400 hover:text-zinc-700"
+        >
+          + Add slide
+        </button>
+      </div>
+      {styleFields(block, onChange)}
+    </>
+  );
+}
+
+function ContentGridEditor({
+  block,
+  onChange,
+}: {
+  block: Block & { type: "contentGrid" };
+  onChange: (props: Block["props"]) => void;
+}) {
+  const [categories, setCategories] = useState<Array<{ id: string; title: string }>>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/categories")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (!cancelled) setCategories(Array.isArray(data) ? data : []);
+      })
+      .catch(() => undefined)
+      .finally(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <>
+      <div>
+        <label className={labelCls}>Heading</label>
+        <input
+          className={inputCls}
+          value={block.props.heading}
+          onChange={(e) => onChange({ ...block.props, heading: e.target.value })}
+          placeholder="Latest Articles"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Content type</label>
+          <select
+            className={inputCls}
+            value={block.props.source}
+            onChange={(e) => onChange({ ...block.props, source: e.target.value as "articles" })}
+          >
+            <option value="articles">Articles</option>
+            <option value="feeds">Feeds</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Category</label>
+          <select
+            className={inputCls}
+            value={block.props.categoryId}
+            onChange={(e) => onChange({ ...block.props, categoryId: e.target.value })}
+          >
+            <option value="">All categories</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Items per page</label>
+          <input
+            type="number"
+            min={1}
+            max={48}
+            className={inputCls}
+            value={block.props.perPage}
+            onChange={(e) => onChange({ ...block.props, perPage: Number(e.target.value) })}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Columns</label>
+          <select
+            className={inputCls}
+            value={block.props.columns}
+            onChange={(e) =>
+              onChange({ ...block.props, columns: Number(e.target.value) as 2 | 3 | 4 })
+            }
+          >
+            <option value={2}>2</option>
+            <option value={3}>3</option>
+            <option value={4}>4</option>
+          </select>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Sort order</label>
+          <select
+            className={inputCls}
+            value={block.props.order}
+            onChange={(e) => onChange({ ...block.props, order: e.target.value as "desc" })}
+          >
+            <option value="desc">Newest first</option>
+            <option value="asc">Oldest first</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Excerpt</label>
+          <div className="mt-1 flex items-center gap-2">
+            <input
+              id={`show-excerpt-${block.id}`}
+              type="checkbox"
+              checked={block.props.showExcerpt}
+              onChange={(e) => onChange({ ...block.props, showExcerpt: e.target.checked })}
+              className="h-4 w-4 rounded border-zinc-300 text-zinc-900"
+            />
+            <label htmlFor={`show-excerpt-${block.id}`} className="text-sm text-zinc-700">
+              Show excerpt
+            </label>
+          </div>
+        </div>
+      </div>
+      <p className="text-[11px] leading-snug text-zinc-400">
+        Cards load from live {block.props.source === "articles" ? "articles" : "feeds"} with
+        pagination on the published page.
+      </p>
+      {styleFields(block, onChange)}
     </>
   );
 }
@@ -616,6 +1125,21 @@ function RowEditor({
   const removeColumn = (id: string) => {
     if (block.props.columns.length <= 1) return;
     updateColumns(block.props.columns.filter((c) => c.id !== id));
+  };
+
+  const duplicateSelectedColumn = (id: string) => {
+    if (block.props.columns.length >= 6) return;
+    const idx = block.props.columns.findIndex((c) => c.id === id);
+    if (idx === -1) return;
+    const original = block.props.columns[idx];
+    const copy: ColumnData = {
+      ...original,
+      id: crypto.randomUUID(),
+      blocks: original.blocks.map((child) => cloneBlock(child)),
+    };
+    const columns = [...block.props.columns];
+    columns.splice(idx + 1, 0, copy);
+    updateColumns(columns);
   };
 
   const setColumn = (id: string, patch: Partial<ColumnData>) => {
@@ -737,14 +1261,25 @@ function RowEditor({
             <div key={c.id} className="space-y-2 rounded-lg border border-zinc-200 p-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-zinc-500">Column {i + 1}</span>
-                <button
-                  type="button"
-                  onClick={() => removeColumn(c.id)}
-                  disabled={block.props.columns.length <= 1}
-                  className="text-xs text-red-500 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Remove
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => duplicateSelectedColumn(c.id)}
+                    disabled={block.props.columns.length >= 6}
+                    title="Duplicate this column"
+                    className="text-xs text-zinc-500 hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    ⧉ Duplicate
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeColumn(c.id)}
+                    disabled={block.props.columns.length <= 1}
+                    className="text-xs text-red-500 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
               <ResponsiveSpanFields
                 desktop={c.span}
@@ -812,6 +1347,10 @@ const EDITORS: Record<string, React.ComponentType<EditorProps>> = {
   testimonial: TestimonialEditor as React.ComponentType<EditorProps>,
   spacer: SpacerEditor as React.ComponentType<EditorProps>,
   divider: DividerEditor as React.ComponentType<EditorProps>,
+  heading: HeadingEditor as React.ComponentType<EditorProps>,
+  list: ListEditor as React.ComponentType<EditorProps>,
+  slider: SliderEditor as React.ComponentType<EditorProps>,
+  contentGrid: ContentGridEditor as React.ComponentType<EditorProps>,
   row: RowEditor as React.ComponentType<EditorProps>,
 };
 

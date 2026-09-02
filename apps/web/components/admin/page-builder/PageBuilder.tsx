@@ -37,6 +37,7 @@ import {
   flattenIds,
   moveBlock,
   removeBlock as removeBlockFromTree,
+  duplicateColumn,
   removeColumnFromRow,
   replaceBlock,
   rowIdForColumn,
@@ -309,6 +310,22 @@ export default function PageBuilder({
       });
       setSelectedColumnId(null);
       setSelectedId(row.id);
+    },
+    [commit, selectedColumnRow],
+  );
+
+  const duplicateSelectedColumn = useCallback(
+    (columnId: string) => {
+      const row = selectedColumnRow;
+      if (!row || !isRowBlock(row)) return;
+      if (row.props.columns.length >= 6) return;
+      const newId = crypto.randomUUID();
+      commit((prev) => {
+        const rid = rowIdForColumn(prev, columnId);
+        if (!rid) return prev;
+        return duplicateColumn(prev, rid, columnId, 6, newId);
+      });
+      setSelectedColumnId(newId);
     },
     [commit, selectedColumnRow],
   );
@@ -763,6 +780,12 @@ export default function PageBuilder({
                     }
                     onChange={(patch) => updateColumn(selectedColumnId, patch)}
                     onRemove={() => removeColumn(selectedColumnId)}
+                    onDuplicate={() => duplicateSelectedColumn(selectedColumnId)}
+                    canDuplicate={
+                      !!selectedColumnRow &&
+                      isRowBlock(selectedColumnRow) &&
+                      selectedColumnRow.props.columns.length < 6
+                    }
                   />
                 </div>
               </div>

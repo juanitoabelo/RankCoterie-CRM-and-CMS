@@ -1,12 +1,28 @@
-import { type Block, type RowBlock } from "@/lib/page-builder/types";
+import { type Block, type RowBlock, type StyleBreakpoints } from "@/lib/page-builder/types";
 import {
   renderColumnSpanClass,
   resolveColumnWidths,
 } from "@/lib/page-builder/spans";
+import { renderStyleGuide, styleScopeClass } from "@/lib/page-builder/style";
 import { renderLocalizedContent, type RegionContext } from "@/lib/localization/render";
+import SliderCarousel from "./SliderCarousel";
+import ContentGridFrontend from "./ContentGridFrontend";
+
+/** Wrap a block's markup so per-breakpoint style-guide CSS applies to it. */
+function styleScope(block: Block, inner: React.ReactNode): React.ReactNode {
+  const css = renderStyleGuide(block.id, (block.props as { style?: StyleBreakpoints }).style);
+  if (!css) return inner;
+  return (
+    <>
+      <style>{css}</style>
+      <div className={styleScopeClass(block.id)}>{inner}</div>
+    </>
+  );
+}
 
 function HeroBlock({ block, ctx }: { block: Block & { type: "hero" }; ctx: RegionContext }) {
-  return (
+  return styleScope(
+    block,
     <section
       className="px-6 py-20 text-center"
       style={{ backgroundColor: block.props.bgColor, color: block.props.textColor }}
@@ -21,7 +37,7 @@ function HeroBlock({ block, ctx }: { block: Block & { type: "hero" }; ctx: Regio
           </p>
         )}
       </div>
-    </section>
+    </section>,
   );
 }
 
@@ -32,26 +48,27 @@ function TextBlock({ block, ctx }: { block: Block & { type: "text" }; ctx: Regio
       : block.props.align === "right"
         ? "text-right"
         : "text-left";
-  return (
+  return styleScope(
+    block,
     <section className="px-6 py-10">
       <div
         className={`mx-auto max-w-3xl leading-relaxed text-zinc-700 rte-content ${alignCls}`}
         dangerouslySetInnerHTML={{ __html: renderLocalizedContent(block.props.content, ctx) }}
       />
-    </section>
+    </section>,
   );
 }
 
 function ImageBlock({ block }: { block: Block & { type: "image" } }) {
-  const widthClass =
-    block.props.width === "narrow"
+  const isFull = block.props.width !== "wide" && block.props.width !== "narrow";
+  const widthClass = isFull
+    ? "w-full"
+    : block.props.width === "narrow"
       ? "max-w-xl"
-      : block.props.width === "wide"
-        ? "max-w-5xl"
-        : "max-w-6xl";
+      : "max-w-5xl";
 
   return (
-    <section className="px-6 py-6">
+    <section className={isFull ? "py-6" : "px-6 py-6"}>
       <figure className={`mx-auto ${widthClass}`}>
         {block.props.src ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -60,7 +77,7 @@ function ImageBlock({ block }: { block: Block & { type: "image" } }) {
             alt={block.props.alt}
             loading="lazy"
             referrerPolicy="no-referrer"
-            className="h-auto w-full rounded-lg object-contain"
+            className="h-auto w-full rounded-lg object-cover"
           />
         ) : (
           <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-zinc-300 text-sm text-zinc-400">
@@ -78,7 +95,8 @@ function ImageBlock({ block }: { block: Block & { type: "image" } }) {
 }
 
 function CtaBlock({ block, ctx }: { block: Block & { type: "cta" }; ctx: RegionContext }) {
-  return (
+  return styleScope(
+    block,
     <section
       className="px-6 py-16 text-center"
       style={{ backgroundColor: block.props.bgColor }}
@@ -102,7 +120,7 @@ function CtaBlock({ block, ctx }: { block: Block & { type: "cta" }; ctx: RegionC
           </a>
         )}
       </div>
-    </section>
+    </section>,
   );
 }
 
@@ -114,7 +132,8 @@ function FeaturesBlock({ block, ctx }: { block: Block & { type: "features" }; ct
         ? "sm:grid-cols-2 lg:grid-cols-4"
         : "sm:grid-cols-2 lg:grid-cols-3";
 
-  return (
+  return styleScope(
+    block,
     <section className="px-6 py-16">
       <div className="mx-auto max-w-5xl">
         {block.props.heading && (
@@ -143,7 +162,7 @@ function FeaturesBlock({ block, ctx }: { block: Block & { type: "features" }; ct
           ))}
         </div>
       </div>
-    </section>
+    </section>,
   );
 }
 
@@ -154,7 +173,8 @@ function ButtonBlock({ block, ctx }: { block: Block & { type: "button" }; ctx: R
       : block.props.align === "right"
         ? "flex justify-end"
         : "flex justify-start";
-  return (
+  return styleScope(
+    block,
     <section className="px-6 py-4">
       <div className={`mx-auto max-w-6xl ${alignCls}`}>
         <a
@@ -168,7 +188,7 @@ function ButtonBlock({ block, ctx }: { block: Block & { type: "button" }; ctx: R
           {renderLocalizedContent(block.props.text, ctx)}
         </a>
       </div>
-    </section>
+    </section>,
   );
 }
 
@@ -184,7 +204,8 @@ function EmbedBlock({ block }: { block: Block & { type: "embed" } }) {
 }
 
 function FaqBlock({ block, ctx }: { block: Block & { type: "faq" }; ctx: RegionContext }) {
-  return (
+  return styleScope(
+    block,
     <section className="px-6 py-16">
       <div className="mx-auto max-w-3xl">
         {block.props.heading && (
@@ -213,12 +234,13 @@ function FaqBlock({ block, ctx }: { block: Block & { type: "faq" }; ctx: RegionC
           ))}
         </div>
       </div>
-    </section>
+    </section>,
   );
 }
 
 function TestimonialBlock({ block, ctx }: { block: Block & { type: "testimonial" }; ctx: RegionContext }) {
-  return (
+  return styleScope(
+    block,
     <section className="px-6 py-12">
       <figure className="mx-auto max-w-3xl rounded-2xl bg-zinc-50 px-8 py-10 text-center">
         <div className="text-amber-400">
@@ -236,7 +258,7 @@ function TestimonialBlock({ block, ctx }: { block: Block & { type: "testimonial"
           {block.props.role ? `, ${block.props.role}` : ""}
         </figcaption>
       </figure>
-    </section>
+    </section>,
   );
 }
 
@@ -249,6 +271,97 @@ function DividerBlock() {
     <div className="px-6 py-4">
       <hr className="mx-auto max-w-3xl border-zinc-200" />
     </div>
+  );
+}
+
+const HEADING_SIZES = {
+  1: "text-4xl font-bold tracking-tight sm:text-5xl",
+  2: "text-3xl font-bold tracking-tight sm:text-4xl",
+  3: "text-2xl font-bold text-zinc-900 sm:text-3xl",
+  4: "text-xl font-semibold text-zinc-900 sm:text-2xl",
+  5: "text-lg font-semibold text-zinc-900",
+  6: "text-base font-semibold text-zinc-900",
+} as const;
+
+function HeadingBlock({ block, ctx }: { block: Block & { type: "heading" }; ctx: RegionContext }) {
+  const Tag = (["h1", "h2", "h3", "h4", "h5", "h6"] as const)[block.props.level - 1] as keyof JSX.IntrinsicElements;
+  const alignCls =
+    block.props.align === "center"
+      ? "text-center"
+      : block.props.align === "right"
+        ? "text-right"
+        : "text-left";
+  return styleScope(
+    block,
+    <section className="px-6 py-6">
+      <Tag className={`${HEADING_SIZES[block.props.level]} ${alignCls}`}>
+        {renderLocalizedContent(block.props.text, ctx)}
+      </Tag>
+    </section>,
+  );
+}
+
+function ListBlock({ block, ctx }: { block: Block & { type: "list" }; ctx: RegionContext }) {
+  const items = block.props.items
+    .map((item) => renderLocalizedContent(item, ctx))
+    .filter((item) => item.trim());
+  if (items.length === 0) return null;
+
+  return styleScope(
+    block,
+    <section className="px-6 py-6">
+      <div className="mx-auto max-w-3xl text-zinc-700">
+        {block.props.ordered ? (
+          <ol className="list-decimal space-y-1.5 pl-5 marker:font-medium marker:text-zinc-900">
+            {items.map((item, i) => (
+              <li key={i} className="leading-relaxed">
+                {item}
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <ul className="list-disc space-y-1.5 pl-5 marker:text-zinc-400">
+            {items.map((item, i) => (
+              <li key={i} className="leading-relaxed">
+                {item}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>,
+  );
+}
+
+function SliderBlock({ block }: { block: Block & { type: "slider" } }) {
+  return styleScope(
+    block,
+    <section className="px-6 py-6">
+      <div className="mx-auto max-w-6xl">
+        <SliderCarousel
+          slides={block.props.slides}
+          height={block.props.height ?? "md"}
+          itemsPerView={block.props.itemsPerView ?? 1}
+          imageFit={block.props.imageFit ?? "cover"}
+          captionLayout={block.props.captionLayout ?? "bottom"}
+        />
+      </div>
+    </section>,
+  );
+}
+
+function ContentGridBlock({ block }: { block: Block & { type: "contentGrid" } }) {
+  return styleScope(
+    block,
+    <ContentGridFrontend
+      heading={block.props.heading}
+      source={block.props.source}
+      categoryId={block.props.categoryId}
+      perPage={block.props.perPage}
+      columns={block.props.columns}
+      showExcerpt={block.props.showExcerpt}
+      order={block.props.order}
+    />,
   );
 }
 
@@ -315,6 +428,10 @@ const RENDERERS: Record<string, React.ComponentType<{ block: Block; ctx: RegionC
   testimonial: TestimonialBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   spacer: SpacerBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   divider: DividerBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  heading: HeadingBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  list: ListBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  slider: SliderBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  contentGrid: ContentGridBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   row: RowBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
 };
 

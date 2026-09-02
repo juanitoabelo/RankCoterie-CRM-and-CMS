@@ -73,4 +73,52 @@ describe("validateBlock", () => {
     expect(validateBlock(spacer)).toEqual([]);
     expect(validateBlock(row)).toEqual([]);
   });
+
+  it("flags empty heading text", () => {
+    const h = createBlock("heading") as Block & { props: { text: string } };
+    h.props.text = "";
+    expect(validateBlock(h)).toContain("Heading text is required.");
+    h.props.text = "Why us";
+    expect(validateBlock(h)).toEqual([]);
+  });
+
+  it("flags lists with no content", () => {
+    const l = createBlock("list") as Block & { props: { items: string[] } };
+    l.props.items = ["", "  "];
+    expect(validateBlock(l)).toContain("Add at least one list item.");
+    l.props.items = ["Real item"];
+    expect(validateBlock(l)).toEqual([]);
+  });
+
+  it("flags sliders without images and missing alt text", () => {
+    const s = createBlock("slider") as Block & {
+      props: { slides: Array<{ src: string; alt: string; url: string }> };
+    };
+    s.props.slides[0].src = "";
+    expect(validateBlock(s)).toContain("Add at least one slide with an image.");
+    s.props.slides[0].src = "/slide.jpg";
+    expect(validateBlock(s)).toContain("Slide 1 is missing alt text (SEO).");
+    s.props.slides[0].alt = "A slide";
+    expect(validateBlock(s)).toEqual([]);
+  });
+
+  it("flags out-of-range slides per view", () => {
+    const s = createBlock("slider") as Block & { props: { slidesPerView?: number; itemsPerView: number } };
+    s.props.slides[0].src = "/slide.jpg";
+    s.props.slides[0].alt = "A slide";
+    s.props.itemsPerView = 0;
+    expect(validateBlock(s)).toContain("Slides per view must be between 1 and 8.");
+    s.props.itemsPerView = 9;
+    expect(validateBlock(s)).toContain("Slides per view must be between 1 and 8.");
+    s.props.itemsPerView = 2;
+    expect(validateBlock(s)).toEqual([]);
+  });
+
+  it("flags out-of-range content grid page size", () => {
+    const g = createBlock("contentGrid") as Block & { props: { perPage: number } };
+    g.props.perPage = 0;
+    expect(validateBlock(g)).toContain("Items per page must be between 1 and 48.");
+    g.props.perPage = 6;
+    expect(validateBlock(g)).toEqual([]);
+  });
 });

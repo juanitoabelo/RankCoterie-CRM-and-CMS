@@ -3,6 +3,24 @@ export interface BlockBase {
   type: string;
 }
 
+/**
+ * Per-breakpoint typography overrides ("style guide"). Each breakpoint can set
+ * color, font family, and font size independently; missing values fall through
+ * to the next larger breakpoint (or the block's own default styling).
+ */
+export interface TypographyStyle {
+  color?: string;
+  fontFamily?: string;
+  fontSize?: number;
+}
+
+export type StyleBreakpoints = {
+  mobile?: TypographyStyle;
+  sm?: TypographyStyle;
+  md?: TypographyStyle;
+  lg?: TypographyStyle;
+};
+
 export interface HeroBlock extends BlockBase {
   type: "hero";
   props: {
@@ -10,6 +28,7 @@ export interface HeroBlock extends BlockBase {
     subheading: string;
     bgColor: string;
     textColor: string;
+    style?: StyleBreakpoints;
   };
 }
 
@@ -18,6 +37,7 @@ export interface TextBlock extends BlockBase {
   props: {
     content: string;
     align: "left" | "center" | "right";
+    style?: StyleBreakpoints;
   };
 }
 
@@ -39,6 +59,7 @@ export interface CtaBlock extends BlockBase {
     buttonText: string;
     buttonUrl: string;
     bgColor: string;
+    style?: StyleBreakpoints;
   };
 }
 
@@ -48,6 +69,7 @@ export interface FeaturesBlock extends BlockBase {
     heading: string;
     items: Array<{ icon: string; title: string; description: string }>;
     columns: 2 | 3 | 4;
+    style?: StyleBreakpoints;
   };
 }
 
@@ -58,6 +80,7 @@ export interface ButtonBlock extends BlockBase {
     url: string;
     align: "left" | "center" | "right";
     variant: "solid" | "outline";
+    style?: StyleBreakpoints;
   };
 }
 
@@ -73,6 +96,7 @@ export interface FaqBlock extends BlockBase {
   props: {
     heading: string;
     items: Array<{ question: string; answer: string }>;
+    style?: StyleBreakpoints;
   };
 }
 
@@ -83,6 +107,7 @@ export interface TestimonialBlock extends BlockBase {
     author: string;
     role: string;
     rating: 0 | 1 | 2 | 3 | 4 | 5;
+    style?: StyleBreakpoints;
   };
 }
 
@@ -96,6 +121,66 @@ export interface SpacerBlock extends BlockBase {
 export interface DividerBlock extends BlockBase {
   type: "divider";
   props: Record<string, never>;
+}
+
+export interface HeadingBlock extends BlockBase {
+  type: "heading";
+  props: {
+    text: string;
+    level: 1 | 2 | 3 | 4 | 5 | 6;
+    align: "left" | "center" | "right";
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface ListBlock extends BlockBase {
+  type: "list";
+  props: {
+    ordered: boolean;
+    items: string[];
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface SliderSlide {
+  src: string;
+  alt: string;
+  title: string;
+  caption: string;
+  url: string;
+}
+
+export type SliderFit = "cover" | "fluid";
+export type SliderCaptionLayout = "bottom" | "center";
+
+export interface SliderBlock extends BlockBase {
+  type: "slider";
+  props: {
+    slides: SliderSlide[];
+    height: "sm" | "md" | "lg";
+    itemsPerView: number;
+    imageFit: SliderFit;
+    captionLayout: SliderCaptionLayout;
+    style?: StyleBreakpoints;
+  };
+}
+
+export type ContentGridSource = "articles" | "feeds";
+export type ContentGridColumns = 2 | 3 | 4;
+
+export interface ContentGridBlock extends BlockBase {
+  type: "contentGrid";
+  props: {
+    heading: string;
+    source: ContentGridSource;
+    /** Empty string means all categories. */
+    categoryId: string;
+    perPage: number;
+    columns: ContentGridColumns;
+    showExcerpt: boolean;
+    order: "desc" | "asc";
+    style?: StyleBreakpoints;
+  };
 }
 
 export const COLUMN_SPANS = [3, 4, 6, 8, 12] as const;
@@ -144,6 +229,10 @@ export type Block =
   | TestimonialBlock
   | SpacerBlock
   | DividerBlock
+  | HeadingBlock
+  | ListBlock
+  | SliderBlock
+  | ContentGridBlock
   | RowBlock;
 
 export type BlockType = Block["type"];
@@ -165,6 +254,10 @@ export const LEAF_BLOCK_TYPES: BlockType[] = [
   "testimonial",
   "spacer",
   "divider",
+  "heading",
+  "list",
+  "slider",
+  "contentGrid",
 ];
 
 /** Id prefix used by draggable palette items so drag events can be distinguished from real blocks. */
@@ -308,6 +401,51 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     icon: "—",
     defaults: {},
   },
+  {
+    type: "heading",
+    label: "Heading (H1–H6)",
+    icon: "H",
+    defaults: {
+      text: "Section heading",
+      level: 2,
+      align: "left",
+    },
+  },
+  {
+    type: "list",
+    label: "List",
+    icon: "≡",
+    defaults: {
+      ordered: false,
+      items: ["First item", "Second item", "Third item"],
+    },
+  },
+  {
+    type: "slider",
+    label: "Slider",
+    icon: "◫",
+    defaults: {
+      slides: [{ src: "", alt: "", title: "", caption: "", url: "" }],
+      height: "md",
+      itemsPerView: 1,
+      imageFit: "cover",
+      captionLayout: "bottom",
+    },
+  },
+  {
+    type: "contentGrid",
+    label: "Article / Feed grid",
+    icon: "▦",
+    defaults: {
+      heading: "Latest Articles",
+      source: "articles",
+      categoryId: "",
+      perPage: 6,
+      columns: 3,
+      showExcerpt: true,
+      order: "desc",
+    },
+  },
 ];
 
 export interface RowLayout {
@@ -356,11 +494,14 @@ function cloneProps(type: BlockType, defaults: Block["props"]): Block["props"] {
   const src = defaults as Record<string, unknown>;
   const out: Record<string, unknown> = {};
   for (const key of Object.keys(src)) {
-    out[key] = Array.isArray(src[key])
-      ? (src[key] as unknown[]).map((item) =>
+    const value = src[key];
+    out[key] = Array.isArray(value)
+      ? (value as unknown[]).map((item) =>
           item && typeof item === "object" ? { ...(item as object) } : item,
         )
-      : src[key];
+      : value && typeof value === "object"
+        ? structuredClone(value)
+        : value;
   }
   return out as Block["props"];
 }

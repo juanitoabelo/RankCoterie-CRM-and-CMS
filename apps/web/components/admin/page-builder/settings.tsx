@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { FULL_COLUMN_SPANS } from "@/lib/page-builder/types";
+import type { StyleBreakpoints, TypographyStyle } from "@/lib/page-builder/types";
+import { FONT_FAMILY_PRESETS, STYLE_BREAKPOINTS } from "@/lib/page-builder/style";
 
 export const inputCls = "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm";
 export const labelCls = "block text-sm font-medium text-zinc-800";
@@ -207,6 +209,108 @@ export function BackgroundFields({
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Elementor-style "style guide" for text blocks: per-breakpoint color, font
+ * family, and font size. Each breakpoint (mobile / sm / md / lg) can override
+ * independently; empty fields inherit the block's default styling.
+ */
+export function StyleGuideEditor({
+  style,
+  onChange,
+}: {
+  style?: StyleBreakpoints;
+  onChange: (style: StyleBreakpoints) => void;
+}) {
+  const current: StyleBreakpoints = style ?? {};
+
+  const setBreakpoint = (key: keyof StyleBreakpoints, patch: Partial<TypographyStyle>) => {
+    const merged = { ...current[key], ...patch } as TypographyStyle;
+    // Drop a breakpoint when every field is cleared so it falls through.
+    if (!merged.color && !merged.fontFamily && !merged.fontSize) {
+      const { [key]: _omit, ...rest } = current;
+      onChange(rest);
+      return;
+    }
+    onChange({ ...current, [key]: merged });
+  };
+
+  const fontValue = (key: keyof StyleBreakpoints) => current[key]?.fontFamily ?? "";
+
+  return (
+    <div className="space-y-3 rounded-lg border border-zinc-200 p-3">
+      <p className="text-[11px] leading-snug text-zinc-400">
+        Typography style guide. Set text color, font family, and size per device
+        size; leave blank to inherit the block’s default look.
+      </p>
+      {STYLE_BREAKPOINTS.map((bp) => {
+        const value = current[bp.key] ?? {};
+        return (
+          <div key={bp.key} className="rounded-lg border border-zinc-100 p-2.5">
+            <span className="block text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+              {bp.label}
+            </span>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-[10px] text-zinc-500">Color</label>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="color"
+                    className="h-8 w-9 rounded border border-zinc-300"
+                    value={value.color ?? "#000000"}
+                    onChange={(e) => setBreakpoint(bp.key, { color: e.target.value })}
+                  />
+                  <input
+                    className={`${inputCls} mt-0.5`}
+                    value={value.color ?? ""}
+                    onChange={(e) => setBreakpoint(bp.key, { color: e.target.value })}
+                    placeholder="Auto"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] text-zinc-500">Font</label>
+                <select
+                  className={`${inputCls} mt-0.5`}
+                  value={fontValue(bp.key)}
+                  onChange={(e) => setBreakpoint(bp.key, { fontFamily: e.target.value })}
+                >
+                  <option value="">Inherit</option>
+                  {FONT_FAMILY_PRESETS.filter((p) => p.value).map((p) => (
+                    <option key={p.key} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] text-zinc-500">Size (px)</label>
+                <input
+                  type="number"
+                  min={8}
+                  max={200}
+                  className={`${inputCls} mt-0.5`}
+                  value={value.fontSize ?? ""}
+                  onChange={(e) =>
+                    setBreakpoint(bp.key, {
+                      fontSize: e.target.value ? Number(e.target.value) : undefined,
+                    })
+                  }
+                />
+              </div>
+            </div>
+            <input
+              className={`${inputCls}`}
+              value={current[bp.key]?.fontFamily ?? ""}
+              onChange={(e) => setBreakpoint(bp.key, { fontFamily: e.target.value })}
+              placeholder="…or custom font stack (CSS)"
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }

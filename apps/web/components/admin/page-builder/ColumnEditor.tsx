@@ -7,12 +7,16 @@ export default function ColumnEditor({
   column,
   onChange,
   onRemove,
+  onDuplicate,
   canRemove,
+  canDuplicate,
 }: {
   column: ColumnData;
   onChange: (patch: Partial<ColumnData>) => void;
   onRemove: () => void;
+  onDuplicate: () => void;
   canRemove: boolean;
+  canDuplicate: boolean;
 }) {
   return (
     <div className="space-y-3">
@@ -42,15 +46,27 @@ export default function ColumnEditor({
         onImage={(value) => onChange({ bgImage: value })}
       />
 
-      {canRemove && (
-        <button
-          type="button"
-          onClick={onRemove}
-          className="rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
-        >
-          Remove column
-        </button>
-      )}
+      <div className="flex gap-2">
+        {canDuplicate && (
+          <button
+            type="button"
+            onClick={onDuplicate}
+            title="Duplicate this column (copies its blocks)"
+            className="rounded-lg border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+          >
+            ⧉ Duplicate column
+          </button>
+        )}
+        {canRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
+          >
+            Remove column
+          </button>
+        )}
+      </div>
     </div>
   );
 }

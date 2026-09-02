@@ -9,6 +9,7 @@ import {
   addBlockFromPalette,
   cloneBlock,
   duplicateBlock,
+  duplicateColumn,
   findBlock,
   findColumnForBlock,
   flattenIds,
@@ -345,6 +346,74 @@ describe("removeColumnFromRow", () => {
     expect(rowANext.props.columns.map((c) => c.id)).toEqual(["col-1", "col-2"]);
     const rowBNext = next.find((b) => b.id === rowB.id) as RowBlock;
     expect(rowBNext.props.columns.map((c) => c.id)).toEqual(["col-2"]);
+  });
+});
+
+describe("duplicateColumn", () => {
+  it("inserts a copy right after the original column", () => {
+    const row = twoColumnRow();
+    const blocks: Block[] = [row];
+    const next = duplicateColumn(blocks, row.id, "col-1");
+    const nextRow = next.find((b) => b.id === row.id) as RowBlock;
+    expect(nextRow.props.columns.map((c) => c.id)).toEqual(["col-1", expect.any(String), "col-2"]);
+  });
+
+  it("copies the columns widths and background", () => {
+    const row = twoColumnRow();
+    row.props.columns[0] = {
+      ...row.props.columns[0],
+      span: 8,
+      spanMd: 6,
+      spanSm: 12,
+      bgColor: "#ff0000",
+      bgImage: "/api/assets/abc",
+    };
+    const blocks: Block[] = [row];
+    const next = duplicateColumn(blocks, row.id, "col-1");
+    const nextRow = next.find((b) => b.id === row.id) as RowBlock;
+    const copy = nextRow.props.columns[1];
+    expect(copy.span).toBe(8);
+    expect(copy.spanMd).toBe(6);
+    expect(copy.spanSm).toBe(12);
+    expect(copy.bgColor).toBe("#ff0000");
+    expect(copy.bgImage).toBe("/api/assets/abc");
+  });
+
+  it("deep-clones nested blocks with fresh ids", () => {
+    const row = twoColumnRow();
+    const text = textBlock();
+    row.props.columns[0].blocks.push(text);
+    const blocks: Block[] = [row];
+    const next = duplicateColumn(blocks, row.id, "col-1");
+    const nextRow = next.find((b) => b.id === row.id) as RowBlock;
+    const copy = nextRow.props.columns[1];
+    expect(copy.blocks).toHaveLength(1);
+    expect(copy.blocks[0].id).not.toBe(text.id);
+    expect(copy.blocks[0].id).not.toBeUndefined();
+    expect(duplicateColumn(blocks, row.id, "col-1")).not.toBe(blocks);
+  });
+
+  it("honours a caller-supplied id for the copy", () => {
+    const row = twoColumnRow();
+    const blocks: Block[] = [row];
+    const next = duplicateColumn(blocks, row.id, "col-1", 6, "new-col");
+    const nextRow = next.find((b) => b.id === row.id) as RowBlock;
+    expect(nextRow.props.columns.map((c) => c.id)).toEqual(["col-1", "new-col", "col-2"]);
+  });
+
+  it("returns the original tree when the column or row is missing", () => {
+    const row = twoColumnRow();
+    const blocks: Block[] = [row];
+    expect(duplicateColumn(blocks, row.id, "nope")).toBe(blocks);
+    expect(duplicateColumn(blocks, "nope", "col-1")).toBe(blocks);
+  });
+
+  it("does not exceed the column limit", () => {
+    const row = twoColumnRow();
+    const blocks: Block[] = [row];
+    const next = duplicateColumn(blocks, row.id, "col-1", 3);
+    const nextRow = next.find((b) => b.id === row.id) as RowBlock;
+    expect(nextRow.props.columns).toHaveLength(3);
   });
 });
 

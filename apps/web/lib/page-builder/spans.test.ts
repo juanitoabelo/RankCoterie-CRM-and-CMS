@@ -93,7 +93,7 @@ describe("canvasColumnSpanClass", () => {
   });
 
   it("a 9/12 main+sidebar column without mobile span stacks on the mobile canvas", () => {
-    const w = resolveColumnWidths({ span: 9, blocks: [] }, true);
+    const w = resolveColumnWidths({ span: 9 }, true);
     expect(canvasColumnSpanClass(w, "desktop")).toBe("col-span-9");
     expect(canvasColumnSpanClass(w, "mobile")).toBe("col-span-12");
   });

@@ -89,6 +89,39 @@ export function removeColumnFromRow(
 }
 
 /**
+ * Duplicate a column inside its row, inserting the copy right after the
+ * original. The copy keeps the original widths/background and gets a fresh
+ * column id plus fresh ids for every nested block. No-op if the column or its
+ * row can't be found, or if the row is already at the column limit.
+ */
+export function duplicateColumn(
+  blocks: Block[],
+  rowId: string,
+  columnId: string,
+  limit = 6,
+  newId?: string,
+): Block[] {
+  let found = false;
+  const next = mapBlocks(blocks, (b) => {
+    if (!isRowBlock(b) || b.id !== rowId) return b;
+    if (b.props.columns.length >= limit) return b;
+    const idx = b.props.columns.findIndex((c) => c.id === columnId);
+    if (idx === -1) return b;
+    found = true;
+    const original = b.props.columns[idx];
+    const copy: ColumnData = {
+      ...original,
+      id: newId ?? crypto.randomUUID(),
+      blocks: original.blocks.map((child) => cloneBlock(child)),
+    };
+    const columns = [...b.props.columns];
+    columns.splice(idx + 1, 0, copy);
+    return { ...b, props: { ...b.props, columns } } as Block;
+  });
+  return found ? next : blocks;
+}
+
+/**
  * Update the settings of a single column inside a row (width, background, etc.).
  * Returns a new blocks tree, or the original if the column isn't found.
  */
