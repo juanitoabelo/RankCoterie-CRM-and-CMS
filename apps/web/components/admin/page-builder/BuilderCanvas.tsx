@@ -10,12 +10,16 @@ import {
   type ColumnData,
   type RowBlock,
 } from "@/lib/page-builder/types";
-import { canvasColumnSpanClass } from "@/lib/page-builder/spans";
+import {
+  canvasColumnSpanClass,
+  resolveColumnWidths,
+  type ColumnWidths,
+} from "@/lib/page-builder/spans";
 import { BlockPreview } from "./BlockPreview";
 
 function ColumnCell({
   column,
-  spanClass,
+  widths,
   viewport,
   selected,
   selectedColumnId,
@@ -27,7 +31,7 @@ function ColumnCell({
   onUpdateProps,
 }: {
   column: ColumnData;
-  spanClass: string;
+  widths: ColumnWidths;
   viewport: "desktop" | "tablet" | "mobile";
   selected: string | null;
   selectedColumnId: string | null;
@@ -40,6 +44,19 @@ function ColumnCell({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const isActive = selectedColumnId === column.id;
+  const spanClass = canvasColumnSpanClass(widths, viewport);
+  const isResponsive =
+    widths.desktop !== widths.tablet || widths.desktop !== widths.mobile;
+
+  const colStyle = column.bgImage
+    ? {
+        backgroundColor: column.bgColor,
+        backgroundImage: `url(${column.bgImage})`,
+        backgroundSize: "cover" as const,
+        backgroundPosition: "center" as const,
+        backgroundRepeat: "no-repeat" as const,
+      }
+    : { backgroundColor: column.bgColor };
 
   return (
     <div
@@ -49,21 +66,29 @@ function ColumnCell({
         onSelectColumn(column.id);
       }}
       role="button"
-      aria-label={`Column ${column.span}/12`}
-      className={`col-span-12 rounded-md border-2 border-dashed p-2 transition-colors ${spanClass} ${
+      aria-label={`Column ${widths.desktop}/12 (${widths.tablet}/12 tablet, ${widths.mobile}/12 mobile)`}
+      className={`rounded-md border-2 p-2 transition-colors ${spanClass} ${
         isActive
           ? "border-zinc-400 bg-zinc-100/60"
           : isOver
             ? "border-emerald-400 bg-emerald-50"
-            : "border-zinc-200 bg-zinc-50/60"
+            : "border-dashed border-zinc-200 bg-zinc-50/60"
       }`}
-      style={{ minWidth: 0 }}
+      style={{ minWidth: 0, ...colStyle }}
     >
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">
-          Column · {column.span}/12
-          {spanClass === "col-span-12" ? " · full width (stacked)" : ""}
+        <span className="rounded bg-white/90 px-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+          Column · {widths[viewport]}/12
+          {spanClass === "col-span-12" && viewport !== "desktop" ? " · full width" : ""}
         </span>
+        {isResponsive && (
+          <span
+            title="Responsive widths — Desktop / Tablet / Mobile"
+            className="rounded bg-emerald-600/10 px-1 text-[10px] font-medium uppercase tracking-wide text-emerald-700"
+          >
+            D{widths.desktop}/T{widths.tablet}/M{widths.mobile}
+          </span>
+        )}
       </div>
       <SortableContext
         items={column.blocks.map((b) => b.id)}
@@ -124,17 +149,27 @@ function RowBody({
   inlineEditing?: boolean;
   onUpdateProps?: (id: string, props: Block["props"]) => void;
 }) {
-  const stackOnMobile = viewport === "mobile" && block.props.stackOnMobile !== false;
+  const stackDefault = block.props.stackOnMobile !== false;
+  const rowStyle = block.props.bgImage
+    ? {
+        backgroundColor: block.props.bgColor,
+        backgroundImage: `url(${block.props.bgImage})`,
+        backgroundSize: "cover" as const,
+        backgroundPosition: "center" as const,
+        backgroundRepeat: "no-repeat" as const,
+        color: block.props.textColor,
+      }
+    : { backgroundColor: block.props.bgColor, color: block.props.textColor };
   return (
     <div
-      className="mb-2 grid grid-cols-12 px-2"
-      style={{ gap: block.props.gap, alignItems: block.props.align }}
+      className="mb-2 grid grid-cols-12 rounded-md px-2"
+      style={{ gap: block.props.gap, alignItems: block.props.align, ...rowStyle }}
     >
       {block.props.columns.map((column) => (
         <ColumnCell
           key={column.id}
           column={column}
-          spanClass={canvasColumnSpanClass(column.span, viewport, stackOnMobile)}
+          widths={resolveColumnWidths(column, stackDefault)}
           viewport={viewport}
           selected={selected}
           selectedColumnId={selectedColumnId}

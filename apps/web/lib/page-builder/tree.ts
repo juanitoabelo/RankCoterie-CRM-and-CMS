@@ -67,6 +67,54 @@ export function rowIdForColumn(blocks: Block[], columnId: string): string | null
   return null;
 }
 
+/**
+ * Remove a column from a row. The row is kept even if it ends up with one column;
+ * callers guard against removing the last column.
+ */
+export function removeColumnFromRow(
+  blocks: Block[],
+  rowId: string,
+  columnId: string,
+): Block[] {
+  return mapBlocks(blocks, (b) => {
+    if (!isRowBlock(b) || b.id !== rowId) return b;
+    return {
+      ...b,
+      props: {
+        ...b.props,
+        columns: b.props.columns.filter((c) => c.id !== columnId),
+      },
+    } as Block;
+  });
+}
+
+/**
+ * Update the settings of a single column inside a row (width, background, etc.).
+ * Returns a new blocks tree, or the original if the column isn't found.
+ */
+export function updateColumnProps(
+  blocks: Block[],
+  columnId: string,
+  patch: Partial<ColumnData>,
+): Block[] {
+  let found = false;
+  const next = mapBlocks(blocks, (b) => {
+    if (!isRowBlock(b)) return b;
+    return {
+      ...b,
+      props: {
+        ...b.props,
+        columns: b.props.columns.map((col) => {
+          if (col.id !== columnId) return col;
+          found = true;
+          return { ...col, ...patch };
+        }),
+      },
+    } as Block;
+  });
+  return found ? next : blocks;
+}
+
 /** The column (if any) that currently holds `blockId`. */
 export function findColumnForBlock(
   blocks: Block[],

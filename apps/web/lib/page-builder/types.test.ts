@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BLOCK_DEFINITIONS,
   COLUMN_SPANS,
+  FULL_COLUMN_SPANS,
   createBlock,
   createRowLayout,
   isRowBlock,
@@ -21,12 +22,22 @@ describe("createBlock — row", () => {
     expect(row.props.columns).toHaveLength(2);
     expect(row.props.columns.every((c) => c.span === 6)).toBe(true);
   });
+
+  it("defaults row background settings", () => {
+    const row = createBlock("row") as RowBlock;
+    expect(row.props.bgImage).toBe("");
+    expect(row.props.textColor).toBeUndefined();
+    expect(row.props.paddingY).toBe(24);
+    expect(row.props.fullWidth).toBe(false);
+  });
 });
 
 describe("createRowLayout", () => {
   it("defaults stackOnMobile to true", () => {
     const row = createRowLayout("two-halves");
     expect(row.props.stackOnMobile).toBe(true);
+    expect(row.props.bgImage).toBe("");
+    expect(row.props.paddingY).toBe(24);
   });
 
   it("creates columns matching the layout spans", () => {
@@ -61,5 +72,11 @@ describe("isRowBlock", () => {
 describe("COLUMN_SPANS", () => {
   it("contains valid span values", () => {
     expect(COLUMN_SPANS).toEqual([3, 4, 6, 8, 12]);
+  });
+
+  it("FULL_COLUMN_SPANS covers the whole 1–12 grid", () => {
+    expect(FULL_COLUMN_SPANS).toHaveLength(12);
+    expect(FULL_COLUMN_SPANS[0]).toBe(1);
+    expect(FULL_COLUMN_SPANS[11]).toBe(12);
   });
 });

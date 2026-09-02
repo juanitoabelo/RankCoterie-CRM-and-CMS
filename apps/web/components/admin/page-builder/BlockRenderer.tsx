@@ -1,5 +1,8 @@
 import { type Block, type RowBlock } from "@/lib/page-builder/types";
-import { renderColumnSpanClass } from "@/lib/page-builder/spans";
+import {
+  renderColumnSpanClass,
+  resolveColumnWidths,
+} from "@/lib/page-builder/spans";
 import { renderLocalizedContent, type RegionContext } from "@/lib/localization/render";
 
 function HeroBlock({ block, ctx }: { block: Block & { type: "hero" }; ctx: RegionContext }) {
@@ -32,7 +35,7 @@ function TextBlock({ block, ctx }: { block: Block & { type: "text" }; ctx: Regio
   return (
     <section className="px-6 py-10">
       <div
-        className={`mx-auto max-w-3xl leading-relaxed text-zinc-700 ${alignCls}`}
+        className={`mx-auto max-w-3xl leading-relaxed text-zinc-700 rte-content ${alignCls}`}
         dangerouslySetInnerHTML={{ __html: renderLocalizedContent(block.props.content, ctx) }}
       />
     </section>
@@ -50,15 +53,19 @@ function ImageBlock({ block }: { block: Block & { type: "image" } }) {
   return (
     <section className="px-6 py-6">
       <figure className={`mx-auto ${widthClass}`}>
-        {block.props.src && (
+        {block.props.src ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={block.props.src}
             alt={block.props.alt}
             loading="lazy"
             referrerPolicy="no-referrer"
-            className="w-full rounded-lg object-cover"
+            className="h-auto w-full rounded-lg object-contain"
           />
+        ) : (
+          <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-zinc-300 text-sm text-zinc-400">
+            Image placeholder
+          </div>
         )}
         {block.props.caption && (
           <figcaption className="mt-2 text-center text-sm text-zinc-500">
@@ -81,7 +88,10 @@ function CtaBlock({ block, ctx }: { block: Block & { type: "cta" }; ctx: RegionC
           {renderLocalizedContent(block.props.heading, ctx)}
         </h2>
         {block.props.body && (
-          <p className="mt-3 text-zinc-600">{renderLocalizedContent(block.props.body, ctx)}</p>
+          <div
+            className="mt-3 text-zinc-600 rte-content"
+            dangerouslySetInnerHTML={{ __html: renderLocalizedContent(block.props.body, ctx) }}
+          />
         )}
         {block.props.buttonText && (
           <a
@@ -122,9 +132,12 @@ function FeaturesBlock({ block, ctx }: { block: Block & { type: "features" }; ct
                 {renderLocalizedContent(item.title, ctx)}
               </h3>
               {item.description && (
-                <p className="mt-2 text-sm text-zinc-600">
-                  {renderLocalizedContent(item.description, ctx)}
-                </p>
+                <p
+                  className="mt-2 text-sm text-zinc-600 rte-content"
+                  dangerouslySetInnerHTML={{
+                    __html: renderLocalizedContent(item.description, ctx),
+                  }}
+                />
               )}
             </div>
           ))}
@@ -189,8 +202,12 @@ function FaqBlock({ block, ctx }: { block: Block & { type: "faq" }; ctx: RegionC
                 {renderLocalizedContent(item.question, ctx)}
                 <span className="text-zinc-400 transition-transform group-open:rotate-45">＋</span>
               </summary>
-              <div className="border-t border-zinc-100 px-4 py-3 text-sm leading-relaxed text-zinc-600">
-                {renderLocalizedContent(item.answer, ctx)}
+              <div className="border-t border-zinc-100 px-4 py-3 text-sm leading-relaxed text-zinc-600 rte-content">
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html: renderLocalizedContent(item.answer, ctx),
+                  }}
+                />
               </div>
             </details>
           ))}
@@ -207,7 +224,12 @@ function TestimonialBlock({ block, ctx }: { block: Block & { type: "testimonial"
         <div className="text-amber-400">
           {"★".repeat(Math.max(0, Math.min(5, block.props.rating)))}</div>
         <blockquote className="mt-4 text-xl font-medium leading-relaxed text-zinc-800">
-          “{renderLocalizedContent(block.props.quote, ctx)}”
+          <div
+            className="rte-content"
+            dangerouslySetInnerHTML={{
+              __html: renderLocalizedContent(block.props.quote, ctx),
+            }}
+          />
         </blockquote>
         <figcaption className="mt-4 text-sm text-zinc-500">
           — {block.props.author}
@@ -231,21 +253,51 @@ function DividerBlock() {
 }
 
 function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
+  const bg = block.props.bgImage
+    ? {
+        backgroundColor: block.props.bgColor,
+        backgroundImage: `url(${block.props.bgImage})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }
+    : { backgroundColor: block.props.bgColor };
   return (
-    <section className="px-6 py-6">
+    <section
+      className={block.props.fullWidth ? "py-0" : "px-6 py-6"}
+      style={{
+        ...bg,
+        color: block.props.textColor,
+        paddingTop: block.props.fullWidth ? undefined : block.props.paddingY,
+        paddingBottom: block.props.fullWidth ? undefined : block.props.paddingY,
+      }}
+    >
       <div
         className="grid grid-cols-12"
         style={{ gap: block.props.gap, alignItems: block.props.align }}
       >
-        {block.props.columns.map((column) => (
-          <div
-            key={column.id}
-            className={renderColumnSpanClass(column.span, block.props.stackOnMobile)}
-            style={{ minWidth: 0 }}
-          >
-            <RenderBlocks blocks={column.blocks} ctx={ctx} />
-          </div>
-        ))}
+        {block.props.columns.map((column) => {
+          const colBg = column.bgImage
+            ? {
+                backgroundColor: column.bgColor,
+                backgroundImage: `url(${column.bgImage})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
+              }
+            : { backgroundColor: column.bgColor };
+          return (
+            <div
+              key={column.id}
+              className={renderColumnSpanClass(
+                resolveColumnWidths(column, block.props.stackOnMobile !== false),
+              )}
+              style={{ minWidth: 0, ...colBg }}
+            >
+              <RenderBlocks blocks={column.blocks} ctx={ctx} />
+            </div>
+          );
+        })}
       </div>
     </section>
   );

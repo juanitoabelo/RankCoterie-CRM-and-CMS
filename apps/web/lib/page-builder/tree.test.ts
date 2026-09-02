@@ -14,8 +14,10 @@ import {
   flattenIds,
   moveBlock,
   removeBlock,
+  removeColumnFromRow,
   replaceBlock,
   updateBlockProps,
+  updateColumnProps,
 } from "./tree";
 
 function textBlock(): TextBlock {
@@ -270,6 +272,79 @@ describe("findBlock", () => {
     ];
     expect(findBlock(blocks, innerA.id)?.id).toBe(innerA.id);
     expect(findBlock(blocks, innerB.id)?.id).toBe(innerB.id);
+  });
+});
+
+function twoColumnRow(): RowBlock {
+  const row = rowBlock();
+  return {
+    ...row,
+    props: {
+      ...row.props,
+      columns: [
+        { id: "col-1", span: 6, blocks: [] },
+        { id: "col-2", span: 6, blocks: [] },
+      ],
+    },
+  } as RowBlock;
+}
+
+describe("updateColumnProps", () => {
+  it("updates a column's span", () => {
+    const blocks: Block[] = [twoColumnRow()];
+    const next = updateColumnProps(blocks, "col-1", { span: 12 });
+    const row = next.find((b) => b.type === "row") as RowBlock;
+    expect(row.props.columns[0].span).toBe(12);
+  });
+
+  it("updates a column's background", () => {
+    const blocks: Block[] = [twoColumnRow()];
+    const next = updateColumnProps(blocks, "col-2", {
+      bgColor: "#000000",
+      bgImage: "/bg.jpg",
+    });
+    const row = next.find((b) => b.type === "row") as RowBlock;
+    const colB = row.props.columns.find((c) => c.id === "col-2")!;
+    expect(colB.bgColor).toBe("#000000");
+    expect(colB.bgImage).toBe("/bg.jpg");
+  });
+
+  it("preserves blocks and other columns", () => {
+    const base = twoColumnRow();
+    const textA = textBlock();
+    base.props.columns[0].blocks.push(textA);
+    const blocks: Block[] = [base];
+    const next = updateColumnProps(blocks, "col-1", { span: 8 });
+    const row = next.find((b) => b.type === "row") as RowBlock;
+    expect(row.props.columns[0].blocks.some((b) => b.id === textA.id)).toBe(true);
+    expect(row.props.columns[1].span).toBe(6);
+  });
+
+  it("returns the same tree when the column is not found", () => {
+    const blocks: Block[] = [twoColumnRow()];
+    expect(updateColumnProps(blocks, "nope", { span: 12 })).toBe(blocks);
+  });
+});
+
+describe("removeColumnFromRow", () => {
+  it("removes a specific column from the target row", () => {
+    const row = twoColumnRow();
+    row.props.columns[0].blocks.push(textBlock());
+    const blocks: Block[] = [row];
+    const next = removeColumnFromRow(blocks, row.id, "col-1");
+    const nextRow = next.find((b) => b.id === row.id) as RowBlock;
+    expect(nextRow.props.columns.map((c) => c.id)).toEqual(["col-2"]);
+  });
+
+  it("leaves other rows untouched", () => {
+    const rowA = twoColumnRow();
+    const rowB = twoColumnRow();
+    const blocks: Block[] = [rowA, rowB];
+    const next = removeColumnFromRow(blocks, rowB.id, "col-1");
+    const rowANext = next.find((b) => b.id === rowA.id) as RowBlock;
+    expect(rowANext.props.columns.map((c) => c.id)).toEqual(["col-1", "col-2"]);
+    const rowBNext = next.find((b) => b.id === rowB.id) as RowBlock;
+    expect(rowBNext.props.columns.map((c) => c.id)).toEqual(["col-2"]);
   });
 });
 

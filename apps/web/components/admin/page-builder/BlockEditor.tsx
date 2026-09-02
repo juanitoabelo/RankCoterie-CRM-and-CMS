@@ -3,16 +3,14 @@
 import { useState } from "react";
 import {
   BLOCK_DEFINITIONS,
-  COLUMN_SPANS,
   LEAF_BLOCK_TYPES,
   type Block,
   type BlockType,
   type ColumnData,
   type RowBlock,
 } from "@/lib/page-builder/types";
-
-const inputCls = "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm";
-const labelCls = "block text-sm font-medium text-zinc-800";
+import { BackgroundFields, inputCls, labelCls, ResponsiveSpanFields } from "./settings";
+import RichTextEditor from "./RichTextEditor";
 
 type EditorProps = {
   block: Block;
@@ -79,13 +77,19 @@ function TextEditor({
   return (
     <>
       <div>
-        <label className={labelCls}>Content (HTML)</label>
-        <textarea
-          rows={6}
-          className={`${inputCls} font-mono text-xs`}
-          value={block.props.content}
-          onChange={(e) => onChange({ ...block.props, content: e.target.value })}
-        />
+        <label className={labelCls}>Content</label>
+        <div className="mt-1">
+          <RichTextEditor
+            value={block.props.content}
+            onChange={(v) => onChange({ ...block.props, content: v })}
+            placeholder="Write your content…"
+            showSource
+          />
+        </div>
+        <p className="mt-1 text-[11px] leading-snug text-zinc-400">
+          Format with the toolbar, add links, lists and headings, or paste from Word —
+          it becomes clean HTML automatically.
+        </p>
       </div>
       <div>
         <label className={labelCls}>Alignment</label>
@@ -209,12 +213,14 @@ function CtaEditor({
       </div>
       <div>
         <label className={labelCls}>Body</label>
-        <textarea
-          rows={3}
-          className={inputCls}
-          value={block.props.body}
-          onChange={(e) => onChange({ ...block.props, body: e.target.value })}
-        />
+        <div className="mt-1">
+          <RichTextEditor
+            value={block.props.body}
+            onChange={(v) => onChange({ ...block.props, body: v })}
+            minHeight={120}
+            placeholder="Write a short description…"
+          />
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -324,10 +330,10 @@ function FeaturesEditor({
               onChange={(e) => updateItem(i, "title", e.target.value)}
               placeholder="Title"
             />
-            <input
-              className={inputCls}
+            <RichTextEditor
               value={item.description}
-              onChange={(e) => updateItem(i, "description", e.target.value)}
+              onChange={(v) => updateItem(i, "description", v)}
+              minHeight={80}
               placeholder="Description"
             />
           </div>
@@ -504,11 +510,10 @@ function FaqEditor({
               onChange={(e) => updateItem(i, "question", e.target.value)}
               placeholder="Question"
             />
-            <textarea
-              rows={2}
-              className={inputCls}
+            <RichTextEditor
               value={item.answer}
-              onChange={(e) => updateItem(i, "answer", e.target.value)}
+              onChange={(v) => updateItem(i, "answer", v)}
+              minHeight={96}
               placeholder="Answer"
             />
           </div>
@@ -536,12 +541,14 @@ function TestimonialEditor({
     <>
       <div>
         <label className={labelCls}>Quote</label>
-        <textarea
-          rows={3}
-          className={inputCls}
-          value={block.props.quote}
-          onChange={(e) => onChange({ ...block.props, quote: e.target.value })}
-        />
+        <div className="mt-1">
+          <RichTextEditor
+            value={block.props.quote}
+            onChange={(v) => onChange({ ...block.props, quote: v })}
+            minHeight={110}
+            placeholder="The customer’s words…"
+          />
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -611,12 +618,69 @@ function RowEditor({
     updateColumns(block.props.columns.filter((c) => c.id !== id));
   };
 
-  const setSpan = (id: string, span: number) => {
-    updateColumns(block.props.columns.map((c) => (c.id === id ? { ...c, span } : c)));
+  const setColumn = (id: string, patch: Partial<ColumnData>) => {
+    updateColumns(
+      block.props.columns.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+    );
   };
 
   return (
     <>
+      <BackgroundFields
+        label="Row background"
+        color={block.props.bgColor}
+        image={block.props.bgImage}
+        onColor={(value) => onChange({ ...block.props, bgColor: value || undefined })}
+        onImage={(value) => onChange({ ...block.props, bgImage: value })}
+      />
+
+      <div>
+        <label className={labelCls}>Text color</label>
+        <div className="mt-1 flex items-center gap-2">
+          <input
+            type="color"
+            className="h-10 w-12 rounded-lg border border-zinc-300"
+            value={block.props.textColor || "#18181b"}
+            onChange={(e) => onChange({ ...block.props, textColor: e.target.value })}
+          />
+          <input
+            className={inputCls}
+            value={block.props.textColor ?? ""}
+            onChange={(e) => onChange({ ...block.props, textColor: e.target.value || undefined })}
+            placeholder="Inherit from theme"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Vertical padding (px)</label>
+          <input
+            type="number"
+            min={0}
+            max={200}
+            className={inputCls}
+            value={block.props.paddingY ?? 24}
+            onChange={(e) => onChange({ ...block.props, paddingY: Number(e.target.value) })}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Full width</label>
+          <div className="mt-1 flex items-center gap-2">
+            <input
+              id={`full-width-${block.id}`}
+              type="checkbox"
+              checked={!!block.props.fullWidth}
+              onChange={(e) => onChange({ ...block.props, fullWidth: e.target.checked })}
+              className="h-4 w-4 rounded border-zinc-300 text-zinc-900"
+            />
+            <label htmlFor={`full-width-${block.id}`} className="text-sm text-zinc-700">
+              Edge-to-edge
+            </label>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelCls}>Gap (px)</label>
@@ -644,7 +708,7 @@ function RowEditor({
         </div>
       </div>
       <div>
-        <label className={labelCls}>Responsive (mobile)</label>
+        <label className={labelCls}>Default mobile layout</label>
         <div className="mt-1 flex items-center gap-2">
           <input
             id={`stack-mobile-${block.id}`}
@@ -658,8 +722,8 @@ function RowEditor({
           </label>
         </div>
         <p className="mt-1 text-[11px] leading-snug text-zinc-400">
-          When off, columns stay side-by-side even on small screens. Use the 📲 Mobile preview to
-          check the result.
+          This is the default for columns in “Auto” mobile mode. Set a column’s
+          Mobile width below to override it per column.
         </p>
       </div>
       <div>
@@ -682,39 +746,41 @@ function RowEditor({
                   Remove
                 </button>
               </div>
-              <div className="flex gap-2">
-                <select
-                  className={inputCls}
-                  value={String(c.span)}
-                  onChange={(e) => setSpan(c.id, Number(e.target.value))}
-                >
-                  {COLUMN_SPANS.map((s) => (
-                    <option key={s} value={s}>
-                      {s}/12 width
+              <ResponsiveSpanFields
+                desktop={c.span}
+                tablet={c.spanMd}
+                mobile={c.spanSm}
+                onDesktop={(n) => setColumn(c.id, { span: n })}
+                onTablet={(n) => setColumn(c.id, { spanMd: n })}
+                onMobile={(n) => setColumn(c.id, { spanSm: n })}
+              />
+              <select
+                className={inputCls}
+                value=""
+                onChange={(e) => {
+                  const type = e.target.value as BlockType;
+                  if (type && onAddToColumn) onAddToColumn(c.id, type);
+                }}
+              >
+                <option value="" disabled>
+                  + Add block…
+                </option>
+                {LEAF_BLOCK_TYPES.map((t) => {
+                  const def = BLOCK_DEFINITIONS.find((d) => d.type === t);
+                  return (
+                    <option key={t} value={t}>
+                      {def?.icon} {def?.label}
                     </option>
-                  ))}
-                </select>
-                <select
-                  className={inputCls}
-                  value=""
-                  onChange={(e) => {
-                    const type = e.target.value as BlockType;
-                    if (type && onAddToColumn) onAddToColumn(c.id, type);
-                  }}
-                >
-                  <option value="" disabled>
-                    + Add block…
-                  </option>
-                  {LEAF_BLOCK_TYPES.map((t) => {
-                    const def = BLOCK_DEFINITIONS.find((d) => d.type === t);
-                    return (
-                      <option key={t} value={t}>
-                        {def?.icon} {def?.label}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
+                  );
+                })}
+              </select>
+              <BackgroundFields
+                label={`Column ${i + 1} background`}
+                color={c.bgColor}
+                image={c.bgImage}
+                onColor={(value) => setColumn(c.id, { bgColor: value || undefined })}
+                onImage={(value) => setColumn(c.id, { bgImage: value })}
+              />
               <p className="text-[10px] text-zinc-400">
                 {c.blocks.length} block{c.blocks.length === 1 ? "" : "s"} inside
               </p>

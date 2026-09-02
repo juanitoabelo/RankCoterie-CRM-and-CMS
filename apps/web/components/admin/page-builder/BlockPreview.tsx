@@ -125,7 +125,7 @@ export function BlockPreview({
             />
           ) : (
             <div
-              className={`line-clamp-3 ${block.props.align === "center" ? "text-center" : block.props.align === "right" ? "text-right" : "text-left"}`}
+              className={`line-clamp-3 rte-content ${block.props.align === "center" ? "text-center" : block.props.align === "right" ? "text-right" : "text-left"}`}
               dangerouslySetInnerHTML={{ __html: block.props.content }}
             />
           )}
@@ -157,7 +157,12 @@ export function BlockPreview({
               className="mt-1 text-zinc-600"
             />
           ) : (
-            <div className="mt-1 text-zinc-600">{block.props.body || "CTA body"}</div>
+            <div
+              className="mt-1 text-zinc-600 rte-content"
+              dangerouslySetInnerHTML={{
+                __html: block.props.body || "<p>CTA body</p>",
+              }}
+            />
           )}
           <div className="mt-2 inline-block rounded bg-zinc-900 px-3 py-1 text-xs text-white">
             {block.props.buttonText || "Button"}
@@ -238,9 +243,12 @@ export function BlockPreview({
               className="mt-1 italic text-zinc-700"
             />
           ) : (
-            <div className="mt-1 italic text-zinc-700">
-              “{block.props.quote || "Testimonial quote"}”
-            </div>
+            <div
+              className="mt-1 italic text-zinc-700 rte-content"
+              dangerouslySetInnerHTML={{
+                __html: block.props.quote || "<p>Testimonial quote</p>",
+              }}
+            />
           )}
           <div className="mt-1 text-zinc-500">
             — {block.props.author || "Author"}
@@ -307,12 +315,12 @@ function ImagePreview({ block }: { block: Block & { type: "image" } }) {
   }
 
   return (
-    <div className="mx-2 mb-2 rounded-md bg-zinc-100 px-3 py-4 text-center">
+    <div className="mx-2 mb-2 flex min-h-[80px] items-center justify-center rounded-md bg-zinc-100 px-3 py-4 text-center">
       <img
         src={block.props.src}
         alt={block.props.alt}
         onError={() => setBroken(true)}
-        className="mx-auto max-h-24 rounded object-cover"
+        className="max-h-32 max-w-full rounded object-contain"
       />
     </div>
   );

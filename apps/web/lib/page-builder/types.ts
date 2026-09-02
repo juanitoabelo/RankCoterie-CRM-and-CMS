@@ -101,10 +101,20 @@ export interface DividerBlock extends BlockBase {
 export const COLUMN_SPANS = [3, 4, 6, 8, 12] as const;
 export type ColumnSpan = (typeof COLUMN_SPANS)[number];
 
+/** Every width available in the 12-column grid used by responsive column settings. */
+export const FULL_COLUMN_SPANS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
+
 export interface ColumnData {
   id: string;
-  span: number; // grid units out of a 12-column grid
+  /** Desktop width in the 12-column grid (grid units). */
+  span: number;
+  /** Optional tablet override (grid units). Falls back to `span` on tablet. */
+  spanMd?: number;
+  /** Optional mobile override (grid units). Falls back to the row's stack-on-mobile default. */
+  spanSm?: number;
   blocks: Block[];
+  bgColor?: string;
+  bgImage?: string;
 }
 
 export interface RowBlock extends BlockBase {
@@ -114,6 +124,11 @@ export interface RowBlock extends BlockBase {
     gap: number; // px between columns
     align: "start" | "center" | "end" | "stretch";
     stackOnMobile: boolean; // columns become full-width on small screens
+    bgColor?: string;
+    bgImage?: string;
+    textColor?: string;
+    paddingY?: number; // vertical padding in px
+    fullWidth?: boolean; // stretch the row edge-to-edge (no horizontal padding)
   };
 }
 
@@ -171,7 +186,17 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     type: "row",
     label: "Row / Columns",
     icon: "▦",
-    defaults: { columns: [], gap: 24, align: "stretch", stackOnMobile: true },
+    defaults: {
+      columns: [],
+      gap: 24,
+      align: "stretch",
+      stackOnMobile: true,
+      bgColor: undefined,
+      bgImage: "",
+      textColor: undefined,
+      paddingY: 24,
+      fullWidth: false,
+    },
   },
   {
     type: "hero",
@@ -317,6 +342,11 @@ export function createRowLayout(layoutId: string): RowBlock {
       gap: 24,
       align: "stretch",
       stackOnMobile: true,
+      bgColor: undefined,
+      bgImage: "",
+      textColor: undefined,
+      paddingY: 24,
+      fullWidth: false,
     },
   };
 }
@@ -348,6 +378,11 @@ export function createBlock(type: BlockType): Block {
         gap: 24,
         align: "stretch",
         stackOnMobile: true,
+        bgColor: undefined,
+        bgImage: "",
+        textColor: undefined,
+        paddingY: 24,
+        fullWidth: false,
       },
     } as Block;
   }

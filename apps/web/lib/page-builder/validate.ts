@@ -38,7 +38,7 @@ export function validateBlock(block: Block): string[] {
       if (!block.props.heading.trim()) errors.push("Heading is required.");
       break;
     case "text":
-      if (!block.props.content.trim()) errors.push("Text content is empty.");
+      if (!stripHtml(block.props.content)) errors.push("Text content is empty.");
       break;
     case "image":
       if (!block.props.src.trim()) errors.push("No image selected.");
@@ -69,11 +69,11 @@ export function validateBlock(block: Block): string[] {
       if (!block.props.heading.trim()) errors.push("Heading is required.");
       block.props.items.forEach((item, i) => {
         if (!item.question.trim()) errors.push(`FAQ item ${i + 1} is missing a question.`);
-        if (!item.answer.trim()) errors.push(`FAQ item ${i + 1} is missing an answer.`);
+        if (!stripHtml(item.answer)) errors.push(`FAQ item ${i + 1} is missing an answer.`);
       });
       break;
     case "testimonial":
-      if (!block.props.quote.trim()) errors.push("Quote is required.");
+      if (!stripHtml(block.props.quote)) errors.push("Quote is required.");
       break;
     case "divider":
     case "spacer":

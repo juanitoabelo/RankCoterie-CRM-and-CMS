@@ -25,23 +25,29 @@ import {
   SNIPPET_PREFIX,
   type Block,
   type BlockType,
+  type ColumnData,
 } from "@/lib/page-builder/types";
 import {
   addBlockFromPalette,
   cloneBlock,
+  columnById,
   duplicateBlock,
   findColumnForBlock,
   findBlock,
   flattenIds,
   moveBlock,
   removeBlock as removeBlockFromTree,
+  removeColumnFromRow,
   replaceBlock,
+  rowIdForColumn,
   updateBlockProps as updatePropsInTree,
+  updateColumnProps,
 } from "@/lib/page-builder/tree";
 import { stripHtml, validateBlock } from "@/lib/page-builder/validate";
 import BlockPalette, { type PaletteSnippet } from "./BlockPalette";
 import BuilderCanvas from "./BuilderCanvas";
 import BlockEditor from "./BlockEditor";
+import ColumnEditor from "./ColumnEditor";
 import { BlockPreview } from "./BlockPreview";
 
 export interface PageRevision {
@@ -160,6 +166,16 @@ export default function PageBuilder({
     [blocks, selectedId],
   );
 
+  const selectedColumn = useMemo(
+    () => (selectedColumnId ? columnById(blocks, selectedColumnId) : null),
+    [blocks, selectedColumnId],
+  );
+
+  const selectedColumnRow = useMemo(
+    () => (selectedColumnId ? findBlock(blocks, rowIdForColumn(blocks, selectedColumnId) ?? "") : null),
+    [blocks, selectedColumnId],
+  );
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -272,6 +288,29 @@ export default function PageBuilder({
       commit((prev) => updatePropsInTree(prev, id, props));
     },
     [commit],
+  );
+
+  const updateColumn = useCallback(
+    (columnId: string, patch: Partial<ColumnData>) => {
+      commit((prev) => updateColumnProps(prev, columnId, patch));
+    },
+    [commit],
+  );
+
+  const removeColumn = useCallback(
+    (columnId: string) => {
+      const row = selectedColumnRow;
+      if (!row || !isRowBlock(row)) return;
+      if (row.props.columns.length <= 1) return;
+      commit((prev) => {
+        const rid = rowIdForColumn(prev, columnId);
+        if (!rid) return prev;
+        return removeColumnFromRow(prev, rid, columnId);
+      });
+      setSelectedColumnId(null);
+      setSelectedId(row.id);
+    },
+    [commit, selectedColumnRow],
   );
 
   const addToColumn = useCallback(
@@ -526,7 +565,7 @@ export default function PageBuilder({
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      const editable = isEditableTarget(target);
+      if (isEditableTarget(target)) return;
 
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === "z" || e.key === "Z")) {
         e.preventDefault();
@@ -543,7 +582,6 @@ export default function PageBuilder({
         redo();
         return;
       }
-      if (editable) return;
 
       if (e.key === "Backspace" || e.key === "Delete") {
         if (selectedId) {
@@ -676,6 +714,7 @@ export default function PageBuilder({
             <div className={viewportCls}>
               <BuilderCanvas
                 blocks={blocks}
+                viewport={viewport}
                 selectedId={selectedId}
                 selectedColumnId={selectedColumnId}
                 onSelect={onSelectBlock}
@@ -697,10 +736,35 @@ export default function PageBuilder({
               onDeleteSnippet={deleteSnippet}
             />
 
-            {selectedColumnId && !selectedBlock && (
-              <div className="rounded-xl border border-zinc-200 bg-white p-4 text-xs text-zinc-500">
-                Adding blocks will drop them into the selected column. Drag a block type over a
-                column to place it exactly.
+            {selectedColumnId && selectedColumn && !selectedBlock && (
+              <div className="rounded-xl border border-zinc-200 bg-white p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Edit Column
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedColumnId(null)}
+                    className="text-xs text-zinc-400 hover:text-zinc-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <p className="mt-1 text-[11px] text-zinc-400">
+                  New blocks added from the palette will drop into this column.
+                </p>
+                <div className="mt-3 space-y-3">
+                  <ColumnEditor
+                    column={selectedColumn}
+                    canRemove={
+                      !!selectedColumnRow &&
+                      isRowBlock(selectedColumnRow) &&
+                      selectedColumnRow.props.columns.length > 1
+                    }
+                    onChange={(patch) => updateColumn(selectedColumnId, patch)}
+                    onRemove={() => removeColumn(selectedColumnId)}
+                  />
+                </div>
               </div>
             )}
 
