@@ -21,7 +21,7 @@ const NAV = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-full bg-zinc-50 text-zinc-900">
+    <div className="flex min-h-screen bg-zinc-50 text-zinc-900">
       <aside className="fixed inset-y-0 left-0 z-30 flex w-56 flex-col border-r border-zinc-200 bg-white">
         <Link href="/admin" className="border-b border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900">
           Canopy Admin
