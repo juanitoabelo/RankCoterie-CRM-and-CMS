@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/directory/prismaCatalog";
-import VariantPublisher, { type TemplateOption } from "@/components/admin/VariantPublisher";
+import VariantPublisherRefresh from "@/components/admin/VariantPublisherRefresh";
+import type { TemplateOption } from "@/components/admin/VariantPublisher";
 import type { PickerRegion } from "@/components/regions/RegionPicker";
 
 export const revalidate = 0; // admin — always fresh
@@ -44,7 +45,7 @@ export default async function ContentAdminPage() {
             No content templates yet — seed or create one in the database.
           </p>
         ) : (
-          <VariantPublisher templates={templateOptions} regions={pickerRegions} />
+          <VariantPublisherRefresh templates={templateOptions} regions={pickerRegions} />
         )}
       </div>
     </div>

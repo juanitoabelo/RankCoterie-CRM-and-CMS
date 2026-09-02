@@ -4,6 +4,7 @@ import { adminLogout } from "./login/actions";
 const NAV = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/categories", label: "Categories" },
+  { href: "/admin/regions", label: "Regions" },
   { href: "/admin/listings", label: "Listings" },
   { href: "/admin/listings?status=PENDING_REVIEW", label: "Review queue" },
   { href: "/admin/exclusions", label: "Exclusions" },
@@ -20,27 +21,31 @@ const NAV = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-full">
-      <header className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link href="/admin" className="text-sm font-semibold text-zinc-900">
-            Canopy Admin
-          </Link>
-          <nav className="flex items-center gap-4 text-sm text-zinc-600">
-            {NAV.map((n) => (
-              <Link key={n.href} href={n.href} className="hover:text-zinc-900">
-                {n.label}
-              </Link>
-            ))}
-            <form action={adminLogout}>
-              <button type="submit" className="text-xs text-zinc-400 hover:text-zinc-700">
-                Sign out
-              </button>
-            </form>
-          </nav>
+    <div className="flex min-h-full bg-zinc-50 text-zinc-900">
+      <aside className="fixed inset-y-0 left-0 z-30 flex w-56 flex-col border-r border-zinc-200 bg-white">
+        <Link href="/admin" className="border-b border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900">
+          Canopy Admin
+        </Link>
+        <nav className="flex-1 overflow-y-auto px-3 py-4">
+          {NAV.map((n) => (
+            <Link
+              key={n.href}
+              href={n.href}
+              className="mb-0.5 block rounded-md px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+            >
+              {n.label}
+            </Link>
+          ))}
+        </nav>
+        <div className="border-t border-zinc-200 px-3 py-3">
+          <form action={adminLogout}>
+            <button type="submit" className="w-full rounded-md px-3 py-1.5 text-left text-xs text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700">
+              Sign out
+            </button>
+          </form>
         </div>
-      </header>
-      <main className="mx-auto w-full max-w-6xl px-4 py-8">{children}</main>
+      </aside>
+      <main className="ml-56 flex-1 px-6 py-8">{children}</main>
     </div>
   );
 }

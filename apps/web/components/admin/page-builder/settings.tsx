@@ -240,6 +240,13 @@ export function StyleGuideEditor({
 
   const fontValue = (key: keyof StyleBreakpoints) => current[key]?.fontFamily ?? "";
 
+  const FONT_SIZE_UNITS: Array<{ value: string; label: string }> = [
+    { value: "px", label: "px" },
+    { value: "em", label: "em" },
+    { value: "rem", label: "rem" },
+    { value: "%", label: "%" },
+  ];
+
   return (
     <div className="space-y-3 rounded-lg border border-zinc-200 p-3">
       <p className="text-[11px] leading-snug text-zinc-400">
@@ -256,20 +263,12 @@ export function StyleGuideEditor({
             <div className="grid grid-cols-3 gap-2">
               <div>
                 <label className="block text-[10px] text-zinc-500">Color</label>
-                <div className="flex items-center gap-1">
-                  <input
-                    type="color"
-                    className="h-8 w-9 rounded border border-zinc-300"
-                    value={value.color ?? "#000000"}
-                    onChange={(e) => setBreakpoint(bp.key, { color: e.target.value })}
-                  />
-                  <input
-                    className={`${inputCls} mt-0.5`}
-                    value={value.color ?? ""}
-                    onChange={(e) => setBreakpoint(bp.key, { color: e.target.value })}
-                    placeholder="Auto"
-                  />
-                </div>
+                <input
+                  type="color"
+                  className="mt-0.5 h-8 w-full rounded border border-zinc-300"
+                  value={value.color ?? "#000000"}
+                  onChange={(e) => setBreakpoint(bp.key, { color: e.target.value })}
+                />
               </div>
               <div>
                 <label className="block text-[10px] text-zinc-500">Font</label>
@@ -287,19 +286,36 @@ export function StyleGuideEditor({
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] text-zinc-500">Size (px)</label>
-                <input
-                  type="number"
-                  min={8}
-                  max={200}
-                  className={`${inputCls} mt-0.5`}
-                  value={value.fontSize ?? ""}
-                  onChange={(e) =>
-                    setBreakpoint(bp.key, {
-                      fontSize: e.target.value ? Number(e.target.value) : undefined,
-                    })
-                  }
-                />
+                <label className="block text-[10px] text-zinc-500">Size</label>
+                <div className="mt-0.5 flex items-stretch gap-1">
+                  <input
+                    type="number"
+                    min={1}
+                    max={999}
+                    className={`${inputCls} mt-0 min-w-0 flex-1`}
+                    value={value.fontSize ?? ""}
+                    onChange={(e) =>
+                      setBreakpoint(bp.key, {
+                        fontSize: e.target.value ? Number(e.target.value) : undefined,
+                      })
+                    }
+                  />
+                  <select
+                    className={`${inputCls} mt-0 w-16 shrink-0`}
+                    value={value.fontSizeUnit ?? "px"}
+                    onChange={(e) =>
+                      setBreakpoint(bp.key, {
+                        fontSizeUnit: e.target.value as TypographyStyle["fontSizeUnit"],
+                      })
+                    }
+                  >
+                    {FONT_SIZE_UNITS.map((u) => (
+                      <option key={u.value} value={u.value}>
+                        {u.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
             <input

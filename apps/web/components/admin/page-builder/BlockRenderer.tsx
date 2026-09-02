@@ -1,4 +1,4 @@
-import { type Block, type RowBlock, type StyleBreakpoints } from "@/lib/page-builder/types";
+import { type Block, type RowBlock, type SectionBlock, type StyleBreakpoints } from "@/lib/page-builder/types";
 import {
   renderColumnSpanClass,
   resolveColumnWidths,
@@ -365,6 +365,32 @@ function ContentGridBlock({ block }: { block: Block & { type: "contentGrid" } })
   );
 }
 
+function SectionBlock({ block, ctx }: { block: SectionBlock; ctx: RegionContext }) {
+  const bg = block.props.bgImage
+    ? {
+        backgroundColor: block.props.bgColor,
+        backgroundImage: `url(${block.props.bgImage})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }
+    : { backgroundColor: block.props.bgColor };
+  return (
+    <section
+      style={{
+        ...bg,
+        color: block.props.textColor,
+        paddingTop: block.props.paddingTop ?? 48,
+        paddingBottom: block.props.paddingBottom ?? 48,
+      }}
+    >
+      {block.props.rows.map((row) => (
+        <RowBlock key={row.id} block={row} ctx={ctx} />
+      ))}
+    </section>
+  );
+}
+
 function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
   const bg = block.props.bgImage
     ? {
@@ -433,6 +459,7 @@ const RENDERERS: Record<string, React.ComponentType<{ block: Block; ctx: RegionC
   slider: SliderBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   contentGrid: ContentGridBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   row: RowBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  section: SectionBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
 };
 
 function RenderBlocks({

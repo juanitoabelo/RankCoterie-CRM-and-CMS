@@ -5,9 +5,28 @@ import type { StyleBreakpoints, TypographyStyle } from "./types";
  * raw CSS font stack; `FONT_FAMILY_PRESETS` maps a friendly key to a real stack.
  */
 export const FONT_FAMILY_PRESETS: Array<{ key: string; label: string; value: string }> = [
-  { key: "sans", label: "Sans-serif", value: "Arial, Helvetica, sans-serif" },
+  { key: "sans", label: "System Sans", value: "system-ui, -apple-system, 'Segoe UI', sans-serif" },
+  { key: "arial", label: "Arial", value: "Arial, Helvetica, sans-serif" },
+  { key: "helvetica", label: "Helvetica", value: "'Helvetica Neue', Helvetica, Arial, sans-serif" },
+  { key: "geist", label: "Geist Sans", value: "var(--font-geist-sans), system-ui, sans-serif" },
+  { key: "inter", label: "Inter", value: "'Inter', system-ui, sans-serif" },
+  { key: "roboto", label: "Roboto", value: "'Roboto', system-ui, sans-serif" },
+  { key: "open-sans", label: "Open Sans", value: "'Open Sans', system-ui, sans-serif" },
+  { key: "lato", label: "Lato", value: "'Lato', system-ui, sans-serif" },
+  { key: "montserrat", label: "Montserrat", value: "'Montserrat', system-ui, sans-serif" },
+  { key: "poppins", label: "Poppins", value: "'Poppins', system-ui, sans-serif" },
+  { key: "raleway", label: "Raleway", value: "'Raleway', system-ui, sans-serif" },
+  { key: "nunito", label: "Nunito", value: "'Nunito', system-ui, sans-serif" },
   { key: "serif", label: "Serif", value: "Georgia, 'Times New Roman', serif" },
+  { key: "playfair", label: "Playfair Display", value: "'Playfair Display', Georgia, serif" },
+  { key: "lora", label: "Lora", value: "'Lora', Georgia, serif" },
+  { key: "merriweather", label: "Merriweather", value: "'Merriweather', Georgia, serif" },
+  { key: "libre-baskerville", label: "Libre Baskerville", value: "'Libre Baskerville', Georgia, serif" },
   { key: "mono", label: "Monospace", value: "var(--font-geist-mono), ui-monospace, monospace" },
+  { key: "fira", label: "Fira Code", value: "'Fira Code', ui-monospace, monospace" },
+  { key: "jetbrains", label: "JetBrains Mono", value: "'JetBrains Mono', ui-monospace, monospace" },
+  { key: "caveat", label: "Caveat (handwriting)", value: "'Caveat', cursive" },
+  { key: "pacifico", label: "Pacifico (handwriting)", value: "'Pacifico', cursive" },
   { key: "custom", label: "Custom…", value: "" },
 ];
 
@@ -33,7 +52,7 @@ export function cssForBreakpoint(style: TypographyStyle | undefined): string {
   const parts: string[] = [];
   if (style.color) parts.push(`color: ${style.color} !important;`);
   if (style.fontFamily) parts.push(`font-family: ${style.fontFamily};`);
-  if (style.fontSize) parts.push(`font-size: ${style.fontSize}px;`);
+  if (style.fontSize) parts.push(`font-size: ${style.fontSize}${style.fontSizeUnit ?? "px"};`);
   return parts.join(" ");
 }
 

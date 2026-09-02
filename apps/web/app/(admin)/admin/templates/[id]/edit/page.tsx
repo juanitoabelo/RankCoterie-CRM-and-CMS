@@ -1,8 +1,7 @@
 import { prisma } from "@/lib/directory/prismaCatalog";
 import ArticleForm from "@/components/admin/ArticleForm";
-import VariantPublisher, {
-  type TemplateOption,
-} from "@/components/admin/VariantPublisher";
+import VariantPublisherRefresh from "@/components/admin/VariantPublisherRefresh";
+import type { TemplateOption } from "@/components/admin/VariantPublisher";
 import type { PickerRegion } from "@/components/regions/RegionPicker";
 import { updateTemplate } from "../../actions";
 
@@ -89,7 +88,7 @@ export default async function TemplateEditPage({
           Tokens like {"{{region}}"} will be replaced with the region name.
         </p>
         <div className="mt-4">
-          <VariantPublisher
+          <VariantPublisherRefresh
             templates={[templateOption]}
             regions={pickerRegions}
           />

@@ -43,7 +43,10 @@ export type AuditAction =
   | "ARTICLE_DELETE"
   | "TEMPLATE_CREATE"
   | "TEMPLATE_UPDATE"
-  | "TEMPLATE_DELETE";
+  | "TEMPLATE_DELETE"
+  | "REGION_CREATE"
+  | "REGION_UPDATE"
+  | "REGION_DELETE";
 
 export interface AuditInput {
   action: AuditAction;

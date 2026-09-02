@@ -24,9 +24,11 @@ export interface TemplateOption {
 export default function VariantPublisher({
   templates,
   regions,
+  onPublished,
 }: {
   templates: TemplateOption[];
   regions: PickerRegion[];
+  onPublished?: () => void;
 }) {
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
   const [regionIds, setRegionIds] = useState<string[]>([]);
@@ -57,7 +59,10 @@ export default function VariantPublisher({
     startTransition(async () => {
       const res = await publishTemplate(templateId, regionIds);
       setResult(res);
-      if (res.ok) setPreview(null);
+      if (res.ok) {
+        setPreview(null);
+        onPublished?.();
+      }
     });
   };
 
@@ -156,7 +161,9 @@ export default function VariantPublisher({
           {result.ok
             ? result.mode === "queued"
               ? "Publish job queued (Inngest). Variants will materialize shortly."
-              : `Published — ${result.written} variant${result.written === 1 ? "" : "s"} written.`
+              : result.written === 0
+                ? "No changes — selected regions already have current LIVE variants. Existing variants were kept."
+                : `Published — ${result.written} variant${result.written === 1 ? "" : "s"} written.`
             : result.error}
         </p>
       )}

@@ -19,6 +19,7 @@ import {
   createBlock,
   createRowLayout,
   isRowBlock,
+  isSectionBlock,
   LAYOUT_PREFIX,
   LEAF_BLOCK_TYPES,
   PALETTE_PREFIX,
@@ -230,7 +231,7 @@ export default function PageBuilder({
   const addBlock = useCallback(
     (type: BlockType) => {
       const newBlock = createBlock(type);
-      if (isRowBlock(newBlock) || !selectedColumnId) {
+      if (isRowBlock(newBlock) || isSectionBlock(newBlock) || !selectedColumnId) {
         commit((prev) => [...prev, newBlock]);
       } else {
         commit((prev) => addBlockFromPalette(prev, newBlock, selectedColumnId));
@@ -254,7 +255,7 @@ export default function PageBuilder({
       const found = fullSnippets.find((s) => s.id === snippetId);
       if (!found) return;
       const copy = cloneBlock(found.block);
-      if (isRowBlock(copy)) {
+      if (isRowBlock(copy) || isSectionBlock(copy)) {
         commit((prev) => [...prev, copy]);
       } else if (overId) {
         commit((prev) => addBlockFromPalette(prev, copy, overId));
@@ -627,7 +628,7 @@ export default function PageBuilder({
   const canConvert = selectedBlock && !isRowBlock(selectedBlock);
 
   const viewportCls =
-    viewport === "mobile" ? "mx-auto max-w-[390px]" : viewport === "tablet" ? "mx-auto max-w-[768px]" : "";
+    viewport === "mobile" ? "mx-auto max-w-[390px]" : viewport === "tablet" ? "mx-auto max-w-[768px]" : "mx-auto max-w-[1200px]";
 
   const saveLabel =
     saveState === "saving"

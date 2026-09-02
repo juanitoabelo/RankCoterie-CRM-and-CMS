@@ -12,6 +12,7 @@ export interface TypographyStyle {
   color?: string;
   fontFamily?: string;
   fontSize?: number;
+  fontSizeUnit?: "px" | "em" | "rem" | "%";
 }
 
 export type StyleBreakpoints = {
@@ -217,6 +218,22 @@ export interface RowBlock extends BlockBase {
   };
 }
 
+/**
+ * Full-width section container. Wraps one or more rows and renders
+ * edge-to-edge with its own background image/color and padding.
+ */
+export interface SectionBlock extends BlockBase {
+  type: "section";
+  props: {
+    rows: RowBlock[];
+    bgColor?: string;
+    bgImage?: string;
+    textColor?: string;
+    paddingTop?: number;
+    paddingBottom?: number;
+  };
+}
+
 export type Block =
   | HeroBlock
   | TextBlock
@@ -233,7 +250,8 @@ export type Block =
   | ListBlock
   | SliderBlock
   | ContentGridBlock
-  | RowBlock;
+  | RowBlock
+  | SectionBlock;
 
 export type BlockType = Block["type"];
 
@@ -241,7 +259,11 @@ export function isRowBlock(block: Block): block is RowBlock {
   return block.type === "row";
 }
 
-/** Block types allowed inside a row column (i.e. everything except rows). */
+export function isSectionBlock(block: Block): block is SectionBlock {
+  return block.type === "section";
+}
+
+/** Block types allowed inside a row column (i.e. everything except rows and sections). */
 export const LEAF_BLOCK_TYPES: BlockType[] = [
   "hero",
   "text",
@@ -289,6 +311,19 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       textColor: undefined,
       paddingY: 24,
       fullWidth: false,
+    },
+  },
+  {
+    type: "section",
+    label: "Section (Full Width)",
+    icon: "▣",
+    defaults: {
+      rows: [],
+      bgColor: "#f4f4f5",
+      bgImage: "",
+      textColor: "#18181b",
+      paddingTop: 48,
+      paddingBottom: 48,
     },
   },
   {
@@ -446,6 +481,19 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       order: "desc",
     },
   },
+  {
+    type: "section",
+    label: "Section (Full Width)",
+    icon: "▣",
+    defaults: {
+      rows: [],
+      bgColor: undefined,
+      bgImage: "",
+      textColor: undefined,
+      paddingTop: 48,
+      paddingBottom: 48,
+    },
+  },
 ];
 
 export interface RowLayout {
@@ -524,6 +572,21 @@ export function createBlock(type: BlockType): Block {
         textColor: undefined,
         paddingY: 24,
         fullWidth: false,
+      },
+    } as Block;
+  }
+
+  if (type === "section") {
+    return {
+      id: crypto.randomUUID(),
+      type: "section",
+      props: {
+        rows: [],
+        bgColor: undefined,
+        bgImage: "",
+        textColor: undefined,
+        paddingTop: 48,
+        paddingBottom: 48,
       },
     } as Block;
   }

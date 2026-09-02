@@ -6,6 +6,7 @@ import {
   updateArticle,
   type ActionResult,
 } from "@/app/(admin)/admin/articles/actions";
+import RichTextEditor from "./page-builder/RichTextEditor";
 
 export interface ArticleFormCategory {
   id: string;
@@ -48,12 +49,14 @@ export default function ArticleForm({
   const [message, setMessage] = useState<ActionResult | null>(null);
   const [isPending, startTransition] = useTransition();
   const [showTokens, setShowTokens] = useState(false);
+  const [body, setBody] = useState(article?.body ?? "");
 
   const action = article
     ? updateArticle.bind(null, article.id)
     : createArticle;
 
   const onSubmit = (formData: FormData) => {
+    formData.set("body", body);
     setMessage(null);
     startTransition(async () => {
       const res = await action(formData);
@@ -136,14 +139,16 @@ export default function ArticleForm({
             </div>
           </div>
         )}
-        <textarea
-          name="body"
-          rows={14}
-          required
-          defaultValue={article?.body ?? ""}
-          className={`${inputCls} font-mono text-xs leading-relaxed`}
-          placeholder="<h2>Article heading</h2>&#10;<p>Your content here. Use {{region}} to localize.</p>"
-        />
+        <div className="mt-1">
+          <RichTextEditor
+            value={body}
+            onChange={setBody}
+            showSource
+            minHeight={240}
+            placeholder="Write your article content here. Use {{region}} to localize."
+          />
+          <input type="hidden" name="body" value={body} />
+        </div>
       </div>
 
       <div>

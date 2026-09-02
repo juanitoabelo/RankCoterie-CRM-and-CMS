@@ -6,9 +6,11 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   BLOCK_DEFINITIONS,
   isRowBlock,
+  isSectionBlock,
   type Block,
   type ColumnData,
   type RowBlock,
+  type SectionBlock,
 } from "@/lib/page-builder/types";
 import {
   canvasColumnSpanClass,
@@ -185,6 +187,81 @@ function RowBody({
   );
 }
 
+function SectionBody({
+  block,
+  viewport,
+  selected,
+  selectedColumnId,
+  onSelect,
+  onSelectColumn,
+  onRemove,
+  onDuplicate,
+  inlineEditing,
+  onUpdateProps,
+}: {
+  block: SectionBlock;
+  viewport: "desktop" | "tablet" | "mobile";
+  selected: string | null;
+  selectedColumnId: string | null;
+  onSelect: (id: string) => void;
+  onSelectColumn: (id: string) => void;
+  onRemove: (id: string) => void;
+  onDuplicate: (id: string) => void;
+  inlineEditing?: boolean;
+  onUpdateProps?: (id: string, props: Block["props"]) => void;
+}) {
+  const sectionStyle = block.props.bgImage
+    ? {
+        backgroundColor: block.props.bgColor,
+        backgroundImage: `url(${block.props.bgImage})`,
+        backgroundSize: "cover" as const,
+        backgroundPosition: "center" as const,
+        backgroundRepeat: "no-repeat" as const,
+        color: block.props.textColor,
+        paddingTop: block.props.paddingTop ?? 48,
+        paddingBottom: block.props.paddingBottom ?? 48,
+      }
+    : {
+        backgroundColor: block.props.bgColor,
+        color: block.props.textColor,
+        paddingTop: block.props.paddingTop ?? 48,
+        paddingBottom: block.props.paddingBottom ?? 48,
+      };
+
+  return (
+    <div className="mb-2 rounded-md border border-zinc-200/60" style={sectionStyle}>
+      <div className="px-2 pt-1">
+        <span className="rounded bg-white/80 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+          ▣ Section · full width
+        </span>
+      </div>
+      <div className="space-y-2 px-2 pb-2">
+        {block.props.rows.length === 0 ? (
+          <p className="flex min-h-[64px] items-center justify-center rounded border border-dashed border-zinc-300 text-[11px] text-zinc-400">
+            Click "+ Add row" in the editor to add rows to this section
+          </p>
+        ) : (
+          block.props.rows.map((row) => (
+            <RowBody
+              key={row.id}
+              block={row}
+              viewport={viewport}
+              selected={selected}
+              selectedColumnId={selectedColumnId}
+              onSelect={onSelect}
+              onSelectColumn={onSelectColumn}
+              onRemove={onRemove}
+              onDuplicate={onDuplicate}
+              inlineEditing={inlineEditing}
+              onUpdateProps={onUpdateProps}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SortableBlock({
   block,
   viewport,
@@ -286,7 +363,20 @@ function SortableBlock({
         </div>
       </div>
 
-      {isRowBlock(block) ? (
+      {isSectionBlock(block) ? (
+        <SectionBody
+          block={block}
+          viewport={viewport}
+          selected={selected}
+          selectedColumnId={selectedColumnId}
+          onSelect={onSelect}
+          onSelectColumn={onSelectColumn}
+          onRemove={onRemove}
+          onDuplicate={onDuplicate}
+          inlineEditing={inlineEditing}
+          onUpdateProps={onUpdateProps}
+        />
+      ) : isRowBlock(block) ? (
         <RowBody
           block={block}
           viewport={viewport}
@@ -352,7 +442,8 @@ export default function BuilderCanvas({
           <div className="rounded-xl border-2 border-dashed border-zinc-200 bg-white px-6 py-16 text-center">
             <p className="text-sm text-zinc-400">
               No blocks yet. Click a block type on the right to add it, or drag it onto the
-              canvas. Add a “Row / Columns” block to design the page layout.
+              canvas. Add a "Row / Columns" block to design the page layout, or a
+              "Section (Full Width)" to create a full-width area with background.
             </p>
           </div>
         )}

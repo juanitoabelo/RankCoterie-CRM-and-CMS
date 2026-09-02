@@ -1,8 +1,10 @@
 import {
   isRowBlock,
+  isSectionBlock,
   type Block,
   type ColumnData,
   type RowBlock,
+  type SectionBlock,
 } from "./types";
 
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
@@ -14,9 +16,29 @@ function moveArray<T>(arr: T[], from: number, to: number): T[] {
   return next;
 }
 
-/** Map every block in the tree (rows included) through `fn`, keeping structure. */
+/** Map every block in the tree (rows and sections included) through `fn`, keeping structure. */
 export function mapBlocks(blocks: Block[], fn: (b: Block) => Block): Block[] {
   return blocks.map((b) => {
+    if (isSectionBlock(b)) {
+      return fn({
+        ...b,
+        props: {
+          ...b.props,
+          rows: b.props.rows.map((row) =>
+            fn({
+              ...row,
+              props: {
+                ...row.props,
+                columns: row.props.columns.map((col) => ({
+                  ...col,
+                  blocks: mapBlocks(col.blocks, fn),
+                })),
+              },
+            }) as Block,
+          ),
+        },
+      } as Block);
+    }
     if (isRowBlock(b)) {
       const row = b as RowBlock;
       return fn({
@@ -34,9 +56,30 @@ export function mapBlocks(blocks: Block[], fn: (b: Block) => Block): Block[] {
   });
 }
 
+/** Get all rows from the page, including those nested inside sections. */
+function allRows(blocks: Block[]): RowBlock[] {
+  const rows: RowBlock[] = [];
+  for (const b of blocks) {
+    if (isRowBlock(b)) rows.push(b);
+    if (isSectionBlock(b)) {
+      for (const row of b.props.rows) rows.push(row);
+    }
+  }
+  return rows;
+}
+
 export function findBlock(blocks: Block[], blockId: string): Block | null {
   for (const b of blocks) {
     if (b.id === blockId) return b;
+    if (isSectionBlock(b)) {
+      for (const row of b.props.rows) {
+        if (row.id === blockId) return row;
+        for (const col of row.props.columns) {
+          const found = col.blocks.find((c) => c.id === blockId);
+          if (found) return found;
+        }
+      }
+    }
     if (isRowBlock(b)) {
       for (const col of b.props.columns) {
         const found = col.blocks.find((c) => c.id === blockId);
@@ -49,7 +92,12 @@ export function findBlock(blocks: Block[], blockId: string): Block | null {
 
 export function columnById(blocks: Block[], columnId: string): ColumnData | null {
   for (const b of blocks) {
-    if (isRowBlock(b) && !b.props.columns) continue;
+    if (isSectionBlock(b)) {
+      for (const row of b.props.rows) {
+        const col = row.props.columns.find((c) => c.id === columnId);
+        if (col) return col;
+      }
+    }
     if (isRowBlock(b)) {
       const col = b.props.columns.find((c) => c.id === columnId);
       if (col) return col;
@@ -60,6 +108,11 @@ export function columnById(blocks: Block[], columnId: string): ColumnData | null
 
 export function rowIdForColumn(blocks: Block[], columnId: string): string | null {
   for (const b of blocks) {
+    if (isSectionBlock(b)) {
+      for (const row of b.props.rows) {
+        if (row.props.columns.some((c) => c.id === columnId)) return row.id;
+      }
+    }
     if (isRowBlock(b)) {
       if (b.props.columns.some((c) => c.id === columnId)) return b.id;
     }
@@ -154,10 +207,20 @@ export function findColumnForBlock(
   blockId: string,
 ): { rowId: string; columnId: string; column: ColumnData } | null {
   for (const b of blocks) {
-    if (!isRowBlock(b)) continue;
-    for (const col of b.props.columns) {
-      if (col.blocks.some((c) => c.id === blockId)) {
-        return { rowId: b.id, columnId: col.id, column: col };
+    if (isSectionBlock(b)) {
+      for (const row of b.props.rows) {
+        for (const col of row.props.columns) {
+          if (col.blocks.some((c) => c.id === blockId)) {
+            return { rowId: row.id, columnId: col.id, column: col };
+          }
+        }
+      }
+    }
+    if (isRowBlock(b)) {
+      for (const col of b.props.columns) {
+        if (col.blocks.some((c) => c.id === blockId)) {
+          return { rowId: b.id, columnId: col.id, column: col };
+        }
       }
     }
   }
@@ -170,6 +233,27 @@ export function updateBlockProps(blocks: Block[], id: string, props: Block["prop
 
 /** Deep-clone a block with fresh ids for itself and any nested structure. */
 export function cloneBlock(block: Block): Block {
+  if (isSectionBlock(block)) {
+    return {
+      ...block,
+      id: crypto.randomUUID(),
+      props: {
+        ...block.props,
+        rows: block.props.rows.map((row) => ({
+          ...row,
+          id: crypto.randomUUID(),
+          props: {
+            ...row.props,
+            columns: row.props.columns.map((col) => ({
+              ...col,
+              id: crypto.randomUUID(),
+              blocks: col.blocks.map((child) => cloneBlock(child)),
+            })),
+          },
+        })) as RowBlock[],
+      },
+    } as Block;
+  }
   if (isRowBlock(block)) {
     return {
       ...block,
@@ -187,7 +271,7 @@ export function cloneBlock(block: Block): Block {
   return { ...block, id: crypto.randomUUID(), props: structuredClone(block.props) } as Block;
 }
 
-/** Insert a copy of `id` right after the original (top level or inside its column). */
+/** Insert a copy of `id` right after the original (top level or inside its column/section). */
 export function duplicateBlock(blocks: Block[], id: string): Block[] {
   const target = findBlock(blocks, id);
   if (!target) return blocks;
@@ -245,11 +329,19 @@ export function replaceBlock(blocks: Block[], id: string, next: Block): Block[] 
   });
 }
 
-/** Flat visual ordering of rows + leaf blocks (used for keyboard navigation). */
+/** Flat visual ordering of all blocks (used for keyboard navigation). */
 export function flattenIds(blocks: Block[]): string[] {
   const ids: string[] = [];
   for (const b of blocks) {
     ids.push(b.id);
+    if (isSectionBlock(b)) {
+      for (const row of b.props.rows) {
+        ids.push(row.id);
+        for (const col of row.props.columns) {
+          for (const child of col.blocks) ids.push(child.id);
+        }
+      }
+    }
     if (isRowBlock(b)) {
       for (const col of b.props.columns) {
         for (const child of col.blocks) ids.push(child.id);
@@ -263,7 +355,21 @@ export function removeBlock(blocks: Block[], id: string): Block[] {
   const next: Block[] = [];
   for (const b of blocks) {
     if (b.id === id) continue;
-    if (isRowBlock(b)) {
+    if (isSectionBlock(b)) {
+      const updatedRows = b.props.rows
+        .filter((row) => row.id !== id)
+        .map((row) => ({
+          ...row,
+          props: {
+            ...row.props,
+            columns: row.props.columns.map((col) => ({
+              ...col,
+              blocks: col.blocks.filter((c) => c.id !== id),
+            })),
+          },
+        })) as RowBlock[];
+      next.push({ ...b, props: { ...b.props, rows: updatedRows } } as Block);
+    } else if (isRowBlock(b)) {
       next.push({
         ...b,
         props: {
@@ -339,7 +445,10 @@ function reorderInColumn(blocks: Block[], columnId: string, activeId: string, ov
  * - top level -> a column
  * - column -> column
  * - column -> top level
- * Rows always stay at the top level.
+ * - top level -> a section (as a row)
+ * - section row <-> section row (reorder)
+ * - section row -> top level
+ * Rows always stay at the top level or inside a section.
  */
 export function moveBlock(blocks: Block[], activeId: string, overId: string): Block[] {
   if (activeId === overId) return blocks;
@@ -349,11 +458,17 @@ export function moveBlock(blocks: Block[], activeId: string, overId: string): Bl
 
   const activeTopIndex = blocks.findIndex((b) => b.id === activeId);
   const activeCol = findColumnForBlock(blocks, activeId);
+  const activeSectionIndex = blocks.findIndex(
+    (b) => isSectionBlock(b) && b.props.rows.some((r) => r.id === activeId),
+  );
   const isRow = isRowBlock(active);
 
   const overTopIndex = blocks.findIndex((b) => b.id === overId);
   const overCol = findColumnForBlock(blocks, overId);
   const overColData = columnById(blocks, overId);
+  const overSectionIndex = blocks.findIndex(
+    (b) => isSectionBlock(b) && b.props.rows.some((r) => r.id === overId),
+  );
 
   // Same column reorder.
   if (activeCol && overCol && activeCol.columnId === overCol.columnId) {
@@ -363,22 +478,37 @@ export function moveBlock(blocks: Block[], activeId: string, overId: string): Bl
   if (activeCol && overColData && overColData.id === activeCol.columnId) {
     return blocks;
   }
-  // Top-level reorder (rows and leaves).
+
+  // Top-level reorder (rows, sections, and leaves).
   if (overTopIndex !== -1) {
     if (activeTopIndex === -1) {
-      // Active is nested, over is top-level → move out of the column.
+      // Active is nested (in section or column), over is top-level → move out.
       const withoutActive = removeBlock(blocks, activeId);
       return insertTop(withoutActive, active, overTopIndex);
     }
     return moveArray(blocks, activeTopIndex, overTopIndex);
   }
 
+  // Active is a row inside a section, over is a row in the same section → reorder.
+  if (activeSectionIndex !== -1 && overSectionIndex !== -1 && activeSectionIndex === overSectionIndex) {
+    const section = blocks[activeSectionIndex] as SectionBlock;
+    const from = section.props.rows.findIndex((r) => r.id === activeId);
+    const to = section.props.rows.findIndex((r) => r.id === overId);
+    if (from === -1 || to === -1) return blocks;
+    const updatedSection = {
+      ...section,
+      props: { ...section.props, rows: moveArray(section.props.rows, from, to) },
+    } as Block;
+    const next = [...blocks];
+    next[activeSectionIndex] = updatedSection;
+    return next;
+  }
+
   // Over a block inside a column → insert into that column at that block's index.
   if (overCol) {
-    if (isRow) return blocks; // rows stay top-level
+    if (isRow) return blocks; // rows stay at top level or in sections
     const withoutActive = removeBlock(blocks, activeId);
     const idx = overCol.column.blocks.findIndex((b) => b.id === overId);
-    // If the active lived in the same column we don't reach here (handled above).
     return insertIntoColumn(withoutActive, overCol.columnId, active, idx);
   }
 
@@ -394,10 +524,10 @@ export function moveBlock(blocks: Block[], activeId: string, overId: string): Bl
 
 /**
  * Drop a freshly created block (from the palette) at the location under `overId`.
- * Rows always go to the top level.
+ * Rows always go to the top level. Sections go to the top level.
  */
 export function addBlockFromPalette(blocks: Block[], block: Block, overId?: string): Block[] {
-  if (isRowBlock(block)) {
+  if (isRowBlock(block) || isSectionBlock(block)) {
     return insertTop(blocks, block, blocks.length);
   }
   if (!overId) {
@@ -423,6 +553,15 @@ export function allBlockIds(blocks: Block[]): string[] {
   const ids: string[] = [];
   for (const b of blocks) {
     ids.push(b.id);
+    if (isSectionBlock(b)) {
+      for (const row of b.props.rows) {
+        ids.push(row.id);
+        for (const col of row.props.columns) {
+          ids.push(col.id);
+          for (const c of col.blocks) ids.push(c.id);
+        }
+      }
+    }
     if (isRowBlock(b)) {
       for (const col of b.props.columns) {
         ids.push(col.id);
@@ -431,4 +570,26 @@ export function allBlockIds(blocks: Block[]): string[] {
     }
   }
   return ids;
+}
+
+/** Add a row to a section. Returns new blocks tree. */
+export function addRowToSection(blocks: Block[], sectionId: string, row: RowBlock): Block[] {
+  return blocks.map((b) => {
+    if (!isSectionBlock(b) || b.id !== sectionId) return b;
+    return {
+      ...b,
+      props: { ...b.props, rows: [...b.props.rows, row] },
+    } as Block;
+  });
+}
+
+/** Remove a row from a section. Returns new blocks tree. */
+export function removeRowFromSection(blocks: Block[], sectionId: string, rowId: string): Block[] {
+  return blocks.map((b) => {
+    if (!isSectionBlock(b) || b.id !== sectionId) return b;
+    return {
+      ...b,
+      props: { ...b.props, rows: b.props.rows.filter((r) => r.id !== rowId) },
+    } as Block;
+  });
 }

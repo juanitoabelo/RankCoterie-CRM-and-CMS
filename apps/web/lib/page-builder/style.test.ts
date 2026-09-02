@@ -34,6 +34,15 @@ describe("renderStyleGuide", () => {
     expect(css).toContain("@media (min-width: 768px) { .pb-b2, .pb-b2 * { font-size: 24px; } }");
   });
 
+  it("uses the specified fontSizeUnit instead of defaulting to px", () => {
+    const css = renderStyleGuide("b2em", {
+      mobile: { fontSize: 1.5, fontSizeUnit: "em" },
+      md: { fontSize: 2, fontSizeUnit: "rem" },
+    });
+    expect(css).toContain("font-size: 1.5em;");
+    expect(css).toContain("font-size: 2rem;");
+  });
+
   it("keeps mobile as the base that larger breakpoints override", () => {
     const css = renderStyleGuide("b3", {
       mobile: { fontSize: 16 },
@@ -75,9 +84,10 @@ describe("StyleBreakpoints with contentGrid / slider use-case", () => {
     const style: StyleBreakpoints = {
       mobile: { color: "#111111", fontSize: 16 },
       md: { fontFamily: FONT_FAMILY_PRESETS[0].value },
-      lg: { color: "#000000", fontSize: 22 },
+      lg: { color: "#000000", fontSize: 22, fontSizeUnit: "rem" },
     };
     expect(style.mobile?.fontSize).toBe(16);
+    expect(style.lg?.fontSizeUnit).toBe("rem");
     expect(style.md?.fontFamily).toBeDefined();
   });
 });

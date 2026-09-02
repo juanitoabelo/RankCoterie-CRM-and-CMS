@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import {
   BLOCK_DEFINITIONS,
   LEAF_BLOCK_TYPES,
+  createBlock,
   type Block,
   type BlockType,
   type ColumnData,
   type RowBlock,
+  type SectionBlock,
   type SliderSlide,
   type StyleBreakpoints,
 } from "@/lib/page-builder/types";
@@ -1103,6 +1105,108 @@ function DividerEditor() {
   );
 }
 
+function SectionEditor({
+  block,
+  onChange,
+}: {
+  block: Block & { type: "section" };
+  onChange: (props: Block["props"]) => void;
+}) {
+  const section = block as SectionBlock;
+  const addRow = () => {
+    const newRow = createBlock("row") as RowBlock;
+    onChange({ ...section.props, rows: [...section.props.rows, newRow] });
+  };
+
+  const removeRow = (rowId: string) => {
+    onChange({
+      ...section.props,
+      rows: section.props.rows.filter((r) => r.id !== rowId),
+    });
+  };
+
+  return (
+    <>
+      <BackgroundFields
+        label="Section background"
+        color={section.props.bgColor}
+        image={section.props.bgImage}
+        onColor={(value) => onChange({ ...section.props, bgColor: value || undefined })}
+        onImage={(value) => onChange({ ...section.props, bgImage: value })}
+      />
+      <div>
+        <label className={labelCls}>Text color</label>
+        <input
+          type="color"
+          className="mt-1 h-10 w-full rounded-lg border border-zinc-300"
+          value={section.props.textColor || "#18181b"}
+          onChange={(e) => onChange({ ...section.props, textColor: e.target.value })}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Padding top (px)</label>
+          <input
+            type="number"
+            min={0}
+            max={300}
+            className={inputCls}
+            value={section.props.paddingTop ?? 48}
+            onChange={(e) =>
+              onChange({ ...section.props, paddingTop: Number(e.target.value) })
+            }
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Padding bottom (px)</label>
+          <input
+            type="number"
+            min={0}
+            max={300}
+            className={inputCls}
+            value={section.props.paddingBottom ?? 48}
+            onChange={(e) =>
+              onChange({ ...section.props, paddingBottom: Number(e.target.value) })
+            }
+          />
+        </div>
+      </div>
+      <div>
+        <label className={labelCls}>Rows ({section.props.rows.length})</label>
+        <p className="mt-1 text-[11px] leading-snug text-zinc-400">
+          Add rows inside this section. Each row can have its own columns and blocks.
+        </p>
+        <div className="mt-2 space-y-2">
+          {section.props.rows.map((row, i) => (
+            <div
+              key={row.id}
+              className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2"
+            >
+              <span className="text-xs text-zinc-600">
+                Row {i + 1} · {row.props.columns.length} col{row.props.columns.length !== 1 ? "s" : ""}
+              </span>
+              <button
+                type="button"
+                onClick={() => removeRow(row.id)}
+                className="text-xs text-red-500 hover:text-red-700"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={addRow}
+          className="mt-2 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-500 hover:border-zinc-400 hover:text-zinc-700"
+        >
+          + Add row
+        </button>
+      </div>
+    </>
+  );
+}
+
 function RowEditor({
   block,
   onChange,
@@ -1160,20 +1264,12 @@ function RowEditor({
 
       <div>
         <label className={labelCls}>Text color</label>
-        <div className="mt-1 flex items-center gap-2">
-          <input
-            type="color"
-            className="h-10 w-12 rounded-lg border border-zinc-300"
-            value={block.props.textColor || "#18181b"}
-            onChange={(e) => onChange({ ...block.props, textColor: e.target.value })}
-          />
-          <input
-            className={inputCls}
-            value={block.props.textColor ?? ""}
-            onChange={(e) => onChange({ ...block.props, textColor: e.target.value || undefined })}
-            placeholder="Inherit from theme"
-          />
-        </div>
+        <input
+          type="color"
+          className="mt-1 h-10 w-full rounded-lg border border-zinc-300"
+          value={block.props.textColor || "#18181b"}
+          onChange={(e) => onChange({ ...block.props, textColor: e.target.value })}
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -1352,6 +1448,7 @@ const EDITORS: Record<string, React.ComponentType<EditorProps>> = {
   slider: SliderEditor as React.ComponentType<EditorProps>,
   contentGrid: ContentGridEditor as React.ComponentType<EditorProps>,
   row: RowEditor as React.ComponentType<EditorProps>,
+  section: SectionEditor as React.ComponentType<EditorProps>,
 };
 
 export default function BlockEditor({
