@@ -6,10 +6,11 @@
  *    canonical (e.g. "San-Diego-California-CA"), so paths are NOT lowercased here.
  *    Name-based legacy variants need a mapping table from production exports —
  *    verify during Phase 3 traffic cutover.
- * 2. /admin/* requires the admin cookie (shared-secret HMAC, lib/admin-auth).
+ * 2. /admin/* requires a valid signed session (lib/session-token) — a user must be
+ *    logged in. Fine-grained role gating happens per page/action server-side.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { ADMIN_COOKIE, verifyAdminToken } from "@/lib/admin-auth";
+import { SESSION_COOKIE, readSessionValue } from "@/lib/session-token";
 
 const G_PREFIX = "/g/";
 const LEGACY_INDEX = /^\/g\/(index\.(html?|php))\/?$/i;
@@ -49,7 +50,7 @@ function legacyGRedirect(pathname: string, req: NextRequest): NextResponse | nul
   return null;
 }
 
-function adminGuard(req: NextRequest): NextResponse | null {
+async function adminGuard(req: NextRequest): Promise<NextResponse | null> {
   const { pathname } = req.nextUrl;
   if (!pathname.startsWith(ADMIN_PREFIX)) return null;
 
@@ -58,9 +59,9 @@ function adminGuard(req: NextRequest): NextResponse | null {
     return null;
   }
 
-  const secret = process.env.ADMIN_SECRET ?? "";
-  const token = req.cookies.get(ADMIN_COOKIE)?.value;
-  if (verifyAdminToken(token, secret)) return null;
+  const token = req.cookies.get(SESSION_COOKIE)?.value;
+  const uid = await readSessionValue(token);
+  if (uid) return null;
 
   const url = req.nextUrl.clone();
   url.pathname = `${ADMIN_PREFIX}/login`;
@@ -68,13 +69,13 @@ function adminGuard(req: NextRequest): NextResponse | null {
   return NextResponse.redirect(url, 302);
 }
 
-export function proxy(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const gRedirect = legacyGRedirect(pathname, req);
   if (gRedirect) return gRedirect;
 
-  const guard = adminGuard(req);
+  const guard = await adminGuard(req);
   if (guard) return guard;
 
   return NextResponse.next();

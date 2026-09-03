@@ -93,6 +93,9 @@ export function validateBlock(block: Block): string[] {
       block.props.slides.forEach((s, i) => {
         if (s.src.trim() && !s.alt.trim()) errors.push(`Slide ${i + 1} is missing alt text (SEO).`);
         if (s.url.trim() && !isValidUrl(s.url)) errors.push(`Slide ${i + 1} link is invalid.`);
+        if (s.buttonText.trim() && !isValidUrl(s.buttonUrl)) {
+          errors.push(`Slide ${i + 1} button URL is invalid.`);
+        }
       });
       break;
     }

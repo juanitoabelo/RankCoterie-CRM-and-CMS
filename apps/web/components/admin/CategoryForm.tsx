@@ -11,6 +11,10 @@ export interface CategoryFormCategory {
   id: string;
   slug: string;
   title: string;
+  stateInit?: string | null;
+  stateDesc?: string | null;
+  cityInit?: string | null;
+  cityDesc?: string | null;
 }
 
 const inputCls = "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm";
@@ -69,6 +73,25 @@ export default function CategoryForm({
             defaultValue={category?.slug ?? ""}
             className={inputCls}
           />
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className={labelCls}>State intro</label>
+          <textarea name="stateInit" rows={3} defaultValue={category?.stateInit ?? ""} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>State description</label>
+          <textarea name="stateDesc" rows={3} defaultValue={category?.stateDesc ?? ""} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>City intro</label>
+          <textarea name="cityInit" rows={3} defaultValue={category?.cityInit ?? ""} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>City description</label>
+          <textarea name="cityDesc" rows={3} defaultValue={category?.cityDesc ?? ""} className={inputCls} />
         </div>
       </div>
 

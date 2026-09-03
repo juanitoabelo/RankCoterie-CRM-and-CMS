@@ -1,7 +1,6 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/directory/prismaCatalog";
-import { ADMIN_COOKIE, verifyAdminToken } from "@/lib/admin-auth";
+import { canAccessSection, getApiUser } from "@/lib/admin-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,10 +17,8 @@ const ALLOWED_MIME = new Set([
 ]);
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(ADMIN_COOKIE)?.value;
-  const secret = process.env.ADMIN_SECRET;
-  if (!secret || !verifyAdminToken(token, secret)) {
+  const user = await getApiUser();
+  if (!user || !["pages", "templates", "widgets", "geoImages", "myCompany"].some((section) => canAccessSection(user, section))) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 

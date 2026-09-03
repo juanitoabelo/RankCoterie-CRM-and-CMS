@@ -129,7 +129,9 @@ describe("createBlock — new leaf types", () => {
 
   it("clones slider slide arrays so blocks never share state", () => {
     const a = createBlock("slider") as Block & {
-      props: { slides: Array<{ src: string; alt: string; title: string; caption: string; url: string }> };
+      props: {
+        slides: Array<{ src: string; alt: string; title: string; caption: string; url: string; buttonText: string; buttonUrl: string }>;
+      };
     };
     const b = createBlock("slider");
     (a.props.slides as Array<{ src: string }>)[0].src = "/one.jpg";

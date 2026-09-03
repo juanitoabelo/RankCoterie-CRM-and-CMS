@@ -12,6 +12,10 @@ export async function createCategory(formData: FormData): Promise<ActionResult> 
   const description = String(formData.get("description") ?? "").trim() || null;
   const parentId = String(formData.get("parentId") ?? "").trim() || null;
   const status = String(formData.get("status") ?? "LIVE").trim();
+  const stateInit = String(formData.get("stateInit") ?? "").trim() || null;
+  const stateDesc = String(formData.get("stateDesc") ?? "").trim() || null;
+  const cityInit = String(formData.get("cityInit") ?? "").trim() || null;
+  const cityDesc = String(formData.get("cityDesc") ?? "").trim() || null;
 
   if (!slug) return { ok: false, error: "Slug is required." };
   if (!title) return { ok: false, error: "Title is required." };
@@ -25,6 +29,10 @@ export async function createCategory(formData: FormData): Promise<ActionResult> 
         description,
         parentId: parentId || undefined,
         status,
+        stateInit,
+        stateDesc,
+        cityInit,
+        cityDesc,
       },
     });
     await logAudit({
@@ -46,6 +54,10 @@ export async function updateCategory(id: string, formData: FormData): Promise<Ac
   const description = String(formData.get("description") ?? "").trim() || null;
   const parentId = String(formData.get("parentId") ?? "").trim() || null;
   const status = String(formData.get("status") ?? "LIVE").trim();
+  const stateInit = String(formData.get("stateInit") ?? "").trim() || null;
+  const stateDesc = String(formData.get("stateDesc") ?? "").trim() || null;
+  const cityInit = String(formData.get("cityInit") ?? "").trim() || null;
+  const cityDesc = String(formData.get("cityDesc") ?? "").trim() || null;
 
   if (!slug) return { ok: false, error: "Slug is required." };
   if (!title) return { ok: false, error: "Title is required." };
@@ -59,6 +71,10 @@ export async function updateCategory(id: string, formData: FormData): Promise<Ac
         description,
         parentId: parentId || null,
         status,
+        stateInit,
+        stateDesc,
+        cityInit,
+        cityDesc,
       },
     });
     await logAudit({

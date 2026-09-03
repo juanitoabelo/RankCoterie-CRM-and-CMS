@@ -34,7 +34,7 @@ function styleFields(block: Block, onChange: (props: Block["props"]) => void) {
   return (
     <StyleGuideEditor
       style={(block.props as { style?: StyleBreakpoints }).style}
-      onChange={(style) => onChange({ ...block.props, style })}
+      onChange={(style) => onChange({ ...block.props, style } as Block["props"])}
     />
   );
 }
@@ -858,6 +858,26 @@ function SlideCard({
           onChange={(e) => onChange({ caption: e.target.value })}
         />
       </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Button text (optional)</label>
+          <input
+            className={inputCls}
+            value={slide.buttonText}
+            onChange={(e) => onChange({ buttonText: e.target.value })}
+            placeholder="Learn more"
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Button URL</label>
+          <input
+            className={inputCls}
+            value={slide.buttonUrl}
+            onChange={(e) => onChange({ buttonUrl: e.target.value })}
+            placeholder="https://…"
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -876,7 +896,7 @@ function SliderEditor({
   };
 
   const addSlide = () => {
-    updateSlides([...block.props.slides, { src: "", alt: "", title: "", caption: "", url: "" }]);
+    updateSlides([...block.props.slides, { src: "", alt: "", title: "", caption: "", url: "", buttonText: "", buttonUrl: "" }]);
   };
 
   const removeSlide = (i: number) => {

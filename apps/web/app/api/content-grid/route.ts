@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ContentStatus } from "@prisma/client";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { stripHtml } from "@/lib/page-builder/validate";
 
@@ -67,7 +68,7 @@ export async function GET(request: Request) {
 
   const where = {
     tenantId: TENANT_ID,
-    status: "LIVE",
+    status: ContentStatus.LIVE,
     ...(categoryId ? { categoryId } : {}),
   };
   const [rows, total] = await Promise.all([

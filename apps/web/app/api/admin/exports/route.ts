@@ -1,7 +1,6 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/directory/prismaCatalog";
-import { verifyAdminToken, ADMIN_COOKIE, TOKEN_SECRET_CONTEXT } from "@/lib/admin-auth";
+import { canAccessSection, getApiUser } from "@/lib/admin-auth";
 import { toCsv, toIsoCell } from "@/lib/admin/csv";
 
 export const runtime = "nodejs";
@@ -18,10 +17,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unknown export kind." }, { status: 400 });
   }
 
-  const cookieStore = await cookies();
-  const token = cookieStore.get(ADMIN_COOKIE)?.value;
-  const secret = process.env.ADMIN_SECRET;
-  if (!secret || !verifyAdminToken(token, secret)) {
+  const user = await getApiUser();
+  if (!user || !canAccessSection(user, kind)) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 

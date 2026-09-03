@@ -126,13 +126,31 @@ function SlideFrame({
         {image}
         {captionLayout === "center" ? (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40 px-6 text-center text-white">
-            {slide.title && <div className="text-lg font-semibold">{slide.title}</div>}
-            {slide.caption && <div className="mt-1 text-sm opacity-90">{slide.caption}</div>}
+            <div className="max-w-xl">
+              {slide.title && <div className="text-lg font-semibold">{slide.title}</div>}
+              {slide.caption && <div className="mt-2 text-sm opacity-90">{slide.caption}</div>}
+              {slide.buttonText && (
+                <a
+                  href={slide.buttonUrl || "#"}
+                  className="mt-4 inline-block rounded-full bg-white px-5 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-200"
+                >
+                  {slide.buttonText}
+                </a>
+              )}
+            </div>
           </div>
         ) : (
           <div className="absolute inset-x-0 bottom-0 rounded-b-lg bg-gradient-to-t from-black/75 to-transparent px-4 py-3 text-white">
             {slide.title && <div className="text-sm font-semibold">{slide.title}</div>}
             {slide.caption && <div className="mt-0.5 text-xs opacity-90">{slide.caption}</div>}
+            {slide.buttonText && (
+              <a
+                href={slide.buttonUrl || "#"}
+                className="mt-2 inline-block rounded-full bg-white px-3 py-1 text-xs font-semibold text-zinc-900 transition hover:bg-zinc-200"
+              >
+                {slide.buttonText}
+              </a>
+            )}
           </div>
         )}
       </figcaption>

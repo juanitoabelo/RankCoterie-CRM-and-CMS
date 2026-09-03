@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/directory/prismaCatalog";
-import { updateRegionForm } from "../actions";
+import { updateRegionForm, deleteRegionForm } from "../../actions";
 
 export const revalidate = 0;
 

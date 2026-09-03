@@ -92,7 +92,7 @@ describe("validateBlock", () => {
 
   it("flags sliders without images and missing alt text", () => {
     const s = createBlock("slider") as Block & {
-      props: { slides: Array<{ src: string; alt: string; url: string }> };
+      props: { slides: Array<{ src: string; alt: string; url: string; buttonText: string; buttonUrl: string }> };
     };
     s.props.slides[0].src = "";
     expect(validateBlock(s)).toContain("Add at least one slide with an image.");
@@ -103,7 +103,7 @@ describe("validateBlock", () => {
   });
 
   it("flags out-of-range slides per view", () => {
-    const s = createBlock("slider") as Block & { props: { slidesPerView?: number; itemsPerView: number } };
+    const s = createBlock("slider") as Block & { props: { slides: Array<{ src: string; alt: string; url: string; buttonText: string; buttonUrl: string }>; slidesPerView?: number; itemsPerView: number } };
     s.props.slides[0].src = "/slide.jpg";
     s.props.slides[0].alt = "A slide";
     s.props.itemsPerView = 0;

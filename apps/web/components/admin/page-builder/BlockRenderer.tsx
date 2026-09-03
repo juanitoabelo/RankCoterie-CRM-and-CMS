@@ -1,3 +1,4 @@
+import type React from "react";
 import { type Block, type RowBlock, type SectionBlock, type StyleBreakpoints } from "@/lib/page-builder/types";
 import {
   renderColumnSpanClass,
@@ -284,7 +285,7 @@ const HEADING_SIZES = {
 } as const;
 
 function HeadingBlock({ block, ctx }: { block: Block & { type: "heading" }; ctx: RegionContext }) {
-  const Tag = (["h1", "h2", "h3", "h4", "h5", "h6"] as const)[block.props.level - 1] as keyof JSX.IntrinsicElements;
+  const Tag = (["h1", "h2", "h3", "h4", "h5", "h6"] as const)[block.props.level - 1] as React.ElementType;
   const alignCls =
     block.props.align === "center"
       ? "text-center"

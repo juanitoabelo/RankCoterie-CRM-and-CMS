@@ -1,29 +1,51 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { prisma } from "@/lib/directory/prismaCatalog";
+import { DEFAULT_STYLE_GUIDE, renderGlobalStyleGuide, type StyleGuide } from "@/lib/style-guide";
 
 export const metadata: Metadata = {
   title: "Canopy Directory",
   description: "Localized business directory with paid listings and SEO-ready region pages",
 };
 
-export default function SiteLayout({ children }: { children: React.ReactNode }) {
+const TENANT_ID = process.env.CANOPY_TENANT_ID ?? "tenant-masternet";
+
+export default async function SiteLayout({ children }: { children: React.ReactNode }) {
+  const [tenant, headerMenu] = await Promise.all([
+    prisma.tenant.findUnique({ where: { id: TENANT_ID } }),
+    prisma.menu.findFirst({
+      where: { tenantId: TENANT_ID, location: "HEADER" },
+      include: { items: { orderBy: { order: "asc" } } },
+    }),
+  ]);
+  const theme = (tenant?.theme ?? {}) as { styleGuide?: Partial<StyleGuide> };
+  const guide: StyleGuide = { ...DEFAULT_STYLE_GUIDE, ...theme.styleGuide };
+  const company = tenant?.companyId
+    ? await prisma.company.findUnique({ where: { id: tenant.companyId } })
+    : await prisma.company.findUnique({ where: { tenantId: TENANT_ID } });
+
   return (
     <div className="min-h-full flex flex-col">
+      <style dangerouslySetInnerHTML={{ __html: renderGlobalStyleGuide(guide) }} />
+      {company?.gscVerificationTag && <meta name="google-site-verification" content={company.gscVerificationTag} />}
+      {company?.gtm && <script async src={`https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(company.gtm)}`} />}
+      {company?.ga4 && <script async src={`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(company.ga4)}`} />}
+      {company?.fbPixel && <meta name="fb:pixel_id" content={company.fbPixel} />}
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
           <Link href="/" className="text-lg font-semibold text-zinc-900">
             Canopy Directory
           </Link>
           <nav className="flex items-center gap-6 text-sm text-zinc-600">
-            <Link href="/" className="hover:text-zinc-900">
-              Home
-            </Link>
-            <Link href="/" className="hover:text-zinc-900">
-              Directory
-            </Link>
-            <Link href="/apply" className="hover:text-zinc-900">
-              Apply to list
-            </Link>
+            {(headerMenu?.items.length ? headerMenu.items : [
+              { id: "home", label: "Home", href: "/", target: null },
+              { id: "directory", label: "Directory", href: "/", target: null },
+              { id: "apply", label: "Apply to list", href: "/apply", target: null },
+            ]).map((item) => (
+              <Link key={item.id} href={item.href} target={item.target ?? undefined} className="hover:text-zinc-900">
+                {item.label}
+              </Link>
+            ))}
           </nav>
         </div>
       </header>

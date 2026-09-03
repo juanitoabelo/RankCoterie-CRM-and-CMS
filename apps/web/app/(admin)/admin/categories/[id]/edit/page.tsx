@@ -35,7 +35,7 @@ export default async function CategoryEditPage({
 
       <div className="mt-8 rounded-xl border border-zinc-200 bg-white p-5">
         <CategoryForm
-          category={{ id: category.id, slug: category.slug, title: category.title }}
+          category={category}
           allCategories={formCategories}
           submitLabel="Save changes"
         />

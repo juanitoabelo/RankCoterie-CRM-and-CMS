@@ -149,6 +149,8 @@ export interface SliderSlide {
   title: string;
   caption: string;
   url: string;
+  buttonText: string;
+  buttonUrl: string;
 }
 
 export type SliderFit = "cover" | "fluid";
@@ -460,7 +462,7 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     label: "Slider",
     icon: "◫",
     defaults: {
-      slides: [{ src: "", alt: "", title: "", caption: "", url: "" }],
+      slides: [{ src: "", alt: "", title: "", caption: "", url: "", buttonText: "", buttonUrl: "" }],
       height: "md",
       itemsPerView: 1,
       imageFit: "cover",

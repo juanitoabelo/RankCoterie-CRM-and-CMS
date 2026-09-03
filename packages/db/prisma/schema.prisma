@@ -24,6 +24,8 @@ model Tenant {
   companyId String?  // resolves to a Company profile
   createdAt DateTime @default(now())
   users     User[]
+  company   Company? @relation("TenantCompanyId", fields: [companyId], references: [id])
+  companyProfile Company? @relation("CompanyTenant")
 }
 
 model User {
@@ -49,11 +51,13 @@ model User {
 }
 
 enum Role {
-  ADMIN
-  MARKETING
+  SUPER_ADMIN // owner / host — sees everything, can disable premium-only features
+  ADMIN // site owner / regular administrator
+  EDITOR // content: topics, sections, articles, pages, templates, menus, geo images
+  MARKETING // + widgets, style guide, regions, feeds, reports
+  REVIEWER // listing approval queue
+  SALES_REP // leads, clients, invoices, merchants
   GRACE_COACH
-  REVIEWER // new: listing approval queue
-  SALES_REP
 }
 
 model UserRole {
@@ -91,6 +95,7 @@ model Region {
   priority   Int       @default(999)
   zipCodes   String[]  @default([])
   createdAt  DateTime  @default(now())
+  categoryImages CategoryImage[]
 }
 
 model Category {
@@ -113,6 +118,8 @@ model Category {
   regionFeeds    CategoryRegionFeed[]
   listingCategories ListingCategory[]
   contentTemplates  ContentTemplate[]
+  contentSections Section[]
+  images CategoryImage[]
   @@unique([tenantId, slug])
 }
 
@@ -510,6 +517,8 @@ model Asset {
   filename  String?
   createdAt DateTime @default(now())
   @@index([tenantId])
+  widgets Widget[]
+  categoryImages CategoryImage[]
 }
 
 model AuditLog {
@@ -523,4 +532,122 @@ model AuditLog {
   meta      Json?
   createdAt DateTime @default(now())
   @@index([tenantId, entity, entityId])
+}
+
+// ---------------------------------------------------------------------------
+// Admin content features (Phase B)
+// ---------------------------------------------------------------------------
+
+// Named content sections (grouping of topics/content on the site).
+model Section {
+  id         String   @id @default(cuid())
+  tenantId   String
+  slug       String
+  title      String
+  heading    String?
+  body       String? // HTML/intro for the section
+  order      Int      @default(0)
+  status     String   @default("LIVE") // LIVE | DRAFT | HIDDEN
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@unique([tenantId, slug])
+  @@index([tenantId, order])
+}
+
+// The site owner's company profile + installed tracking/verification tags.
+model Company {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  name               String
+  ga4                String? // GA4 measurement id
+  gtm                String? // GTM container id
+  fbPixel            String? // Meta/Facebook pixel id
+  searchConsole      String? // Google Search Console site/verification
+  gscVerificationTag String? // GSC <meta> verification content
+  brandColor         String?
+  logoAssetId        String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  tenant             Tenant   @relation("CompanyTenant", fields: [tenantId], references: [id])
+  linkedTenants      Tenant[] @relation("TenantCompanyId")
+  @@unique([tenantId])
+}
+
+// A named navigation menu rendered at a page location.
+model Menu {
+  id        String     @id @default(cuid())
+  tenantId  String
+  name      String
+  location  MenuLocation @default(HEADER)
+  items     MenuItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  @@unique([tenantId, name])
+  @@index([tenantId, location])
+}
+
+enum MenuLocation {
+  HEADER
+  FOOTER
+  SIDEBAR
+}
+
+model MenuItem {
+  id       String  @id @default(cuid())
+  menuId   String
+  menu     Menu    @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  parentId String?
+  label    String
+  href     String
+  order    Int     @default(0)
+  target   String? // "_blank" etc.
+  parent   MenuItem? @relation("MenuItemTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children MenuItem[] @relation("MenuItemTree")
+  @@index([menuId, order])
+}
+
+// A free-form HTML "widget" (ad/promo block) with an optional featured image
+// and an optional redirect target.
+model Widget {
+  id           String   @id @default(cuid())
+  tenantId     String
+  name         String
+  html         String // free-form HTML content
+  imageAssetId String? // featured image (asset id)
+  redirectUrl  String?
+  active       Boolean  @default(true)
+  placements   WidgetPlacement[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  imageAsset   Asset? @relation(fields: [imageAssetId], references: [id])
+  @@index([tenantId, active])
+}
+
+model WidgetPlacement {
+  id       String @id @default(cuid())
+  widgetId String
+  widget   Widget @relation(fields: [widgetId], references: [id], onDelete: Cascade)
+  slot     String // e.g. "SIDEBAR_TOP", "INLINE", "FOOTER"
+  order    Int    @default(0)
+  active   Boolean @default(true)
+  @@index([slot, active])
+}
+
+// Category/region-specific image overrides (hero, intro, listing artwork).
+model CategoryImage {
+  id           String  @id @default(cuid())
+  tenantId     String
+  categoryId   String?
+  regionId     String?
+  imageAssetId String
+  position     String  @default("PRIMARY") // PRIMARY | BANNER | THUMB
+  order        Int     @default(0)
+  isPrimary    Boolean @default(false)
+  createdAt    DateTime @default(now())
+  category     Category? @relation(fields: [categoryId], references: [id])
+  region       Region? @relation(fields: [regionId], references: [id])
+  imageAsset   Asset @relation(fields: [imageAssetId], references: [id])
+  @@index([tenantId, categoryId, regionId])
 }

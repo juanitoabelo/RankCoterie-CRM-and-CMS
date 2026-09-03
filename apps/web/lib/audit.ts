@@ -46,7 +46,23 @@ export type AuditAction =
   | "TEMPLATE_DELETE"
   | "REGION_CREATE"
   | "REGION_UPDATE"
-  | "REGION_DELETE";
+  | "REGION_DELETE"
+  | "STYLE_GUIDE_UPDATE"
+  | "USER_CREATE"
+  | "USER_UPDATE"
+  | "USER_DELETE"
+  | "SECTION_CREATE"
+  | "SECTION_UPDATE"
+  | "SECTION_DELETE"
+  | "CATEGORY_IMAGE_CREATE"
+  | "CATEGORY_IMAGE_DELETE"
+  | "MENU_CREATE"
+  | "MENU_UPDATE"
+  | "MENU_DELETE"
+  | "WIDGET_CREATE"
+  | "WIDGET_UPDATE"
+  | "WIDGET_DELETE"
+  | "COMPANY_UPDATE";
 
 export interface AuditInput {
   action: AuditAction;
