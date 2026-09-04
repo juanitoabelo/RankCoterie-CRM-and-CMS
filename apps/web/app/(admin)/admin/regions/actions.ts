@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { logAudit } from "@/lib/audit";
+import { TENANT_ID } from "@/lib/tenant";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -51,7 +52,7 @@ export async function createRegion(formData: FormData): Promise<ActionResult> {
     const row = await prisma.region.create({
       data: {
         id,
-        tenantId: process.env.CANOPY_TENANT_ID ?? "tenant-masternet",
+        tenantId: TENANT_ID,
         state,
         stateFull,
         city,

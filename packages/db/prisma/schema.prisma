@@ -651,3 +651,14 @@ model CategoryImage {
   imageAsset   Asset @relation(fields: [imageAssetId], references: [id])
   @@index([tenantId, categoryId, regionId])
 }
+
+// Rate-limiting for login attempts (serverless-safe, no in-memory state).
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  email     String
+  count     Int      @default(1)
+  resetAt   DateTime
+  createdAt DateTime @default(now())
+  @@unique([email])
+  @@index([email, resetAt])
+}

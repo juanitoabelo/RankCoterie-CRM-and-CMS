@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Stripe from "stripe";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { logAudit } from "@/lib/audit";
+import { TENANT_ID } from "@/lib/tenant";
 import {
   buildCheckoutParams,
   isStripeConfigured,
@@ -12,7 +13,6 @@ import {
 export type ApplyResult = { ok: false; error: string } | { ok: true };
 
 export async function applyListing(formData: FormData): Promise<ApplyResult> {
-  const TENANT_ID = process.env.CANOPY_TENANT_ID ?? "tenant-masternet";
   const tier = String(formData.get("tier") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   const companyName = String(formData.get("companyName") ?? "").trim();

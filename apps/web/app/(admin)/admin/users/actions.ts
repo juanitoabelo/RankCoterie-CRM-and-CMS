@@ -6,10 +6,9 @@ import { prisma } from "@/lib/directory/prismaCatalog";
 import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/lib/admin-auth";
 import { hashPassword } from "@/lib/passwords";
+import { TENANT_ID } from "@/lib/tenant";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
-
-const TENANT_ID = process.env.CANOPY_TENANT_ID ?? "tenant-masternet";
 
 export const ALL_ROLES: Role[] = [
   Role.SUPER_ADMIN,

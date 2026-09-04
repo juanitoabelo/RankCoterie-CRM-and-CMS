@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { leadStatusForm } from "./actions";
+import { TENANT_ID } from "@/lib/tenant";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export default async function AdminLeadsPage({
     : undefined;
 
   const where = {
-    tenantId: process.env.CANOPY_TENANT_ID ?? "tenant-masternet",
+    tenantId: TENANT_ID,
     ...(statusFilter ? { status: statusFilter } : {}),
     ...(query
       ? {

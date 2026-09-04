@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { canAccessSection, getApiUser } from "@/lib/admin-auth";
+import { TENANT_ID } from "@/lib/tenant";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,16 +11,12 @@ async function authed(): Promise<boolean> {
   return user !== null && (canAccessSection(user, "pages") || canAccessSection(user, "templates"));
 }
 
-function tenantId(): string {
-  return process.env.CANOPY_TENANT_ID ?? "tenant-masternet";
-}
-
 export async function GET() {
   if (!(await authed())) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
   const snippets = await prisma.snippet.findMany({
-    where: { tenantId: tenantId() },
+    where: { tenantId: TENANT_ID },
     orderBy: { updatedAt: "desc" },
     select: { id: true, name: true, block: true, updatedAt: true },
     take: 50,
@@ -43,7 +40,7 @@ export async function POST(request: Request) {
   }
 
   const snippet = await prisma.snippet.create({
-    data: { tenantId: tenantId(), name, block: body.block },
+    data: { tenantId: TENANT_ID, name, block: body.block },
     select: { id: true, name: true, block: true },
   });
   return NextResponse.json({ snippet });

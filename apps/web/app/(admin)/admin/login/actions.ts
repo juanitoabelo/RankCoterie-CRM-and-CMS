@@ -5,8 +5,8 @@ import { prisma } from "@/lib/directory/prismaCatalog";
 import { createSession, destroySession } from "@/lib/admin-auth";
 import { verifyPassword } from "@/lib/passwords";
 import { ensureSuperAdmin } from "@/lib/bootstrap";
+import { TENANT_ID } from "@/lib/tenant";
 
-const attempts = new Map<string, { count: number; resetAt: number }>();
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
 
@@ -14,41 +14,53 @@ export async function adminLogin(formData: FormData): Promise<void> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const now = Date.now();
-  const state = attempts.get(email);
-  if (state && state.resetAt > now && state.count >= MAX_ATTEMPTS) throw new Error("Too many login attempts. Try again later.");
 
   if (!email || !password) {
     throw new Error("Email and password are required.");
   }
 
-  // First-run: make sure the owner Super Admin exists before attempting login.
+  const attempt = await prisma.loginAttempt.findUnique({ where: { email } });
+  if (attempt && attempt.resetAt.getTime() > now && attempt.count >= MAX_ATTEMPTS) {
+    throw new Error("Too many login attempts. Try again later.");
+  }
+
   await ensureSuperAdmin();
 
   const user = await prisma.user.findFirst({
-    where: { email, tenantId: process.env.CANOPY_TENANT_ID ?? "tenant-masternet" },
+    where: { email, tenantId: TENANT_ID },
     include: { roles: true },
   });
   if (!user || !user.active) {
-    recordFailedAttempt(email, now);
+    await recordFailedAttempt(email, now);
     throw new Error("Invalid email or password.");
   }
 
   const ok = await verifyPassword(user.passwordHash, password);
   if (!ok) {
-    recordFailedAttempt(email, now);
+    await recordFailedAttempt(email, now);
     throw new Error("Invalid email or password.");
   }
 
-  attempts.delete(email);
+  await prisma.loginAttempt.deleteMany({ where: { email } });
 
   await createSession(user.id);
   redirect("/admin");
 }
 
-function recordFailedAttempt(email: string, now: number): void {
-  const state = attempts.get(email);
-  if (!state || state.resetAt <= now) attempts.set(email, { count: 1, resetAt: now + WINDOW_MS });
-  else attempts.set(email, { ...state, count: state.count + 1 });
+async function recordFailedAttempt(email: string, now: number): Promise<void> {
+  const existing = await prisma.loginAttempt.findUnique({ where: { email } });
+  if (!existing || existing.resetAt.getTime() <= now) {
+    await prisma.loginAttempt.upsert({
+      where: { email },
+      create: { email, count: 1, resetAt: new Date(now + WINDOW_MS) },
+      update: { count: 1, resetAt: new Date(now + WINDOW_MS) },
+    });
+  } else {
+    await prisma.loginAttempt.update({
+      where: { email },
+      data: { count: existing.count + 1 },
+    });
+  }
 }
 
 export async function adminLogout(): Promise<void> {

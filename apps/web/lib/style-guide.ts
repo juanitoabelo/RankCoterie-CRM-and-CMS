@@ -64,12 +64,44 @@ function esc(s: string): string {
   return s.replace(/[^a-zA-Z0-9#(),.'\s_-]/g, "");
 }
 
+const SAFE_TAGS = new Set([
+  "a", "abbr", "b", "blockquote", "br", "code", "div", "em", "h1", "h2", "h3",
+  "h4", "h5", "h6", "hr", "i", "img", "li", "ol", "p", "pre", "span", "strong",
+  "table", "tbody", "td", "th", "thead", "tr", "ul",
+]);
+const SAFE_ATTRS = new Set(["href", "src", "alt", "title", "class", "id", "colspan", "rowspan"]);
+const UNSAFE_PROTOCOLS = /javascript:|data:|vbscript:/i;
+
+function stripTags(html: string): string {
+  return html.replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>/g, (match, tag) => {
+    if (!SAFE_TAGS.has(tag.toLowerCase())) return "";
+    return match;
+  });
+}
+
+function stripUnsafeAttrs(html: string): string {
+  return html.replace(/<([a-zA-Z][a-zA-Z0-9]*)\b([^>]*)>/g, (match, tag, attrs) => {
+    if (!attrs) return match;
+    const cleaned = attrs.replace(/\s+([a-zA-Z-]+)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/g, (m: string, attr: string) => {
+      if (!SAFE_ATTRS.has(attr.toLowerCase())) return "";
+      if (UNSAFE_PROTOCOLS.test(m)) return "";
+      return m;
+    });
+    return `<${tag}${cleaned}>`;
+  });
+}
+
 export function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
-    .replace(/\son[a-z]+\s*=\s*(["']).*?\1/gi, "")
-    .replace(/\s(href|src)\s*=\s*(["'])\s*javascript:[\s\S]*?\2/gi, "");
+  let result = html;
+  result = result.replace(/<script[\s\S]*?<\/script>/gi, "");
+  result = result.replace(/<style[\s\S]*?<\/style>/gi, "");
+  result = result.replace(/<iframe[\s\S]*?<\/iframe>/gi, "");
+  result = result.replace(/<object[\s\S]*?<\/object>/gi, "");
+  result = result.replace(/<embed[\s\S]*?\/?>/gi, "");
+  result = result.replace(/<!--[\s\S]*?-->/g, "");
+  result = stripTags(result);
+  result = stripUnsafeAttrs(result);
+  return result;
 }
 
 /**

@@ -14,8 +14,7 @@
 import Stripe from "stripe";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { logAudit } from "@/lib/audit";
-
-const TENANT_ID = process.env.CANOPY_TENANT_ID ?? "tenant-masternet";
+import { TENANT_ID } from "@/lib/tenant";
 
 // Dunning grace: listing stays visible for N days after the failed charge
 // (README design decision #3: dunning → suspend → expire).

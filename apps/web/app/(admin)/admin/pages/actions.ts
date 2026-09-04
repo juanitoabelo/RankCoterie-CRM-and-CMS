@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { logAudit } from "@/lib/audit";
+import { TENANT_ID } from "@/lib/tenant";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -18,7 +19,7 @@ export async function createPage(formData: FormData): Promise<ActionResult> {
   try {
     const row = await prisma.page.create({
       data: {
-        tenantId: process.env.CANOPY_TENANT_ID ?? "tenant-masternet",
+        tenantId: TENANT_ID,
         name,
         slug,
         title: title || name,

@@ -11,6 +11,8 @@ export interface CategoryFormCategory {
   id: string;
   slug: string;
   title: string;
+  description?: string | null;
+  status?: string | null;
   stateInit?: string | null;
   stateDesc?: string | null;
   cityInit?: string | null;
@@ -100,7 +102,7 @@ export default function CategoryForm({
         <textarea
           name="description"
           rows={3}
-          defaultValue=""
+          defaultValue={category?.description ?? ""}
           className={inputCls}
         />
       </div>
@@ -121,7 +123,7 @@ export default function CategoryForm({
           <label className={labelCls}>Status</label>
           <select
             name="status"
-            defaultValue={category ? "LIVE" : "LIVE"}
+            defaultValue={category?.status ?? "LIVE"}
             className={inputCls}
           >
             {STATUSES.map((s) => (

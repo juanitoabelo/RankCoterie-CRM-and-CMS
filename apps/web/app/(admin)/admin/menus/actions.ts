@@ -5,10 +5,9 @@ import { MenuLocation } from "@prisma/client";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/lib/admin-auth";
+import { TENANT_ID } from "@/lib/tenant";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
-
-const TENANT_ID = process.env.CANOPY_TENANT_ID ?? "tenant-masternet";
 export const MENU_LOCATIONS: MenuLocation[] = [MenuLocation.HEADER, MenuLocation.FOOTER, MenuLocation.SIDEBAR];
 
 export const MENU_LOCATION_LABELS: Record<MenuLocation, string> = {
@@ -105,6 +104,6 @@ export async function deleteMenu(id: string): Promise<ActionResult> {
 }
 
 export async function deleteMenuForm(formData: FormData): Promise<void> {
-  const id = String(formData.get("id") ?? "");
+  const id = String(formData.get("menuId") ?? "");
   await deleteMenu(id);
 }

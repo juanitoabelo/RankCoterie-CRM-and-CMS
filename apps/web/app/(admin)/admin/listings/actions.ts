@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { logAudit } from "@/lib/audit";
 import type { ListingTier, ListingStatus } from "@/lib/directory/visibility";
+import { TENANT_ID } from "@/lib/tenant";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -68,8 +69,6 @@ export async function createListing(formData: FormData): Promise<ActionResult> {
   const input = parseForm(formData);
   const invalid = validate(input);
   if (invalid) return { ok: false, error: invalid };
-
-  const TENANT_ID = process.env.CANOPY_TENANT_ID ?? "tenant-masternet";
 
   try {
     const existing = await prisma.listing.findUnique({ where: { slug: input.slug } });

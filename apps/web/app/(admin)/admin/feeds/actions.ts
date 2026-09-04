@@ -6,8 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { syncFeed } from "@/lib/directory/feedSync";
 import { inngest } from "jobs";
 import { FEED_SYNC_ONE_EVENT } from "jobs/feedSync";
-
-const TENANT_ID = process.env.CANOPY_TENANT_ID ?? "tenant-masternet";
+import { TENANT_ID } from "@/lib/tenant";
 
 export interface ActionResult {
   ok: boolean;

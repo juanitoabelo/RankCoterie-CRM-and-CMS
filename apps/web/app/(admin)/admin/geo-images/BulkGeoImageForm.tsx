@@ -30,7 +30,11 @@ export default function BulkGeoImageForm({ categories, regions }: { categories: 
 
   function submit(formData: FormData) {
     assetIds.forEach((id) => formData.append("imageAssetIds", id));
-    startTransition(async () => setMessage(await createCategoryImagesBulk(formData)));
+    startTransition(async () => {
+      const result = await createCategoryImagesBulk(formData);
+      setMessage(result);
+      if (result.ok) setAssetIds([]);
+    });
   }
 
   return (

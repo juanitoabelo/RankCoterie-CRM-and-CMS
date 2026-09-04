@@ -483,19 +483,6 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       order: "desc",
     },
   },
-  {
-    type: "section",
-    label: "Section (Full Width)",
-    icon: "▣",
-    defaults: {
-      rows: [],
-      bgColor: undefined,
-      bgImage: "",
-      textColor: undefined,
-      paddingTop: 48,
-      paddingBottom: 48,
-    },
-  },
 ];
 
 export interface RowLayout {

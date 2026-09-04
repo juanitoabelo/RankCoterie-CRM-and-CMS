@@ -2,13 +2,12 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { DEFAULT_STYLE_GUIDE, renderGlobalStyleGuide, type StyleGuide } from "@/lib/style-guide";
+import { TENANT_ID } from "@/lib/tenant";
 
 export const metadata: Metadata = {
   title: "Canopy Directory",
   description: "Localized business directory with paid listings and SEO-ready region pages",
 };
-
-const TENANT_ID = process.env.CANOPY_TENANT_ID ?? "tenant-masternet";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   const [tenant, headerMenu] = await Promise.all([

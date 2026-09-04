@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { canAccessSection, getApiUser } from "@/lib/admin-auth";
 import { toCsv, toIsoCell } from "@/lib/admin/csv";
+import { TENANT_ID } from "@/lib/tenant";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,14 +23,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  const tenantId = process.env.CANOPY_TENANT_ID ?? "tenant-masternet";
-
   if (kind === "leads") {
-    const leads = await prisma.lead.findMany({
-      where: { tenantId },
-      orderBy: { createdAt: "desc" },
-      take: 10000,
-    });
+    const [leads, total] = await Promise.all([
+      prisma.lead.findMany({
+        where: { tenantId: TENANT_ID },
+        orderBy: { createdAt: "desc" },
+        take: 10000,
+      }),
+      prisma.lead.count({ where: { tenantId: TENANT_ID } }),
+    ]);
     const csv = toCsv(leads, [
       { key: "id", label: "id" },
       {
@@ -60,15 +62,18 @@ export async function GET(request: Request) {
         value: (l) => toIsoCell(l.createdAt),
       },
     ]);
-    return csvResponse(csv, `canopy-leads-${today()}.csv`);
+    return csvResponse(csv, `canopy-leads-${today()}.csv`, total, leads.length);
   }
 
   if (kind === "clients") {
-    const clients = await prisma.client.findMany({
-      where: { tenantId },
-      orderBy: { createdAt: "desc" },
-      take: 10000,
-    });
+    const [clients, total] = await Promise.all([
+      prisma.client.findMany({
+        where: { tenantId: TENANT_ID },
+        orderBy: { createdAt: "desc" },
+        take: 10000,
+      }),
+      prisma.client.count({ where: { tenantId: TENANT_ID } }),
+    ]);
     const csv = toCsv(clients, [
       { key: "id", label: "id" },
       {
@@ -88,15 +93,18 @@ export async function GET(request: Request) {
         value: (c) => toIsoCell(c.createdAt),
       },
     ]);
-    return csvResponse(csv, `canopy-clients-${today()}.csv`);
+    return csvResponse(csv, `canopy-clients-${today()}.csv`, total, clients.length);
   }
 
-  const invoices = await prisma.invoice.findMany({
-    where: { client: { tenantId } },
-    orderBy: { createdAt: "desc" },
-    take: 10000,
-    include: { client: true },
-  });
+  const [invoices, total] = await Promise.all([
+    prisma.invoice.findMany({
+      where: { client: { tenantId: TENANT_ID } },
+      orderBy: { createdAt: "desc" },
+      take: 10000,
+      include: { client: true },
+    }),
+    prisma.invoice.count({ where: { client: { tenantId: TENANT_ID } } }),
+  ]);
   const csv = toCsv(invoices, [
     { key: "id", label: "id" },
     {
@@ -118,17 +126,22 @@ export async function GET(request: Request) {
     { key: "stripePaymentId", label: "stripe_payment_id" },
     { key: "responseMsg", label: "response" },
   ]);
-  return csvResponse(csv, `canopy-invoices-${today()}.csv`);
+  return csvResponse(csv, `canopy-invoices-${today()}.csv`, total, invoices.length);
 }
 
-function csvResponse(csv: string, filename: string): Response {
-  return new Response(csv, {
-    status: 200,
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-    },
-  });
+function csvResponse(csv: string, filename: string, total: number, returned: number): Response {
+  const truncated = total > returned;
+  const status = truncated ? 206 : 200;
+  const headers: Record<string, string> = {
+    "Content-Type": "text/csv; charset=utf-8",
+    "Content-Disposition": `attachment; filename="${filename}"`,
+  };
+  if (truncated) {
+    headers["X-Total-Count"] = String(total);
+    headers["X-Returned-Count"] = String(returned);
+    headers["Warning"] = `299 - "Export truncated: ${returned} of ${total} rows returned (limit: 10,000)"`;
+  }
+  return new Response(csv, { status, headers });
 }
 
 function today(): string {

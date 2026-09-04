@@ -7,6 +7,7 @@
  */
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/directory/prismaCatalog";
+import { TENANT_ID } from "@/lib/tenant";
 
 export type AuditAction =
   | "SUPPRESS_ADD"
@@ -76,7 +77,7 @@ export interface AuditInput {
 export async function logAudit(input: AuditInput): Promise<void> {
   await prisma.auditLog.create({
     data: {
-      tenantId: process.env.CANOPY_TENANT_ID ?? "tenant-masternet",
+      tenantId: TENANT_ID,
       actorId: input.actorId ?? null,
       action: input.action,
       entity: input.entity,

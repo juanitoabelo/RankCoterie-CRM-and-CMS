@@ -3,10 +3,9 @@ import Link from "next/link";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { requireSection } from "@/lib/admin-auth";
 import { updateSectionForm, deleteSectionForm } from "../../actions";
+import { TENANT_ID } from "@/lib/tenant";
 
 export const revalidate = 0;
-
-const TENANT_ID = process.env.CANOPY_TENANT_ID ?? "tenant-masternet";
 
 export default async function SectionEditPage({
   params,

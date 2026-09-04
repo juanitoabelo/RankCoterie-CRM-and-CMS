@@ -5,9 +5,9 @@ import { prisma } from "@/lib/directory/prismaCatalog";
 import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/lib/admin-auth";
 import { sanitizeHtml } from "@/lib/style-guide";
+import { TENANT_ID } from "@/lib/tenant";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
-const TENANT_ID = process.env.CANOPY_TENANT_ID ?? "tenant-masternet";
 
 export async function listWidgets() {
   await requireSection("widgets");

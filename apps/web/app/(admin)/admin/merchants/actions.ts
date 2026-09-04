@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { logAudit } from "@/lib/audit";
+import { TENANT_ID } from "@/lib/tenant";
 
 export type ActionResult = { ok: boolean; error?: string; message?: string };
 
@@ -30,7 +31,7 @@ export async function addMerchant(input: {
 
   const merchant = await prisma.merchant.create({
     data: {
-      tenantId: process.env.CANOPY_TENANT_ID ?? "tenant-masternet",
+      tenantId: TENANT_ID,
       name,
       contactName: input.contactName?.trim() || null,
       email: input.email?.trim() || null,

@@ -23,6 +23,8 @@ export default async function CategoryEditPage({
     id: c.id,
     slug: c.slug,
     title: c.title,
+    description: c.description,
+    status: c.status,
   }));
 
   return (

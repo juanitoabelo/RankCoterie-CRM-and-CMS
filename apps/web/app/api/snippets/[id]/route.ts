@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { canAccessSection, getApiUser } from "@/lib/admin-auth";
+import { TENANT_ID } from "@/lib/tenant";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,10 +16,8 @@ export async function DELETE(
   }
 
   const { id } = await params;
-  const tenantId = process.env.CANOPY_TENANT_ID ?? "tenant-masternet";
-
   const result = await prisma.snippet.deleteMany({
-    where: { id, tenantId },
+    where: { id, tenantId: TENANT_ID },
   });
   if (result.count === 0) {
     return NextResponse.json({ error: "Snippet not found." }, { status: 404 });

@@ -6,10 +6,9 @@ import { prisma } from "@/lib/directory/prismaCatalog";
 import { logAudit } from "@/lib/audit";
 import { DEFAULT_STYLE_GUIDE, type StyleGuide } from "@/lib/style-guide";
 import { requireSection } from "@/lib/admin-auth";
+import { TENANT_ID } from "@/lib/tenant";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
-
-const TENANT_ID = process.env.CANOPY_TENANT_ID ?? "tenant-masternet";
 
 /** Read the tenant's global style guide (falls back to defaults). */
 export async function getStyleGuide(): Promise<StyleGuide> {

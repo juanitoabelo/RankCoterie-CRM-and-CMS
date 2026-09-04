@@ -8,8 +8,7 @@ export default async function MyCompanyAdminPage() {
   return (
     <div>
       <p className="text-sm text-zinc-500">
-        Admin / <span className="text-zinc-700">Admin</span> /{" "}
-        <span className="text-zinc-700">My Company</span>
+        Admin / <span className="text-zinc-700">My Company</span>
       </p>
       <h1 className="mt-1 text-2xl font-semibold text-zinc-900">My Company</h1>
       <p className="mt-2 max-w-2xl text-sm text-zinc-600">

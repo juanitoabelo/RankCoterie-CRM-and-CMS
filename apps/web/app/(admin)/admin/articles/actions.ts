@@ -4,10 +4,13 @@ import { revalidatePath } from "next/cache";
 import { ContentStatus } from "@prisma/client";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { logAudit } from "@/lib/audit";
+import { requireSection } from "@/lib/admin-auth";
+import { TENANT_ID } from "@/lib/tenant";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
 export async function createArticle(formData: FormData): Promise<ActionResult> {
+  await requireSection("articles");
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
   const metaDesc = String(formData.get("metaDesc") ?? "").trim() || null;
@@ -21,7 +24,7 @@ export async function createArticle(formData: FormData): Promise<ActionResult> {
   try {
     const row = await prisma.contentTemplate.create({
       data: {
-        tenantId: process.env.CANOPY_TENANT_ID ?? "tenant-masternet",
+        tenantId: TENANT_ID,
         title,
         slug,
         body,
@@ -47,6 +50,7 @@ export async function updateArticle(
   id: string,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireSection("articles");
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
   const metaDesc = String(formData.get("metaDesc") ?? "").trim() || null;
@@ -85,6 +89,7 @@ export async function updateArticle(
 }
 
 export async function deleteArticle(id: string, _formData: FormData): Promise<void> {
+  await requireSection("articles");
   try {
     await prisma.contentVariant.deleteMany({ where: { templateId: id } });
     await prisma.contentTemplate.delete({ where: { id } });

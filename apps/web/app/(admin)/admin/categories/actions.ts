@@ -3,10 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { logAudit } from "@/lib/audit";
+import { requireSection } from "@/lib/admin-auth";
+import { TENANT_ID } from "@/lib/tenant";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
 export async function createCategory(formData: FormData): Promise<ActionResult> {
+  await requireSection("categories");
   const slug = String(formData.get("slug") ?? "").trim();
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
@@ -23,7 +26,7 @@ export async function createCategory(formData: FormData): Promise<ActionResult> 
   try {
     const row = await prisma.category.create({
       data: {
-        tenantId: process.env.CANOPY_TENANT_ID ?? "tenant-masternet",
+        tenantId: TENANT_ID,
         slug,
         title,
         description,
@@ -49,6 +52,7 @@ export async function createCategory(formData: FormData): Promise<ActionResult> 
 }
 
 export async function updateCategory(id: string, formData: FormData): Promise<ActionResult> {
+  await requireSection("categories");
   const slug = String(formData.get("slug") ?? "").trim();
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
@@ -92,6 +96,7 @@ export async function updateCategory(id: string, formData: FormData): Promise<Ac
 }
 
 export async function deleteCategory(id: string, _formData: FormData): Promise<void> {
+  await requireSection("categories");
   try {
     await prisma.category.delete({ where: { id } });
     await logAudit({

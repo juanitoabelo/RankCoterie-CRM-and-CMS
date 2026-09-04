@@ -16,8 +16,7 @@ export default async function MenuDetailPage({
   return (
     <div>
       <p className="text-sm text-zinc-500">
-        Admin / <span className="text-zinc-700">Admin</span> /{" "}
-        <Link href="/admin/menus" className="text-zinc-700 hover:underline">Menu Builder</Link>{" "}
+        Admin / <Link href="/admin/menus" className="text-zinc-700 hover:underline">Menu Builder</Link>{" "}
         / <span className="text-zinc-700">{menu.name}</span>
       </p>
       <h1 className="mt-1 text-2xl font-semibold text-zinc-900">

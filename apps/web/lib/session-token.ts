@@ -46,13 +46,7 @@ async function verifyToken(payload: string, sig: string): Promise<boolean> {
     const key = await importKey();
     const enc = new TextEncoder();
     const expected = b64urlDecode(sig);
-    const actual = new Uint8Array(
-      await crypto.subtle.sign("HMAC", key, enc.encode(payload)),
-    );
-    return (
-      expected.length === actual.length &&
-      expected.every((b, i) => b === actual[i])
-    );
+    return crypto.subtle.verify("HMAC", key, expected, enc.encode(payload));
   } catch {
     return false;
   }

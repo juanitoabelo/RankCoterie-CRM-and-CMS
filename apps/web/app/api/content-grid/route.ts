@@ -2,11 +2,10 @@ import { NextResponse } from "next/server";
 import { ContentStatus } from "@prisma/client";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { stripHtml } from "@/lib/page-builder/validate";
+import { TENANT_ID } from "@/lib/tenant";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const TENANT_ID = process.env.CANOPY_TENANT_ID ?? "tenant-masternet";
 
 function firstImageSrc(html: string): string | null {
   const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { canAccessSection, getApiUser } from "@/lib/admin-auth";
+import { TENANT_ID } from "@/lib/tenant";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,7 +14,6 @@ const ALLOWED_MIME = new Set([
   "image/webp",
   "image/gif",
   "image/avif",
-  "image/svg+xml",
 ]);
 
 export async function POST(request: Request) {
@@ -35,11 +35,9 @@ export async function POST(request: Request) {
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
-  const tenantId = process.env.CANOPY_TENANT_ID ?? "tenant-masternet";
-
   const asset = await prisma.asset.create({
     data: {
-      tenantId,
+      tenantId: TENANT_ID,
       kind: "image",
       mimeType: file.type,
       size: file.size,

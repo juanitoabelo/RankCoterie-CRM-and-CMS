@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { prisma } from "@/lib/directory/prismaCatalog";
+import { TENANT_ID } from "@/lib/tenant";
 
 export const revalidate = 0;
 
 export default async function AdminDashboardPage() {
   const [pending, live, excluded, templates] = await Promise.all([
-    prisma.listing.count({ where: { status: "PENDING_REVIEW" } }),
-    prisma.listing.count({ where: { status: "LIVE" } }),
-    prisma.excludedCompany.count({ where: { isActive: true } }),
-    prisma.contentTemplate.count(),
+    prisma.listing.count({ where: { tenantId: TENANT_ID, status: "PENDING_REVIEW" } }),
+    prisma.listing.count({ where: { tenantId: TENANT_ID, status: "LIVE" } }),
+    prisma.excludedCompany.count({ where: { tenantId: TENANT_ID, isActive: true } }),
+    prisma.contentTemplate.count({ where: { tenantId: TENANT_ID } }),
   ]);
 
   const cards = [

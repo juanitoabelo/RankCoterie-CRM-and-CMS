@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/directory/prismaCatalog";
+import { TENANT_ID } from "@/lib/tenant";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,10 +10,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const asset = await prisma.asset.findUnique({ where: { id } });
+  const asset = await prisma.asset.findFirst({ where: { id, tenantId: TENANT_ID } });
   if (!asset) {
     return new NextResponse("Not found", { status: 404 });
   }
+
+  const safeFilename = (asset.filename ?? "image").replace(/"/g, "");
 
   return new NextResponse(asset.bytes, {
     status: 200,
@@ -20,7 +23,7 @@ export async function GET(
       "Content-Type": asset.mimeType,
       "Content-Length": String(asset.size),
       "Cache-Control": "public, max-age=31536000, immutable",
-      "Content-Disposition": `inline; filename="${asset.filename ?? "image"}"`,
+      "Content-Disposition": `inline; filename="${safeFilename}"`,
     },
   });
 }

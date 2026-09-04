@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { ALL_ROLES, createUserForm, listUsers } from "./actions";
 
 export const revalidate = 0;
@@ -19,8 +18,7 @@ export default async function UsersAdminPage() {
   return (
     <div>
       <p className="text-sm text-zinc-500">
-        Admin / <span className="text-zinc-700">Admin</span> /{" "}
-        <span className="text-zinc-700">Users</span>
+        Admin / <span className="text-zinc-700">Users</span>
       </p>
       <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Users</h1>
       <p className="mt-2 max-w-2xl text-sm text-zinc-600">
@@ -98,12 +96,6 @@ export default async function UsersAdminPage() {
                     {u.roles.map((r) => ROLE_LABELS[r.role] ?? r.role).join(", ") || "—"}
                   </p>
                 </div>
-                <Link
-                  href={`/admin/users/${u.id}/edit`}
-                  className="shrink-0 rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
-                >
-                  Edit
-                </Link>
               </li>
             ))}
             {users.length === 0 && (

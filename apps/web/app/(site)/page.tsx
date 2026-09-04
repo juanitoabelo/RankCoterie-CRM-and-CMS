@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCatalogRepo } from "@/lib/directory/catalog";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { sanitizeHtml } from "@/lib/style-guide";
+import { TENANT_ID } from "@/lib/tenant";
 
 export const revalidate = 3600;
 
@@ -9,8 +10,8 @@ export default async function HomePage() {
   const repo = await getCatalogRepo();
   const [categories, sections, widgets] = await Promise.all([
     repo.getCategories(),
-    prisma.section.findMany({ where: { tenantId: process.env.CANOPY_TENANT_ID ?? "tenant-masternet", status: "LIVE" }, orderBy: { order: "asc" } }),
-    prisma.widget.findMany({ where: { tenantId: process.env.CANOPY_TENANT_ID ?? "tenant-masternet", active: true, placements: { some: { slot: "HOME", active: true } } }, orderBy: { name: "asc" } }),
+    prisma.section.findMany({ where: { tenantId: TENANT_ID, status: "LIVE" }, orderBy: { order: "asc" } }),
+    prisma.widget.findMany({ where: { tenantId: TENANT_ID, active: true, placements: { some: { slot: "HOME", active: true } } }, orderBy: { name: "asc" } }),
   ]);
 
   return (
