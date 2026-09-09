@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { getCategoryEditData } from "@/modules/content";
 import CategoryForm from "@/components/admin/CategoryForm";
 
 export const revalidate = 0;
@@ -10,10 +10,7 @@ export default async function CategoryEditPage({
 }) {
   const { id } = await params;
 
-  const [category, allCategories] = await Promise.all([
-    prisma.category.findUnique({ where: { id } }),
-    prisma.category.findMany({ orderBy: { slug: "asc" } }),
-  ]);
+  const { category, allCategories } = await getCategoryEditData(id);
 
   if (!category) {
     return <p className="text-sm text-zinc-500">Category not found.</p>;

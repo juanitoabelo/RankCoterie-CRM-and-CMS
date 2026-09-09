@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { prisma } from "@/modules/shared";
 import { invoiceStatusForm } from "./actions";
 
 export const revalidate = 0;

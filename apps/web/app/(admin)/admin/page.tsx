@@ -1,22 +1,21 @@
+/**
+ * Admin Dashboard Page
+ * 
+ * Uses the Dashboard module for stats.
+ */
 import Link from "next/link";
-import { prisma } from "@/lib/directory/prismaCatalog";
-import { TENANT_ID } from "@/lib/tenant";
+import { getDashboardStats } from "@/modules/dashboard";
 
 export const revalidate = 0;
 
 export default async function AdminDashboardPage() {
-  const [pending, live, excluded, templates] = await Promise.all([
-    prisma.listing.count({ where: { tenantId: TENANT_ID, status: "PENDING_REVIEW" } }),
-    prisma.listing.count({ where: { tenantId: TENANT_ID, status: "LIVE" } }),
-    prisma.excludedCompany.count({ where: { tenantId: TENANT_ID, isActive: true } }),
-    prisma.contentTemplate.count({ where: { tenantId: TENANT_ID } }),
-  ]);
+  const stats = await getDashboardStats();
 
   const cards = [
-    { label: "Listings pending review", value: pending, href: "/admin/listings?status=PENDING_REVIEW" },
-    { label: "Live listings", value: live, href: "/admin/listings?status=LIVE" },
-    { label: "Active exclusions", value: excluded, href: "/admin/exclusions" },
-    { label: "Content templates", value: templates, href: "/admin/content" },
+    { label: "Listings pending review", value: stats.pendingListings, href: "/admin/listings?status=PENDING_REVIEW" },
+    { label: "Live listings", value: stats.liveListings, href: "/admin/listings?status=LIVE" },
+    { label: "Active exclusions", value: stats.activeExclusions, href: "/admin/exclusions" },
+    { label: "Content templates", value: stats.contentTemplates, href: "/admin/content" },
   ];
 
   return (

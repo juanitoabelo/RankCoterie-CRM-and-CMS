@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { prisma } from "@/modules/shared";
 import ListingForm, {
   type ListingFormCategory,
   type ListingFormListing,

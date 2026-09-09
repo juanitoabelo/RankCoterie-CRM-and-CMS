@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { prisma } from "@/modules/shared";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { prisma } from "@/modules/shared";
 import VariantPublisherRefresh from "@/components/admin/VariantPublisherRefresh";
 import type { TemplateOption } from "@/components/admin/VariantPublisher";
 import type { PickerRegion } from "@/components/regions/RegionPicker";

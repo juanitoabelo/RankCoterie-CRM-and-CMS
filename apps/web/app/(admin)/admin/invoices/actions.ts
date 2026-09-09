@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 
 export type ActionResult = { ok: boolean; error?: string; message?: string };

@@ -1,12 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { syncFeed } from "@/lib/directory/feedSync";
 import { inngest } from "jobs";
 import { FEED_SYNC_ONE_EVENT } from "jobs/feedSync";
-import { TENANT_ID } from "@/lib/tenant";
+import { TENANT_ID } from "@/modules/shared";
 
 export interface ActionResult {
   ok: boolean;

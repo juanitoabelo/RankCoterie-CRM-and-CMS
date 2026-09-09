@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { prisma } from "@/modules/shared";
 import { addFeedForm, toggleForm, syncNowForm } from "./actions";
 
 export default async function FeedsPage() {

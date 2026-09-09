@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { prisma } from "@/modules/shared";
 import BlockRenderer from "@/components/admin/page-builder/BlockRenderer";
 import type { Block } from "@/lib/page-builder/types";
 

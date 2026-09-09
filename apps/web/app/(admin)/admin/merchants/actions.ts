@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
-import { TENANT_ID } from "@/lib/tenant";
+import { TENANT_ID } from "@/modules/shared";
 
 export type ActionResult = { ok: boolean; error?: string; message?: string };
 

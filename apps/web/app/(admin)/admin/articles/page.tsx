@@ -1,16 +1,10 @@
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { getArticlesForAdmin } from "@/modules/content";
 import { createArticleForm, deleteArticleForm } from "./actions";
 
 export const revalidate = 0;
 
 export default async function ArticlesAdminPage() {
-  const articles = await prisma.contentTemplate.findMany({
-    orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
-    include: {
-      category: { select: { title: true } },
-      variants: { select: { id: true, regionId: true, status: true } },
-    },
-  });
+  const articles = await getArticlesForAdmin();
 
   return (
     <div>

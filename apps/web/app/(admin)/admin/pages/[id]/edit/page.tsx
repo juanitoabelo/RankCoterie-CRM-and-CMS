@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { prisma } from "@/modules/shared";
 import PageBuilder from "@/components/admin/page-builder/PageBuilder";
 import PageMetaEditor from "./PageMetaEditor";
 import {

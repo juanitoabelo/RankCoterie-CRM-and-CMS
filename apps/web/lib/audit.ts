@@ -63,7 +63,11 @@ export type AuditAction =
   | "WIDGET_CREATE"
   | "WIDGET_UPDATE"
   | "WIDGET_DELETE"
-  | "COMPANY_UPDATE";
+  | "COMPANY_UPDATE"
+  | "COMPANY_INFO_UPDATE"
+  | "COMPANY_CONTACT_INFO_UPDATE"
+  | "COMPANY_SOCIAL_MEDIA_UPDATE"
+  | "COMPANY_TRACKING_UPDATE";
 
 export interface AuditInput {
   action: AuditAction;

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { prisma } from "@/modules/shared";
 import { leadStatusForm, leadNoteForm, leadTodoForm } from "../actions";
 
 export const revalidate = 0;

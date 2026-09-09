@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { prisma } from "@/modules/shared";
 
 export const revalidate = 0;
 

@@ -36,6 +36,7 @@ model User {
   passwordHash String // argon2 — replaces legacy SHA1
   firstName   String?
   lastName    String?
+  company     String?
   department  String?
   isRep       Boolean  @default(false) // legacy IsRep / IsCloser
   isCloser    Boolean  @default(false)
@@ -44,6 +45,17 @@ model User {
   imageUrl    String?
   jobTitle    String?
   phone       String?
+  socialMedia Json     @default("{}") // { facebook, instagram, twitter, youtube, linkedin, pinterest }
+  undergraduateDegree    String?
+  undergraduateInstitution String?
+  postgraduateDegree     String?
+  postgraduateInstitution String?
+  doctorateDegree        String?
+  doctorateInstitution   String?
+  quickBiography  String?
+  generalSkillsInfo String?
+  includeInStaffPages Boolean @default(false)
+  staffPageOrHomePage String?
   active      Boolean  @default(true)
   roles       UserRole[] // replaces tblUserPermissions
   createdAt   DateTime @default(now())
@@ -558,20 +570,33 @@ model Section {
 
 // The site owner's company profile + installed tracking/verification tags.
 model Company {
-  id                 String   @id @default(cuid())
-  tenantId           String
-  name               String
-  ga4                String? // GA4 measurement id
-  gtm                String? // GTM container id
-  fbPixel            String? // Meta/Facebook pixel id
-  searchConsole      String? // Google Search Console site/verification
-  gscVerificationTag String? // GSC <meta> verification content
-  brandColor         String?
-  logoAssetId        String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  tenant             Tenant   @relation("CompanyTenant", fields: [tenantId], references: [id])
-  linkedTenants      Tenant[] @relation("TenantCompanyId")
+  id                    String   @id @default(cuid())
+  tenantId              String
+  name                  String
+  tagline               String?
+  description           String?
+  businessHours         Json     @default("{}") // { sunday:{opens,closes}, monday:{opens,closes}, ... }
+  industryCategory      String?  // e.g. "Organization"
+  industrySubCategory   String?  // e.g. "Educational Organization"
+  industrySubSubCategory String? // e.g. "College/University"
+  audiencePersona1      String?
+  audiencePersona2      String?
+  audiencePersona3      String?
+  languagesSpoken       String?
+  additionalLanguage    String?
+  contactInfo           Json     @default("{}") // { phone, phoneLink, additionalPhone, fax, email, address, city, state, zip, country, mapLinkUrl, mapEmbedUrl }
+  ga4                   String?  // GA4 measurement id
+  gtm                   String?  // GTM container id
+  fbPixel               String?  // Meta/Facebook pixel id
+  searchConsole         String?  // Google Search Console site/verification
+  gscVerificationTag    String?  // GSC <meta> verification content
+  brandColor            String?
+  logoAssetId           String?
+  socialMedia           Json     @default("{}") // { facebook, twitter, youtube, instagram, linkedin, pinterest }
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  tenant                Tenant   @relation("CompanyTenant", fields: [tenantId], references: [id])
+  linkedTenants         Tenant[] @relation("TenantCompanyId")
   @@unique([tenantId])
 }
 

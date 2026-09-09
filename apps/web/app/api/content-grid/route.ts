@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { ContentStatus } from "@prisma/client";
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { prisma } from "@/modules/shared";
 import { stripHtml } from "@/lib/page-builder/validate";
-import { TENANT_ID } from "@/lib/tenant";
+import { TENANT_ID } from "@/modules/shared";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

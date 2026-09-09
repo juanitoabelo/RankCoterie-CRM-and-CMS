@@ -1,7 +1,11 @@
+/**
+ * Admin Leads Page
+ * 
+ * Uses the Leads module for all lead-related functionality.
+ */
 import Link from "next/link";
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { getLeads, getLeadStats, LEAD_STATUS_BADGE } from "@/modules/leads";
 import { leadStatusForm } from "./actions";
-import { TENANT_ID } from "@/lib/tenant";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -11,45 +15,21 @@ export const metadata = { title: "Leads | Admin" };
 export default async function AdminLeadsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; page?: string }>;
 }) {
-  const { q, status } = await searchParams;
+  const { q, status, page: pageParam } = await searchParams;
   const query = q?.trim() || "";
   const statusFilter = ["NEW", "OPEN", "CLOSED", "ARCHIVED"].includes(status ?? "")
-    ? status
-    : undefined;
+    ? (status as "NEW" | "OPEN" | "CLOSED" | "ARCHIVED" | "ALL")
+    : "ALL";
+  const page = parseInt(pageParam ?? "1", 10) || 1;
 
-  const where = {
-    tenantId: TENANT_ID,
-    ...(statusFilter ? { status: statusFilter } : {}),
-    ...(query
-      ? {
-          OR: [
-            { firstName: { contains: query, mode: "insensitive" as const } },
-            { lastName: { contains: query, mode: "insensitive" as const } },
-            { email: { contains: query, mode: "insensitive" as const } },
-          ],
-        }
-      : {}),
-  };
-
-  const [leads, counts] = await Promise.all([
-    prisma.lead.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      take: 200,
-      include: { notes: true, todos: true },
-    }),
-    prisma.lead.groupBy({ by: ["status"], _count: { _all: true } }),
+  const [{ items: leads, total, totalPages }, counts] = await Promise.all([
+    getLeads({ search: query, status: statusFilter, page, pageSize: 50 }),
+    getLeadStats(),
   ]);
+  
   const countByStatus = Object.fromEntries(counts.map((c) => [c.status, c._count._all]));
-
-  const statusBadge: Record<string, string> = {
-    NEW: "bg-blue-50 text-blue-700",
-    OPEN: "bg-amber-50 text-amber-700",
-    CLOSED: "bg-emerald-50 text-emerald-700",
-    ARCHIVED: "bg-zinc-100 text-zinc-500",
-  };
 
   return (
     <div>
@@ -57,7 +37,7 @@ export default async function AdminLeadsPage({
         <div>
           <h1 className="text-2xl font-semibold text-zinc-900">Leads</h1>
           <p className="mt-1 text-sm text-zinc-500">
-            {leads.length} shown ·{" "}
+            {total} total ·{" "}
             {Object.entries(countByStatus)
               .map(([s, n]) => `${s}: ${n}`)
               .join(" · ")}
@@ -73,11 +53,11 @@ export default async function AdminLeadsPage({
           />
           <select
             name="status"
-            defaultValue={statusFilter ?? ""}
+            defaultValue={statusFilter === "ALL" ? "" : statusFilter}
             className="rounded-lg border border-zinc-300 px-2 py-1.5 text-sm"
           >
             <option value="">All statuses</option>
-            {Object.keys(statusBadge).map((s) => (
+            {Object.keys(LEAD_STATUS_BADGE).map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>
@@ -111,7 +91,7 @@ export default async function AdminLeadsPage({
                 {lead.email && <p className="text-xs text-zinc-400">{lead.email}</p>}
               </td>
               <td className="py-3 pr-4">
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusBadge[lead.status] ?? "bg-zinc-100 text-zinc-500"}`}>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${LEAD_STATUS_BADGE[lead.status as keyof typeof LEAD_STATUS_BADGE] ?? "bg-zinc-100 text-zinc-500"}`}>
                   {lead.status}
                 </span>
               </td>
@@ -132,6 +112,32 @@ export default async function AdminLeadsPage({
           ))}
         </tbody>
       </table>
+
+      {totalPages > 1 && (
+        <nav className="mt-6 flex items-center justify-between">
+          <p className="text-sm text-zinc-500">
+            Page {page} of {totalPages}
+          </p>
+          <div className="flex gap-2">
+            {page > 1 && (
+              <Link
+                href={`/admin/leads?q=${encodeURIComponent(query)}&status=${statusFilter === "ALL" ? "" : statusFilter}&page=${page - 1}`}
+                className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 hover:border-zinc-300"
+              >
+                Previous
+              </Link>
+            )}
+            {page < totalPages && (
+              <Link
+                href={`/admin/leads?q=${encodeURIComponent(query)}&status=${statusFilter === "ALL" ? "" : statusFilter}&page=${page + 1}`}
+                className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 hover:border-zinc-300"
+              >
+                Next
+              </Link>
+            )}
+          </div>
+        </nav>
+      )}
     </div>
   );
 }

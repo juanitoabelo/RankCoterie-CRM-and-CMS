@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { getCatalogRepo } from "@/lib/directory/catalog";
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { prisma } from "@/modules/shared";
 import { sanitizeHtml } from "@/lib/style-guide";
-import { TENANT_ID } from "@/lib/tenant";
+import { TENANT_ID } from "@/modules/shared";
 
 export const revalidate = 3600;
 

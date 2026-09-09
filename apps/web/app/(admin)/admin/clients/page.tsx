@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/directory/prismaCatalog";
-import { TENANT_ID } from "@/lib/tenant";
+import { prisma } from "@/modules/shared";
+import { TENANT_ID } from "@/modules/shared";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";

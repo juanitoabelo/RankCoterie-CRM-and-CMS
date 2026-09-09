@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { prisma } from "@/modules/shared";
 import { createPageForm, deletePageForm } from "./actions";
 
 export const revalidate = 0;

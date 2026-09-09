@@ -1,11 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/directory/prismaCatalog";
-import { createSession, destroySession } from "@/lib/admin-auth";
+import { prisma } from "@/modules/shared";
+import { createSession, destroySession } from "@/modules/auth";
 import { verifyPassword } from "@/lib/passwords";
 import { ensureSuperAdmin } from "@/lib/bootstrap";
-import { TENANT_ID } from "@/lib/tenant";
+import { TENANT_ID } from "@/modules/shared";
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/directory/prismaCatalog";
-import { TENANT_ID } from "@/lib/tenant";
+import { prisma } from "@/modules/shared";
+import { TENANT_ID } from "@/modules/shared";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

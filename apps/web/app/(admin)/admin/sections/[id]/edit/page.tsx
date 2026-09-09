@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { prisma } from "@/lib/directory/prismaCatalog";
-import { requireSection } from "@/lib/admin-auth";
+import { prisma } from "@/modules/shared";
+import { requireSection } from "@/modules/auth";
 import { updateSectionForm, deleteSectionForm } from "../../actions";
-import { TENANT_ID } from "@/lib/tenant";
+import { TENANT_ID } from "@/modules/shared";
 
 export const revalidate = 0;
 

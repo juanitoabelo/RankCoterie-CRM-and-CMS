@@ -1,13 +1,10 @@
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { getCategoriesForAdmin } from "@/modules/content";
 import { createCategoryForm, deleteCategoryForm } from "./actions";
 
 export const revalidate = 0;
 
 export default async function CategoriesAdminPage() {
-  const categories = await prisma.category.findMany({
-    orderBy: [{ status: "asc" }, { slug: "asc" }],
-    include: { parent: { select: { id: true, title: true } } },
-  });
+  const categories = await getCategoriesForAdmin();
 
   return (
     <div>

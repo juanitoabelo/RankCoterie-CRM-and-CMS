@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { DEFAULT_STYLE_GUIDE, type StyleGuide } from "@/lib/style-guide";
-import { requireSection } from "@/lib/admin-auth";
-import { TENANT_ID } from "@/lib/tenant";
+import { requireSection } from "@/modules/auth";
+import { TENANT_ID } from "@/modules/shared";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 

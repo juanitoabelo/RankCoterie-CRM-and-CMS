@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/directory/prismaCatalog";
-import { canAccessSection, getApiUser } from "@/lib/admin-auth";
-import { TENANT_ID } from "@/lib/tenant";
+import { prisma } from "@/modules/shared";
+import { canAccessSection, getApiUser } from "@/modules/auth";
+import { TENANT_ID } from "@/modules/shared";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

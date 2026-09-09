@@ -1,12 +1,15 @@
-import { prisma } from "@/lib/directory/prismaCatalog";
+/**
+ * Admin Exclusions Page
+ * 
+ * Uses the Exclusions module for all exclusion-related functionality.
+ */
+import { getExclusions } from "@/modules/exclusions";
 import { addExclusionForm, deactivateExclusionForm } from "./actions";
 
 export const revalidate = 0;
 
 export default async function ExclusionsAdminPage() {
-  const rows = await prisma.excludedCompany.findMany({
-    orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
-  });
+  const { items: rows } = await getExclusions({ pageSize: 100 });
 
   return (
     <div>

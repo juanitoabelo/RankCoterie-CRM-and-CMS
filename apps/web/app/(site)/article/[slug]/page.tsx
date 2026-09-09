@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { prisma } from "@/modules/shared";
 import { renderLocalizedContent } from "@/lib/localization/render";
 import type { RegionContext } from "@/lib/localization/render";
 import type { Metadata } from "next";

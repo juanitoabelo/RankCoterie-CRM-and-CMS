@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { getArticleEditData } from "@/modules/content";
 import ArticleForm from "@/components/admin/ArticleForm";
 import VariantPublisherRefresh from "@/components/admin/VariantPublisherRefresh";
 import type { TemplateOption } from "@/components/admin/VariantPublisher";
@@ -13,14 +13,7 @@ export default async function ArticleEditPage({
 }) {
   const { id } = await params;
 
-  const [article, categories, regions] = await Promise.all([
-    prisma.contentTemplate.findUnique({
-      where: { id },
-      include: { variants: { select: { id: true, regionId: true, status: true } } },
-    }),
-    prisma.category.findMany({ orderBy: { slug: "asc" } }),
-    prisma.region.findMany({ orderBy: [{ priority: "asc" }, { id: "asc" }] }),
-  ]);
+  const { article, categories, regions } = await getArticleEditData(id);
 
   if (!article) {
     return <p className="text-sm text-zinc-500">Article not found.</p>;

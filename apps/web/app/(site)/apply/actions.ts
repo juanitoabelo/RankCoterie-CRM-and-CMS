@@ -2,9 +2,9 @@
 
 import { redirect } from "next/navigation";
 import Stripe from "stripe";
-import { prisma } from "@/lib/directory/prismaCatalog";
+import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
-import { TENANT_ID } from "@/lib/tenant";
+import { TENANT_ID } from "@/modules/shared";
 import {
   buildCheckoutParams,
   isStripeConfigured,

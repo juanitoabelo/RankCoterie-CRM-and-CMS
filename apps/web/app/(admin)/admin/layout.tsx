@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCurrentUser, isSuperAdmin, canAccessSection } from "@/lib/admin-auth";
+import { getCurrentUser, isSuperAdmin, canAccessSection } from "@/modules/auth";
 import { adminLogout } from "./login/actions";
 
 type NavItem = {
@@ -68,6 +68,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { section: "myCompany", href: "/admin/my-company", label: "My Company" },
       { section: "users", href: "/admin/users", label: "Users" },
+      { section: "users", href: "/admin/users/add", label: "Add New User" },
       { section: "menus", href: "/admin/menus", label: "Menu Builder" },
     ],
   },
