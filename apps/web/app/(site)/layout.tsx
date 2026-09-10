@@ -8,6 +8,8 @@ import { TENANT_ID } from "@/modules/shared";
 interface LayoutCache {
   tenant: { theme: unknown; companyId: string | null } | null;
   headerMenu: { items: { id: string; label: string; href: string; target: string | null; order: number }[] } | null;
+  footerMenu: { items: { id: string; label: string; href: string; target: string | null; order: number }[] } | null;
+  sidebarMenu: { items: { id: string; label: string; href: string; target: string | null; order: number }[] } | null;
   company: { ga4: string | null; gtm: string | null; fbPixel: string | null; gscVerificationTag: string | null } | null;
   expiresAt: number;
 }
@@ -20,10 +22,18 @@ async function getLayoutData() {
     return layoutCache;
   }
 
-  const [tenant, headerMenu] = await Promise.all([
+  const [tenant, headerMenu, footerMenu, sidebarMenu] = await Promise.all([
     prisma.tenant.findUnique({ where: { id: TENANT_ID } }),
     prisma.menu.findFirst({
       where: { tenantId: TENANT_ID, location: "HEADER" },
+      include: { items: { orderBy: { order: "asc" } } },
+    }),
+    prisma.menu.findFirst({
+      where: { tenantId: TENANT_ID, location: "FOOTER" },
+      include: { items: { orderBy: { order: "asc" } } },
+    }),
+    prisma.menu.findFirst({
+      where: { tenantId: TENANT_ID, location: "SIDEBAR" },
       include: { items: { orderBy: { order: "asc" } } },
     }),
   ]);
@@ -35,6 +45,8 @@ async function getLayoutData() {
   layoutCache = {
     tenant: tenant ? { theme: tenant.theme, companyId: tenant.companyId } : null,
     headerMenu: headerMenu ? { items: headerMenu.items } : null,
+    footerMenu: footerMenu ? { items: footerMenu.items } : null,
+    sidebarMenu: sidebarMenu ? { items: sidebarMenu.items } : null,
     company: company ? { ga4: company.ga4, gtm: company.gtm, fbPixel: company.fbPixel, gscVerificationTag: company.gscVerificationTag } : null,
     expiresAt: Date.now() + LAYOUT_CACHE_TTL_MS,
   };
@@ -53,6 +65,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   const guide: StyleGuide = { ...DEFAULT_STYLE_GUIDE, ...theme.styleGuide };
   const company = layoutData.company;
   const headerMenu = layoutData.headerMenu;
+  const footerMenu = layoutData.footerMenu;
 
   return (
     <div className="min-h-full flex flex-col">
@@ -80,8 +93,26 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         </div>
       </header>
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">{children}</main>
-      <footer className="border-t border-zinc-200 py-6 text-center text-xs text-zinc-400">
-        © {new Date().getFullYear()} Canopy Directory. Listings are not endorsements.
+      <footer className="border-t border-zinc-200 bg-white">
+        {footerMenu?.items.length ? (
+          <div className="mx-auto max-w-5xl px-4 py-6">
+            <nav className="flex flex-wrap items-center justify-center gap-4 text-sm text-zinc-600">
+              {footerMenu.items.map((item) => (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  target={item.target ?? undefined}
+                  className="hover:text-zinc-900"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+        ) : null}
+        <div className="py-4 text-center text-xs text-zinc-400">
+          © {new Date().getFullYear()} Canopy Directory. Listings are not endorsements.
+        </div>
       </footer>
     </div>
   );

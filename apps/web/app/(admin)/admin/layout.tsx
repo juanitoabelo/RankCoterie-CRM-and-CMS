@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { getCurrentUser, isSuperAdmin, canAccessSection } from "@/modules/auth";
 import { adminLogout } from "./login/actions";
+import AdminSidebar from "./AdminSidebar";
 
 type NavItem = {
-  /** Permission key used to filter by role. */
   section: string;
   href?: string;
   label: string;
-  /** Not-yet-built feature: rendered as a muted, disabled row. */
   soon?: boolean;
 };
 
@@ -25,19 +24,27 @@ function visibleItems(
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    title: "Content Types",
+    title: "Content",
     items: [
-      { section: "topics", href: "/admin/categories", label: "Topics" },
-      { section: "articles", href: "/admin/articles", label: "Articles" },
       { section: "pages", href: "/admin/pages", label: "Pages" },
-      { section: "templates", href: "/admin/templates", label: "Templates" },
+      { section: "articles", href: "/admin/articles", label: "Articles/Posts" },
       { section: "sections", href: "/admin/sections", label: "Sections" },
+      { section: "sections", href: "/admin/sections/new", label: "Add New Section" },
+      { section: "topics", href: "/admin/categories", label: "Topics" },
+      { section: "topics", href: "/admin/categories/new", label: "Add New Topic" },
+      { section: "templates", href: "/admin/templates", label: "SubTopics" },
+      { section: "templates", href: "/admin/templates/new", label: "Add New SubTopic" },
     ],
   },
   {
     title: "Geo-Targeting",
     items: [
+      { section: "categories", href: "/admin/geo-categories", label: "GeoCategory Pages" },
+      { section: "categories", href: "/admin/geo-categories/new", label: "Add New GeoCategory" },
+      { section: "categories", href: "/admin/geo-categories/images/new", label: "Add New Image" },
+      { section: "categories", href: "/admin/geo-categories/images/bulk", label: "Bulk Add Images" },
       { section: "regions", href: "/admin/regions", label: "Regions" },
+      { section: "regions", href: "/admin/regions/new", label: "Add New Region" },
       { section: "geoImages", href: "/admin/geo-images", label: "Geo Category Images" },
     ],
   },
@@ -52,7 +59,10 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     title: "Ads / Listing",
-    items: [{ section: "widgets", href: "/admin/widgets", label: "Widget Builder" }],
+    items: [
+      { section: "widgets", href: "/admin/widgets", label: "Widget Builder" },
+      { section: "widgets", href: "/admin/widgets/new", label: "Add New Widget" },
+    ],
   },
   {
     title: "Sales & Billing",
@@ -70,6 +80,8 @@ const NAV_GROUPS: NavGroup[] = [
       { section: "users", href: "/admin/users", label: "Users" },
       { section: "users", href: "/admin/users/add", label: "Add New User" },
       { section: "menus", href: "/admin/menus", label: "Menu Builder" },
+      { section: "menus", href: "/admin/menus/new-menu", label: "Create New Menu" },
+      { section: "menus", href: "/admin/menus/new", label: "Add New Menu Item" },
     ],
   },
   {
@@ -94,74 +106,18 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     ? `${user.firstName}${user.lastName ? ` ${user.lastName}` : ""}`
     : user?.email;
 
+  const visibleGroups = allGroups
+    .map((g) => ({ ...g, items: visibleItems(g.items, can) }))
+    .filter((g) => g.items.length > 0);
+
   return (
     <div className="flex min-h-screen bg-zinc-50 text-zinc-900">
-      <aside className="fixed inset-y-0 left-0 z-30 flex w-60 flex-col border-r border-zinc-200 bg-white">
-        <Link
-          href="/admin"
-          className="border-b border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900"
-        >
-          Canopy Admin
-        </Link>
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
-          <Link
-            href="/admin"
-            className="mb-3 block rounded-md px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
-          >
-            Dashboard
-          </Link>
-          {allGroups.map((group) => {
-            const items = visibleItems(group.items, can);
-            if (items.length === 0) return null;
-            return (
-              <div key={group.title} className="mb-3">
-                <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-                  {group.title}
-                </div>
-                {items.map((n) => (
-                  <span key={n.label}>
-                    {n.soon ? (
-                      <span className="mb-0.5 flex cursor-not-allowed items-center justify-between rounded-md px-3 py-1.5 text-sm text-zinc-300">
-                        {n.label}
-                        <span className="text-[10px] font-medium uppercase text-zinc-300">
-                          Soon
-                        </span>
-                      </span>
-                    ) : (
-                      <Link
-                        href={n.href ?? "#"}
-                        className="mb-0.5 block rounded-md px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-                      >
-                        {n.label}
-                      </Link>
-                    )}
-                  </span>
-                ))}
-              </div>
-            );
-          })}
-        </nav>
-        <div className="border-t border-zinc-200 px-3 py-3">
-          {user !== null && (
-            <div className="mb-2 truncate px-3 text-xs text-zinc-500">
-              {name}
-              {isSuperAdmin(user) && (
-                <span className="ml-1 rounded bg-zinc-900 px-1 py-0.5 text-[10px] font-semibold uppercase text-white">
-                  Super Admin
-                </span>
-              )}
-            </div>
-          )}
-          <form action={adminLogout}>
-            <button
-              type="submit"
-              className="w-full rounded-md px-3 py-1.5 text-left text-xs text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
-            >
-              Sign out
-            </button>
-          </form>
-        </div>
-      </aside>
+      <AdminSidebar
+        groups={visibleGroups}
+        userName={name ?? ""}
+        isSuperAdmin={user !== null && isSuperAdmin(user)}
+        logoutAction={adminLogout}
+      />
       <main className="ml-60 flex-1 px-6 py-8">{children}</main>
     </div>
   );
