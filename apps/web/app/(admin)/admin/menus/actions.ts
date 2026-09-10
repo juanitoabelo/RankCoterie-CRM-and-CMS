@@ -93,7 +93,7 @@ export async function createMenuItem(formData: FormData): Promise<ActionResult> 
         target,
       },
     });
-    await logAudit({ action: "MENU_UPDATE", entity: "MenuItem", entityId: label, actorId: actor });
+    await logAudit({ action: "MENU_UPDATE", entity: "MenuItem", entityId: label, actorId: actor.id });
     revalidatePath("/admin/menus");
     revalidatePath("/admin/menus/new");
     return { ok: true };
@@ -125,7 +125,7 @@ export async function updateMenuItem(id: string, formData: FormData): Promise<Ac
         target,
       },
     });
-    await logAudit({ action: "MENU_UPDATE", entity: "MenuItem", entityId: id, actorId: actor });
+    await logAudit({ action: "MENU_UPDATE", entity: "MenuItem", entityId: id, actorId: actor.id });
     revalidatePath("/admin/menus");
     revalidatePath(`/admin/menus/items/${id}/edit`);
     return { ok: true };
@@ -138,7 +138,7 @@ export async function deleteMenuItem(id: string): Promise<ActionResult> {
   const actor = await requireSection("menus");
   try {
     await prisma.menuItem.delete({ where: { id } });
-    await logAudit({ action: "MENU_DELETE", entity: "MenuItem", entityId: id, actorId: actor });
+    await logAudit({ action: "MENU_DELETE", entity: "MenuItem", entityId: id, actorId: actor.id });
     revalidatePath("/admin/menus");
     return { ok: true };
   } catch (e) {
@@ -150,7 +150,7 @@ export async function deleteMenu(id: string): Promise<ActionResult> {
   const actor = await requireSection("menus");
   try {
     await prisma.menu.deleteMany({ where: { id, tenantId: TENANT_ID } });
-    await logAudit({ action: "MENU_DELETE", entity: "Menu", entityId: id, actorId: actor });
+    await logAudit({ action: "MENU_DELETE", entity: "Menu", entityId: id, actorId: actor.id });
     revalidatePath("/admin/menus");
     return { ok: true };
   } catch (e) {
@@ -186,7 +186,7 @@ export async function reorderMenuItems(
         })
       )
     );
-    await logAudit({ action: "MENU_UPDATE", entity: "Menu", entityId: menuId, actorId: actor });
+    await logAudit({ action: "MENU_UPDATE", entity: "Menu", entityId: menuId, actorId: actor.id });
     revalidatePath("/admin/menus");
     revalidatePath(`/admin/menus/${menuId}`);
     return { ok: true };
@@ -221,7 +221,7 @@ export async function saveMenuItemsForm(formData: FormData): Promise<void> {
     });
   }
 
-  await logAudit({ action: "MENU_UPDATE", entity: "Menu", entityId: menuId, actorId: actor });
+  await logAudit({ action: "MENU_UPDATE", entity: "Menu", entityId: menuId, actorId: actor.id });
   revalidatePath("/admin/menus");
   revalidatePath(`/admin/menus/${menuId}`);
 }
@@ -233,7 +233,7 @@ export async function deleteMenuForm(formData: FormData): Promise<void> {
 
   await prisma.menuItem.deleteMany({ where: { menuId } });
   await prisma.menu.deleteMany({ where: { id: menuId, tenantId: TENANT_ID } });
-  await logAudit({ action: "MENU_DELETE", entity: "Menu", entityId: menuId, actorId: actor });
+  await logAudit({ action: "MENU_DELETE", entity: "Menu", entityId: menuId, actorId: actor.id });
   revalidatePath("/admin/menus");
 }
 
@@ -252,7 +252,7 @@ export async function createMenu(formData: FormData): Promise<ActionResult> {
         location: location as MenuLocation,
       },
     });
-    await logAudit({ action: "MENU_UPDATE", entity: "Menu", entityId: name, actorId: actor });
+    await logAudit({ action: "MENU_UPDATE", entity: "Menu", entityId: name, actorId: actor.id });
     revalidatePath("/admin/menus");
     return { ok: true };
   } catch (e) {
