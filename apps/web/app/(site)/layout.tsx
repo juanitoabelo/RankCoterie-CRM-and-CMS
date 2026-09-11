@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { prisma } from "@/modules/shared";
 import { DEFAULT_STYLE_GUIDE, renderGlobalStyleGuide, type StyleGuide } from "@/lib/style-guide";
 import { DEFAULT_THEME_SETTINGS, renderThemeSettingsCSS, type ThemeSettings } from "@/lib/theme-settings";
-import { DEFAULT_HEADER_BLOCKS, DEFAULT_FOOTER_BLOCKS, type HeaderFooterBlock } from "@/lib/header-footer/types";
-import { resolveHeaderFooter } from "@/modules/header-footer";
+import { DEFAULT_HEADER_BLOCKS, DEFAULT_FOOTER_BLOCKS, type HeaderFooterBlock, type ContainerSettings, DEFAULT_CONTAINER_SETTINGS } from "@/lib/header-footer/types";
+import { resolveHeaderFooter, parseHeaderFooterData } from "@/modules/header-footer";
 import HeaderFooterRenderer from "@/components/admin/header-footer-builder/HeaderFooterRenderer";
 import { TENANT_ID } from "@/modules/shared";
 
@@ -16,7 +16,9 @@ interface LayoutCache {
   sidebarMenu: { items: { id: string; label: string; href: string; target: string | null; order: number }[] } | null;
   company: { ga4: string | null; gtm: string | null; fbPixel: string | null; gscVerificationTag: string | null } | null;
   headerBlocks: HeaderFooterBlock[];
+  headerContainerSettings: ContainerSettings;
   footerBlocks: HeaderFooterBlock[];
+  footerContainerSettings: ContainerSettings;
   expiresAt: number;
 }
 
@@ -50,16 +52,22 @@ async function getLayoutData() {
 
   // Resolve header and footer blocks from builder or fallback to defaults
   let headerBlocks: HeaderFooterBlock[] = DEFAULT_HEADER_BLOCKS;
+  let headerContainerSettings: ContainerSettings = DEFAULT_CONTAINER_SETTINGS;
   let footerBlocks: HeaderFooterBlock[] = DEFAULT_FOOTER_BLOCKS;
+  let footerContainerSettings: ContainerSettings = DEFAULT_CONTAINER_SETTINGS;
 
   try {
     const resolvedHeader = await resolveHeaderFooter("HEADER");
     if (resolvedHeader) {
-      headerBlocks = JSON.parse(resolvedHeader.data || "[]") as HeaderFooterBlock[];
+      const parsed = parseHeaderFooterData(resolvedHeader.data);
+      headerBlocks = parsed.blocks as HeaderFooterBlock[];
+      headerContainerSettings = parsed.containerSettings;
     }
     const resolvedFooter = await resolveHeaderFooter("FOOTER");
     if (resolvedFooter) {
-      footerBlocks = JSON.parse(resolvedFooter.data || "[]") as HeaderFooterBlock[];
+      const parsed = parseHeaderFooterData(resolvedFooter.data);
+      footerBlocks = parsed.blocks as HeaderFooterBlock[];
+      footerContainerSettings = parsed.containerSettings;
     }
   } catch {
     // Header/footer builder models may not exist yet — fall back to defaults
@@ -72,7 +80,9 @@ async function getLayoutData() {
     sidebarMenu: sidebarMenu ? { items: sidebarMenu.items } : null,
     company: company ? { ga4: company.ga4, gtm: company.gtm, fbPixel: company.fbPixel, gscVerificationTag: company.gscVerificationTag } : null,
     headerBlocks,
+    headerContainerSettings,
     footerBlocks,
+    footerContainerSettings,
     expiresAt: Date.now() + LAYOUT_CACHE_TTL_MS,
   };
 
@@ -128,7 +138,10 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       {/* ── Header ─────────────────────────────────────────────────── */}
       <header className="border-b border-zinc-200 bg-white">
         {useHeaderBuilder ? (
-          <HeaderFooterRenderer blocks={layoutData.headerBlocks} />
+          <HeaderFooterRenderer
+            blocks={layoutData.headerBlocks}
+            containerSettings={layoutData.headerContainerSettings}
+          />
         ) : (
           <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
             <Link href="/" className="text-lg font-semibold text-zinc-900">
@@ -155,7 +168,10 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       {/* ── Footer ────────────────────────────────────────────────── */}
       <footer className="border-t border-zinc-200 bg-white">
         {useFooterBuilder ? (
-          <HeaderFooterRenderer blocks={layoutData.footerBlocks} />
+          <HeaderFooterRenderer
+            blocks={layoutData.footerBlocks}
+            containerSettings={layoutData.footerContainerSettings}
+          />
         ) : (
           <>
             {footerMenu?.items.length ? (

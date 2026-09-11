@@ -4,23 +4,26 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import {
   DndContext,
   closestCenter,
+  pointerWithin,
   PointerSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
   type DragStartEvent,
   type DragEndEvent,
+  type CollisionDetection,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import type { Block, BlockType, RowBlock } from "@/lib/page-builder/types";
 import {
-  createBlock,
   createRowLayout,
 } from "@/lib/page-builder/types";
 import {
   createHeaderFooterBlock,
   type HeaderFooterBlock,
   type HeaderFooterBlockType,
+  type ContainerSettings,
+  DEFAULT_CONTAINER_SETTINGS,
 } from "@/lib/header-footer/types";
 import {
   mapBlocks,
@@ -47,6 +50,7 @@ interface Props {
   templateName: string;
   templateType: "HEADER" | "FOOTER";
   initialBlocks: Block[];
+  initialContainerSettings?: ContainerSettings;
   isDefault: boolean;
   initialAssignments: Array<{
     id: string;
@@ -79,6 +83,7 @@ export default function HeaderFooterBuilder({
   templateName,
   templateType,
   initialBlocks,
+  initialContainerSettings,
   isDefault,
   initialAssignments,
   onSave,
@@ -102,6 +107,9 @@ export default function HeaderFooterBuilder({
   const [message, setMessage] = useState<string | null>(null);
   const [revisions, setRevisions] = useState<HeaderFooterRevisionRow[]>([]);
   const [showAssignments, setShowAssignments] = useState(false);
+  const [containerSettings, setContainerSettings] = useState<ContainerSettings>(
+    initialContainerSettings ?? DEFAULT_CONTAINER_SETTINGS,
+  );
   const savedRef = useRef(JSON.stringify(initialBlocks));
   const blocksRef = useRef(history.present);
 
@@ -271,9 +279,9 @@ export default function HeaderFooterBuilder({
       const overId = String(over.id);
 
       if (activeId.startsWith("palette:")) {
-        const type = activeId.replace("palette:", "") as BlockType;
-        const block = createBlock(type);
-        commit((present) => addBlockFromPalette(present, block, overId));
+        const type = activeId.replace("palette:", "");
+        const block = createHeaderFooterBlock(type as HeaderFooterBlockType);
+        commit((present) => addBlockFromPalette(present, block as Block, overId));
       } else if (activeId.startsWith("layout:")) {
         const layoutId = activeId.replace("layout:", "");
         const row = createRowLayout(layoutId);
@@ -283,6 +291,17 @@ export default function HeaderFooterBuilder({
       }
     },
     [commit],
+  );
+
+  /* ── Collision Detection ──────────────────────────────────────── */
+  const collisionDetection: CollisionDetection = useCallback(
+    (args) => {
+      if (activeDrag?.source === "palette" || activeDrag?.source === "layout") {
+        return pointerWithin(args);
+      }
+      return closestCenter(args);
+    },
+    [activeDrag],
   );
 
   /* ── Keyboard Shortcuts ─────────────────────────────────────────── */
@@ -329,7 +348,10 @@ export default function HeaderFooterBuilder({
   /* ── Autosave ───────────────────────────────────────────────────── */
   const persist = useCallback(
     async (createRevision: boolean) => {
-      const data = JSON.stringify(blocksRef.current);
+      const data = JSON.stringify({
+        blocks: blocksRef.current,
+        containerSettings,
+      });
       if (!createRevision && data === savedRef.current) return;
       setSaveState("saving");
       const result = await onSave(templateId, data, { createRevision });
@@ -342,7 +364,7 @@ export default function HeaderFooterBuilder({
         setMessage("Save failed.");
       }
     },
-    [onSave, templateId],
+    [onSave, templateId, containerSettings],
   );
 
   useEffect(() => {
@@ -408,6 +430,38 @@ export default function HeaderFooterBuilder({
           ))}
         </div>
 
+        <div className="ml-4 flex items-center gap-1 rounded-lg border border-zinc-200 p-0.5">
+          {(["full", "boxed"] as const).map((w) => (
+            <button
+              key={w}
+              onClick={() => setContainerSettings((s) => ({ ...s, width: w }))}
+              className={`rounded px-3 py-1 text-xs font-medium ${
+                containerSettings.width === w
+                  ? "bg-zinc-900 text-white"
+                  : "text-zinc-600 hover:bg-zinc-100"
+              }`}
+            >
+              {w === "full" ? "↔ Full Width" : "▣ Boxed"}
+            </button>
+          ))}
+          {containerSettings.width === "boxed" && (
+            <input
+              type="number"
+              value={containerSettings.maxWidth}
+              onChange={(e) =>
+                setContainerSettings((s) => ({
+                  ...s,
+                  maxWidth: Number(e.target.value) || 1200,
+                }))
+              }
+              min={600}
+              max={1920}
+              className="ml-1 w-20 rounded border border-zinc-300 px-2 py-1 text-xs"
+              title="Max width (px)"
+            />
+          )}
+        </div>
+
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={undo}
@@ -444,7 +498,7 @@ export default function HeaderFooterBuilder({
       {/* ── MAIN LAYOUT ─────────────────────────────────────────── */}
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={collisionDetection}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
@@ -455,6 +509,7 @@ export default function HeaderFooterBuilder({
               <HeaderFooterCanvas
                 blocks={blocks}
                 viewport={viewport}
+                containerSettings={containerSettings}
                 selectedId={selectedId}
                 selectedColumnId={selectedColumnId}
                 onSelect={onSelect}

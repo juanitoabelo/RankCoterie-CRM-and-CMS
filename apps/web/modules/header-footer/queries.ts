@@ -3,6 +3,13 @@
  */
 import { prisma } from "@/modules/shared";
 import { TENANT_ID } from "@/modules/shared";
+import type { ContainerSettings } from "@/lib/header-footer/types";
+import { DEFAULT_CONTAINER_SETTINGS } from "@/lib/header-footer/types";
+
+export interface HeaderFooterData {
+  blocks: import("@/lib/page-builder/types").Block[];
+  containerSettings: ContainerSettings;
+}
 
 export interface HeaderFooterRow {
   id: string;
@@ -28,6 +35,34 @@ export interface AssignmentRow {
   pageId: string | null;
   pageType: string | null;
   createdAt: Date;
+}
+
+/** Parse template data JSON into blocks and container settings. */
+export function parseHeaderFooterData(data: string | null): HeaderFooterData {
+  if (!data) {
+    return { blocks: [], containerSettings: DEFAULT_CONTAINER_SETTINGS };
+  }
+  try {
+    const parsed = JSON.parse(data);
+    // Support both old format (just blocks array) and new format (with containerSettings)
+    if (Array.isArray(parsed)) {
+      return { blocks: parsed, containerSettings: DEFAULT_CONTAINER_SETTINGS };
+    }
+    return {
+      blocks: parsed.blocks ?? [],
+      containerSettings: { ...DEFAULT_CONTAINER_SETTINGS, ...parsed.containerSettings },
+    };
+  } catch {
+    return { blocks: [], containerSettings: DEFAULT_CONTAINER_SETTINGS };
+  }
+}
+
+/** Serialize blocks and container settings to JSON string. */
+export function serializeHeaderFooterData(
+  blocks: import("@/lib/page-builder/types").Block[],
+  containerSettings: ContainerSettings,
+): string {
+  return JSON.stringify({ blocks, containerSettings });
 }
 
 /** List all header/footer templates for the current tenant. */

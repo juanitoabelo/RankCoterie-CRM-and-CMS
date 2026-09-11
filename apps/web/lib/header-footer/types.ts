@@ -33,6 +33,26 @@ import type {
 } from "../page-builder/types";
 
 /* ──────────────────────────────────────────────────────────────────────────── */
+/*  Container Settings (wraps entire header/footer)                           */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
+export interface ContainerSettings {
+  width: "full" | "boxed";
+  maxWidth: number; // only used when width === "boxed"
+  bgColor?: string;
+  paddingTop: number;
+  paddingBottom: number;
+}
+
+export const DEFAULT_CONTAINER_SETTINGS: ContainerSettings = {
+  width: "boxed",
+  maxWidth: 1200,
+  bgColor: undefined,
+  paddingTop: 0,
+  paddingBottom: 0,
+};
+
+/* ──────────────────────────────────────────────────────────────────────────── */
 /*  Specialized Header / Footer Block Interfaces                              */
 /* ──────────────────────────────────────────────────────────────────────────── */
 

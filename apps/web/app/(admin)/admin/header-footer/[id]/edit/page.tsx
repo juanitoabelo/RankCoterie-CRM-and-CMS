@@ -9,6 +9,7 @@ import {
   saveAssignmentsAction,
 } from "../../actions";
 import HeaderFooterBuilder from "@/components/admin/header-footer-builder/HeaderFooterBuilder";
+import { parseHeaderFooterData } from "@/modules/header-footer";
 
 export const revalidate = 0;
 
@@ -21,7 +22,7 @@ export default async function HeaderFooterEditPage({
   const template = await getHeaderFooter(id);
   if (!template) notFound();
 
-  const blocks = template.data ? JSON.parse(template.data) : [];
+  const { blocks, containerSettings } = parseHeaderFooterData(template.data);
   const assignments = await getAssignments(id);
 
   const saveBlocks = async (
@@ -56,6 +57,7 @@ export default async function HeaderFooterEditPage({
         templateName={template.name}
         templateType={template.type as "HEADER" | "FOOTER"}
         initialBlocks={blocks}
+        initialContainerSettings={containerSettings}
         isDefault={template.isDefault}
         initialAssignments={assignments}
         onSave={saveBlocks}

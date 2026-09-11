@@ -11,6 +11,7 @@ import type { Block, RowBlock, ColumnData } from "@/lib/page-builder/types";
 import { isRowBlock, isSectionBlock } from "@/lib/page-builder/types";
 import { resolveColumnWidths, canvasColumnSpanClass } from "@/lib/page-builder/spans";
 import { validateBlock } from "@/lib/page-builder/validate";
+import type { ContainerSettings } from "@/lib/header-footer/types";
 
 /* ── Sortable Block Wrapper ─────────────────────────────────────────────── */
 
@@ -252,6 +253,7 @@ function ColumnCell({
 export default function HeaderFooterCanvas({
   blocks,
   viewport,
+  containerSettings,
   selectedId,
   selectedColumnId,
   onSelect,
@@ -261,6 +263,7 @@ export default function HeaderFooterCanvas({
 }: {
   blocks: Block[];
   viewport: "desktop" | "tablet" | "mobile";
+  containerSettings: ContainerSettings;
   selectedId: string | null;
   selectedColumnId: string | null;
   onSelect: (id: string | null) => void;
@@ -270,6 +273,11 @@ export default function HeaderFooterCanvas({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: "canvas-root" });
 
+  const containerStyle: React.CSSProperties =
+    containerSettings.width === "boxed"
+      ? { maxWidth: containerSettings.maxWidth, margin: "0 auto" }
+      : {};
+
   return (
     <div
       ref={setNodeRef}
@@ -277,37 +285,52 @@ export default function HeaderFooterCanvas({
         isOver ? "border-amber-400 bg-amber-50/30" : "border-zinc-200 bg-zinc-50"
       }`}
       onClick={() => onSelect(null)}
+      style={containerSettings.width === "boxed" ? { maxWidth: "100%" } : undefined}
     >
-      <SortableContext
-        items={blocks.map((b) => b.id)}
-        strategy={verticalListSortingStrategy}
-      >
-        <div className="space-y-3">
-          {blocks.map((b) => (
-            <SortableBlock
-              key={b.id}
-              block={b}
-              viewport={viewport}
-              selectedId={selectedId}
-              selectedColumnId={selectedColumnId}
-              onSelect={onSelect}
-              onSelectColumn={onSelectColumn}
-              onRemove={onRemove}
-              onDuplicate={onDuplicate}
-            />
-          ))}
-        </div>
-      </SortableContext>
-      {blocks.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-sm text-zinc-400">
-            Drag blocks from the left panel to build your {viewport} layout
-          </p>
-          <p className="mt-1 text-xs text-zinc-300">
-            Start with a Logo and Navigation Menu block
-          </p>
+      {/* Container width indicator */}
+      {containerSettings.width === "boxed" && (
+        <div
+          className="mb-2 border border-dashed border-zinc-300 bg-white/50 p-1"
+          style={{ maxWidth: containerSettings.maxWidth, margin: "0 auto" }}
+        >
+          <span className="text-[9px] text-zinc-400">
+            Container: {containerSettings.maxWidth}px
+          </span>
         </div>
       )}
+
+      <div style={containerStyle}>
+        <SortableContext
+          items={blocks.map((b) => b.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="space-y-3">
+            {blocks.map((b) => (
+              <SortableBlock
+                key={b.id}
+                block={b}
+                viewport={viewport}
+                selectedId={selectedId}
+                selectedColumnId={selectedColumnId}
+                onSelect={onSelect}
+                onSelectColumn={onSelectColumn}
+                onRemove={onRemove}
+                onDuplicate={onDuplicate}
+              />
+            ))}
+          </div>
+        </SortableContext>
+        {blocks.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <p className="text-sm text-zinc-400">
+              Drag blocks from the left panel to build your {viewport} layout
+            </p>
+            <p className="mt-1 text-xs text-zinc-300">
+              Start with a Logo and Navigation Menu block
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

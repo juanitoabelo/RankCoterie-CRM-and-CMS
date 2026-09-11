@@ -1,8 +1,10 @@
 /**
  * Header / Footer Builder — Module Public API
  */
-export type { HeaderFooterRow, HeaderFooterRevisionRow, AssignmentRow } from "./queries";
+export type { HeaderFooterData, HeaderFooterRow, HeaderFooterRevisionRow, AssignmentRow } from "./queries";
 export {
+  parseHeaderFooterData,
+  serializeHeaderFooterData,
   listHeaderFooters,
   getHeaderFooter,
   createHeaderFooter,

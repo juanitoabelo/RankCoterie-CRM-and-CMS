@@ -7,7 +7,7 @@
  */
 import Link from "next/link";
 import type { Block } from "@/lib/page-builder/types";
-import type { HeaderFooterBlock } from "@/lib/header-footer/types";
+import type { HeaderFooterBlock, ContainerSettings, DEFAULT_CONTAINER_SETTINGS } from "@/lib/header-footer/types";
 import { isRowBlock } from "@/lib/page-builder/types";
 import { resolveColumnWidths, renderColumnSpanClass } from "@/lib/page-builder/spans";
 import { styleScopeClass, renderStyleGuide } from "@/lib/page-builder/style";
@@ -376,8 +376,27 @@ function RenderBlocks({ blocks }: { blocks: HeaderFooterBlock[] }) {
 
 export default function HeaderFooterRenderer({
   blocks,
+  containerSettings = DEFAULT_CONTAINER_SETTINGS,
 }: {
   blocks: HeaderFooterBlock[];
+  containerSettings?: ContainerSettings;
 }) {
-  return <RenderBlocks blocks={blocks} />;
+  const containerStyle: React.CSSProperties =
+    containerSettings.width === "boxed"
+      ? { maxWidth: containerSettings.maxWidth, margin: "0 auto" }
+      : {};
+
+  const wrapperStyle: React.CSSProperties = {
+    backgroundColor: containerSettings.bgColor,
+    paddingTop: containerSettings.paddingTop,
+    paddingBottom: containerSettings.paddingBottom,
+  };
+
+  return (
+    <div style={wrapperStyle}>
+      <div style={containerStyle}>
+        <RenderBlocks blocks={blocks} />
+      </div>
+    </div>
+  );
 }
