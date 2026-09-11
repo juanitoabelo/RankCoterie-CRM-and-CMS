@@ -14,10 +14,15 @@
     "dev": "npm run dev --workspace=web",
     "build": "npm run build --workspace=web",
     "test": "npm run test --workspaces --if-present",
-    "db:generate": "npm run db:generate --workspace=db"
+    "db:generate": "npm run db:generate --workspace=db",
+    "migrate:legacy": "npx tsx scripts/migrate-legacy.ts",
+    "migrate:verify": "npx tsx scripts/verify-migration.ts",
+    "stripe:listen": "stripe listen --forward-to localhost:3111/api/webhooks/stripe",
+    "stripe:e2e": "npm run test --workspace=web -- --testPathPattern=stripe-e2e"
   },
   "devDependencies": {
-    "@types/node": "26.2.0"
+    "@types/node": "26.2.0",
+    "mysql2": "^3.24.4"
   },
   "allowScripts": {
     "@prisma/engines@6.19.3": true

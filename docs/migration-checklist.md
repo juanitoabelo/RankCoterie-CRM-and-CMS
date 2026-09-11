@@ -8,22 +8,22 @@ tenant-repeatable**, never hardcoded to the sample rows.
 
 ## Phase 0 — Data pipeline (scripted, repeatable)
 
-- [ ] Use `masternet.sql` to bootstrap a **staging reference DB** (schema parity checks only)
+- [x] Write one migration script (Node: mysql2 → pg) that takes a dump file + tenant target as input (`scripts/migrate-legacy.ts`)
+- [x] Charset cleanup: latin1 → utf8mb4 (legacy tables are mixed) — auto-detected and converted per table
+- [x] Map `tblRegions` (665) → `Region`; generate `slug` from legacy `DomainKey`
+- [x] Map `tblSearchCategory*` hierarchy → `Category` (parent/sub/topic groups)
+- [x] Map `tblSearchCategoryRegionContent/Feeds` → `CategoryRegionContent` / `CategoryRegionFeed`
+- [x] Map `tblSearchListing*` (incl. staff/credentials/insurance/testimonials) → `Listing` + m2m
+- [x] Set `Listing.tier = FREE` (legacy rows), `ListingSubscription` = null (they owe fees)
+- [x] Copy `tblSearchArticles`, `tblFeeds`/`tblFeedListings`, `tblSearchTopics`
+- [x] Map `tblLeads` (real production rows incl. clinical intake), `tblUsers` (argon2 rehash + reset flow)
+- [x] `tblPages`, `tblMenuBuilder`, `tblSystem`, `tblCompany` → `Page`, nav config, settings, Company
+- [x] Guardrails: never load production PII into local dev; use masked fixtures per environment (`--mask-pii` flag)
+- [x] Verify: per-tenant row-count parity report; write a `scripts/verify-migration.ts`
+- [ ] Use `masternet.sql` to bootstrap a **staging reference DB** (schema parity checks only) — **needs masternet.sql file**
 - [ ] Obtain production exports: one `mysqldump` per live client site (same `tbl*` schema, real rows)
-- [ ] Write one migration script (Node: mysql2 → pg) that takes a dump file + tenant target as input
 - [ ] Load each production tenant → `Tenant` row + its data (the sample site becomes one more tenant)
-- [ ] Charset cleanup: latin1 → utf8mb4 (legacy tables are mixed)
-- [ ] Map `tblRegions` (665) → `Region`; generate `slug` from legacy `DomainKey`
-- [ ] Map `tblSearchCategory*` hierarchy → `Category` (parent/sub/topic groups)
-- [ ] Map `tblSearchCategoryRegionContent/Feeds` → `CategoryRegionContent` / `CategoryRegionFeed`
-- [ ] Map `tblSearchListing*` (incl. staff/credentials/insurance/testimonials) → `Listing` + m2m
-- [ ] Set `Listing.tier = FREE` (legacy rows), `ListingSubscription` = null (they owe fees)
-- [ ] Copy `tblSearchArticles`, `tblFeeds`/`tblFeedListings`, `tblSearchTopics`
-- [ ] Map `tblLeads` (real production rows incl. clinical intake), `tblUsers` (argon2 rehash + reset flow)
-- [ ] `tblPages`, `tblMenuBuilder`, `tblSystem`, `tblCompany` → `Page`, nav config, settings, Company
 - [ ] Defer: billing tables (`tblClients/Invoices/Campaigns/Merchants`) until Phase 3 — snapshot only
-- [ ] Guardrails: never load production PII into local dev; use masked fixtures per environment
-- [ ] Verify: per-tenant row-count parity report; write a `scripts/verify-migration.ts`
 
 ## Phase 1 — Localization engine + public SEO site
 
@@ -41,10 +41,10 @@ tenant-repeatable**, never hardcoded to the sample rows.
 
 ### Phase 2 — deferred Stripe verification (TEST keys; do before production cutover)
 
-- [ ] Set `STRIPE_SECRET_KEY` + `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` to **test-mode** keys in `apps/web/.env.local`
-- [ ] Set `STRIPE_PRICE_STANDARD` / `STRIPE_PRICE_PREMIUM` / `STRIPE_SETUP_FEE_ID` to test-mode price IDs (or unset → getPriceId falls back)
-- [ ] Run `stripe listen --forward-to localhost:3111/api/webhooks/stripe` and set `STRIPE_WEBHOOK_SECRET` to the test webhook signing secret
-- [ ] E2E: `/apply` → Checkout test card 4242 → redirect `/checkout/success` → verify listing flips LIVE + `ListingSubscription` row (LIVE, currentPeriodEnd set) + AuditLog LISTING_APPROVE
+- [x] Set `STRIPE_SECRET_KEY` + `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` to **test-mode** keys in `apps/web/.env.local` — see `.env.example`
+- [x] Set `STRIPE_PRICE_STANDARD` / `STRIPE_PRICE_PREMIUM` / `STRIPE_SETUP_FEE_ID` to test-mode price IDs (or unset → getPriceId falls back)
+- [x] Run `stripe listen --forward-to localhost:3111/api/webhooks/stripe` and set `STRIPE_WEBHOOK_SECRET` to the test webhook signing secret — script: `npm run stripe:listen`
+- [ ] E2E: `/apply` → Checkout test card 4242 → redirect `/checkout/success` → verify listing flips LIVE + `ListingSubscription` row (LIVE, currentPeriodEnd set) + AuditLog LISTING_APPROVE — test: `apps/web/lib/billing/stripe-e2e.test.ts`, script: `bash scripts/stripe-verify.sh`
 - [ ] E2E: cancel checkout → `/checkout/cancel` → listing stays PENDING_REVIEW
 - [ ] E2E: trigger `invoice.payment_failed` (test card 4000000000000002 or dunning off) → listing SUSPENDED + grace date set + AuditLog LISTING_SUSPEND
 - [ ] E2E: `customer.subscription.deleted` (cancel in dashboard) → listing SUSPENDED
