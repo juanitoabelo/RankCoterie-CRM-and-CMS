@@ -116,6 +116,7 @@ model Category {
   slug        String // legacy DomainKey, e.g. "wilderness-therapy"
   title       String
   description String? // category-level blob, tokens allowed (catalog description)
+  author      String? // topic author name
   parentId    String? // legacy tblSearchCategoryParent / Sub hierarchy
   parent      Category? @relation("CatTree", fields: [parentId], references: [id])
   children    Category[] @relation("CatTree")
@@ -124,7 +125,7 @@ model Category {
   cityInit    String?
   cityDesc    String?
   altIntros   Json?  // areaPart-keyed overrides
-  sections    Json?
+  sections    Json?  // topic content sections [{title, content}, ...]
   status      String @default("LIVE")
   regionContent CategoryRegionContent[]
   regionFeeds    CategoryRegionFeed[]
@@ -296,6 +297,10 @@ model ContentTemplate {
   title       String // one piece of content, e.g. "Wilderness Therapy for Troubled Teen Girls"
   body        String // tokens: {{region}} {{in region}} {{around region}} {{near region}} ...
   metaDesc    String?
+  author      String? // subtopic author name
+  featuredImageAssetId String? @unique // FK to Asset for featured image
+  featuredImage Asset? @relation(fields: [featuredImageAssetId], references: [id])
+  displaySections Json? // boolean array [s1, s2, s3, s4, s5] for topic section visibility
   categoryId  String?
   category    Category? @relation(fields: [categoryId], references: [id])
   status      ContentStatus @default(DRAFT)
@@ -303,6 +308,7 @@ model ContentTemplate {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   variants    ContentVariant[]
+  sectionLinks SubTopicSection[]
   @@unique([tenantId, slug])
 }
 
@@ -519,6 +525,47 @@ model Snippet {
   @@index([tenantId, updatedAt])
 }
 
+// ---------------------------------------------------------------------------
+// Header / Footer Builder
+// ---------------------------------------------------------------------------
+
+model HeaderFooter {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  type        String   // "HEADER" | "FOOTER"
+  data        String?  // builder blocks JSON (Block[])
+  isDefault   Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  revisions   HeaderFooterRevision[]
+  assignments HeaderFooterAssignment[]
+  @@unique([tenantId, name])
+  @@index([tenantId, type])
+}
+
+model HeaderFooterRevision {
+  id             String       @id @default(cuid())
+  headerFooterId String
+  headerFooter   HeaderFooter @relation(fields: [headerFooterId], references: [id], onDelete: Cascade)
+  data           String       // builder blocks JSON snapshot
+  createdAt      DateTime     @default(now())
+  @@index([headerFooterId, createdAt])
+}
+
+model HeaderFooterAssignment {
+  id             String       @id @default(cuid())
+  tenantId       String
+  headerFooterId String
+  headerFooter   HeaderFooter @relation(fields: [headerFooterId], references: [id], onDelete: Cascade)
+  priority       Int          @default(0) // higher = more specific
+  pageId         String?      // null = global or type-level
+  pageType       String?      // null = global or page-level ("blog", "landing", etc.)
+  createdAt      DateTime     @default(now())
+  @@unique([tenantId, headerFooterId, pageId, pageType])
+  @@index([tenantId, headerFooterId])
+}
+
 model Asset {
   id        String   @id @default(cuid())
   tenantId  String
@@ -531,6 +578,7 @@ model Asset {
   @@index([tenantId])
   widgets Widget[]
   categoryImages CategoryImage[]
+  subTopicFeaturedImage ContentTemplate?
 }
 
 model AuditLog {
@@ -562,6 +610,7 @@ model Section {
   status     String   @default("LIVE") // LIVE | DRAFT | HIDDEN
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id])
+  subTopicLinks SubTopicSection[]
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   @@unique([tenantId, slug])
@@ -569,6 +618,16 @@ model Section {
 }
 
 // The site owner's company profile + installed tracking/verification tags.
+model SubTopicSection {
+  id         String   @id @default(cuid())
+  templateId String
+  template   ContentTemplate @relation(fields: [templateId], references: [id])
+  sectionId  String
+  section    Section  @relation(fields: [sectionId], references: [id])
+  order      Int      @default(0)
+  @@unique([templateId, sectionId])
+}
+
 model Company {
   id                    String   @id @default(cuid())
   tenantId              String
@@ -597,6 +656,7 @@ model Company {
   updatedAt             DateTime @updatedAt
   tenant                Tenant   @relation("CompanyTenant", fields: [tenantId], references: [id])
   linkedTenants         Tenant[] @relation("TenantCompanyId")
+  widgets               Widget[]
   @@unique([tenantId])
 }
 
@@ -628,6 +688,7 @@ model MenuItem {
   href     String
   order    Int     @default(0)
   target   String? // "_blank" etc.
+  itemType String  @default("LINK") // LINK | FEED
   parent   MenuItem? @relation("MenuItemTree", fields: [parentId], references: [id], onDelete: Cascade)
   children MenuItem[] @relation("MenuItemTree")
   @@index([menuId, order])
@@ -639,9 +700,26 @@ model Widget {
   id           String   @id @default(cuid())
   tenantId     String
   name         String
+  title        String?  // display title
+  url          String?  // widget URL / page url
   html         String // free-form HTML content
   imageAssetId String? // featured image (asset id)
   redirectUrl  String?
+  keywords     String?  // comma-separated tags
+  companyId    String?  // FK to Company
+  company      Company? @relation(fields: [companyId], references: [id])
+  ctaDescription String? // CTA description text
+  ctaStatement1  String? // CTA statement line 1
+  ctaStatement2  String? // CTA statement line 2
+  ctaButtonText  String? // CTA button label
+  phone        String?  // phone number
+  usePhoneAsButtonLink Boolean @default(false) // use phone as button link
+  facebookUrl  String?
+  twitterUrl   String?
+  instagramUrl String?
+  youtubeUrl   String?
+  pinterestUrl String?
+  linkedinUrl  String?
   active       Boolean  @default(true)
   placements   WidgetPlacement[]
   createdAt    DateTime @default(now())

@@ -87,7 +87,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     title: "System Tools",
     items: [
-      { section: "styleGuide", href: "/admin/style-guide", label: "Style Guide" },
+      { section: "headerFooter", href: "/admin/header-footer", label: "Header & Footer Builder" },
+      { section: "themeSettings", href: "/admin/theme-settings", label: "Theme Settings" },
+      { section: "styleGuide", href: "/admin/style-guide", label: "Style Guide (Legacy)" },
       { section: "reports", href: "/admin/reports", label: "Reports" },
     ],
   },
