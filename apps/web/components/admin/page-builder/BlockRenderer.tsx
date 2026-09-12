@@ -407,19 +407,143 @@ const HEADING_SIZES = {
 } as const;
 
 function HeadingBlock({ block, ctx }: { block: Block & { type: "heading" }; ctx: RegionContext }) {
-  const Tag = (["h1", "h2", "h3", "h4", "h5", "h6"] as const)[block.props.level - 1] as React.ElementType;
+  const p = block.props;
+  const Tag = (["h1", "h2", "h3", "h4", "h5", "h6"] as const)[p.level - 1] as React.ElementType;
+
   const alignCls =
-    block.props.align === "center"
+    p.align === "center"
       ? "text-center"
-      : block.props.align === "right"
+      : p.align === "right"
         ? "text-right"
-        : "text-left";
+        : p.align === "justify"
+          ? "text-justify"
+          : "text-left";
+
+  // Responsive hide classes
+  const hideClasses = [
+    p.hideOnDesktop ? "hidden lg:block" : "",
+    p.hideOnTablet ? "hidden md:block" : "",
+    p.hideOnMobile ? "hidden sm:block" : "",
+  ].filter(Boolean).join(" ");
+
+  // Width classes
+  const widthCls = p.width === "full" ? "w-full" : p.width === "boxed" ? "mx-auto max-w-3xl" : p.width === "inline" ? "inline-block" : "";
+
+  // Build inline styles
+  const headingStyle: React.CSSProperties = {};
+
+  // Typography
+  if (p.textColor) headingStyle.color = p.textColor;
+  if (p.fontFamily) headingStyle.fontFamily = p.fontFamily;
+  if (p.fontWeight) headingStyle.fontWeight = p.fontWeight;
+  if (p.fontSize) headingStyle.fontSize = `${p.fontSize}${p.fontSizeUnit || "px"}`;
+  if (p.textTransform) headingStyle.textTransform = p.textTransform as React.CSSProperties["textTransform"];
+  if (p.textDecoration) headingStyle.textDecoration = p.textDecoration as React.CSSProperties["textDecoration"];
+  if (p.lineHeight) headingStyle.lineHeight = p.lineHeight;
+  if (p.letterSpacing !== undefined) headingStyle.letterSpacing = p.letterSpacing;
+  if (p.wordSpacing !== undefined) headingStyle.wordSpacing = p.wordSpacing;
+
+  // Text stroke (uses -webkit-text-stroke)
+  if (p.textStroke) {
+    (headingStyle as Record<string, unknown>)["WebkitTextStroke"] = `${p.textStroke}px ${p.textColor || "#000"}`;
+  }
+
+  // Text shadow
+  if (p.textShadow) headingStyle.textShadow = p.textShadow;
+
+  // Blend mode
+  if (p.blendMode) headingStyle.mixBlendMode = p.blendMode;
+
+  // Margin
+  if (p.margin) {
+    headingStyle.marginTop = p.margin.top || undefined;
+    headingStyle.marginRight = p.margin.right || undefined;
+    headingStyle.marginBottom = p.margin.bottom || undefined;
+    headingStyle.marginLeft = p.margin.left || undefined;
+  }
+
+  // Padding
+  if (p.padding) {
+    headingStyle.paddingTop = p.padding.top || undefined;
+    headingStyle.paddingRight = p.padding.right || undefined;
+    headingStyle.paddingBottom = p.padding.bottom || undefined;
+    headingStyle.paddingLeft = p.padding.left || undefined;
+  }
+
+  // Border
+  if (p.borderStyle && p.borderStyle !== "none") {
+    headingStyle.borderStyle = p.borderStyle;
+    headingStyle.borderWidth = p.borderWidth ? `${p.borderWidth}px` : "1px";
+    headingStyle.borderColor = p.borderColor || "#000";
+  }
+
+  // Border radius
+  const hasRadius = p.borderRadiusTop || p.borderRadiusRight || p.borderRadiusBottom || p.borderRadiusLeft;
+  if (hasRadius) {
+    headingStyle.borderTopLeftRadius = p.borderRadiusTop ? `${p.borderRadiusTop}px` : undefined;
+    headingStyle.borderTopRightRadius = p.borderRadiusRight ? `${p.borderRadiusRight}px` : undefined;
+    headingStyle.borderBottomRightRadius = p.borderRadiusBottom ? `${p.borderRadiusBottom}px` : undefined;
+    headingStyle.borderBottomLeftRadius = p.borderRadiusLeft ? `${p.borderRadiusLeft}px` : undefined;
+  }
+
+  // Box shadow
+  if (p.boxShadow) headingStyle.boxShadow = p.boxShadow;
+
+  // Background
+  if (p.bgColor) headingStyle.backgroundColor = p.bgColor;
+  if (p.bgImage) {
+    headingStyle.backgroundImage = `url(${p.bgImage})`;
+    headingStyle.backgroundPosition = p.bgPosition || "center center";
+    headingStyle.backgroundSize = p.bgSize || "cover";
+    headingStyle.backgroundRepeat = p.bgRepeat || "no-repeat";
+  }
+
+  // Z-Index
+  if (p.zIndex !== undefined) headingStyle.zIndex = p.zIndex;
+
+  // Transform
+  const transforms: string[] = [];
+  if (p.rotateZ) transforms.push(`rotate(${p.rotateZ}deg)`);
+  if (p.rotateX) transforms.push(`rotateX(${p.rotateX}deg)`);
+  if (p.rotateY) transforms.push(`rotateY(${p.rotateY}deg)`);
+  if (p.scaleX || p.scaleY) transforms.push(`scale(${p.scaleX || 1}, ${p.scaleY || 1})`);
+  if (p.skewX) transforms.push(`skewX(${p.skewX}deg)`);
+  if (p.skewY) transforms.push(`skewY(${p.skewY}deg)`);
+  if (p.offsetX || p.offsetY) transforms.push(`translate(${p.offsetX || 0}px, ${p.offsetY || 0}px)`);
+  if (p.flipH) transforms.push("scaleX(-1)");
+  if (p.flipV) transforms.push("scaleY(-1)");
+  if (transforms.length > 0) headingStyle.transform = transforms.join(" ");
+
+  // Entrance animation
+  const animStyle = p.entranceAnimation ? { animation: `${p.entranceAnimation} 0.6s ease-out` } : {};
+
+  // Custom CSS scope ID
+  const scopeClass = `pb-${block.id}`;
+
+  const headingContent = (
+    <Tag
+      className={`${HEADING_SIZES[p.level]} ${alignCls} ${widthCls} ${hideClasses}`}
+      style={headingStyle}
+      id={p.cssId || undefined}
+    >
+      {renderLocalizedContent(p.text, ctx)}
+    </Tag>
+  );
+
+  // Wrap in link if provided
+  const wrapped = p.link ? (
+    <a href={p.link} target={p.linkTarget || undefined} className="no-underline" style={{ color: "inherit" }}>
+      {headingContent}
+    </a>
+  ) : headingContent;
+
   return styleScope(
     block,
-    <section className="px-6 py-6">
-      <Tag className={`${HEADING_SIZES[block.props.level]} ${alignCls}`}>
-        {renderLocalizedContent(block.props.text, ctx)}
-      </Tag>
+    <section className={`px-6 py-6 ${p.cssClasses || ""}`} style={animStyle}>
+      {wrapped}
+      {p.customCss && (
+        <style dangerouslySetInnerHTML={{ __html: `.${scopeClass} { ${p.customCss.replace(/selector/g, `.${scopeClass}`)} }` }} />
+      )}
     </section>,
   );
 }

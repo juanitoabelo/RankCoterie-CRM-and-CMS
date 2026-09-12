@@ -165,7 +165,71 @@ export interface HeadingBlock extends BlockBase {
   props: {
     text: string;
     level: 1 | 2 | 3 | 4 | 5 | 6;
-    align: "left" | "center" | "right";
+    align: "left" | "center" | "right" | "justify";
+    link?: string;
+    linkTarget?: string;
+    // Style
+    textColor?: string;
+    hoverColor?: string;
+    blendMode?: string;
+    textStroke?: number;
+    textShadow?: string;
+    textShadowColor?: string;
+    textShadowBlur?: number;
+    textShadowX?: number;
+    textShadowY?: number;
+    // Typography
+    fontFamily?: string;
+    fontWeight?: string;
+    fontSize?: number;
+    fontSizeUnit?: "px" | "em" | "rem" | "%" | "vw";
+    textTransform?: "none" | "uppercase" | "lowercase" | "capitalize";
+    textDecoration?: "none" | "underline" | "overline" | "line-through";
+    lineHeight?: number;
+    letterSpacing?: number;
+    wordSpacing?: number;
+    // Advanced - Layout
+    width?: "default" | "full" | "boxed" | "inline";
+    margin?: { top: string; right: string; bottom: string; left: string };
+    padding?: { top: string; right: string; bottom: string; left: string };
+    zIndex?: number;
+    cssId?: string;
+    cssClasses?: string;
+    customCss?: string;
+    // Advanced - Motion
+    entranceAnimation?: string;
+    // Advanced - Transform
+    rotateX?: number;
+    rotateY?: number;
+    rotateZ?: number;
+    scaleX?: number;
+    scaleY?: number;
+    skewX?: number;
+    skewY?: number;
+    offsetX?: number;
+    offsetY?: number;
+    flipH?: boolean;
+    flipV?: boolean;
+    // Advanced - Background
+    bgColor?: string;
+    bgGradient?: string;
+    bgImage?: string;
+    bgPosition?: string;
+    bgSize?: string;
+    bgRepeat?: string;
+    // Advanced - Border
+    borderStyle?: string;
+    borderWidth?: number;
+    borderColor?: string;
+    borderRadiusTop?: number;
+    borderRadiusRight?: number;
+    borderRadiusBottom?: number;
+    borderRadiusLeft?: number;
+    boxShadow?: string;
+    // Advanced - Responsive
+    hideOnDesktop?: boolean;
+    hideOnTablet?: boolean;
+    hideOnMobile?: boolean;
     style?: StyleBreakpoints;
   };
 }
