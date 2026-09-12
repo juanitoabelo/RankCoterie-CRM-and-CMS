@@ -52,12 +52,14 @@ export default function RichTextEditor({
   placeholder = "Write your content…",
   minHeight = 160,
   showSource = false,
+  textColor,
 }: {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
   minHeight?: number;
   showSource?: boolean;
+  textColor?: string;
 }) {
   const [sourceMode, setSourceMode] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -277,7 +279,7 @@ export default function RichTextEditor({
               </>
             )}
           </div>
-          <div className="rte-content" style={{ minHeight }}>
+          <div className="rte-content" style={{ minHeight, color: textColor || undefined }}>
             <EditorContent editor={editor} />
           </div>
         </div>

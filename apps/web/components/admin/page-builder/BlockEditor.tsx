@@ -131,6 +131,7 @@ function TextEditor({
                 onChange={(v) => set({ content: v })}
                 placeholder="Write your content…"
                 showSource
+                textColor={p.textColor as string}
               />
             </div>
             <p className="mt-1 text-[11px] leading-snug text-zinc-400">

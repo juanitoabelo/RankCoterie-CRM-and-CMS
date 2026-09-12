@@ -800,7 +800,7 @@ function TextEditor({ block, onChange }: EditorProps) {
           </div>
 
           <label className={labelCls}>Content
-            <RichTextEditor value={p.content} onChange={(v) => set({ content: v })} minHeight={120} />
+            <RichTextEditor value={p.content} onChange={(v) => set({ content: v })} minHeight={120} textColor={(p as Record<string, unknown>).textColor as string} />
           </label>
 
           <div className="flex items-center justify-between">

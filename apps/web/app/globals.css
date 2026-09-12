@@ -122,6 +122,7 @@ textarea::placeholder {
   outline: none;
   min-height: inherit;
   padding: 0.75rem;
+  color: inherit;
 }
 .rte-content .tiptap p.is-editor-empty:first-child::before,
 .rte-content .tiptap p:first-child.is-editor-empty::before {
