@@ -1290,33 +1290,428 @@ function DividerEditor({ block, onChange }: EditorProps) {
 /* ── Heading Editor ───────────────────────────────────────────────────── */
 
 function HeadingEditor({ block, onChange }: EditorProps) {
-  const p = block.props as { text: string; level: 1 | 2 | 3 | 4 | 5 | 6; align: "left" | "center" | "right" };
+  const p = block.props as Record<string, unknown>;
   const set = createSetter(block, onChange);
+  const [activeTab, setActiveTab] = useState<"content" | "style" | "advanced">("content");
+  const [styleState, setStyleState] = useState<"normal" | "hover">("normal");
+  const [advancedSection, setAdvancedSection] = useState<string | null>("layout");
 
   return (
     <div className="space-y-3">
-      <label className={labelCls}>Text
-        <input type="text" value={p.text} onChange={(e) => set({ text: e.target.value })} className={inputCls} />
-      </label>
-      <div className="grid grid-cols-2 gap-3">
-        <label className={labelCls}>Level
-          <select value={p.level} onChange={(e) => set({ level: Number(e.target.value) })} className={inputCls}>
-            <option value={1}>H1</option>
-            <option value={2}>H2</option>
-            <option value={3}>H3</option>
-            <option value={4}>H4</option>
-            <option value={5}>H5</option>
-            <option value={6}>H6</option>
-          </select>
-        </label>
-        <label className={labelCls}>Alignment
-          <select value={p.align} onChange={(e) => set({ align: e.target.value })} className={inputCls}>
-            <option value="left">Left</option>
-            <option value="center">Center</option>
-            <option value="right">Right</option>
-          </select>
-        </label>
+      {/* Tabs */}
+      <div className="flex border-b border-zinc-200">
+        {(["content", "style", "advanced"] as const).map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-2 text-xs font-medium capitalize ${activeTab === tab ? "border-b-2 border-zinc-900 text-zinc-900" : "text-zinc-500 hover:text-zinc-700"}`}>
+            {tab}
+          </button>
+        ))}
       </div>
+
+      {/* ── Content Tab ─────────────────────────────────── */}
+      {activeTab === "content" && (
+        <div className="space-y-3">
+          <div className="border-t border-zinc-200 pt-3">
+            <span className="text-xs font-semibold text-zinc-700">Heading</span>
+          </div>
+
+          <div>
+            <label className={labelCls}>Title</label>
+            <textarea
+              className={inputCls + " min-h-[80px]"}
+              value={(p.text as string) || ""}
+              onChange={(e) => set({ text: e.target.value })}
+              placeholder="Enter heading text"
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>Link</label>
+            <input
+              type="url"
+              className={inputCls}
+              value={(p.link as string) || ""}
+              onChange={(e) => set({ link: e.target.value })}
+              placeholder="https://example.com"
+            />
+          </div>
+
+          {p.link && (
+            <label className={labelCls}>Link Target
+              <select className={inputCls} value={(p.linkTarget as string) || ""} onChange={(e) => set({ linkTarget: e.target.value })}>
+                <option value="">Same Window</option>
+                <option value="_blank">New Window</option>
+              </select>
+            </label>
+          )}
+
+          <label className={labelCls}>HTML Tag
+            <select className={inputCls} value={(p.level as number) || 2} onChange={(e) => set({ level: Number(e.target.value) })}>
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <option key={n} value={n}>H{n}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+
+      {/* ── Style Tab ─────────────────────────────────── */}
+      {activeTab === "style" && (
+        <div className="space-y-3">
+          <div className="border-t border-zinc-200 pt-3">
+            <span className="text-xs font-semibold text-zinc-700">Heading</span>
+          </div>
+
+          {/* Alignment buttons */}
+          <div>
+            <span className={labelCls}>Alignment</span>
+            <div className="mt-1 flex gap-1">
+              {[
+                { value: "left", icon: "⫷", label: "Left" },
+                { value: "center", icon: "☰", label: "Center" },
+                { value: "right", icon: "⫸", label: "Right" },
+                { value: "justify", icon: "⫘", label: "Justify" },
+              ].map((opt) => (
+                <button key={opt.value} type="button" onClick={() => set({ align: opt.value })} className={`flex h-8 w-8 items-center justify-center rounded border text-sm ${((p.align as string) ?? "left") === opt.value ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`} title={opt.label}>{opt.icon}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Typography */}
+          <div className="border-t border-zinc-200 pt-3">
+            <span className="text-xs font-semibold text-zinc-700">Typography</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <label className={labelCls}>Font Family
+              <select className={inputCls} value={(p.fontFamily as string) || ""} onChange={(e) => set({ fontFamily: e.target.value })}>
+                <option value="">Default</option>
+                <option value="inherit">Inherit</option>
+                <option value="Arial, sans-serif">Arial</option>
+                <option value="Georgia, serif">Georgia</option>
+                <option value="Times New Roman, serif">Times</option>
+                <option value="Courier New, monospace">Courier</option>
+                <option value="Verdana, sans-serif">Verdana</option>
+              </select>
+            </label>
+            <label className={labelCls}>Font Size
+              <div className="flex gap-1">
+                <input type="number" className={inputCls + " flex-1"} value={(p.fontSize as number) || ""} onChange={(e) => set({ fontSize: Number(e.target.value) || undefined })} min={0} max={200} placeholder="Auto" />
+                <select className="w-14 rounded border border-zinc-300 px-1 py-1.5 text-xs" value={(p.fontSizeUnit as string) || "px"} onChange={(e) => set({ fontSizeUnit: e.target.value })}>
+                  <option value="px">px</option>
+                  <option value="em">em</option>
+                  <option value="rem">rem</option>
+                  <option value="%">%</option>
+                  <option value="vw">vw</option>
+                </select>
+              </div>
+            </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <label className={labelCls}>Weight
+              <select className={inputCls} value={(p.fontWeight as string) || ""} onChange={(e) => set({ fontWeight: e.target.value })}>
+                <option value="">Default</option>
+                <option value="100">Thin (100)</option>
+                <option value="300">Light (300)</option>
+                <option value="400">Regular (400)</option>
+                <option value="500">Medium (500)</option>
+                <option value="600">Semibold (600)</option>
+                <option value="700">Bold (700)</option>
+                <option value="900">Black (900)</option>
+              </select>
+            </label>
+            <label className={labelCls}>Transform
+              <select className={inputCls} value={(p.textTransform as string) || "none"} onChange={(e) => set({ textTransform: e.target.value })}>
+                <option value="none">None</option>
+                <option value="uppercase">Uppercase</option>
+                <option value="lowercase">Lowercase</option>
+                <option value="capitalize">Capitalize</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <label className={labelCls}>Decoration
+              <select className={inputCls} value={(p.textDecoration as string) || "none"} onChange={(e) => set({ textDecoration: e.target.value })}>
+                <option value="none">None</option>
+                <option value="underline">Underline</option>
+                <option value="overline">Overline</option>
+                <option value="line-through">Line Through</option>
+              </select>
+            </label>
+            <label className={labelCls}>Line Height
+              <input type="number" className={inputCls} value={(p.lineHeight as number) || ""} onChange={(e) => set({ lineHeight: Number(e.target.value) || undefined })} min={0} max={3} step={0.1} placeholder="Auto" />
+            </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <label className={labelCls}>Letter Spacing
+              <input type="number" className={inputCls} value={(p.letterSpacing as number) ?? ""} onChange={(e) => set({ letterSpacing: e.target.value ? Number(e.target.value) : undefined })} min={-10} max={20} step={0.5} placeholder="Auto" />
+            </label>
+            <label className={labelCls}>Word Spacing
+              <input type="number" className={inputCls} value={(p.wordSpacing as number) ?? ""} onChange={(e) => set({ wordSpacing: e.target.value ? Number(e.target.value) : undefined })} min={-10} max={50} step={0.5} placeholder="Auto" />
+            </label>
+          </div>
+
+          {/* Text Shadow */}
+          <label className={labelCls}>Text Shadow
+            <input type="text" className={inputCls} value={(p.textShadow as string) || ""} onChange={(e) => set({ textShadow: e.target.value })} placeholder="2px 2px 4px rgba(0,0,0,0.3)" />
+          </label>
+
+          {/* Blend Mode */}
+          <label className={labelCls}>Blend Mode
+            <select className={inputCls} value={(p.blendMode as string) || "normal"} onChange={(e) => set({ blendMode: e.target.value })}>
+              <option value="normal">Normal</option>
+              <option value="multiply">Multiply</option>
+              <option value="screen">Screen</option>
+              <option value="overlay">Overlay</option>
+              <option value="darken">Darken</option>
+              <option value="lighten">Lighten</option>
+            </select>
+          </label>
+
+          {/* Text Color - Normal/Hover */}
+          <div className="border-t border-zinc-200 pt-3">
+            <span className={labelCls}>Text Color</span>
+            <div className="mt-1 flex gap-2">
+              <button type="button" onClick={() => setStyleState("normal")} className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium ${styleState === "normal" ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600"}`}>Normal</button>
+              <button type="button" onClick={() => setStyleState("hover")} className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium ${styleState === "hover" ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600"}`}>Hover</button>
+            </div>
+          </div>
+
+          {styleState === "normal" ? (
+            <div>
+              <label className={labelCls}>Text Color</label>
+              <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={(p.textColor as string) || "#000000"} onChange={(e) => set({ textColor: e.target.value })} />
+            </div>
+          ) : (
+            <div>
+              <label className={labelCls}>Hover Color</label>
+              <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={(p.hoverColor as string) || "#000000"} onChange={(e) => set({ hoverColor: e.target.value })} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Advanced Tab ─────────────────────────────────── */}
+      {activeTab === "advanced" && (
+        <div className="space-y-3">
+          {/* Layout section */}
+          <button type="button" onClick={() => setAdvancedSection(advancedSection === "layout" ? null : "layout")} className="flex w-full items-center justify-between border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-700">
+            Layout
+            <span className="text-zinc-400">{advancedSection === "layout" ? "▾" : "▸"}</span>
+          </button>
+
+          {advancedSection === "layout" && (
+            <div className="space-y-3">
+              <label className={labelCls}>Width
+                <select className={inputCls} value={(p.width as string) || "default"} onChange={(e) => set({ width: e.target.value })}>
+                  <option value="default">Default</option>
+                  <option value="full">Full Width</option>
+                  <option value="boxed">Boxed</option>
+                  <option value="inline">Inline</option>
+                </select>
+              </label>
+
+              {/* Margin */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className={labelCls}>Margin</span>
+                  <span className="text-[10px] text-zinc-400">px</span>
+                </div>
+                <div className="grid grid-cols-4 gap-1">
+                  {(["top", "right", "bottom", "left"] as const).map((side) => (
+                    <input key={side} type="text" className="rounded border border-zinc-300 px-2 py-1.5 text-center text-xs" placeholder={side.charAt(0).toUpperCase()} value={((p.margin as Record<string, string>)?.[side]) || ""} onChange={(e) => set({ margin: { ...(p.margin as Record<string, string>), [side]: e.target.value } })} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Padding */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className={labelCls}>Padding</span>
+                  <span className="text-[10px] text-zinc-400">px</span>
+                </div>
+                <div className="grid grid-cols-4 gap-1">
+                  {(["top", "right", "bottom", "left"] as const).map((side) => (
+                    <input key={side} type="text" className="rounded border border-zinc-300 px-2 py-1.5 text-center text-xs" placeholder={side.charAt(0).toUpperCase()} value={((p.padding as Record<string, string>)?.[side]) || ""} onChange={(e) => set({ padding: { ...(p.padding as Record<string, string>), [side]: e.target.value } })} />
+                  ))}
+                </div>
+              </div>
+
+              <label className={labelCls}>Z-Index
+                <input type="number" className={inputCls} value={(p.zIndex as number) ?? ""} onChange={(e) => set({ zIndex: e.target.value ? Number(e.target.value) : undefined })} placeholder="Auto" />
+              </label>
+
+              <label className={labelCls}>CSS ID
+                <input type="text" className={inputCls} value={(p.cssId as string) || ""} onChange={(e) => set({ cssId: e.target.value })} placeholder="my-heading" />
+              </label>
+
+              <label className={labelCls}>CSS Classes
+                <input type="text" className={inputCls} value={(p.cssClasses as string) || ""} onChange={(e) => set({ cssClasses: e.target.value })} placeholder="custom-class" />
+              </label>
+            </div>
+          )}
+
+          {/* Motion Effects section */}
+          <button type="button" onClick={() => setAdvancedSection(advancedSection === "motion" ? null : "motion")} className="flex w-full items-center justify-between border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-700">
+            Motion Effects
+            <span className="text-zinc-400">{advancedSection === "motion" ? "▾" : "▸"}</span>
+          </button>
+
+          {advancedSection === "motion" && (
+            <div className="space-y-3">
+              <label className={labelCls}>Entrance Animation
+                <select className={inputCls} value={(p.entranceAnimation as string) || ""} onChange={(e) => set({ entranceAnimation: e.target.value })}>
+                  <option value="">None</option>
+                  <option value="fadeIn">Fade In</option>
+                  <option value="fadeInUp">Fade In Up</option>
+                  <option value="fadeInDown">Fade In Down</option>
+                  <option value="fadeInLeft">Fade In Left</option>
+                  <option value="fadeInRight">Fade In Right</option>
+                  <option value="zoomIn">Zoom In</option>
+                  <option value="bounceIn">Bounce In</option>
+                </select>
+              </label>
+            </div>
+          )}
+
+          {/* Transform section */}
+          <button type="button" onClick={() => setAdvancedSection(advancedSection === "transform" ? null : "transform")} className="flex w-full items-center justify-between border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-700">
+            Transform
+            <span className="text-zinc-400">{advancedSection === "transform" ? "▾" : "▸"}</span>
+          </button>
+
+          {advancedSection === "transform" && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <label className={labelCls}>Rotate
+                  <input type="number" className={inputCls} value={(p.rotateZ as number) ?? ""} onChange={(e) => set({ rotateZ: e.target.value ? Number(e.target.value) : undefined })} min={-360} max={360} placeholder="0" />
+                </label>
+                <label className={labelCls}>Scale
+                  <input type="number" className={inputCls} value={(p.scaleX as number) ?? ""} onChange={(e) => set({ scaleX: Number(e.target.value) || undefined, scaleY: Number(e.target.value) || undefined })} min={0} max={5} step={0.1} placeholder="1" />
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <label className={labelCls}>Offset X
+                  <input type="number" className={inputCls} value={(p.offsetX as number) ?? ""} onChange={(e) => set({ offsetX: Number(e.target.value) || undefined })} placeholder="0" />
+                </label>
+                <label className={labelCls}>Offset Y
+                  <input type="number" className={inputCls} value={(p.offsetY as number) ?? ""} onChange={(e) => set({ offsetY: Number(e.target.value) || undefined })} placeholder="0" />
+                </label>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => set({ flipH: !(p.flipH as boolean) })} className={`flex-1 rounded border px-3 py-1.5 text-xs font-medium ${(p.flipH as boolean) ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600"}`}>Flip H</button>
+                <button type="button" onClick={() => set({ flipV: !(p.flipV as boolean) })} className={`flex-1 rounded border px-3 py-1.5 text-xs font-medium ${(p.flipV as boolean) ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600"}`}>Flip V</button>
+              </div>
+            </div>
+          )}
+
+          {/* Background section */}
+          <button type="button" onClick={() => setAdvancedSection(advancedSection === "background" ? null : "background")} className="flex w-full items-center justify-between border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-700">
+            Background
+            <span className="text-zinc-400">{advancedSection === "background" ? "▾" : "▸"}</span>
+          </button>
+
+          {advancedSection === "background" && (
+            <div className="space-y-3">
+              <label className={labelCls}>Background Color
+                <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={(p.bgColor as string) || "#ffffff"} onChange={(e) => set({ bgColor: e.target.value })} />
+              </label>
+            </div>
+          )}
+
+          {/* Border section */}
+          <button type="button" onClick={() => setAdvancedSection(advancedSection === "border" ? null : "border")} className="flex w-full items-center justify-between border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-700">
+            Border
+            <span className="text-zinc-400">{advancedSection === "border" ? "▾" : "▸"}</span>
+          </button>
+
+          {advancedSection === "border" && (
+            <div className="space-y-3">
+              <label className={labelCls}>Border Type
+                <select className={inputCls} value={(p.borderStyle as string) || "none"} onChange={(e) => set({ borderStyle: e.target.value })}>
+                  <option value="none">Default</option>
+                  <option value="solid">Solid</option>
+                  <option value="dashed">Dashed</option>
+                  <option value="dotted">Dotted</option>
+                  <option value="double">Double</option>
+                </select>
+              </label>
+
+              {(p.borderStyle ?? "none") !== "none" && (
+                <>
+                  <label className={labelCls}>Border Width
+                    <input type="number" className={inputCls} value={(p.borderWidth as number) || 1} onChange={(e) => set({ borderWidth: Number(e.target.value) })} min={0} max={20} />
+                  </label>
+                  <label className={labelCls}>Border Color
+                    <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={(p.borderColor as string) || "#000000"} onChange={(e) => set({ borderColor: e.target.value })} />
+                  </label>
+                </>
+              )}
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className={labelCls}>Border Radius</span>
+                  <span className="text-[10px] text-zinc-400">px</span>
+                </div>
+                <div className="grid grid-cols-4 gap-1">
+                  <input type="number" className="rounded border border-zinc-300 px-2 py-1.5 text-center text-xs" placeholder="T" value={(p.borderRadiusTop as number) || ""} onChange={(e) => set({ borderRadiusTop: Number(e.target.value) || undefined })} />
+                  <input type="number" className="rounded border border-zinc-300 px-2 py-1.5 text-center text-xs" placeholder="R" value={(p.borderRadiusRight as number) || ""} onChange={(e) => set({ borderRadiusRight: Number(e.target.value) || undefined })} />
+                  <input type="number" className="rounded border border-zinc-300 px-2 py-1.5 text-center text-xs" placeholder="B" value={(p.borderRadiusBottom as number) || ""} onChange={(e) => set({ borderRadiusBottom: Number(e.target.value) || undefined })} />
+                  <input type="number" className="rounded border border-zinc-300 px-2 py-1.5 text-center text-xs" placeholder="L" value={(p.borderRadiusLeft as number) || ""} onChange={(e) => set({ borderRadiusLeft: Number(e.target.value) || undefined })} />
+                </div>
+              </div>
+
+              <label className={labelCls}>Box Shadow
+                <input type="text" className={inputCls} value={(p.boxShadow as string) || ""} onChange={(e) => set({ boxShadow: e.target.value })} placeholder="0 2px 4px rgba(0,0,0,0.1)" />
+              </label>
+            </div>
+          )}
+
+          {/* Responsive section */}
+          <button type="button" onClick={() => setAdvancedSection(advancedSection === "responsive" ? null : "responsive")} className="flex w-full items-center justify-between border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-700">
+            Responsive
+            <span className="text-zinc-400">{advancedSection === "responsive" ? "▾" : "▸"}</span>
+          </button>
+
+          {advancedSection === "responsive" && (
+            <div className="space-y-3">
+              {[
+                { key: "hideOnDesktop", label: "Hide On Desktop" },
+                { key: "hideOnTablet", label: "Hide On Tablet" },
+                { key: "hideOnMobile", label: "Hide On Mobile" },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center justify-between">
+                  <span className={labelCls}>{label}</span>
+                  <button type="button" onClick={() => set({ [key]: !(p[key] as boolean) })} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${p[key] ? "bg-zinc-900" : "bg-zinc-300"}`}>
+                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${p[key] ? "translate-x-4.5" : "translate-x-0.5"}`} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Custom CSS section */}
+          <button type="button" onClick={() => setAdvancedSection(advancedSection === "css" ? null : "css")} className="flex w-full items-center justify-between border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-700">
+            Custom CSS
+            <span className="text-zinc-400">{advancedSection === "css" ? "▾" : "▸"}</span>
+          </button>
+
+          {advancedSection === "css" && (
+            <div className="space-y-3">
+              <label className={labelCls}>Add your own custom CSS
+                <textarea
+                  className={inputCls + " min-h-[120px] font-mono text-xs"}
+                  value={(p.customCss as string) || ""}
+                  onChange={(e) => set({ customCss: e.target.value })}
+                  placeholder={`selector {\n  color: red;\n}`}
+                />
+              </label>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
