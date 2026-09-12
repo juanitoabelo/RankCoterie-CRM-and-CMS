@@ -53,7 +53,8 @@ function TextBlock({ block, ctx }: { block: Block & { type: "text" }; ctx: Regio
     block,
     <section className="px-6 py-10">
       <div
-        className={`mx-auto max-w-3xl leading-relaxed text-zinc-700 rte-content ${alignCls}`}
+        className={`mx-auto max-w-3xl leading-relaxed rte-content ${alignCls} ${block.props.textColor ? "" : "text-zinc-700"}`}
+        style={block.props.textColor ? { color: block.props.textColor } : undefined}
         dangerouslySetInnerHTML={{ __html: renderLocalizedContent(block.props.content, ctx) }}
       />
     </section>,

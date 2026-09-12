@@ -122,7 +122,24 @@ textarea::placeholder {
   outline: none;
   min-height: inherit;
   padding: 0.75rem;
-  color: inherit;
+  color: inherit !important;
+}
+.rte-content .tiptap p {
+  color: inherit !important;
+}
+.rte-content .tiptap h1,
+.rte-content .tiptap h2,
+.rte-content .tiptap h3,
+.rte-content .tiptap h4,
+.rte-content .tiptap h5,
+.rte-content .tiptap h6 {
+  color: inherit !important;
+}
+.rte-content .tiptap li {
+  color: inherit !important;
+}
+.rte-content .tiptap blockquote {
+  color: inherit !important;
 }
 .rte-content .tiptap p.is-editor-empty:first-child::before,
 .rte-content .tiptap p:first-child.is-editor-empty::before {
