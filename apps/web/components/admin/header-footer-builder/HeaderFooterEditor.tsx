@@ -10,6 +10,7 @@ import { SizeInput, SpacingInput } from "../page-builder/settings";
 import type { SizeValue, SpacingValues } from "../page-builder/settings";
 import BlockStyleTab from "../page-builder/BlockStyleTab";
 import BlockAdvancedTab from "../page-builder/BlockAdvancedTab";
+import MediaLibraryPicker from "../page-builder/MediaLibraryPicker";
 import RowEditor from "./RowEditor";
 import SectionEditor from "./SectionEditor";
 
@@ -1227,22 +1228,6 @@ function TestimonialEditor({ block, onChange }: EditorProps) {
     set({ items });
   };
 
-  const [uploadIdx, setUpIdx] = useState<number | null>(null);
-
-  const uploadAvatar = async (i: number, file: File) => {
-    setUpIdx(i);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/uploads", { method: "POST", body: fd });
-      const json = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
-      if (!res.ok || !json.url) throw new Error(json.error ?? "Upload failed.");
-      updateItem(i, { avatar: json.url });
-    } finally {
-      setUpIdx(null);
-    }
-  };
-
   return (
     <div className="space-y-3">
       <label className={labelCls}>Section Heading
@@ -1291,12 +1276,11 @@ function TestimonialEditor({ block, onChange }: EditorProps) {
                 <option value={5}>★★★★★</option>
               </select>
               <div>
-                {item.avatar && (
-                  <div className="mb-1"><img src={item.avatar} alt="" className="h-7 w-7 rounded-full object-cover" /></div>
-                )}
-                <input type="file" accept="image/*" className="block w-full text-[10px] text-zinc-500 file:mr-1 file:rounded file:border-0 file:bg-zinc-200 file:px-1.5 file:py-0.5 file:text-[10px] file:font-medium" onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadAvatar(i, f); }} />
-                {uploadIdx === i && <span className="text-[10px] text-zinc-400">Uploading…</span>}
-                {item.avatar && <button onClick={() => updateItem(i, { avatar: "" })} className="text-[10px] text-red-500 hover:text-red-700">Remove</button>}
+                <MediaLibraryPicker
+                  value={item.avatar || ""}
+                  onChange={(url) => updateItem(i, { avatar: url })}
+                  label="Avatar"
+                />
               </div>
             </div>
           </div>
