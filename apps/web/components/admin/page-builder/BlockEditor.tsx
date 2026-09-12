@@ -26,6 +26,7 @@ import type { SizeValue } from "./settings";
 import RichTextEditor from "./RichTextEditor";
 import BlockStyleTab from "./BlockStyleTab";
 import BlockAdvancedTab from "./BlockAdvancedTab";
+import MediaLibraryPicker from "./MediaLibraryPicker";
 
 type EditorProps = {
   block: Block;
@@ -194,33 +195,11 @@ function ImageEditor({
   block: Block & { type: "image" };
   onChange: (props: Block["props"]) => void;
 }) {
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"content" | "style" | "advanced">("content");
   const [styleState, setStyleState] = useState<"normal" | "hover">("normal");
 
   const p = block.props;
   const set = (patch: Record<string, unknown>) => onChange({ ...p, ...patch });
-
-  const handleFile = async (file: File) => {
-    if (!file) return;
-    setError(null);
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/uploads", { method: "POST", body: formData });
-      const json = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
-      if (!res.ok || !json.url) {
-        throw new Error(json.error ?? "Upload failed.");
-      }
-      set({ src: json.url });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed.");
-    } finally {
-      setUploading(false);
-    }
-  };
 
   return (
     <div className="space-y-3">
@@ -236,29 +215,11 @@ function ImageEditor({
       {/* Content Tab */}
       {activeTab === "content" && (
         <div className="space-y-3">
-          <div>
-            <label className={labelCls}>Choose Image</label>
-            <input
-              type="file"
-              accept="image/*"
-              className="mt-1 block w-full text-sm text-zinc-500 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-900 file:px-3 file:py-2 file:text-xs file:font-medium file:text-white"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void handleFile(file);
-              }}
-            />
-            {uploading && <p className="mt-1 text-xs text-zinc-500">Uploading…</p>}
-            {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-          </div>
-          <div>
-            <label className={labelCls}>Image URL</label>
-            <input
-              className={inputCls}
-              value={p.src}
-              onChange={(e) => set({ src: e.target.value })}
-              placeholder="https://... or /api/assets/..."
-            />
-          </div>
+          <MediaLibraryPicker
+            value={p.src || ""}
+            onChange={(url) => set({ src: url })}
+            label="Image"
+          />
           <div>
             <label className={labelCls}>Alt Text</label>
             <input className={inputCls} value={p.alt} onChange={(e) => set({ alt: e.target.value })} />
@@ -1186,29 +1147,6 @@ function SlideCard({
   onRemove: () => void;
   onMove: (dir: -1 | 1) => void;
 }) {
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleFile = async (file: File) => {
-    if (!file) return;
-    setError(null);
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/uploads", { method: "POST", body: formData });
-      const json = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
-      if (!res.ok || !json.url) {
-        throw new Error(json.error ?? "Upload failed.");
-      }
-      onChange({ src: json.url });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed.");
-    } finally {
-      setUploading(false);
-    }
-  };
-
   return (
     <div className="space-y-2 rounded-lg border border-zinc-200 p-3">
       <div className="flex items-center justify-between">
@@ -1240,36 +1178,11 @@ function SlideCard({
           </button>
         </div>
       </div>
-      {slide.src && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={slide.src}
-          alt={slide.alt || ""}
-          className="h-24 w-full rounded-md object-cover"
-        />
-      )}
-      <div>
-        <label className={labelCls}>Image URL</label>
-        <input
-          className={inputCls}
-          value={slide.src}
-          onChange={(e) => onChange({ src: e.target.value })}
-          placeholder="https://... or /api/assets/..."
-        />
-      </div>
-      <div>
-        <input
-          type="file"
-          accept="image/*"
-          className="block w-full text-sm text-zinc-500 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-900 file:px-3 file:py-2 file:text-xs file:font-medium file:text-white"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void handleFile(file);
-          }}
-        />
-        {uploading && <p className="mt-1 text-xs text-zinc-500">Uploading…</p>}
-        {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-      </div>
+      <MediaLibraryPicker
+        value={slide.src || ""}
+        onChange={(url) => onChange({ src: url })}
+        label="Slide Image"
+      />
       <div>
         <label className={labelCls}>Alt text</label>
         <input

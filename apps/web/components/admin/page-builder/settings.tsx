@@ -4,6 +4,7 @@ import { useState } from "react";
 import { FULL_COLUMN_SPANS } from "@/lib/page-builder/types";
 import type { StyleBreakpoints, TypographyStyle } from "@/lib/page-builder/types";
 import { FONT_FAMILY_PRESETS, STYLE_BREAKPOINTS } from "@/lib/page-builder/style";
+import MediaLibraryPicker from "./MediaLibraryPicker";
 
 export const inputCls = "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm";
 export const labelCls = "block text-sm font-medium text-zinc-800";
@@ -264,32 +265,6 @@ export function BackgroundFields({
   onColor: (value: string) => void;
   onImage: (value: string) => void;
 }) {
-  const [imageUrl, setImageUrl] = useState(image ?? "");
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const value = imageUrl ?? image;
-
-  const handleFile = async (file: File) => {
-    if (!file) return;
-    setError(null);
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/uploads", { method: "POST", body: formData });
-      const json = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
-      if (!res.ok || !json.url) {
-        throw new Error(json.error ?? "Upload failed.");
-      }
-      setImageUrl(json.url);
-      onImage(json.url);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed.");
-    } finally {
-      setUploading(false);
-    }
-  };
-
   return (
     <div className="space-y-3">
       <div>
@@ -319,44 +294,11 @@ export function BackgroundFields({
         )}
       </div>
 
-      <div>
-        <label className={labelCls}>{label} image</label>
-        <input
-          type="file"
-          accept="image/*"
-          className="mt-1 block w-full text-sm text-zinc-500 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-900 file:px-3 file:py-2 file:text-xs file:font-medium file:text-white"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void handleFile(file);
-          }}
-        />
-        {uploading && <p className="mt-1 text-xs text-zinc-500">Uploading…</p>}
-        {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-      </div>
-      <div>
-        <label className={labelCls}>{label} image URL</label>
-        <input
-          className={inputCls}
-          value={value}
-          onChange={(e) => {
-            setImageUrl(e.target.value);
-            onImage(e.target.value);
-          }}
-          placeholder="https://… or /api/assets/…"
-        />
-        {value && (
-          <button
-            type="button"
-            onClick={() => {
-              setImageUrl("");
-              onImage("");
-            }}
-            className="mt-1 text-[11px] text-zinc-400 underline underline-offset-2 hover:text-zinc-600"
-          >
-            Clear image
-          </button>
-        )}
-      </div>
+      <MediaLibraryPicker
+        value={image || ""}
+        onChange={onImage}
+        label={`${label} image`}
+      />
     </div>
   );
 }
