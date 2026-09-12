@@ -1,82 +1,104 @@
 import Link from "next/link";
-import { createWidgetForm, listWidgets } from "./actions";
+import { listWidgets } from "./actions";
 
 export const revalidate = 0;
 
-export default async function WidgetsAdminPage() {
+export default async function WidgetsListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const params = await searchParams;
+  const query = params.q ?? "";
   const widgets = await listWidgets();
+
+  const filtered = query
+    ? widgets.filter((w) => (w.title ?? w.name).toLowerCase().includes(query.toLowerCase()))
+    : widgets;
 
   return (
     <div>
       <p className="text-sm text-zinc-500">
-        Admin / <span className="text-zinc-700">Ads / Listing</span> /{" "}
-        <span className="text-zinc-700">Widget Builder</span>
+        Admin / <span className="text-zinc-700">Widget Builder</span>
       </p>
-      <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Widget Builder</h1>
-      <p className="mt-2 max-w-2xl text-sm text-zinc-600">
-        Create free-form HTML ad / promo widgets with an optional featured image
-        that redirects to any page, article or listing.
-      </p>
+      <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Widgets</h1>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-zinc-200 bg-white p-5">
-          <h2 className="text-sm font-medium text-zinc-900">Add widget</h2>
-          <form action={createWidgetForm} className="mt-4 space-y-3">
-            <label className="block text-xs font-medium text-zinc-600">
-              Name
-              <input name="name" required className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
-            </label>
-            <label className="block text-xs font-medium text-zinc-600">
-              Image asset ID (from uploads — optional)
-              <input name="imageAssetId" className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
-            </label>
-            <label className="block text-xs font-medium text-zinc-600">
-              Redirect URL (page / article / any path — optional)
-              <input name="redirectUrl" className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
-            </label>
-            <label className="block text-xs font-medium text-zinc-600">
-              HTML
-              <textarea name="html" required rows={6} className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-mono" />
-            </label>
-            <label className="flex items-center gap-2 text-xs font-medium text-zinc-600">
-              <input type="checkbox" name="active" defaultChecked className="accent-zinc-900" />
-              Active
-            </label>
-            <div className="flex justify-end border-t border-zinc-100 pt-3">
-              <button type="submit" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700">
-                Create widget
-              </button>
-            </div>
-          </form>
+      <form className="mt-6 rounded-xl border border-zinc-200 bg-white p-5">
+        <label className="block text-sm font-medium text-zinc-800">Search Widgets</label>
+        <input
+          name="q"
+          defaultValue={query}
+          placeholder="Search by title..."
+          className="mt-2 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+        />
+        <div className="mt-4">
+          <button
+            type="submit"
+            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+          >
+            VIEW WIDGETS
+          </button>
         </div>
+      </form>
 
-        <div className="rounded-xl border border-zinc-200 bg-white p-5">
-          <h2 className="text-sm font-medium text-zinc-900">Widgets ({widgets.length})</h2>
-          <ul className="mt-4 divide-y divide-zinc-100">
-            {widgets.map((w) => (
-              <li key={w.id} className="flex items-center justify-between gap-3 py-2">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-zinc-900">
-                    {w.name}
-                    {!w.active && (
-                      <span className="ml-2 rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-zinc-600">Inactive</span>
-                    )}
-                  </p>
-                  <p className="truncate text-xs text-zinc-500">
-                    {w.placements.length} placement(s)
-                    {w.redirectUrl ? ` · → ${w.redirectUrl}` : ""}
-                  </p>
-                </div>
-                <Link href={`/admin/widgets/${w.id}/edit`} className="shrink-0 rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50">
-                  Edit
-                </Link>
-              </li>
-            ))}
-            {widgets.length === 0 && (
-              <li className="py-3 text-sm text-zinc-400">No widgets yet. Add your first above.</li>
+      <h2 className="mt-8 text-lg font-semibold text-zinc-900">Results</h2>
+
+      <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white">
+        <table className="w-full text-sm">
+          <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
+            <tr>
+              <th className="px-4 py-2.5">Edit Widget</th>
+              <th className="px-4 py-2.5">Widget Title</th>
+              <th className="px-4 py-2.5">Widget URL</th>
+              <th className="px-4 py-2.5">Widget ID</th>
+              <th className="px-4 py-2.5">Featured Img?</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-zinc-400">
+                  No widgets found.
+                </td>
+              </tr>
             )}
-          </ul>
-        </div>
+            {filtered.map((w) => (
+              <tr key={w.id} className="hover:bg-zinc-50">
+                <td className="px-4 py-3">
+                  <Link
+                    href={`/admin/widgets/${w.id}/edit`}
+                    className="font-medium text-blue-600 hover:underline"
+                  >
+                    ✎ Edit
+                  </Link>
+                </td>
+                <td className="px-4 py-3 font-medium text-zinc-900">{w.title ?? w.name}</td>
+                <td className="px-4 py-3">
+                  {w.url ? (
+                    <a
+                      href={w.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline"
+                    >
+                      {w.url} ↗
+                    </a>
+                  ) : (
+                    <span className="text-zinc-400">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-zinc-600">{w.id.slice(0, 8)}</td>
+                <td className="px-4 py-3">
+                  {w.imageAsset ? (
+                    <span className="text-sm font-medium text-emerald-600">YES</span>
+                  ) : (
+                    <span className="text-sm text-zinc-400">NO</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

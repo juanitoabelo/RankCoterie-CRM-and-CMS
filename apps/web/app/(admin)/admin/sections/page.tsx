@@ -1,103 +1,113 @@
 import Link from "next/link";
-import { createSectionForm, listSections } from "./actions";
+import { listSections } from "./actions";
 
 export const revalidate = 0;
 
-export default async function SectionsAdminPage() {
+export default async function SectionsAdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
+  const params = await searchParams;
+  const statusFilter = params.status ?? "";
   const sections = await listSections();
+
+  const filtered = statusFilter
+    ? sections.filter((s) => s.status === statusFilter)
+    : sections;
 
   return (
     <div>
       <p className="text-sm text-zinc-500">
-        Admin / <span className="text-zinc-700">Content Types</span> /{" "}
+        Admin / <span className="text-zinc-700">Content</span> /{" "}
         <span className="text-zinc-700">Sections</span>
       </p>
       <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Sections</h1>
-      <p className="mt-2 max-w-2xl text-sm text-zinc-600">
-        Group and organize content into named sections. Sections can be ordered
-        and shown or hidden on the site.
-      </p>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-zinc-200 bg-white p-5">
-          <h2 className="text-sm font-medium text-zinc-900">Add section</h2>
-          <form action={createSectionForm} className="mt-4 space-y-3">
-            <label className="block text-xs font-medium text-zinc-600">
-              Slug (URL-safe, e.g. "sponsors")
-              <input
-                name="slug"
-                required
-                className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="block text-xs font-medium text-zinc-600">
-              Title
-              <input
-                name="title"
-                required
-                className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="block text-xs font-medium text-zinc-600">
-              Heading (display title)
-              <input
-                name="heading"
-                className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="block text-xs font-medium text-zinc-600">
-              Order
-              <input
-                type="number"
-                name="order"
-                defaultValue={0}
-                className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="block text-xs font-medium text-zinc-600">
-              Status
-              <select name="status" className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm">
-                <option value="LIVE">LIVE</option>
-                <option value="DRAFT">DRAFT</option>
-                <option value="HIDDEN">HIDDEN</option>
-              </select>
-            </label>
-            <div className="flex justify-end border-t border-zinc-100 pt-3">
-              <button
-                type="submit"
-                className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-              >
-                Create section
-              </button>
-            </div>
-          </form>
+      <form className="mt-6 rounded-xl border border-zinc-200 bg-white p-5">
+        <label className="block text-sm font-medium text-zinc-800">Search Sections</label>
+        <select
+          name="status"
+          defaultValue={statusFilter}
+          className="mt-2 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+        >
+          <option value="">All</option>
+          <option value="LIVE">Active</option>
+          <option value="DRAFT">Draft</option>
+          <option value="HIDDEN">Hidden</option>
+        </select>
+        <div className="mt-4">
+          <button
+            type="submit"
+            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+          >
+            VIEW SECTIONS
+          </button>
         </div>
+      </form>
 
-        <div className="rounded-xl border border-zinc-200 bg-white p-5">
-          <h2 className="text-sm font-medium text-zinc-900">All sections ({sections.length})</h2>
-          <ul className="mt-4 divide-y divide-zinc-100">
-            {sections.map((s) => (
-              <li key={s.id} className="flex items-center justify-between gap-3 py-2">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-zinc-900">{s.title}</p>
-                  <p className="truncate text-xs text-zinc-500">{s.slug}</p>
-                  <p className="mt-0.5 text-[11px] text-zinc-400">
-                    Order {s.order} · {s.status}
-                  </p>
-                </div>
-                <Link
-                  href={`/admin/sections/${s.id}/edit`}
-                  className="shrink-0 rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
-                >
-                  Edit
-                </Link>
-              </li>
-            ))}
-            {sections.length === 0 && (
-              <li className="py-3 text-sm text-zinc-400">No sections yet. Add your first above.</li>
+      <h2 className="mt-8 text-lg font-semibold text-zinc-900">Results</h2>
+
+      <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white">
+        <table className="w-full text-sm">
+          <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
+            <tr>
+              <th className="px-4 py-2.5">Edit Section</th>
+              <th className="px-4 py-2.5">Section Title</th>
+              <th className="px-4 py-2.5">View Page</th>
+              <th className="px-4 py-2.5 text-right">ID#</th>
+              <th className="px-4 py-2.5">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-zinc-400">
+                  No sections found.
+                </td>
+              </tr>
             )}
-          </ul>
-        </div>
+            {filtered.map((s) => (
+              <tr key={s.id} className="hover:bg-zinc-50">
+                <td className="px-4 py-3">
+                  <Link
+                    href={`/admin/sections/${s.id}/edit`}
+                    className="font-medium text-blue-600 hover:underline"
+                  >
+                    Edit
+                  </Link>
+                </td>
+                <td className="px-4 py-3 font-medium text-zinc-900">{s.title}</td>
+                <td className="px-4 py-3">
+                  <a
+                    href={`/feed/${s.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    View page
+                  </a>
+                </td>
+                <td className="px-4 py-3 text-right font-mono text-xs text-zinc-500">
+                  {s.id.slice(0, 8)}
+                </td>
+                <td className="px-4 py-3">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      s.status === "LIVE"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : s.status === "DRAFT"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-zinc-100 text-zinc-500"
+                    }`}
+                  >
+                    {s.status === "LIVE" ? "Active" : s.status}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

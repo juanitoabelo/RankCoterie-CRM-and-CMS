@@ -14,6 +14,7 @@ export interface MenuItem {
   href: string;
   target: string | null;
   order: number;
+  children?: MenuItem[];
 }
 
 /** Menu with items */

@@ -72,9 +72,17 @@ export function validateBlock(block: Block): string[] {
         if (!stripHtml(item.answer)) errors.push(`FAQ item ${i + 1} is missing an answer.`);
       });
       break;
-    case "testimonial":
-      if (!stripHtml(block.props.quote)) errors.push("Quote is required.");
+    case "testimonial": {
+      const items = block.props.items ?? [];
+      if (items.length === 0) {
+        errors.push("Add at least one testimonial.");
+      }
+      items.forEach((item: { quote: string; author: string }, i: number) => {
+        if (!stripHtml(item.quote)) errors.push(`Testimonial ${i + 1} is missing a quote.`);
+        if (!item.author?.trim()) errors.push(`Testimonial ${i + 1} is missing an author.`);
+      });
       break;
+    }
     case "heading":
       if (!stripHtml(block.props.text)) errors.push("Heading text is required.");
       break;

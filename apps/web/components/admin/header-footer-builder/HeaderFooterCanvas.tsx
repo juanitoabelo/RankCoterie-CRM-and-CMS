@@ -12,6 +12,7 @@ import { isRowBlock, isSectionBlock } from "@/lib/page-builder/types";
 import { resolveColumnWidths, canvasColumnSpanClass } from "@/lib/page-builder/spans";
 import { validateBlock } from "@/lib/page-builder/validate";
 import type { ContainerSettings } from "@/lib/header-footer/types";
+import { HeaderFooterBlockRenderer } from "./HeaderFooterRenderer";
 
 /* ── Sortable Block Wrapper ─────────────────────────────────────────────── */
 
@@ -51,6 +52,80 @@ function SortableBlock({
 
   const errors = validateBlock(block);
   const isSelected = selectedId === block.id;
+
+  if (isSectionBlock(block)) {
+    return (
+      <div ref={setNodeRef} style={style} {...attributes}>
+        <div
+          className={`group relative rounded-lg border-2 border-dashed p-3 ${
+            isSelected
+              ? "border-amber-400 bg-amber-50"
+              : "border-zinc-300 hover:border-zinc-400"
+          }`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect(block.id);
+          }}
+        >
+          <div className="mb-2 flex items-center gap-2">
+            <span
+              {...listeners}
+              className="cursor-grab text-xs text-zinc-400 hover:text-zinc-600"
+            >
+              ⠿
+            </span>
+            <span className="text-[10px] font-medium uppercase text-zinc-500">
+              Container · {block.props.rows.length} row{block.props.rows.length !== 1 ? "s" : ""}
+            </span>
+            <div className="ml-auto flex gap-1 opacity-0 group-hover:opacity-100">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDuplicate(block.id);
+                }}
+                className="rounded px-1.5 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-200"
+              >
+                ⧉
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemove(block.id);
+                }}
+                className="rounded px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-100"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {block.props.rows.map((row) => (
+              <div key={row.id} className="grid grid-cols-12 gap-2">
+                {row.props.columns.map((col) => (
+                  <ColumnCell
+                    key={col.id}
+                    column={col}
+                    rowBlock={row}
+                    viewport={viewport}
+                    selectedColumnId={selectedColumnId}
+                    onSelectColumn={onSelectColumn}
+                    onSelect={onSelect}
+                    onRemove={onRemove}
+                    onDuplicate={onDuplicate}
+                  />
+                ))}
+              </div>
+            ))}
+            {block.props.rows.length === 0 && (
+              <div className="rounded border border-dashed border-zinc-300 p-4 text-center text-xs text-zinc-400">
+                Empty container — add rows from the Layout panel
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isRowBlock(block)) {
     return (
@@ -118,55 +193,62 @@ function SortableBlock({
     );
   }
 
-  // Leaf block preview
+  // Leaf block preview — render actual block visually
   const icon = getBlockIcon(block.type);
   const label = getBlockLabel(block.type);
 
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
       <div
-        className={`group flex items-center gap-2 rounded-lg border px-3 py-2 ${
+        className={`group relative rounded-lg border ${
           isSelected
-            ? "border-amber-400 bg-amber-50"
-            : "border-zinc-200 bg-white hover:border-zinc-400"
+            ? "border-amber-400 ring-1 ring-amber-200"
+            : "border-zinc-200 hover:border-zinc-400"
         }`}
         onClick={(e) => {
           e.stopPropagation();
           onSelect(block.id);
         }}
       >
-        <span
-          {...listeners}
-          className="cursor-grab text-xs text-zinc-400 hover:text-zinc-600"
-        >
-          ⠿
-        </span>
-        <span className="text-sm">{icon}</span>
-        <span className="text-xs font-medium text-zinc-700">{label}</span>
-        {errors.length > 0 && (
-          <span className="ml-auto rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
-            {errors.length}
+        {/* Controls bar */}
+        <div className="flex items-center gap-2 border-b border-zinc-100 px-3 py-1.5">
+          <span
+            {...listeners}
+            className="cursor-grab text-xs text-zinc-400 hover:text-zinc-600"
+          >
+            ⠿
           </span>
-        )}
-        <div className="ml-auto flex gap-1 opacity-0 group-hover:opacity-100">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDuplicate(block.id);
-            }}
-            className="rounded px-1.5 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-200"
-          >
-            ⧉
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onRemove(block.id);
-            }}
-            className="rounded px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-100"
-          >
-            ✕
-          </button>
+          <span className="text-xs">{icon}</span>
+          <span className="text-[11px] font-medium text-zinc-600">{label}</span>
+          {errors.length > 0 && (
+            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
+              {errors.length}
+            </span>
+          )}
+          <div className="ml-auto flex gap-1 opacity-0 group-hover:opacity-100">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDuplicate(block.id);
+              }}
+              className="rounded px-1.5 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-200"
+            >
+              ⧉
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove(block.id);
+              }}
+              className="rounded px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-100"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+        {/* Live preview */}
+        <div className="pointer-events-none overflow-hidden bg-white">
+          <HeaderFooterBlockRenderer block={block} />
         </div>
       </div>
     </div>
@@ -273,10 +355,51 @@ export default function HeaderFooterCanvas({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: "canvas-root" });
 
-  const containerStyle: React.CSSProperties =
-    containerSettings.width === "boxed"
-      ? { maxWidth: containerSettings.maxWidth, margin: "0 auto" }
-      : {};
+  const outerStyle: React.CSSProperties = {
+    backgroundColor: containerSettings.bgColor,
+    backgroundImage: containerSettings.bgImage ? `url(${containerSettings.bgImage})` : undefined,
+    backgroundPosition: containerSettings.bgPosition,
+    backgroundSize: containerSettings.bgSize,
+    backgroundRepeat: containerSettings.bgRepeat,
+    borderStyle: containerSettings.borderStyle,
+    borderWidth: containerSettings.borderWidth,
+    borderColor: containerSettings.borderColor,
+    borderRadius: containerSettings.borderRadius,
+    marginTop: containerSettings.margin.top,
+    marginRight: containerSettings.margin.right,
+    marginBottom: containerSettings.margin.bottom,
+    marginLeft: containerSettings.margin.left,
+    paddingTop: containerSettings.padding.top,
+    paddingRight: containerSettings.padding.right,
+    paddingBottom: containerSettings.padding.bottom,
+    paddingLeft: containerSettings.padding.left,
+    position: "relative" as const,
+    overflow: "hidden",
+  };
+
+  const innerStyle: React.CSSProperties = {
+    maxWidth: containerSettings.width === "boxed" ? containerSettings.maxWidth : "100%",
+    margin: containerSettings.width === "boxed" ? "0 auto" : undefined,
+    minHeight: containerSettings.minHeight || undefined,
+    display: "flex",
+    flexDirection: containerSettings.direction === "column" ? "column" : "row",
+    justifyContent: containerSettings.justifyContent,
+    alignItems: containerSettings.alignItems,
+    columnGap: containerSettings.gapCol,
+    rowGap: containerSettings.gapRow,
+    flexWrap: containerSettings.wrap,
+    zIndex: containerSettings.zindex || undefined,
+  };
+
+  const overlayStyle: React.CSSProperties | undefined = containerSettings.bgImage && containerSettings.overlayOpacity
+    ? {
+        position: "absolute",
+        inset: 0,
+        backgroundColor: containerSettings.overlayColor || "#000000",
+        opacity: containerSettings.overlayOpacity / 100,
+        pointerEvents: "none",
+      }
+    : undefined;
 
   return (
     <div
@@ -285,13 +408,16 @@ export default function HeaderFooterCanvas({
         isOver ? "border-amber-400 bg-amber-50/30" : "border-zinc-200 bg-zinc-50"
       }`}
       onClick={() => onSelect(null)}
-      style={containerSettings.width === "boxed" ? { maxWidth: "100%" } : undefined}
+      style={outerStyle}
     >
+      {/* Container overlay */}
+      {overlayStyle && <div style={overlayStyle} />}
+
       {/* Container width indicator */}
       {containerSettings.width === "boxed" && (
         <div
           className="mb-2 border border-dashed border-zinc-300 bg-white/50 p-1"
-          style={{ maxWidth: containerSettings.maxWidth, margin: "0 auto" }}
+          style={{ maxWidth: containerSettings.maxWidth, margin: "0 auto", position: "relative", zIndex: 1 }}
         >
           <span className="text-[9px] text-zinc-400">
             Container: {containerSettings.maxWidth}px
@@ -299,12 +425,12 @@ export default function HeaderFooterCanvas({
         </div>
       )}
 
-      <div style={containerStyle}>
+      <div style={{ ...innerStyle, position: "relative", zIndex: 1 }}>
         <SortableContext
           items={blocks.map((b) => b.id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="space-y-3">
+          <div className="space-y-3" style={{ flex: 1 }}>
             {blocks.map((b) => (
               <SortableBlock
                 key={b.id}

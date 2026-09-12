@@ -36,20 +36,188 @@ import type {
 /*  Container Settings (wraps entire header/footer)                           */
 /* ──────────────────────────────────────────────────────────────────────────── */
 
+export interface SpacingValues {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
 export interface ContainerSettings {
+  // Layout
   width: "full" | "boxed";
-  maxWidth: number; // only used when width === "boxed"
+  maxWidth: number;
+  minHeight: number;
+  direction: "row" | "column";
+  justifyContent: "flex-start" | "center" | "flex-end" | "space-between" | "space-around" | "space-evenly";
+  alignItems: "stretch" | "flex-start" | "center" | "flex-end";
+  gapCol: number;
+  gapRow: number;
+  wrap: "nowrap" | "wrap";
+
+  // Style
   bgColor?: string;
-  paddingTop: number;
-  paddingBottom: number;
+  bgImage?: string;
+  bgPosition?: string;
+  bgSize?: string;
+  bgRepeat?: string;
+  overlayColor?: string;
+  overlayOpacity?: number;
+  borderStyle: "none" | "solid" | "dashed" | "dotted";
+  borderWidth: number;
+  borderColor?: string;
+  borderRadius: number;
+
+  // Advanced
+  margin: SpacingValues;
+  padding: SpacingValues;
+  zindex: number;
+  cssId: string;
+  cssClasses: string;
 }
 
 export const DEFAULT_CONTAINER_SETTINGS: ContainerSettings = {
   width: "boxed",
   maxWidth: 1200,
+  minHeight: 0,
+  direction: "row",
+  justifyContent: "flex-start",
+  alignItems: "stretch",
+  gapCol: 20,
+  gapRow: 0,
+  wrap: "nowrap",
   bgColor: undefined,
-  paddingTop: 0,
-  paddingBottom: 0,
+  bgImage: undefined,
+  bgPosition: "center center",
+  bgSize: "cover",
+  bgRepeat: "no-repeat",
+  overlayColor: undefined,
+  overlayOpacity: 0,
+  borderStyle: "none",
+  borderWidth: 0,
+  borderColor: undefined,
+  borderRadius: 0,
+  margin: { top: 0, right: 0, bottom: 0, left: 0 },
+  padding: { top: 0, right: 0, bottom: 0, left: 0 },
+  zindex: 0,
+  cssId: "",
+  cssClasses: "",
+};
+
+/* ──────────────────────────────────────────────────────────────────────────── */
+/*  Extended Layout/Style/Advanced Settings (for Section, Row, Column)         */
+/* ──────────────────────────────────────────────────────────────────────────── */
+
+export interface StyleSettings {
+  bgColor?: string;
+  bgImage?: string;
+  bgPosition?: string;
+  bgSize?: string;
+  bgRepeat?: string;
+  overlayColor?: string;
+  overlayOpacity?: number;
+  borderStyle: "none" | "solid" | "dashed" | "dotted";
+  borderWidth: number;
+  borderColor?: string;
+  borderRadius: number;
+  boxShadow?: string;
+}
+
+export interface AdvancedSettings {
+  margin: SpacingValues;
+  padding: SpacingValues;
+  zindex: number;
+  cssId: string;
+  cssClasses: string;
+}
+
+export interface SectionLayoutSettings {
+  width: "full" | "boxed";
+  maxWidth: number;
+  minHeight: number;
+  direction: "row" | "column";
+  justifyContent: "flex-start" | "center" | "flex-end" | "space-between" | "space-around" | "space-evenly";
+  alignItems: "stretch" | "flex-start" | "center" | "flex-end";
+  gapCol: number;
+  gapRow: number;
+  wrap: "nowrap" | "wrap";
+}
+
+export interface RowLayoutSettings {
+  direction: "row" | "column";
+  justifyContent: "flex-start" | "center" | "flex-end" | "space-between" | "space-around" | "space-evenly";
+  alignItems: "stretch" | "flex-start" | "center" | "flex-end";
+  gapCol: number;
+  gapRow: number;
+  wrap: "nowrap" | "wrap";
+  stackOnMobile: boolean;
+  fullWidth: boolean;
+}
+
+export interface ColumnLayoutSettings {
+  width: number;
+  verticalAlign: "stretch" | "flex-start" | "center" | "flex-end";
+  direction: "row" | "column";
+  justifyContent: "flex-start" | "center" | "flex-end" | "space-between" | "space-around" | "space-evenly";
+  gapCol: number;
+  gapRow: number;
+  wrap: "nowrap" | "wrap";
+}
+
+export const DEFAULT_STYLE_SETTINGS: StyleSettings = {
+  bgColor: undefined,
+  bgImage: undefined,
+  bgPosition: "center center",
+  bgSize: "cover",
+  bgRepeat: "no-repeat",
+  overlayColor: undefined,
+  overlayOpacity: 0,
+  borderStyle: "none",
+  borderWidth: 0,
+  borderColor: undefined,
+  borderRadius: 0,
+  boxShadow: undefined,
+};
+
+export const DEFAULT_ADVANCED_SETTINGS: AdvancedSettings = {
+  margin: { top: 0, right: 0, bottom: 0, left: 0 },
+  padding: { top: 0, right: 0, bottom: 0, left: 0 },
+  zindex: 0,
+  cssId: "",
+  cssClasses: "",
+};
+
+export const DEFAULT_SECTION_LAYOUT: SectionLayoutSettings = {
+  width: "full",
+  maxWidth: 1200,
+  minHeight: 0,
+  direction: "column",
+  justifyContent: "flex-start",
+  alignItems: "stretch",
+  gapCol: 0,
+  gapRow: 0,
+  wrap: "nowrap",
+};
+
+export const DEFAULT_ROW_LAYOUT: RowLayoutSettings = {
+  direction: "row",
+  justifyContent: "flex-start",
+  alignItems: "stretch",
+  gapCol: 24,
+  gapRow: 0,
+  wrap: "nowrap",
+  stackOnMobile: true,
+  fullWidth: false,
+};
+
+export const DEFAULT_COLUMN_LAYOUT: ColumnLayoutSettings = {
+  width: 12,
+  verticalAlign: "stretch",
+  direction: "column",
+  justifyContent: "flex-start",
+  gapCol: 0,
+  gapRow: 0,
+  wrap: "nowrap",
 };
 
 /* ──────────────────────────────────────────────────────────────────────────── */
@@ -79,6 +247,30 @@ export interface MenuBlock extends BlockBase {
     hoverColor?: string;
     fontSize?: number;
     mobileMenuStyle: "slide" | "overlay" | "dropdown";
+    // Elementor-style props
+    pointer?: "none" | "underline" | "framed" | "background" | "double";
+    pointerWidth?: number;
+    pointerColor?: string;
+    animation?: "none" | "fade" | "slide" | "grow";
+    hPadding?: number;
+    vPadding?: number;
+    spaceBetween?: number;
+    menuName?: string;
+    mobileBreakpoint?: number;
+    fullMobileWidth?: boolean;
+    mobileTextAlign?: "left" | "center" | "right";
+    toggleButton?: "hamburger" | "classic" | "bubble";
+    toggleAlign?: "left" | "center" | "right";
+    toggleColor?: string;
+    toggleSize?: number;
+    dropdownBgColor?: string;
+    dropdownTextColor?: string;
+    dropdownHoverColor?: string;
+    activeColor?: string;
+    fontFamily?: string;
+    fontWeight?: string;
+    textTransform?: "none" | "uppercase" | "lowercase" | "capitalize";
+    letterSpacing?: number;
   };
 }
 
@@ -371,7 +563,22 @@ export const DEFAULT_HEADER_BLOCKS: HeaderFooterBlock[] = [
                 style: "links",
                 align: "right",
                 gap: 24,
-                mobileMenuStyle: "hamburger",
+                mobileMenuStyle: "slide",
+                pointer: "underline",
+                pointerWidth: 2,
+                animation: "fade",
+                hPadding: 12,
+                vPadding: 8,
+                spaceBetween: 24,
+                mobileBreakpoint: 1024,
+                fullMobileWidth: true,
+                mobileTextAlign: "left",
+                toggleButton: "hamburger",
+                toggleAlign: "right",
+                toggleSize: 24,
+                dropdownBgColor: "#ffffff",
+                dropdownTextColor: "#333333",
+                activeColor: "#D4A853",
               },
             },
           ],

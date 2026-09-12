@@ -17,7 +17,15 @@ export async function getMenus(filter: MenuFilter = {}): Promise<MenuWithItems[]
   
   return prisma.menu.findMany({
     where,
-    include: { items: { orderBy: { order: "asc" } } },
+    include: {
+      items: {
+        where: { parentId: null },
+        orderBy: { order: "asc" },
+        include: {
+          children: { orderBy: { order: "asc" } },
+        },
+      },
+    },
     orderBy: { name: "asc" },
   }) as Promise<MenuWithItems[]>;
 }
@@ -26,7 +34,15 @@ export async function getMenus(filter: MenuFilter = {}): Promise<MenuWithItems[]
 export async function getMenuById(id: string) {
   return prisma.menu.findUnique({
     where: { id },
-    include: { items: { orderBy: { order: "asc" } } },
+    include: {
+      items: {
+        where: { parentId: null },
+        orderBy: { order: "asc" },
+        include: {
+          children: { orderBy: { order: "asc" } },
+        },
+      },
+    },
   });
 }
 
@@ -34,6 +50,14 @@ export async function getMenuById(id: string) {
 export async function getMenuByLocation(location: MenuLocation) {
   return prisma.menu.findFirst({
     where: { tenantId: TENANT_ID, location },
-    include: { items: { orderBy: { order: "asc" } } },
+    include: {
+      items: {
+        where: { parentId: null },
+        orderBy: { order: "asc" },
+        include: {
+          children: { orderBy: { order: "asc" } },
+        },
+      },
+    },
   });
 }

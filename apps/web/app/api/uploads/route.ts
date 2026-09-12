@@ -18,7 +18,7 @@ const ALLOWED_MIME = new Set([
 
 export async function POST(request: Request) {
   const user = await getApiUser();
-  if (!user || !["pages", "templates", "widgets", "geoImages", "myCompany"].some((section) => canAccessSection(user, section))) {
+  if (!user || !["pages", "templates", "widgets", "geoImages", "myCompany", "categories"].some((section) => canAccessSection(user, section))) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 

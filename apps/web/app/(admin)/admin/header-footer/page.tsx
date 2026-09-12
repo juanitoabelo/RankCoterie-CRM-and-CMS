@@ -1,16 +1,9 @@
 import Link from "next/link";
-import { listHeaderFooters, deleteHeaderFooterAction, setDefaultAction } from "./actions";
+import { listHeaderFooters } from "./actions";
 import CreateHeaderFooterButton from "./components/CreateHeaderFooterButton";
+import { SetDefaultForm, DeleteForm } from "./components/TemplateActions";
 
 export const revalidate = 0;
-
-async function handleSetDefault(id: string, formData: FormData): Promise<void> {
-  await setDefaultAction(id);
-}
-
-async function handleDelete(id: string, formData: FormData): Promise<void> {
-  await deleteHeaderFooterAction(id);
-}
 
 export default async function HeaderFooterListPage() {
   const templates = await listHeaderFooters();
@@ -76,27 +69,8 @@ export default async function HeaderFooterListPage() {
                   >
                     Edit
                   </Link>
-                  {!t.isDefault && (
-                    <form action={handleSetDefault.bind(null, t.id)}>
-                      <button
-                        type="submit"
-                        className="rounded border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
-                      >
-                        Set as Default
-                      </button>
-                    </form>
-                  )}
-                  <form action={handleDelete.bind(null, t.id)}>
-                    <button
-                      type="submit"
-                      className="rounded border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-                      onClick={(e) => {
-                        if (!confirm("Delete this template?")) e.preventDefault();
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </form>
+                  <SetDefaultForm id={t.id} isDefault={t.isDefault} />
+                  <DeleteForm id={t.id} />
                 </div>
               </div>
             ))}
@@ -145,27 +119,8 @@ export default async function HeaderFooterListPage() {
                   >
                     Edit
                   </Link>
-                  {!t.isDefault && (
-                    <form action={handleSetDefault.bind(null, t.id)}>
-                      <button
-                        type="submit"
-                        className="rounded border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
-                      >
-                        Set as Default
-                      </button>
-                    </form>
-                  )}
-                  <form action={handleDelete.bind(null, t.id)}>
-                    <button
-                      type="submit"
-                      className="rounded border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-                      onClick={(e) => {
-                        if (!confirm("Delete this template?")) e.preventDefault();
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </form>
+                  <SetDefaultForm id={t.id} isDefault={t.isDefault} />
+                  <DeleteForm id={t.id} />
                 </div>
               </div>
             ))}

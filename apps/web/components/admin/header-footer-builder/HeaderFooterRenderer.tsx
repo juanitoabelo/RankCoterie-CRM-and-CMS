@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Header / Footer Builder — Public Block Renderer
  *
@@ -5,36 +7,410 @@
  * renderers for standard blocks and adds specialized renderers for
  * header/footer-specific blocks.
  */
+import { createContext, useContext, useState, useRef } from "react";
 import Link from "next/link";
 import type { Block } from "@/lib/page-builder/types";
-import type { HeaderFooterBlock, ContainerSettings, DEFAULT_CONTAINER_SETTINGS } from "@/lib/header-footer/types";
-import { isRowBlock } from "@/lib/page-builder/types";
+import type { HeaderFooterBlock, ContainerSettings } from "@/lib/header-footer/types";
+import { DEFAULT_CONTAINER_SETTINGS } from "@/lib/header-footer/types";
+import { isRowBlock, isSectionBlock } from "@/lib/page-builder/types";
 import { resolveColumnWidths, renderColumnSpanClass } from "@/lib/page-builder/spans";
 import { styleScopeClass, renderStyleGuide } from "@/lib/page-builder/style";
 import type { StyleBreakpoints } from "@/lib/page-builder/types";
 
+/* ── Menu Context ──────────────────────────────────────────────────────── */
+
+export interface MenuItem {
+  id: string;
+  label: string;
+  href: string;
+  target?: string | null;
+  children?: MenuItem[];
+}
+
+export interface MenuData {
+  header?: MenuItem[];
+  footer?: MenuItem[];
+}
+
+const MenuContext = createContext<MenuData>({});
+
+function useMenuContext() {
+  return useContext(MenuContext);
+}
+
 /* ── Specialized Block Renderers ────────────────────────────────────────── */
 
 function LogoRenderer({ block }: { block: Block }) {
-  const p = block.props as { src: string; alt: string; linkTo: string; width: number; height: number };
+  const p = block.props as Record<string, unknown>;
+  
+  const sizeToCss = (v: unknown, fallback?: string): string | undefined => {
+    if (v === undefined || v === null) return fallback;
+    if (typeof v === "number") return v === 0 ? fallback : `${v}px`;
+    if (typeof v === "object" && v !== null && "value" in v) {
+      const sv = v as { value: number; unit: string };
+      return sv.value === 0 ? fallback : `${sv.value}${sv.unit}`;
+    }
+    return fallback;
+  };
+  
+  const alignment = (p.alignment as string) ?? "left";
+  const alignClass = alignment === "center" ? "mx-auto block" : alignment === "right" ? "ml-auto block" : "block";
+  
+  const imgStyle: React.CSSProperties = {
+    width: sizeToCss(p.imageWidth, "100%"),
+    maxWidth: sizeToCss(p.imageMaxWidth),
+    height: sizeToCss(p.imageHeight, "auto"),
+    maxHeight: sizeToCss(p.imageMaxHeight),
+    opacity: p.opacity !== undefined && (p.opacity as number) < 100 ? (p.opacity as number) / 100 : undefined,
+    borderTopLeftRadius: p.borderRadiusTop ? `${p.borderRadiusTop}px` : undefined,
+    borderTopRightRadius: p.borderRadiusRight ? `${p.borderRadiusRight}px` : undefined,
+    borderBottomRightRadius: p.borderRadiusBottom ? `${p.borderRadiusBottom}px` : undefined,
+    borderBottomLeftRadius: p.borderRadiusLeft ? `${p.borderRadiusLeft}px` : undefined,
+    borderStyle: p.borderStyle !== "none" ? p.borderStyle as string : undefined,
+    borderWidth: p.borderWidth ? `${p.borderWidth}px` : undefined,
+    borderColor: p.borderColor as string,
+    boxShadow: p.boxShadow as string,
+    transition: "opacity 0.3s ease",
+  };
+  
+  const hoverOpacity = p.hoverOpacity !== undefined && (p.hoverOpacity as number) < 100 ? (p.hoverOpacity as number) / 100 : undefined;
+  
   return (
-    <Link href={p.linkTo || "/"} className="inline-block">
-      {p.src ? (
-        <img
-          src={p.src}
-          alt={p.alt}
-          style={{ maxWidth: p.width, maxHeight: p.height }}
-          className="h-auto"
-        />
-      ) : (
-        <span className="text-lg font-bold text-zinc-900">Logo</span>
+    <div className={alignClass} style={{ textAlign: alignment === "center" ? "center" : alignment === "right" ? "right" : "left" }}>
+      <Link href={(p.linkTo as string) || "/"} className="inline-block">
+        {p.src ? (
+          <img
+            src={p.src as string}
+            alt={(p.alt as string) || ""}
+            style={imgStyle}
+            className="hover:opacity-75"
+          />
+        ) : (
+          <span className="text-lg font-bold text-zinc-900">Logo</span>
+        )}
+      </Link>
+    </div>
+  );
+}
+
+/* ── Menu Renderer ───────────────────────────────────────────────────────── */
+
+function SubmenuIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function HamburgerIcon({ size = 24, color = "currentColor" }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 7H21M3 12H21M3 17H21" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function CloseIcon({ size = 24, color = "currentColor" }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M18 6L6 18M6 6L18 18" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function DesktopMenuItem({
+  item,
+  textColor,
+  hoverColor,
+  activeColor,
+  fontSize,
+  pointer,
+  pointerWidth,
+  pointerColor,
+  hPadding,
+  vPadding,
+  fontFamily,
+  fontWeight,
+  textTransform,
+  letterSpacing,
+  dropdownBgColor,
+  dropdownTextColor,
+  dropdownHoverColor,
+  animation,
+}: {
+  item: MenuItem;
+  textColor?: string;
+  hoverColor?: string;
+  activeColor?: string;
+  fontSize?: number;
+  pointer?: string;
+  pointerWidth?: number;
+  pointerColor?: string;
+  hPadding?: number;
+  vPadding?: number;
+  fontFamily?: string;
+  fontWeight?: string;
+  textTransform?: string;
+  letterSpacing?: number;
+  dropdownBgColor?: string;
+  dropdownTextColor?: string;
+  dropdownHoverColor?: string;
+  animation?: string;
+}) {
+  const hasChildren = item.children && item.children.length > 0;
+  const [isOpen, setIsOpen] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setIsOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    timeoutRef.current = setTimeout(() => setIsOpen(false), 150);
+  };
+
+  const pointerStyle: React.CSSProperties = {};
+  if (pointer === "underline") {
+    pointerStyle.borderBottom = `${pointerWidth ?? 2}px solid ${pointerColor ?? textColor ?? "#fff"}`;
+    pointerStyle.paddingBottom = "2px";
+  }
+
+  const animationClass = animation === "fade"
+    ? "transition-all duration-200"
+    : animation === "grow"
+      ? "transition-transform duration-200 hover:scale-105"
+      : "";
+
+  const itemStyle: React.CSSProperties = {
+    color: textColor,
+    fontSize,
+    padding: `${vPadding ?? 8}px ${hPadding ?? 12}px`,
+    fontFamily,
+    fontWeight,
+    textTransform: textTransform as React.CSSProperties["textTransform"],
+    letterSpacing,
+    position: "relative",
+    ...pointerStyle,
+  };
+
+  return (
+    <div
+      className="relative group"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <Link
+        href={item.href}
+        target={item.target ?? undefined}
+        className={`inline-flex items-center gap-1 transition-colors ${animationClass}`}
+        style={itemStyle}
+        onMouseEnter={(e) => {
+          if (hoverColor) e.currentTarget.style.color = hoverColor;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.color = textColor ?? "";
+        }}
+      >
+        {item.label}
+        {hasChildren && <SubmenuIcon className="ml-0.5 opacity-60" />}
+      </Link>
+
+      {hasChildren && isOpen && (
+        <div
+          className="absolute left-0 top-full z-50 min-w-[200px] rounded-md border border-zinc-200 py-1 shadow-lg"
+          style={{
+            backgroundColor: dropdownBgColor ?? "#ffffff",
+            animation: animation === "fade" ? "fadeIn 0.15s ease-in" : undefined,
+          }}
+        >
+          {item.children!.map((child) => (
+            <Link
+              key={child.id}
+              href={child.href}
+              target={child.target ?? undefined}
+              className="block px-4 py-2 text-sm transition-colors hover:bg-zinc-50"
+              style={{ color: dropdownTextColor ?? "#333333" }}
+              onMouseEnter={(e) => {
+                if (dropdownHoverColor) e.currentTarget.style.backgroundColor = dropdownHoverColor;
+                e.currentTarget.style.color = hoverColor ?? dropdownTextColor ?? "#333333";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "";
+                e.currentTarget.style.color = dropdownTextColor ?? "#333333";
+              }}
+            >
+              {child.label}
+            </Link>
+          ))}
+        </div>
       )}
-    </Link>
+    </div>
+  );
+}
+
+function MobileMenuPanel({
+  items,
+  isOpen,
+  onClose,
+  textColor,
+  hoverColor,
+  activeColor,
+  fontSize,
+  mobileTextAlign,
+  fullMobileWidth,
+  dropdownBgColor,
+  dropdownTextColor,
+  dropdownHoverColor,
+  hPadding,
+  vPadding,
+  fontFamily,
+  fontWeight,
+  textTransform,
+  letterSpacing,
+}: {
+  items: MenuItem[];
+  isOpen: boolean;
+  onClose: () => void;
+  textColor?: string;
+  hoverColor?: string;
+  activeColor?: string;
+  fontSize?: number;
+  mobileTextAlign?: string;
+  fullMobileWidth?: boolean;
+  dropdownBgColor?: string;
+  dropdownTextColor?: string;
+  dropdownHoverColor?: string;
+  hPadding?: number;
+  vPadding?: number;
+  fontFamily?: string;
+  fontWeight?: string;
+  textTransform?: string;
+  letterSpacing?: number;
+}) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const textAlign = mobileTextAlign === "center"
+    ? "text-center"
+    : mobileTextAlign === "right"
+      ? "text-right"
+      : "text-left";
+
+  return (
+    <>
+      {/* Overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 transition-opacity"
+          onClick={onClose}
+        />
+      )}
+
+      {/* Panel */}
+      <div
+        className={`fixed top-0 left-0 z-50 h-full overflow-y-auto transition-transform duration-300 ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        } ${fullMobileWidth ? "w-full" : "w-80"}`}
+        style={{ backgroundColor: dropdownBgColor ?? "#ffffff" }}
+      >
+        {/* Close button */}
+        <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
+          <span className="text-sm font-medium" style={{ color: textColor }}>Menu</span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-zinc-100"
+          >
+            <CloseIcon size={20} color={textColor} />
+          </button>
+        </div>
+
+        {/* Menu items */}
+        <nav className={`${textAlign} py-2`}>
+          {items.map((item) => {
+            const hasChildren = item.children && item.children.length > 0;
+            const isExpanded = expandedId === item.id;
+
+            return (
+              <div key={item.id}>
+                <div className="flex items-center">
+                  <Link
+                    href={item.href}
+                    target={item.target ?? undefined}
+                    className="flex-1 transition-colors"
+                    style={{
+                      color: textColor,
+                      fontSize,
+                      padding: `${vPadding ?? 12}px ${hPadding ?? 16}px`,
+                      fontFamily,
+                      fontWeight,
+                      textTransform: textTransform as React.CSSProperties["textTransform"],
+                      letterSpacing,
+                      display: "block",
+                    }}
+                    onClick={onClose}
+                  >
+                    {item.label}
+                  </Link>
+                  {hasChildren && (
+                    <button
+                      type="button"
+                      onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                      className="flex h-10 w-10 items-center justify-center transition-transform"
+                      style={{
+                        transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                        color: textColor,
+                      }}
+                    >
+                      <SubmenuIcon />
+                    </button>
+                  )}
+                </div>
+
+                {/* Submenu */}
+                {hasChildren && isExpanded && (
+                  <div className="border-t border-zinc-100">
+                    {item.children!.map((child) => (
+                      <Link
+                        key={child.id}
+                        href={child.href}
+                        target={child.target ?? undefined}
+                        className="block transition-colors"
+                        style={{
+                          color: dropdownTextColor ?? textColor,
+                          fontSize: fontSize ? fontSize - 2 : 14,
+                          padding: `${vPadding ?? 10}px ${hPadding ?? 32}px`,
+                          fontFamily,
+                          fontWeight,
+                          textTransform: textTransform as React.CSSProperties["textTransform"],
+                          letterSpacing,
+                        }}
+                        onClick={onClose}
+                        onMouseEnter={(e) => {
+                          if (dropdownHoverColor) e.currentTarget.style.backgroundColor = dropdownHoverColor;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = "";
+                        }}
+                      >
+                        {child.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </nav>
+      </div>
+    </>
   );
 }
 
 function MenuRenderer({ block }: { block: Block }) {
-  const p = block.props as {
+  const p = block.props as unknown as {
+    menuId?: string;
     orientation: string;
     align: string;
     gap: number;
@@ -42,11 +418,39 @@ function MenuRenderer({ block }: { block: Block }) {
     hoverColor?: string;
     fontSize?: number;
     style: string;
+    pointer?: string;
+    pointerWidth?: number;
+    pointerColor?: string;
+    animation?: string;
+    hPadding?: number;
+    vPadding?: number;
+    spaceBetween?: number;
+    mobileMenuStyle?: string;
+    mobileBreakpoint?: number;
+    fullMobileWidth?: boolean;
+    mobileTextAlign?: string;
+    toggleButton?: string;
+    toggleAlign?: string;
+    toggleColor?: string;
+    toggleSize?: number;
+    dropdownBgColor?: string;
+    dropdownTextColor?: string;
+    dropdownHoverColor?: string;
+    activeColor?: string;
+    fontFamily?: string;
+    fontWeight?: string;
+    textTransform?: string;
+    letterSpacing?: number;
+    cssId?: string;
+    cssClasses?: string;
   };
 
-  // Menu items come from the layout data, not from the block itself.
-  // This renderer outputs a nav element with placeholder items
-  // that the site layout fills in via context.
+  const menus = useMenuContext();
+  const menuKey = (p.menuId || "header").toLowerCase() as "header" | "footer";
+  const items = menus[menuKey] ?? menus.header ?? [];
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const breakpoint = p.mobileBreakpoint ?? 1024;
+
   const alignClass =
     p.align === "center"
       ? "justify-center"
@@ -56,23 +460,98 @@ function MenuRenderer({ block }: { block: Block }) {
           ? "justify-between"
           : "justify-start";
 
+  const isHamburger = p.style === "hamburger" || p.toggleButton === "hamburger";
+
   return (
-    <nav
-      className={`flex ${alignClass} ${p.orientation === "vertical" ? "flex-col" : "flex-row flex-wrap"}`}
-      style={{
-        gap: p.gap,
-        color: p.textColor,
-        fontSize: p.fontSize,
-      }}
-      data-hf-menu="true"
-    >
-      {/* Menu items rendered by site layout */}
-    </nav>
+    <>
+      {/* CSS for animations */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        @media (max-width: ${breakpoint}px) {
+          .menu-desktop-nav { display: none !important; }
+          .menu-mobile-toggle { display: flex !important; }
+        }
+        @media (min-width: ${breakpoint + 1}px) {
+          .menu-mobile-toggle { display: none !important; }
+        }
+      `}} />
+
+      {/* Desktop Navigation */}
+      <nav
+        id={p.cssId || undefined}
+        className={`menu-desktop-nav flex items-center ${alignClass} ${p.orientation === "vertical" ? "flex-col" : "flex-row flex-wrap"}`}
+        style={{
+          gap: p.spaceBetween ?? p.gap,
+          color: p.textColor,
+          fontSize: p.fontSize,
+        }}
+      >
+        {items.map((item) => (
+          <DesktopMenuItem
+            key={item.id}
+            item={item}
+            textColor={p.textColor}
+            hoverColor={p.hoverColor}
+            activeColor={p.activeColor}
+            fontSize={p.fontSize}
+            pointer={p.pointer}
+            pointerWidth={p.pointerWidth}
+            pointerColor={p.pointerColor}
+            hPadding={p.hPadding}
+            vPadding={p.vPadding}
+            fontFamily={p.fontFamily}
+            fontWeight={p.fontWeight}
+            textTransform={p.textTransform}
+            letterSpacing={p.letterSpacing}
+            dropdownBgColor={p.dropdownBgColor}
+            dropdownTextColor={p.dropdownTextColor}
+            dropdownHoverColor={p.dropdownHoverColor}
+            animation={p.animation}
+          />
+        ))}
+      </nav>
+
+      {/* Mobile Toggle Button */}
+      <button
+        type="button"
+        className="menu-mobile-toggle hidden items-center justify-center"
+        onClick={() => setMobileOpen(true)}
+        style={{
+          color: p.toggleColor ?? p.textColor,
+          padding: "8px",
+        }}
+        aria-label="Open menu"
+      >
+        <HamburgerIcon size={p.toggleSize ?? 24} color={p.toggleColor ?? p.textColor} />
+      </button>
+
+      {/* Mobile Menu Panel */}
+      <MobileMenuPanel
+        items={items}
+        isOpen={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        textColor={p.textColor}
+        hoverColor={p.hoverColor}
+        activeColor={p.activeColor}
+        fontSize={p.fontSize}
+        mobileTextAlign={p.mobileTextAlign}
+        fullMobileWidth={p.fullMobileWidth}
+        dropdownBgColor={p.dropdownBgColor}
+        dropdownTextColor={p.dropdownTextColor}
+        dropdownHoverColor={p.dropdownHoverColor}
+        hPadding={p.hPadding}
+        vPadding={p.vPadding}
+        fontFamily={p.fontFamily}
+        fontWeight={p.fontWeight}
+        textTransform={p.textTransform}
+        letterSpacing={p.letterSpacing}
+      />
+    </>
   );
 }
 
 function SocialIconsRenderer({ block }: { block: Block }) {
-  const p = block.props as {
+  const p = block.props as unknown as {
     icons: Array<{ platform: string; url: string; label: string }>;
     size: string;
     color: string;
@@ -125,7 +604,7 @@ function SocialIconsRenderer({ block }: { block: Block }) {
 }
 
 function ContactInfoRenderer({ block }: { block: Block }) {
-  const p = block.props as {
+  const p = block.props as unknown as {
     showPhone: boolean;
     showEmail: boolean;
     showAddress: boolean;
@@ -169,7 +648,7 @@ function ContactInfoRenderer({ block }: { block: Block }) {
 }
 
 function SearchRenderer({ block }: { block: Block }) {
-  const p = block.props as {
+  const p = block.props as unknown as {
     placeholder: string;
     style: string;
     width: number;
@@ -223,6 +702,22 @@ function RowRenderer({ block }: { block: Block }) {
       spanSm?: number;
       blocks: Block[];
       bgColor?: string;
+      bgImage?: string;
+      bgPosition?: string;
+      bgSize?: string;
+      bgRepeat?: string;
+      overlayColor?: string;
+      overlayOpacity?: number;
+      borderStyle?: string;
+      borderWidth?: number;
+      borderColor?: string;
+      borderRadius?: number;
+      boxShadow?: string;
+      margin?: { top: number; right: number; bottom: number; left: number };
+      padding?: { top: number; right: number; bottom: number; left: number };
+      zindex?: number;
+      cssId?: string;
+      cssClasses?: string;
     }>;
     gap: number;
     align: string;
@@ -230,32 +725,131 @@ function RowRenderer({ block }: { block: Block }) {
     paddingY: number;
     fullWidth: boolean;
     bgColor?: string;
+    bgImage?: string;
+    bgPosition?: string;
+    bgSize?: string;
+    bgRepeat?: string;
+    overlayColor?: string;
+    overlayOpacity?: number;
     textColor?: string;
+    direction?: string;
+    justifyContent?: string;
+    gapRow?: number;
+    wrap?: string;
+    borderStyle?: string;
+    borderWidth?: number;
+    borderColor?: string;
+    borderRadius?: number;
+    boxShadow?: string;
+    margin?: { top: number; right: number; bottom: number; left: number };
+    padding?: { top: number; right: number; bottom: number; left: number };
+    zindex?: number;
+    cssId?: string;
+    cssClasses?: string;
   };
+
+  const rowStyle: React.CSSProperties = {
+    width: "100%",
+    backgroundColor: p.bgColor,
+    backgroundImage: p.bgImage ? `url(${p.bgImage})` : undefined,
+    backgroundPosition: p.bgPosition,
+    backgroundSize: p.bgSize,
+    backgroundRepeat: p.bgRepeat,
+    color: p.textColor,
+    paddingTop: p.padding?.top ?? p.paddingY,
+    paddingRight: p.padding?.right,
+    paddingBottom: p.padding?.bottom ?? p.paddingY,
+    paddingLeft: p.padding?.left,
+    marginTop: p.margin?.top,
+    marginRight: p.margin?.right,
+    marginBottom: p.margin?.bottom,
+    marginLeft: p.margin?.left,
+    borderStyle: p.borderStyle !== "none" ? p.borderStyle : undefined,
+    borderWidth: p.borderWidth,
+    borderColor: p.borderColor,
+    borderRadius: p.borderRadius,
+    boxShadow: p.boxShadow,
+    zIndex: p.zindex || undefined,
+    position: "relative",
+    minHeight: p.minHeight,
+  };
+
+  const overlayStyle: React.CSSProperties | undefined = p.bgImage && p.overlayOpacity
+    ? {
+        position: "absolute",
+        inset: 0,
+        backgroundColor: p.overlayColor || "#000000",
+        opacity: p.overlayOpacity / 100,
+        pointerEvents: "none",
+      }
+    : undefined;
+
+  // Content Width: apply boxed or full-width constraints
+  const rowWidth = p.width ?? (p.fullWidth ? "full" : "boxed");
+  if (rowWidth === "boxed") {
+    rowStyle.maxWidth = p.maxWidth ? `${p.maxWidth}px` : "var(--theme-max-width, 1200px)";
+    rowStyle.marginLeft = "auto";
+    rowStyle.marginRight = "auto";
+  }
 
   return (
     <div
-      style={{
-        backgroundColor: p.bgColor,
-        color: p.textColor,
-        paddingTop: p.paddingY,
-        paddingBottom: p.paddingY,
-      }}
-      className={!p.fullWidth ? "theme-container" : undefined}
+      style={rowStyle}
+      id={p.cssId || undefined}
+      className={p.cssClasses || undefined}
     >
+      {overlayStyle && <div style={overlayStyle} />}
       <div
         className="grid grid-cols-12"
-        style={{ gap: p.gap, alignItems: p.align }}
+        style={{ gap: p.gap, rowGap: p.gapRow, alignItems: p.align, flexDirection: p.direction === "column" ? "column" : undefined, flexWrap: p.wrap === "wrap" ? "wrap" : undefined }}
       >
         {p.columns.map((col) => {
           const widths = resolveColumnWidths(col, p.stackOnMobile);
           const spanClass = renderColumnSpanClass(widths);
+          const colStyle: React.CSSProperties = {
+            backgroundColor: col.bgColor,
+            backgroundImage: col.bgImage ? `url(${col.bgImage})` : undefined,
+            backgroundPosition: col.bgPosition,
+            backgroundSize: col.bgSize,
+            backgroundRepeat: col.bgRepeat,
+            borderStyle: col.borderStyle !== "none" ? col.borderStyle : undefined,
+            borderWidth: col.borderWidth,
+            borderColor: col.borderColor,
+            borderRadius: col.borderRadius,
+            boxShadow: col.boxShadow,
+            marginTop: col.margin?.top,
+            marginRight: col.margin?.right,
+            marginBottom: col.margin?.bottom,
+            marginLeft: col.margin?.left,
+            paddingTop: col.padding?.top,
+            paddingRight: col.padding?.right,
+            paddingBottom: col.padding?.bottom,
+            paddingLeft: col.padding?.left,
+            zIndex: col.zindex || undefined,
+            position: "relative" as const,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: col.justifyContent ?? "flex-start",
+            alignItems: col.alignItems ?? "stretch",
+            minHeight: col.minHeight,
+          };
+          const colOverlayStyle: React.CSSProperties | undefined = col.bgImage && col.overlayOpacity
+            ? {
+                position: "absolute",
+                inset: 0,
+                backgroundColor: col.overlayColor || "#000000",
+                opacity: col.overlayOpacity / 100,
+                pointerEvents: "none",
+              }
+            : undefined;
           return (
             <div
               key={col.id}
               className={spanClass}
-              style={{ backgroundColor: col.bgColor }}
+              style={colStyle}
+              id={col.cssId || undefined}
             >
+              {colOverlayStyle && <div style={colOverlayStyle} />}
               <RenderBlocks blocks={col.blocks as HeaderFooterBlock[]} />
             </div>
           );
@@ -269,12 +863,14 @@ function RowRenderer({ block }: { block: Block }) {
 
 function HeadingRenderer({ block }: { block: Block }) {
   const p = block.props as { text: string; level: number; align: string };
-  const Tag = `h${p.level}` as keyof JSX.IntrinsicElements;
-  return (
-    <Tag style={{ textAlign: p.align as React.CSSProperties["textAlign"] }}>
-      {p.text}
-    </Tag>
-  );
+  const textAlign = p.align as React.CSSProperties["textAlign"];
+  
+  if (p.level === 1) return <h1 style={{ textAlign }}>{p.text}</h1>;
+  if (p.level === 2) return <h2 style={{ textAlign }}>{p.text}</h2>;
+  if (p.level === 3) return <h3 style={{ textAlign }}>{p.text}</h3>;
+  if (p.level === 4) return <h4 style={{ textAlign }}>{p.text}</h4>;
+  if (p.level === 5) return <h5 style={{ textAlign }}>{p.text}</h5>;
+  return <h6 style={{ textAlign }}>{p.text}</h6>;
 }
 
 function TextRenderer({ block }: { block: Block }) {
@@ -288,14 +884,46 @@ function TextRenderer({ block }: { block: Block }) {
 }
 
 function ImageRenderer({ block }: { block: Block }) {
-  const p = block.props as { src: string; alt: string; caption: string; width: string };
+  const p = block.props as Record<string, unknown>;
   if (!p.src) return null;
+  
+  const sizeToCss = (v: unknown, fallback?: string): string | undefined => {
+    if (v === undefined || v === null) return fallback;
+    if (typeof v === "number") return v === 0 ? fallback : `${v}px`;
+    if (typeof v === "object" && v !== null && "value" in v) {
+      const sv = v as { value: number; unit: string };
+      return sv.value === 0 ? fallback : `${sv.value}${sv.unit}`;
+    }
+    return fallback;
+  };
+  
+  const alignment = (p.alignment as string) ?? "left";
+  const alignClass = alignment === "center" ? "mx-auto" : alignment === "right" ? "ml-auto" : "";
+  
+  const imgStyle: React.CSSProperties = {
+    width: sizeToCss(p.imageWidth, "100%"),
+    maxWidth: sizeToCss(p.imageMaxWidth),
+    height: sizeToCss(p.imageHeight, "auto"),
+    maxHeight: sizeToCss(p.imageMaxHeight),
+    objectFit: sizeToCss(p.imageHeight) || sizeToCss(p.imageMaxHeight) ? "cover" : undefined,
+    opacity: p.opacity !== undefined && (p.opacity as number) < 100 ? (p.opacity as number) / 100 : undefined,
+    borderTopLeftRadius: p.borderRadiusTop ? `${p.borderRadiusTop}px` : undefined,
+    borderTopRightRadius: p.borderRadiusRight ? `${p.borderRadiusRight}px` : undefined,
+    borderBottomRightRadius: p.borderRadiusBottom ? `${p.borderRadiusBottom}px` : undefined,
+    borderBottomLeftRadius: p.borderRadiusLeft ? `${p.borderRadiusLeft}px` : undefined,
+    borderStyle: p.borderStyle !== "none" ? p.borderStyle as string : undefined,
+    borderWidth: p.borderWidth ? `${p.borderWidth}px` : undefined,
+    borderColor: p.borderColor as string,
+    boxShadow: p.boxShadow as string,
+    transition: "opacity 0.3s ease",
+  };
+  
   return (
-    <figure>
-      <img src={p.src} alt={p.alt} className="w-full" />
-      {p.caption && (
+    <figure className={alignClass}>
+      <img src={p.src as string} alt={(p.alt as string) || ""} style={imgStyle} className="hover:opacity-75" />
+      {(p.caption as string) && (
         <figcaption className="mt-2 text-center text-sm text-zinc-500">
-          {p.caption}
+          {p.caption as string}
         </figcaption>
       )}
     </figure>
@@ -334,6 +962,96 @@ function EmbedRenderer({ block }: { block: Block }) {
   return <div dangerouslySetInnerHTML={{ __html: p.html }} />;
 }
 
+function TestimonialRenderer({ block }: { block: Block }) {
+  const p = block.props as {
+    items: Array<{ quote: string; author: string; role: string; rating: number; avatar?: string }>;
+    display: "grid" | "slider";
+    columns: 1 | 2 | 3;
+    itemsPerView: number;
+    heading?: string;
+  };
+  const items = p.items ?? [];
+  const columns = p.columns ?? 2;
+
+  const colClass =
+    columns === 1
+      ? "grid-cols-1"
+      : columns === 3
+        ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+        : "grid-cols-1 sm:grid-cols-2";
+
+  if (p.display === "slider") {
+    return (
+      <div className="overflow-x-auto py-4">
+        <div className="flex gap-6" style={{ minWidth: "min-content" }}>
+          {items.map((item, i) => (
+            <figure
+              key={i}
+              className="flex-shrink-0 rounded-2xl bg-zinc-50 px-8 py-10 text-center"
+              style={{ width: `${100 / (p.itemsPerView ?? 2)}%`, minWidth: "300px" }}
+            >
+              {item.rating > 0 && (
+                <div className="text-amber-400">
+                  {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
+                </div>
+              )}
+              <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800">
+                {item.quote}
+              </blockquote>
+              <figcaption className="mt-4 text-sm text-zinc-500">
+                {item.avatar && (
+                  <img
+                    src={item.avatar}
+                    alt={item.author}
+                    className="mx-auto mb-2 h-10 w-10 rounded-full object-cover"
+                  />
+                )}
+                — {item.author}
+                {item.role ? `, ${item.role}` : ""}
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="py-4">
+      {p.heading && (
+        <h2 className="mb-6 text-center text-2xl font-bold text-zinc-900">
+          {p.heading}
+        </h2>
+      )}
+      <div className={`mx-auto grid max-w-6xl gap-6 ${colClass}`}>
+        {items.map((item, i) => (
+          <figure key={i} className="rounded-2xl bg-zinc-50 px-8 py-10 text-center">
+            {item.rating > 0 && (
+              <div className="text-amber-400">
+                {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
+              </div>
+            )}
+            <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800">
+              {item.quote}
+            </blockquote>
+            <figcaption className="mt-4 text-sm text-zinc-500">
+              {item.avatar && (
+                <img
+                  src={item.avatar}
+                  alt={item.author}
+                  className="mx-auto mb-2 h-10 w-10 rounded-full object-cover"
+                />
+              )}
+              — {item.author}
+              {item.role ? `, ${item.role}` : ""}
+            </figcaption>
+          </figure>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ── Renderer Map ────────────────────────────────────────────────────────── */
 
 const RENDERERS: Record<string, React.ComponentType<{ block: Block }>> = {
@@ -349,14 +1067,116 @@ const RENDERERS: Record<string, React.ComponentType<{ block: Block }>> = {
   spacer: SpacerRenderer,
   divider: DividerRenderer,
   embed: EmbedRenderer,
+  testimonial: TestimonialRenderer,
 };
+
+/* ── Section Renderer ───────────────────────────────────────────────────── */
+
+function SectionRenderer({ block }: { block: Block }) {
+  const p = block.props as {
+    rows: Block[];
+    width?: string;
+    maxWidth?: number;
+    minHeight?: number;
+    direction?: string;
+    justifyContent?: string;
+    alignItems?: string;
+    gapCol?: number;
+    gapRow?: number;
+    wrap?: string;
+    bgColor?: string;
+    bgImage?: string;
+    bgPosition?: string;
+    bgSize?: string;
+    bgRepeat?: string;
+    overlayColor?: string;
+    overlayOpacity?: number;
+    textColor?: string;
+    borderStyle?: string;
+    borderWidth?: number;
+    borderColor?: string;
+    borderRadius?: number;
+    boxShadow?: string;
+    paddingTop?: number;
+    paddingBottom?: number;
+    margin?: { top: number; right: number; bottom: number; left: number };
+    padding?: { top: number; right: number; bottom: number; left: number };
+    zindex?: number;
+    cssId?: string;
+    cssClasses?: string;
+  };
+
+  const outerStyle: React.CSSProperties = {
+    width: "100%",
+    backgroundColor: p.bgColor,
+    backgroundImage: p.bgImage ? `url(${p.bgImage})` : undefined,
+    backgroundPosition: p.bgPosition,
+    backgroundSize: p.bgSize || "cover",
+    backgroundRepeat: p.bgRepeat,
+    color: p.textColor,
+    borderStyle: p.borderStyle !== "none" ? p.borderStyle : undefined,
+    borderWidth: p.borderWidth,
+    borderColor: p.borderColor,
+    borderRadius: p.borderRadius,
+    boxShadow: p.boxShadow,
+    marginTop: p.margin?.top,
+    marginRight: p.margin?.right,
+    marginBottom: p.margin?.bottom,
+    marginLeft: p.margin?.left,
+    paddingTop: p.padding?.top ?? p.paddingTop,
+    paddingRight: p.padding?.right,
+    paddingBottom: p.padding?.bottom ?? p.paddingBottom,
+    paddingLeft: p.padding?.left,
+    zIndex: p.zindex || undefined,
+    position: "relative",
+  };
+
+  const innerStyle: React.CSSProperties = {
+    maxWidth: p.width === "boxed" ? p.maxWidth : "100%",
+    margin: p.width === "boxed" ? "0 auto" : undefined,
+    minHeight: p.minHeight || undefined,
+    display: "flex",
+    flexDirection: p.direction === "column" ? "column" : "row",
+    justifyContent: p.justifyContent,
+    alignItems: p.alignItems,
+    columnGap: p.gapCol,
+    rowGap: p.gapRow,
+    flexWrap: p.wrap === "wrap" ? "wrap" : undefined,
+  };
+
+  const overlayStyle: React.CSSProperties | undefined = p.bgImage && p.overlayOpacity
+    ? {
+        position: "absolute",
+        inset: 0,
+        backgroundColor: p.overlayColor || "#000000",
+        opacity: p.overlayOpacity / 100,
+        pointerEvents: "none",
+      }
+    : undefined;
+
+  return (
+    <div
+      style={outerStyle}
+      id={p.cssId || undefined}
+      className={p.cssClasses || undefined}
+    >
+      {overlayStyle && <div style={overlayStyle} />}
+      <div style={innerStyle}>
+        <RenderBlocks blocks={p.rows as HeaderFooterBlock[]} />
+      </div>
+    </div>
+  );
+}
 
 /* ── Recursive Block Renderer ────────────────────────────────────────────── */
 
 function RenderBlocks({ blocks }: { blocks: HeaderFooterBlock[] }) {
   return (
     <>
-      {blocks.map((block) => {
+      {(blocks as Block[]).map((block) => {
+        if (isSectionBlock(block)) {
+          return <SectionRenderer key={block.id} block={block} />;
+        }
         if (isRowBlock(block)) {
           return <RowRenderer key={block.id} block={block} />;
         }
@@ -377,26 +1197,80 @@ function RenderBlocks({ blocks }: { blocks: HeaderFooterBlock[] }) {
 export default function HeaderFooterRenderer({
   blocks,
   containerSettings = DEFAULT_CONTAINER_SETTINGS,
+  menus = {},
 }: {
   blocks: HeaderFooterBlock[];
   containerSettings?: ContainerSettings;
+  menus?: MenuData;
 }) {
-  const containerStyle: React.CSSProperties =
-    containerSettings.width === "boxed"
-      ? { maxWidth: containerSettings.maxWidth, margin: "0 auto" }
-      : {};
-
-  const wrapperStyle: React.CSSProperties = {
+  const outerStyle: React.CSSProperties = {
+    width: "100%",
     backgroundColor: containerSettings.bgColor,
-    paddingTop: containerSettings.paddingTop,
-    paddingBottom: containerSettings.paddingBottom,
+    backgroundImage: containerSettings.bgImage ? `url(${containerSettings.bgImage})` : undefined,
+    backgroundPosition: containerSettings.bgPosition,
+    backgroundSize: containerSettings.bgSize,
+    backgroundRepeat: containerSettings.bgRepeat,
+    borderStyle: containerSettings.borderStyle,
+    borderWidth: containerSettings.borderWidth,
+    borderColor: containerSettings.borderColor,
+    borderRadius: containerSettings.borderRadius,
+    marginTop: containerSettings.margin.top,
+    marginRight: containerSettings.margin.right,
+    marginBottom: containerSettings.margin.bottom,
+    marginLeft: containerSettings.margin.left,
+    paddingTop: containerSettings.padding.top,
+    paddingRight: containerSettings.padding.right,
+    paddingBottom: containerSettings.padding.bottom,
+    paddingLeft: containerSettings.padding.left,
+    position: "relative",
+    overflow: "hidden",
   };
 
+  const innerStyle: React.CSSProperties = {
+    maxWidth: containerSettings.width === "boxed" ? containerSettings.maxWidth : "100%",
+    margin: containerSettings.width === "boxed" ? "0 auto" : undefined,
+    minHeight: containerSettings.minHeight || undefined,
+    display: "flex",
+    flexDirection: containerSettings.direction === "column" ? "column" : "row",
+    justifyContent: containerSettings.justifyContent,
+    alignItems: containerSettings.alignItems,
+    columnGap: containerSettings.gapCol,
+    rowGap: containerSettings.gapRow,
+    flexWrap: containerSettings.wrap,
+    zIndex: containerSettings.zindex || undefined,
+    position: "relative" as const,
+  };
+
+  const overlayStyle: React.CSSProperties | undefined = containerSettings.bgImage && containerSettings.overlayOpacity
+    ? {
+        position: "absolute",
+        inset: 0,
+        backgroundColor: containerSettings.overlayColor || "#000000",
+        opacity: containerSettings.overlayOpacity / 100,
+        pointerEvents: "none",
+      }
+    : undefined;
+
   return (
-    <div style={wrapperStyle}>
-      <div style={containerStyle}>
-        <RenderBlocks blocks={blocks} />
+    <MenuContext.Provider value={menus}>
+      <div
+        style={outerStyle}
+        id={containerSettings.cssId || undefined}
+        className={containerSettings.cssClasses || undefined}
+      >
+        {overlayStyle && <div style={overlayStyle} />}
+        <div style={innerStyle}>
+          <RenderBlocks blocks={blocks} />
+        </div>
       </div>
-    </div>
+    </MenuContext.Provider>
   );
+}
+
+/* ── Single Block Renderer (for canvas previews) ────────────────────────── */
+
+export function HeaderFooterBlockRenderer({ block }: { block: Block }) {
+  const Renderer = RENDERERS[block.type];
+  if (!Renderer) return null;
+  return <Renderer block={block} />;
 }

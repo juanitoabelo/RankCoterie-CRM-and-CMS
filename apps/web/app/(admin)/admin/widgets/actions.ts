@@ -11,51 +11,155 @@ export type ActionResult = { ok: true } | { ok: false; error: string };
 
 export async function listWidgets() {
   await requireSection("widgets");
-  return prisma.widget.findMany({ where: { tenantId: TENANT_ID }, include: { placements: true }, orderBy: { name: "asc" } });
+  return prisma.widget.findMany({
+    where: { tenantId: TENANT_ID },
+    include: { placements: true, imageAsset: { select: { id: true } } },
+    orderBy: { name: "asc" },
+  });
 }
 
 export async function getWidget(id: string) {
   await requireSection("widgets");
-  return prisma.widget.findFirst({ where: { id, tenantId: TENANT_ID }, include: { placements: { orderBy: { order: "asc" } } } });
+  return prisma.widget.findFirst({
+    where: { id, tenantId: TENANT_ID },
+    include: {
+      placements: { orderBy: { order: "asc" } },
+      imageAsset: { select: { id: true } },
+      company: { select: { id: true, name: true } },
+    },
+  });
 }
 
-function readWidget(formData: FormData) {
-  const name = String(formData.get("name") ?? "").trim();
-  const html = sanitizeHtml(String(formData.get("html") ?? ""));
-  return { name, html, imageAssetId: String(formData.get("imageAssetId") ?? "").trim() || null, redirectUrl: String(formData.get("redirectUrl") ?? "").trim() || null, active: formData.get("active") === "on" };
+export async function getCompanyOptions() {
+  await requireSection("widgets");
+  return prisma.company.findMany({
+    where: { tenantId: TENANT_ID },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
 }
 
 export async function createWidget(formData: FormData): Promise<ActionResult> {
   const actor = await requireSection("widgets");
-  const data = readWidget(formData);
-  if (!data.name || !data.html) return { ok: false, error: "Name and HTML are required." };
+  const title = String(formData.get("title") ?? "").trim();
+  const name = title || String(formData.get("name") ?? "").trim();
+  const url = String(formData.get("url") ?? "").trim() || null;
+  const html = sanitizeHtml(String(formData.get("html") ?? ""));
+  const keywords = String(formData.get("keywords") ?? "").trim() || null;
+  const companyId = String(formData.get("companyId") ?? "").trim() || null;
+  const imageAssetId = String(formData.get("imageAssetId") ?? "").trim() || null;
+  const ctaDescription = String(formData.get("ctaDescription") ?? "").trim() || null;
+  const ctaStatement1 = String(formData.get("ctaStatement1") ?? "").trim() || null;
+  const ctaStatement2 = String(formData.get("ctaStatement2") ?? "").trim() || null;
+  const ctaButtonText = String(formData.get("ctaButtonText") ?? "").trim() || null;
+  const phone = String(formData.get("phone") ?? "").trim() || null;
+  const usePhoneAsButtonLink = formData.get("usePhoneAsButtonLink") === "on";
+  const facebookUrl = String(formData.get("facebookUrl") ?? "").trim() || null;
+  const twitterUrl = String(formData.get("twitterUrl") ?? "").trim() || null;
+  const instagramUrl = String(formData.get("instagramUrl") ?? "").trim() || null;
+  const youtubeUrl = String(formData.get("youtubeUrl") ?? "").trim() || null;
+  const pinterestUrl = String(formData.get("pinterestUrl") ?? "").trim() || null;
+  const linkedinUrl = String(formData.get("linkedinUrl") ?? "").trim() || null;
+
+  if (!name) return { ok: false, error: "Title is required." };
+
   try {
-    if (data.imageAssetId && !(await prisma.asset.findFirst({ where: { id: data.imageAssetId, tenantId: TENANT_ID } }))) return { ok: false, error: "Image asset not found for this tenant." };
-    const widget = await prisma.widget.create({ data: { tenantId: TENANT_ID, ...data } });
+    if (imageAssetId && !(await prisma.asset.findFirst({ where: { id: imageAssetId, tenantId: TENANT_ID } }))) {
+      return { ok: false, error: "Image asset not found for this tenant." };
+    }
+    const widget = await prisma.widget.create({
+      data: {
+        tenantId: TENANT_ID,
+        name,
+        title,
+        url,
+        html,
+        keywords,
+        companyId: companyId || null,
+        imageAssetId,
+        ctaDescription,
+        ctaStatement1,
+        ctaStatement2,
+        ctaButtonText,
+        phone,
+        usePhoneAsButtonLink,
+        facebookUrl,
+        twitterUrl,
+        instagramUrl,
+        youtubeUrl,
+        pinterestUrl,
+        linkedinUrl,
+      },
+    });
     await logAudit({ action: "WIDGET_CREATE", entity: "Widget", entityId: widget.id, actorId: actor.id });
     revalidatePath("/admin/widgets");
     return { ok: true };
-  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Failed to create widget." }; }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to create widget." };
+  }
 }
-
-export async function createWidgetForm(formData: FormData): Promise<void> { await createWidget(formData); }
 
 export async function updateWidget(id: string, formData: FormData): Promise<ActionResult> {
   const actor = await requireSection("widgets");
-  const data = readWidget(formData);
-  if (!data.name || !data.html) return { ok: false, error: "Name and HTML are required." };
+  const title = String(formData.get("title") ?? "").trim();
+  const name = title || String(formData.get("name") ?? "").trim();
+  const url = String(formData.get("url") ?? "").trim() || null;
+  const html = sanitizeHtml(String(formData.get("html") ?? ""));
+  const keywords = String(formData.get("keywords") ?? "").trim() || null;
+  const companyId = String(formData.get("companyId") ?? "").trim() || null;
+  const imageAssetId = String(formData.get("imageAssetId") ?? "").trim() || null;
+  const ctaDescription = String(formData.get("ctaDescription") ?? "").trim() || null;
+  const ctaStatement1 = String(formData.get("ctaStatement1") ?? "").trim() || null;
+  const ctaStatement2 = String(formData.get("ctaStatement2") ?? "").trim() || null;
+  const ctaButtonText = String(formData.get("ctaButtonText") ?? "").trim() || null;
+  const phone = String(formData.get("phone") ?? "").trim() || null;
+  const usePhoneAsButtonLink = formData.get("usePhoneAsButtonLink") === "on";
+  const facebookUrl = String(formData.get("facebookUrl") ?? "").trim() || null;
+  const twitterUrl = String(formData.get("twitterUrl") ?? "").trim() || null;
+  const instagramUrl = String(formData.get("instagramUrl") ?? "").trim() || null;
+  const youtubeUrl = String(formData.get("youtubeUrl") ?? "").trim() || null;
+  const pinterestUrl = String(formData.get("pinterestUrl") ?? "").trim() || null;
+  const linkedinUrl = String(formData.get("linkedinUrl") ?? "").trim() || null;
+
+  if (!name) return { ok: false, error: "Title is required." };
+
   try {
-    if (data.imageAssetId && !(await prisma.asset.findFirst({ where: { id: data.imageAssetId, tenantId: TENANT_ID } }))) return { ok: false, error: "Image asset not found for this tenant." };
-    const result = await prisma.widget.updateMany({ where: { id, tenantId: TENANT_ID }, data });
+    if (imageAssetId && !(await prisma.asset.findFirst({ where: { id: imageAssetId, tenantId: TENANT_ID } }))) {
+      return { ok: false, error: "Image asset not found for this tenant." };
+    }
+    const result = await prisma.widget.updateMany({
+      where: { id, tenantId: TENANT_ID },
+      data: {
+        name,
+        title,
+        url,
+        html,
+        keywords,
+        companyId: companyId || null,
+        imageAssetId,
+        ctaDescription,
+        ctaStatement1,
+        ctaStatement2,
+        ctaButtonText,
+        phone,
+        usePhoneAsButtonLink,
+        facebookUrl,
+        twitterUrl,
+        instagramUrl,
+        youtubeUrl,
+        pinterestUrl,
+        linkedinUrl,
+      },
+    });
     if (!result.count) return { ok: false, error: "Widget not found." };
     await logAudit({ action: "WIDGET_UPDATE", entity: "Widget", entityId: id, actorId: actor.id });
     revalidatePath("/admin/widgets");
     revalidatePath(`/admin/widgets/${id}/edit`);
     return { ok: true };
-  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Failed to update widget." }; }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to update widget." };
+  }
 }
-
-export async function updateWidgetForm(formData: FormData): Promise<void> { await updateWidget(String(formData.get("id") ?? ""), formData); }
 
 export async function deleteWidget(id: string): Promise<ActionResult> {
   const actor = await requireSection("widgets");
@@ -65,10 +169,10 @@ export async function deleteWidget(id: string): Promise<ActionResult> {
     await logAudit({ action: "WIDGET_DELETE", entity: "Widget", entityId: id, actorId: actor.id });
     revalidatePath("/admin/widgets");
     return { ok: true };
-  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Failed to delete widget." }; }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to delete widget." };
+  }
 }
-
-export async function deleteWidgetForm(formData: FormData): Promise<void> { await deleteWidget(String(formData.get("id") ?? "")); }
 
 export async function saveWidgetPlacements(widgetId: string, formData: FormData): Promise<ActionResult> {
   const actor = await requireSection("widgets");
@@ -90,9 +194,7 @@ export async function saveWidgetPlacements(widgetId: string, formData: FormData)
     await logAudit({ action: "WIDGET_UPDATE", entity: "Widget", entityId: widgetId, actorId: actor.id, meta: { placements: slots.length } });
     revalidatePath(`/admin/widgets/${widgetId}/edit`);
     return { ok: true };
-  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "Failed to save placements." }; }
-}
-
-export async function saveWidgetPlacementsForm(formData: FormData): Promise<void> {
-  await saveWidgetPlacements(String(formData.get("widgetId") ?? ""), formData);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to save placements." };
+  }
 }

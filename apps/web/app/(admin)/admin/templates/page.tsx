@@ -1,118 +1,106 @@
-import { prisma } from "@/modules/shared";
-import { createTemplateForm, deleteTemplateForm } from "./actions";
+import Link from "next/link";
+import { listSubTopics } from "./actions";
 
 export const revalidate = 0;
 
-export default async function TemplatesAdminPage() {
-  const templates = await prisma.contentTemplate.findMany({
-    orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
-    include: {
-      category: { select: { title: true } },
-      variants: { select: { id: true } },
-    },
-  });
+export default async function SubTopicsListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const params = await searchParams;
+  const query = params.q ?? "";
+  const subtopics = await listSubTopics();
+
+  const filtered = query
+    ? subtopics.filter((st) => st.title.toLowerCase().includes(query.toLowerCase()))
+    : subtopics;
 
   return (
     <div>
       <p className="text-sm text-zinc-500">
-        Admin / <span className="text-zinc-700">Templates</span>
+        Admin / <span className="text-zinc-700">Content</span> /{" "}
+        <span className="text-zinc-700">SubTopics</span>
       </p>
-      <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Content Templates</h1>
-      <p className="mt-2 max-w-2xl text-sm text-zinc-600">
-        Reusable content blocks with <code className="rounded bg-zinc-100 px-1">{"{{region}}"}</code> tokens.
-        Publish to generate per-region variants. Use for category descriptions,
-        region intros, and other repeatable content.
-      </p>
+      <h1 className="mt-1 text-2xl font-semibold text-zinc-900">SubTopics</h1>
 
-      <form
-        action={createTemplateForm}
-        className="mt-8 rounded-xl border border-zinc-200 bg-white p-5"
-      >
-        <h2 className="text-sm font-medium text-zinc-900">Create template</h2>
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          <input
-            name="title"
-            placeholder="Template title *"
-            required
-            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-          />
-          <textarea
-            name="body"
-            placeholder="Body with tokens *"
-            required
-            rows={1}
-            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-          />
+      <form className="mt-6 rounded-xl border border-zinc-200 bg-white p-5">
+        <label className="block text-sm font-medium text-zinc-800">Search SubTopics</label>
+        <input
+          name="q"
+          defaultValue={query}
+          placeholder="Search by title..."
+          className="mt-2 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+        />
+        <div className="mt-4">
           <button
             type="submit"
             className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
           >
-            Create
+            VIEW SUBTOPICS
           </button>
         </div>
       </form>
 
-      <div className="mt-8 overflow-hidden rounded-xl border border-zinc-200 bg-white">
+      <h2 className="mt-8 text-lg font-semibold text-zinc-900">Results</h2>
+
+      <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white">
         <table className="w-full text-sm">
           <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
             <tr>
-              <th className="px-4 py-2.5">Title</th>
-              <th className="px-4 py-2.5">Category</th>
-              <th className="px-4 py-2.5">Status</th>
-              <th className="px-4 py-2.5">Variants</th>
-              <th className="px-4 py-2.5">Updated</th>
-              <th className="px-4 py-2.5" />
+              <th className="px-4 py-2.5">Edit Page</th>
+              <th className="px-4 py-2.5">SubTopic Title</th>
+              <th className="px-4 py-2.5">View Page</th>
+              <th className="px-4 py-2.5">Author</th>
+              <th className="px-4 py-2.5">Image?</th>
+              <th className="px-4 py-2.5 text-right">ID#</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
-            {templates.length === 0 && (
+            {filtered.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-6 text-center text-zinc-400">
-                  No templates yet.
+                  No subtopics found.
                 </td>
               </tr>
             )}
-            {templates.map((t) => (
-              <tr key={t.id} className={t.status === "LIVE" ? "" : "opacity-50"}>
-                <td className="px-4 py-3 font-medium text-zinc-900">
-                  <a
-                    href={`/admin/templates/${t.id}/edit`}
-                    className="underline underline-offset-2 hover:text-zinc-600"
+            {filtered.map((st) => (
+              <tr key={st.id} className="hover:bg-zinc-50">
+                <td className="px-4 py-3">
+                  <Link
+                    href={`/admin/templates/${st.id}/edit`}
+                    className="font-medium text-blue-600 hover:underline"
                   >
-                    {t.title}
+                    Edit
+                  </Link>
+                </td>
+                <td className="px-4 py-3 font-medium text-zinc-900">{st.title}</td>
+                <td className="px-4 py-3">
+                  <a
+                    href={`/g/${st.category?.slug ?? st.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    View page
                   </a>
                 </td>
-                <td className="px-4 py-3 text-zinc-600">
-                  {t.category?.title ?? "—"}
-                </td>
+                <td className="px-4 py-3 text-zinc-600">{st.author ?? "—"}</td>
                 <td className="px-4 py-3">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      t.status === "LIVE"
-                        ? "bg-emerald-100 text-emerald-700"
-                        : t.status === "DRAFT"
-                          ? "bg-yellow-100 text-yellow-700"
-                          : "bg-zinc-100 text-zinc-500"
-                    }`}
-                  >
-                    {t.status}
-                  </span>
+                  {st.featuredImage ? (
+                    <img
+                      src={`/api/assets/${st.featuredImage.id}`}
+                      alt=""
+                      className="h-10 w-10 rounded border border-zinc-200 object-cover"
+                    />
+                  ) : (
+                    <span className="inline-block rounded bg-zinc-200 px-2 py-0.5 text-[10px] font-medium text-zinc-600">
+                      HAS NO IMAGE
+                    </span>
+                  )}
                 </td>
-                <td className="px-4 py-3 text-zinc-500">
-                  {t.variants.length} region{t.variants.length !== 1 ? "s" : ""}
-                </td>
-                <td className="px-4 py-3 text-zinc-500">
-                  {t.updatedAt.toISOString().slice(0, 10)}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <form action={deleteTemplateForm.bind(null, t.id)}>
-                    <button
-                      type="submit"
-                      className="text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-zinc-800"
-                    >
-                      Delete
-                    </button>
-                  </form>
+                <td className="px-4 py-3 text-right font-mono text-xs text-zinc-500">
+                  {st.id.slice(0, 8)}
                 </td>
               </tr>
             ))}

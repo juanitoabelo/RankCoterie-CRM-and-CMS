@@ -19,8 +19,10 @@ import {
   inputCls,
   labelCls,
   ResponsiveSpanFields,
+  SizeInput,
   StyleGuideEditor,
 } from "./settings";
+import type { SizeValue } from "./settings";
 import RichTextEditor from "./RichTextEditor";
 
 type EditorProps = {
@@ -139,6 +141,11 @@ function ImageEditor({
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"content" | "style" | "advanced">("content");
+  const [styleState, setStyleState] = useState<"normal" | "hover">("normal");
+
+  const p = block.props;
+  const set = (patch: Record<string, unknown>) => onChange({ ...p, ...patch });
 
   const handleFile = async (file: File) => {
     if (!file) return;
@@ -152,7 +159,7 @@ function ImageEditor({
       if (!res.ok || !json.url) {
         throw new Error(json.error ?? "Upload failed.");
       }
-      onChange({ ...block.props, src: json.url });
+      set({ src: json.url });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed.");
     } finally {
@@ -161,59 +168,280 @@ function ImageEditor({
   };
 
   return (
-    <>
-      <div>
-        <label className={labelCls}>Upload image</label>
-        <input
-          type="file"
-          accept="image/*"
-          className="mt-1 block w-full text-sm text-zinc-500 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-900 file:px-3 file:py-2 file:text-xs file:font-medium file:text-white"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void handleFile(file);
-          }}
-        />
-        {uploading && <p className="mt-1 text-xs text-zinc-500">Uploading…</p>}
-        {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+    <div className="space-y-3">
+      {/* Tabs */}
+      <div className="flex border-b border-zinc-200">
+        {(["content", "style", "advanced"] as const).map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-2 text-xs font-medium capitalize ${activeTab === tab ? "border-b-2 border-zinc-900 text-zinc-900" : "text-zinc-500 hover:text-zinc-700"}`}>
+            {tab}
+          </button>
+        ))}
       </div>
-      <div>
-        <label className={labelCls}>Image URL</label>
-        <input
-          className={inputCls}
-          value={block.props.src}
-          onChange={(e) => onChange({ ...block.props, src: e.target.value })}
-          placeholder="https://... or /api/assets/..."
-        />
-      </div>
-      <div>
-        <label className={labelCls}>Alt text</label>
-        <input
-          className={inputCls}
-          value={block.props.alt}
-          onChange={(e) => onChange({ ...block.props, alt: e.target.value })}
-        />
-      </div>
-      <div>
-        <label className={labelCls}>Caption</label>
-        <input
-          className={inputCls}
-          value={block.props.caption}
-          onChange={(e) => onChange({ ...block.props, caption: e.target.value })}
-        />
-      </div>
-      <div>
-        <label className={labelCls}>Width</label>
-        <select
-          className={inputCls}
-          value={block.props.width}
-          onChange={(e) => onChange({ ...block.props, width: e.target.value as "full" })}
-        >
-          <option value="full">Full</option>
-          <option value="wide">Wide</option>
-          <option value="narrow">Narrow</option>
-        </select>
-      </div>
-    </>
+
+      {/* Content Tab */}
+      {activeTab === "content" && (
+        <div className="space-y-3">
+          <div>
+            <label className={labelCls}>Choose Image</label>
+            <input
+              type="file"
+              accept="image/*"
+              className="mt-1 block w-full text-sm text-zinc-500 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-900 file:px-3 file:py-2 file:text-xs file:font-medium file:text-white"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleFile(file);
+              }}
+            />
+            {uploading && <p className="mt-1 text-xs text-zinc-500">Uploading…</p>}
+            {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+          </div>
+          <div>
+            <label className={labelCls}>Image URL</label>
+            <input
+              className={inputCls}
+              value={p.src}
+              onChange={(e) => set({ src: e.target.value })}
+              placeholder="https://... or /api/assets/..."
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Alt Text</label>
+            <input className={inputCls} value={p.alt} onChange={(e) => set({ alt: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelCls}>Image Resolution</label>
+            <select className={inputCls} value={p.imageResolution ?? "full"} onChange={(e) => set({ imageResolution: e.target.value })}>
+              <option value="full">Full</option>
+              <option value="large">Large</option>
+              <option value="medium">Medium</option>
+              <option value="thumbnail">Thumbnail</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Caption</label>
+            <select className={inputCls} value={p.caption ? "custom" : "none"} onChange={(e) => set({ caption: e.target.value === "none" ? "" : p.caption || "" })}>
+              <option value="none">None</option>
+              <option value="custom">Custom Caption</option>
+            </select>
+          </div>
+          {p.caption !== undefined && p.caption !== "" && (
+            <div>
+              <label className={labelCls}>Caption Text</label>
+              <input className={inputCls} value={p.caption} onChange={(e) => set({ caption: e.target.value })} />
+            </div>
+          )}
+          <div>
+            <label className={labelCls}>Link</label>
+            <select className={inputCls} value={p.linkType ?? "none"} onChange={(e) => set({ linkType: e.target.value })}>
+              <option value="none">None</option>
+              <option value="custom">Custom URL</option>
+              <option value="media">Media File</option>
+            </select>
+          </div>
+          {(p.linkType ?? "none") === "custom" && (
+            <div>
+              <label className={labelCls}>Link URL</label>
+              <input className={inputCls} value={p.linkUrl ?? ""} onChange={(e) => set({ linkUrl: e.target.value })} placeholder="https://..." />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Style Tab */}
+      {activeTab === "style" && (
+        <div className="space-y-4">
+          <div>
+            <label className={labelCls}>Alignment</label>
+            <div className="mt-1 flex gap-1">
+              {[
+                { value: "left", icon: "⫷", label: "Left" },
+                { value: "center", icon: "☰", label: "Center" },
+                { value: "right", icon: "⫸", label: "Right" },
+              ].map((opt) => (
+                <button key={opt.value} type="button" onClick={() => set({ alignment: opt.value })} className={`flex h-8 w-8 items-center justify-center rounded border text-sm ${(p.alignment ?? "left") === opt.value ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`} title={opt.label}>{opt.icon}</button>
+              ))}
+            </div>
+          </div>
+
+          <SizeInput
+            label="Width"
+            value={p.imageWidth ?? { value: 100, unit: "%" }}
+            onChange={(v) => set({ imageWidth: v })}
+            min={10}
+            max={100}
+          />
+
+          <SizeInput
+            label="Max Width"
+            value={p.imageMaxWidth ?? { value: 0, unit: "px" }}
+            onChange={(v) => set({ imageMaxWidth: v })}
+            min={0}
+            max={2000}
+          />
+
+          <SizeInput
+            label="Height"
+            value={p.imageHeight ?? { value: 0, unit: "px" }}
+            onChange={(v) => set({ imageHeight: v })}
+            min={0}
+            max={2000}
+          />
+
+          <SizeInput
+            label="Max Height"
+            value={p.imageMaxHeight ?? { value: 0, unit: "px" }}
+            onChange={(v) => set({ imageMaxHeight: v })}
+            min={0}
+            max={2000}
+          />
+
+          <div className="border-t border-zinc-200 pt-3">
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setStyleState("normal")} className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium ${styleState === "normal" ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600"}`}>Normal</button>
+              <button type="button" onClick={() => setStyleState("hover")} className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium ${styleState === "hover" ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600"}`}>Hover</button>
+            </div>
+          </div>
+
+          {styleState === "hover" ? (
+            <div>
+              <div className="flex items-center justify-between">
+                <label className={labelCls}>Hover Opacity</label>
+                <span className="text-[10px] text-zinc-400">%</span>
+              </div>
+              <div className="mt-1 flex items-center gap-2">
+                <input type="range" min={0} max={100} className="h-1 flex-1 accent-zinc-900" value={p.hoverOpacity ?? 100} onChange={(e) => set({ hoverOpacity: Number(e.target.value) })} />
+                <input type="number" min={0} max={100} className="w-14 rounded border border-zinc-300 px-2 py-1 text-right text-xs" value={p.hoverOpacity ?? 100} onChange={(e) => set({ hoverOpacity: Number(e.target.value) })} />
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center justify-between">
+                <label className={labelCls}>Opacity</label>
+                <span className="text-[10px] text-zinc-400">%</span>
+              </div>
+              <div className="mt-1 flex items-center gap-2">
+                <input type="range" min={0} max={100} className="h-1 flex-1 accent-zinc-900" value={p.opacity ?? 100} onChange={(e) => set({ opacity: Number(e.target.value) })} />
+                <input type="number" min={0} max={100} className="w-14 rounded border border-zinc-300 px-2 py-1 text-right text-xs" value={p.opacity ?? 100} onChange={(e) => set({ opacity: Number(e.target.value) })} />
+              </div>
+            </div>
+          )}
+          <div className="border-t border-zinc-200 pt-3">
+            <label className={labelCls}>Border Type</label>
+            <select className={inputCls} value={p.borderStyle ?? "none"} onChange={(e) => set({ borderStyle: e.target.value })}>
+              <option value="none">Default</option>
+              <option value="solid">Solid</option>
+              <option value="dashed">Dashed</option>
+              <option value="dotted">Dotted</option>
+            </select>
+          </div>
+
+          {(p.borderStyle ?? "none") !== "none" && (
+            <>
+              <SizeInput
+                label="Border Width"
+                value={p.borderWidth ?? { value: 1, unit: "px" }}
+                onChange={(v) => set({ borderWidth: v })}
+                min={0}
+                max={20}
+                showSlider={false}
+              />
+              <div>
+                <label className={labelCls}>Border Color</label>
+                <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={p.borderColor ?? "#000000"} onChange={(e) => set({ borderColor: e.target.value })} />
+              </div>
+            </>
+          )}
+
+          <div>
+            <label className={labelCls}>Border Radius</label>
+            <div className="mt-1 grid grid-cols-4 gap-2">
+              <div>
+                <input type="number" min={0} max={100} className="w-full rounded border border-zinc-300 px-2 py-1.5 text-center text-xs" value={p.borderRadiusTop ?? 0} onChange={(e) => set({ borderRadiusTop: Number(e.target.value) })} />
+                <span className="block text-center text-[9px] text-zinc-400">Top</span>
+              </div>
+              <div>
+                <input type="number" min={0} max={100} className="w-full rounded border border-zinc-300 px-2 py-1.5 text-center text-xs" value={p.borderRadiusRight ?? 0} onChange={(e) => set({ borderRadiusRight: Number(e.target.value) })} />
+                <span className="block text-center text-[9px] text-zinc-400">Right</span>
+              </div>
+              <div>
+                <input type="number" min={0} max={100} className="w-full rounded border border-zinc-300 px-2 py-1.5 text-center text-xs" value={p.borderRadiusBottom ?? 0} onChange={(e) => set({ borderRadiusBottom: Number(e.target.value) })} />
+                <span className="block text-center text-[9px] text-zinc-400">Bottom</span>
+              </div>
+              <div>
+                <input type="number" min={0} max={100} className="w-full rounded border border-zinc-300 px-2 py-1.5 text-center text-xs" value={p.borderRadiusLeft ?? 0} onChange={(e) => set({ borderRadiusLeft: Number(e.target.value) })} />
+                <span className="block text-center text-[9px] text-zinc-400">Left</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Box Shadow</label>
+            <select className={inputCls} value={p.boxShadow ?? ""} onChange={(e) => set({ boxShadow: e.target.value || undefined })}>
+              <option value="">None</option>
+              <option value="0 1px 3px rgba(0,0,0,0.12)">Subtle</option>
+              <option value="0 4px 6px rgba(0,0,0,0.1)">Medium</option>
+              <option value="0 10px 15px rgba(0,0,0,0.1)">Large</option>
+              <option value="0 20px 25px rgba(0,0,0,0.15)">Extra Large</option>
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* Advanced Tab */}
+      {activeTab === "advanced" && (
+        <div className="space-y-3">
+          <div>
+            <label className={labelCls}>Margin</label>
+            <div className="mt-1 grid grid-cols-4 gap-1">
+              {(["top", "right", "bottom", "left"] as const).map((side) => (
+                <input key={side} type="number" className="w-full rounded border border-zinc-300 px-2 py-1.5 text-center text-xs" value={p.margin?.[side] ?? 0} onChange={(e) => set({ margin: { ...(p.margin ?? { top: 0, right: 0, bottom: 0, left: 0 }), [side]: Number(e.target.value) } })} placeholder={side[0].toUpperCase()} />
+              ))}
+            </div>
+            <div className="mt-0.5 flex justify-between px-1">
+              {["T", "R", "B", "L"].map((l) => <span key={l} className="text-[9px] text-zinc-400">{l}</span>)}
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Padding</label>
+            <div className="mt-1 grid grid-cols-4 gap-1">
+              {(["top", "right", "bottom", "left"] as const).map((side) => (
+                <input key={side} type="number" className="w-full rounded border border-zinc-300 px-2 py-1.5 text-center text-xs" value={p.padding?.[side] ?? 0} onChange={(e) => set({ padding: { ...(p.padding ?? { top: 0, right: 0, bottom: 0, left: 0 }), [side]: Number(e.target.value) } })} placeholder={side[0].toUpperCase()} />
+              ))}
+            </div>
+            <div className="mt-0.5 flex justify-between px-1">
+              {["T", "R", "B", "L"].map((l) => <span key={l} className="text-[9px] text-zinc-400">{l}</span>)}
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Align Self</label>
+            <select className={inputCls} value={p.alignSelf ?? "auto"} onChange={(e) => set({ alignSelf: e.target.value })}>
+              <option value="auto">Default</option>
+              <option value="flex-start">Start</option>
+              <option value="center">Center</option>
+              <option value="flex-end">End</option>
+              <option value="stretch">Stretch</option>
+            </select>
+          </div>
+
+          <div>
+            <label className={labelCls}>Z-Index</label>
+            <input type="number" min={0} max={9999} className={inputCls} value={p.zIndex ?? 0} onChange={(e) => set({ zIndex: Number(e.target.value) })} />
+          </div>
+
+          <div>
+            <label className={labelCls}>CSS ID</label>
+            <input type="text" className={inputCls} value={p.cssId ?? ""} onChange={(e) => set({ cssId: e.target.value })} placeholder="my-image" />
+          </div>
+
+          <div>
+            <label className={labelCls}>CSS Classes</label>
+            <input type="text" className={inputCls} value={p.cssClasses ?? ""} onChange={(e) => set({ cssClasses: e.target.value })} placeholder="custom-class" />
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -564,53 +792,195 @@ function TestimonialEditor({
   block: Block & { type: "testimonial" };
   onChange: (props: Block["props"]) => void;
 }) {
+  const [uploadIdx, setUpIdx] = useState<number | null>(null);
+  const [uploadErr, setUploadErr] = useState<string | null>(null);
+
+  const uploadAvatar = async (i: number, file: File) => {
+    setUploadErr(null);
+    setUpIdx(i);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/uploads", { method: "POST", body: fd });
+      const json = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (!res.ok || !json.url) throw new Error(json.error ?? "Upload failed.");
+      updateItem(i, { avatar: json.url });
+    } catch (e) {
+      setUploadErr(e instanceof Error ? e.message : "Upload failed.");
+    } finally {
+      setUpIdx(null);
+    }
+  };
+
+  const items = block.props.items ?? [];
+
+  const updateItem = (i: number, patch: Record<string, unknown>) => {
+    const next = [...items];
+    next[i] = { ...next[i], ...patch };
+    onChange({ ...block.props, items: next });
+  };
+
+  const addItem = () => {
+    onChange({
+      ...block.props,
+      items: [...items, { quote: "", author: "", role: "", rating: 5, avatar: "" }],
+    });
+  };
+
+  const removeItem = (i: number) => {
+    onChange({ ...block.props, items: items.filter((_: unknown, j: number) => j !== i) });
+  };
+
   return (
     <>
       <div>
-        <label className={labelCls}>Quote</label>
-        <div className="mt-1">
-          <RichTextEditor
-            value={block.props.quote}
-            onChange={(v) => onChange({ ...block.props, quote: v })}
-            minHeight={110}
-            placeholder="The customer’s words…"
-          />
-        </div>
+        <label className={labelCls}>Section Heading</label>
+        <input
+          className={inputCls}
+          value={block.props.heading ?? ""}
+          onChange={(e) => onChange({ ...block.props, heading: e.target.value })}
+          placeholder="What our customers say"
+        />
       </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className={labelCls}>Author</label>
-          <input
+          <label className={labelCls}>Display</label>
+          <select
             className={inputCls}
-            value={block.props.author}
-            onChange={(e) => onChange({ ...block.props, author: e.target.value })}
-          />
+            value={block.props.display}
+            onChange={(e) => onChange({ ...block.props, display: e.target.value })}
+          >
+            <option value="grid">Grid</option>
+            <option value="slider">Slider</option>
+          </select>
         </div>
         <div>
-          <label className={labelCls}>Role</label>
-          <input
+          <label className={labelCls}>
+            {block.props.display === "slider" ? "Slides Per View" : "Columns"}
+          </label>
+          <select
             className={inputCls}
-            value={block.props.role}
-            onChange={(e) => onChange({ ...block.props, role: e.target.value })}
-          />
+            value={block.props.display === "slider" ? block.props.itemsPerView : block.props.columns}
+            onChange={(e) => {
+              const val = Number(e.target.value) as 1 | 2 | 3;
+              if (block.props.display === "slider") {
+                onChange({ ...block.props, itemsPerView: val });
+              } else {
+                onChange({ ...block.props, columns: val });
+              }
+            }}
+          >
+            <option value={1}>1</option>
+            <option value={2}>2</option>
+            <option value={3}>3</option>
+          </select>
         </div>
       </div>
-      <div>
-        <label className={labelCls}>Rating</label>
-        <select
-          className={inputCls}
-          value={String(block.props.rating)}
-          onChange={(e) =>
-            onChange({ ...block.props, rating: Number(e.target.value) as 0 | 1 | 2 | 3 | 4 | 5 })
-          }
-        >
-          {[0, 1, 2, 3, 4, 5].map((n) => (
-            <option key={n} value={n}>
-              {"★".repeat(n) || "No stars"}
-            </option>
-          ))}
-        </select>
+
+      <div className="space-y-3">
+        {items.map((item: { quote: string; author: string; role: string; rating: number; avatar?: string }, i: number) => (
+          <div key={i} className="rounded-lg border border-zinc-200 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-zinc-500">TESTIMONIAL {i + 1}</span>
+              {items.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeItem(i)}
+                  className="text-[10px] text-red-500 hover:text-red-700"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            <div>
+              <label className={labelCls}>Quote</label>
+              <div className="mt-1">
+                <RichTextEditor
+                  value={item.quote}
+                  onChange={(v) => updateItem(i, { quote: v })}
+                  minHeight={80}
+                  placeholder="The customer's words…"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className={labelCls}>Author</label>
+                <input
+                  className={inputCls}
+                  value={item.author}
+                  onChange={(e) => updateItem(i, { author: e.target.value })}
+                  placeholder="Jane Doe"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Role</label>
+                <input
+                  className={inputCls}
+                  value={item.role}
+                  onChange={(e) => updateItem(i, { role: e.target.value })}
+                  placeholder="Founder, Acme Co."
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className={labelCls}>Rating</label>
+                <select
+                  className={inputCls}
+                  value={String(item.rating)}
+                  onChange={(e) => updateItem(i, { rating: Number(e.target.value) })}
+                >
+                  {[0, 1, 2, 3, 4, 5].map((n) => (
+                    <option key={n} value={n}>
+                      {"★".repeat(n) || "No stars"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Avatar</label>
+                {item.avatar && (
+                  <div className="mb-1">
+                    <img src={item.avatar} alt="" className="h-8 w-8 rounded-full object-cover" />
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="block w-full text-[10px] text-zinc-500 file:mr-2 file:rounded file:border-0 file:bg-zinc-200 file:px-2 file:py-0.5 file:text-[10px] file:font-medium"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void uploadAvatar(i, file);
+                  }}
+                />
+                {uploadIdx === i && <p className="text-[10px] text-zinc-500">Uploading…</p>}
+                {item.avatar && (
+                  <button
+                    type="button"
+                    onClick={() => updateItem(i, { avatar: "" })}
+                    className="text-[10px] text-red-500 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
+
+      <button
+        type="button"
+        onClick={addItem}
+        className="w-full rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50"
+      >
+        + Add Testimonial
+      </button>
+
+      {uploadErr && <p className="text-xs text-red-600">{uploadErr}</p>}
+
       {styleFields(block, onChange)}
     </>
   );
@@ -1305,19 +1675,59 @@ function RowEditor({
           />
         </div>
         <div>
-          <label className={labelCls}>Full width</label>
-          <div className="mt-1 flex items-center gap-2">
-            <input
-              id={`full-width-${block.id}`}
-              type="checkbox"
-              checked={!!block.props.fullWidth}
-              onChange={(e) => onChange({ ...block.props, fullWidth: e.target.checked })}
-              className="h-4 w-4 rounded border-zinc-300 text-zinc-900"
-            />
-            <label htmlFor={`full-width-${block.id}`} className="text-sm text-zinc-700">
-              Edge-to-edge
-            </label>
+          <label className={labelCls}>Content Width</label>
+          <div className="mt-1 flex gap-1">
+            <button
+              type="button"
+              onClick={() => onChange({ ...block.props, width: "full", fullWidth: true })}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${(block.props.width ?? (block.props.fullWidth ? "full" : "boxed")) === "full" ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`}
+            >
+              Full
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange({ ...block.props, width: "boxed", fullWidth: false })}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${(block.props.width ?? (block.props.fullWidth ? "full" : "boxed")) === "boxed" ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`}
+            >
+              Boxed
+            </button>
           </div>
+          {(block.props.width ?? (block.props.fullWidth ? "full" : "boxed")) === "boxed" && (
+            <div className="mt-2">
+              <label className={labelCls}>Max Width (px)</label>
+              <input
+                type="number"
+                min={320}
+                max={3840}
+                className={inputCls}
+                value={block.props.maxWidth ?? 1200}
+                onChange={(e) => onChange({ ...block.props, maxWidth: Number(e.target.value) || 1200 })}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <label className={labelCls}>Min Height (px)</label>
+        <div className="mt-1 flex items-center gap-2">
+          <input
+            type="range"
+            min={0}
+            max={2000}
+            className="h-1 flex-1 accent-zinc-900"
+            value={block.props.minHeight ?? 0}
+            onChange={(e) => onChange({ ...block.props, minHeight: Number(e.target.value) })}
+          />
+          <input
+            type="number"
+            min={0}
+            max={2000}
+            className="w-14 rounded border border-zinc-300 px-2 py-1 text-right text-xs"
+            value={block.props.minHeight ?? 0}
+            onChange={(e) => onChange({ ...block.props, minHeight: Number(e.target.value) })}
+          />
+          <span className="text-[10px] text-zinc-400">px</span>
         </div>
       </div>
 

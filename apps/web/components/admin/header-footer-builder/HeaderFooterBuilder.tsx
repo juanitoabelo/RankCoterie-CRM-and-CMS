@@ -42,6 +42,8 @@ import type { HeaderFooterRevisionRow } from "@/modules/header-footer";
 import HeaderFooterCanvas from "./HeaderFooterCanvas";
 import HeaderFooterPalette from "./HeaderFooterPalette";
 import HeaderFooterEditor from "./HeaderFooterEditor";
+import ContainerSettingsEditor from "./ContainerSettingsEditor";
+import ColumnEditor from "./ColumnEditor";
 
 type SaveResult = { ok: true } | { ok: false; error: string };
 
@@ -58,6 +60,7 @@ interface Props {
     pageType: string | null;
     priority: number;
   }>;
+  themeColors?: Array<{ key: string; label: string; color: string }>;
   onSave: (
     id: string,
     data: string,
@@ -86,6 +89,7 @@ export default function HeaderFooterBuilder({
   initialContainerSettings,
   isDefault,
   initialAssignments,
+  themeColors,
   onSave,
   onListRevisions,
   onRestoreRevision,
@@ -182,8 +186,40 @@ export default function HeaderFooterBuilder({
 
   const addLayout = useCallback(
     (layoutId: string) => {
-      const row = createRowLayout(layoutId);
-      commit((present) => [...present, row]);
+      if (layoutId === "container") {
+        // Create a section (container that holds rows)
+        const section: Block = {
+          id: crypto.randomUUID(),
+          type: "section",
+          props: {
+            rows: [],
+            bgColor: undefined,
+            bgImage: "",
+            textColor: undefined,
+            paddingTop: 24,
+            paddingBottom: 24,
+          },
+        };
+        commit((present) => [...present, section]);
+      } else if (layoutId === "row") {
+        // Create a simple single-column row
+        const row: RowBlock = {
+          id: crypto.randomUUID(),
+          type: "row",
+          props: {
+            columns: [{ id: crypto.randomUUID(), span: 12, blocks: [] }],
+            gap: 24,
+            align: "stretch",
+            stackOnMobile: true,
+            paddingY: 16,
+            fullWidth: false,
+          },
+        };
+        commit((present) => [...present, row]);
+      } else {
+        const row = createRowLayout(layoutId);
+        commit((present) => [...present, row]);
+      }
     },
     [commit],
   );
@@ -430,36 +466,8 @@ export default function HeaderFooterBuilder({
           ))}
         </div>
 
-        <div className="ml-4 flex items-center gap-1 rounded-lg border border-zinc-200 p-0.5">
-          {(["full", "boxed"] as const).map((w) => (
-            <button
-              key={w}
-              onClick={() => setContainerSettings((s) => ({ ...s, width: w }))}
-              className={`rounded px-3 py-1 text-xs font-medium ${
-                containerSettings.width === w
-                  ? "bg-zinc-900 text-white"
-                  : "text-zinc-600 hover:bg-zinc-100"
-              }`}
-            >
-              {w === "full" ? "↔ Full Width" : "▣ Boxed"}
-            </button>
-          ))}
-          {containerSettings.width === "boxed" && (
-            <input
-              type="number"
-              value={containerSettings.maxWidth}
-              onChange={(e) =>
-                setContainerSettings((s) => ({
-                  ...s,
-                  maxWidth: Number(e.target.value) || 1200,
-                }))
-              }
-              min={600}
-              max={1920}
-              className="ml-1 w-20 rounded border border-zinc-300 px-2 py-1 text-xs"
-              title="Max width (px)"
-            />
-          )}
+        <div className="ml-4 text-xs text-zinc-500">
+          {containerSettings.width === "boxed" ? `Boxed ${containerSettings.maxWidth}px` : "Full Width"}
         </div>
 
         <div className="ml-auto flex items-center gap-2">
@@ -527,26 +535,33 @@ export default function HeaderFooterBuilder({
               onAddLayout={addLayout}
             />
 
-            {selectedColumnId && !selectedBlock && (
-              <div className="rounded-lg border border-zinc-200 bg-white p-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">
-                  Column Settings
-                </h3>
-                <div className="mt-3 space-y-3">
-                  <button
-                    onClick={() => duplicateSelectedColumn(selectedColumnId)}
-                    className="w-full rounded border border-zinc-300 px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50"
-                  >
-                    Duplicate Column
-                  </button>
-                  <button
-                    onClick={() => removeColumn(selectedColumnId)}
-                    className="w-full rounded border border-red-200 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50"
-                  >
-                    Remove Column
-                  </button>
-                </div>
-              </div>
+            {selectedColumnId && !selectedBlock && (() => {
+              let selectedCol: import("@/lib/page-builder/types").ColumnData | undefined;
+              for (const block of blocks) {
+                if (block.type === "row") {
+                  const row = block as import("@/lib/page-builder/types").RowBlock;
+                  const found = row.props.columns.find((c) => c.id === selectedColumnId);
+                  if (found) { selectedCol = found; break; }
+                }
+              }
+              if (!selectedCol) return null;
+              return (
+                <ColumnEditor
+                  column={selectedCol}
+                  onUpdate={(patch) => updateColumn(selectedColumnId, patch)}
+                  onRemove={() => removeColumn(selectedColumnId)}
+                  onDuplicate={() => duplicateSelectedColumn(selectedColumnId)}
+                  themeColors={themeColors}
+                />
+              );
+            })()}
+
+            {!selectedBlock && !selectedColumnId && (
+              <ContainerSettingsEditor
+                settings={containerSettings}
+                onChange={setContainerSettings}
+                themeColors={themeColors}
+              />
             )}
 
             {selectedBlock && (
@@ -556,6 +571,7 @@ export default function HeaderFooterBuilder({
                 onRemove={() => removeBlockById(selectedBlock.id)}
                 onDuplicate={() => duplicateBlockById(selectedBlock.id)}
                 onUpdateColumn={updateColumn}
+                themeColors={themeColors}
               />
             )}
 

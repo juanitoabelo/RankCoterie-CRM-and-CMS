@@ -8,6 +8,154 @@ import { FONT_FAMILY_PRESETS, STYLE_BREAKPOINTS } from "@/lib/page-builder/style
 export const inputCls = "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm";
 export const labelCls = "block text-sm font-medium text-zinc-800";
 
+export const SIZE_UNITS = ["px", "%", "rem", "em", "pt", "vw", "vh"] as const;
+export type SizeUnit = typeof SIZE_UNITS[number];
+
+export type SizeValue = {
+  value: number;
+  unit: SizeUnit;
+};
+
+/**
+ * Reusable size input with unit selector. Supports px, %, rem, em, pt, vw, vh.
+ */
+export function SizeInput({
+  label,
+  value,
+  onChange,
+  min = 0,
+  max = 9999,
+  allowAuto = false,
+  showSlider = true,
+}: {
+  label: string;
+  value: SizeValue | number | undefined;
+  onChange: (v: SizeValue) => void;
+  min?: number;
+  max?: number;
+  allowAuto?: boolean;
+  showSlider?: boolean;
+}) {
+  const currentValue = typeof value === "object" && value !== null ? value : { value: typeof value === "number" ? value : 0, unit: "px" as SizeUnit };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <span className={labelCls}>{label}</span>
+        <div className="flex items-center gap-1">
+          <select
+            value={currentValue.unit}
+            onChange={(e) => onChange({ ...currentValue, unit: e.target.value as SizeUnit })}
+            className="h-6 w-14 rounded border border-zinc-300 px-1 text-[10px]"
+          >
+            {SIZE_UNITS.map((u) => (
+              <option key={u} value={u}>{u}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      {showSlider && (
+        <div className="mt-1 flex items-center gap-2">
+          <input
+            type="range"
+            min={min}
+            max={max}
+            className="h-1 flex-1 accent-zinc-900"
+            value={currentValue.value}
+            onChange={(e) => onChange({ ...currentValue, value: Number(e.target.value) })}
+          />
+          <input
+            type="number"
+            min={min}
+            max={max}
+            className="w-14 rounded border border-zinc-300 px-2 py-1 text-right text-xs"
+            value={currentValue.value}
+            onChange={(e) => onChange({ ...currentValue, value: Number(e.target.value) || 0 })}
+          />
+        </div>
+      )}
+      {!showSlider && (
+        <input
+          type="number"
+          min={min}
+          max={max}
+          className={inputCls}
+          value={currentValue.value}
+          onChange={(e) => onChange({ ...currentValue, value: Number(e.target.value) || 0 })}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Converts a SizeValue to a CSS string like "100px", "50%", "1.5rem", etc.
+ */
+export function sizeToCss(v: SizeValue | number | undefined, fallback?: string): string | undefined {
+  if (v === undefined || v === null) return fallback;
+  if (typeof v === "number") return `${v}px`;
+  if (v.value === 0) return fallback;
+  return `${v.value}${v.unit}`;
+}
+
+/**
+ * Parses a CSS string like "100px", "50%", "1.5rem" into a SizeValue.
+ */
+export function parseSizeValue(s: string | undefined, defaultUnit: SizeUnit = "px"): SizeValue {
+  if (!s) return { value: 0, unit: defaultUnit };
+  const match = s.match(/^([\d.]+)(px|%|rem|em|pt|vw|vh)?$/);
+  if (!match) return { value: 0, unit: defaultUnit };
+  return {
+    value: parseFloat(match[1]),
+    unit: (match[2] as SizeUnit) || defaultUnit,
+  };
+}
+
+export type SpacingValues = { top: number; right: number; bottom: number; left: number };
+
+/**
+ * Spacing input with T/R/B/L fields and optional link toggle.
+ */
+export function SpacingInput({
+  label,
+  value,
+  onChange,
+  linked,
+  onToggleLinked,
+}: {
+  label: string;
+  value: SpacingValues;
+  onChange: (v: SpacingValues) => void;
+  linked: boolean;
+  onToggleLinked: () => void;
+}) {
+  const set = (key: keyof SpacingValues, val: number) => {
+    if (linked) onChange({ top: val, right: val, bottom: val, left: val });
+    else onChange({ ...value, [key]: val });
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <span className={labelCls}>{label}</span>
+        <button type="button" onClick={onToggleLinked} className="text-zinc-400 hover:text-zinc-600" title={linked ? "Unlink" : "Link all"}>
+          {linked ? "🔗" : "⛓️‍💥"}
+        </button>
+      </div>
+      <div className="mt-1 grid grid-cols-4 gap-1">
+        {(["top", "right", "bottom", "left"] as const).map((side) => (
+          <input key={side} type="number" value={value[side]} onChange={(e) => set(side, Number(e.target.value) || 0)} className="w-full rounded border border-zinc-300 px-2 py-1.5 text-center text-xs" placeholder={side[0].toUpperCase()} />
+        ))}
+      </div>
+      <div className="mt-0.5 flex justify-between px-1">
+        {["T", "R", "B", "L"].map((l) => (
+          <span key={l} className="text-[9px] text-zinc-400">{l}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export type SpanFieldConfig = "desktop" | "tablet" | "mobile";
 
 const SPAN_DEVICES: Array<{

@@ -61,37 +61,80 @@ function TextBlock({ block, ctx }: { block: Block & { type: "text" }; ctx: Regio
 }
 
 function ImageBlock({ block }: { block: Block & { type: "image" } }) {
-  const isFull = block.props.width !== "wide" && block.props.width !== "narrow";
-  const widthClass = isFull
-    ? "w-full"
-    : block.props.width === "narrow"
-      ? "max-w-xl"
-      : "max-w-5xl";
+  const p = block.props;
+  
+  const sizeToCss = (v: unknown, fallback?: string): string | undefined => {
+    if (v === undefined || v === null) return fallback;
+    if (typeof v === "number") return v === 0 ? fallback : `${v}px`;
+    if (typeof v === "object" && v !== null && "value" in v) {
+      const sv = v as { value: number; unit: string };
+      return sv.value === 0 ? fallback : `${sv.value}${sv.unit}`;
+    }
+    return fallback;
+  };
+  
+  const containerStyle: React.CSSProperties = {
+    marginTop: p.margin?.top,
+    marginRight: p.margin?.right,
+    marginBottom: p.margin?.bottom,
+    marginLeft: p.margin?.left,
+    paddingTop: p.padding?.top,
+    paddingRight: p.padding?.right,
+    paddingBottom: p.padding?.bottom,
+    paddingLeft: p.padding?.left,
+    alignSelf: p.alignSelf,
+    zIndex: p.zIndex,
+  };
+
+  const imgStyle: React.CSSProperties = {
+    width: sizeToCss(p.imageWidth, "100%"),
+    maxWidth: sizeToCss(p.imageMaxWidth),
+    height: sizeToCss(p.imageHeight, "auto"),
+    maxHeight: sizeToCss(p.imageMaxHeight),
+    objectFit: sizeToCss(p.imageHeight) || sizeToCss(p.imageMaxHeight) ? "cover" : undefined,
+    opacity: p.opacity !== undefined && p.opacity < 100 ? p.opacity / 100 : undefined,
+    borderTopLeftRadius: p.borderRadiusTop ? `${p.borderRadiusTop}px` : undefined,
+    borderTopRightRadius: p.borderRadiusRight ? `${p.borderRadiusRight}px` : undefined,
+    borderBottomRightRadius: p.borderRadiusBottom ? `${p.borderRadiusBottom}px` : undefined,
+    borderBottomLeftRadius: p.borderRadiusLeft ? `${p.borderRadiusLeft}px` : undefined,
+    borderStyle: p.borderStyle !== "none" ? p.borderStyle : undefined,
+    borderWidth: p.borderWidth ? `${p.borderWidth}px` : undefined,
+    borderColor: p.borderColor,
+    boxShadow: p.boxShadow,
+    transition: "opacity 0.3s ease",
+  };
+
+  const alignmentClass = p.alignment === "center" ? "mx-auto" : p.alignment === "right" ? "ml-auto" : "";
 
   return (
-    <section className={isFull ? "py-6" : "px-6 py-6"}>
-      <figure className={`mx-auto ${widthClass}`}>
-        {block.props.src ? (
+    <div
+      style={containerStyle}
+      id={p.cssId || undefined}
+      className={p.cssClasses || undefined}
+    >
+      <figure className={alignmentClass} style={{ maxWidth: "100%" }}>
+        {p.src ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={block.props.src}
-            alt={block.props.alt}
+            src={p.src}
+            alt={p.alt}
             loading="lazy"
             referrerPolicy="no-referrer"
-            className="h-auto w-full rounded-lg object-cover"
+            style={imgStyle}
+            className="hover:opacity-75"
           />
         ) : (
           <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-zinc-300 text-sm text-zinc-400">
             Image placeholder
           </div>
         )}
-        {block.props.caption && (
+        {p.caption && (
           <figcaption className="mt-2 text-center text-sm text-zinc-500">
-            {block.props.caption}
+            {p.caption}
           </figcaption>
         )}
       </figure>
-    </section>
+    </div>
   );
 }
 
@@ -240,25 +283,104 @@ function FaqBlock({ block, ctx }: { block: Block & { type: "faq" }; ctx: RegionC
 }
 
 function TestimonialBlock({ block, ctx }: { block: Block & { type: "testimonial" }; ctx: RegionContext }) {
+  const items = block.props.items ?? [];
+  const display = block.props.display ?? "grid";
+  const columns = block.props.columns ?? 2;
+
+  const colClass =
+    columns === 1
+      ? "grid-cols-1"
+      : columns === 3
+        ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+        : "grid-cols-1 sm:grid-cols-2";
+
+  if (display === "slider") {
+    return styleScope(
+      block,
+      <section className="px-6 py-12">
+        {block.props.heading && (
+          <h2 className="mb-8 text-center text-3xl font-bold text-zinc-900">
+            {renderLocalizedContent(block.props.heading, ctx)}
+          </h2>
+        )}
+        <div className="overflow-x-auto">
+          <div className="flex gap-6" style={{ minWidth: "min-content" }}>
+            {items.map((item: { quote: string; author: string; role: string; rating: number; avatar?: string }, i: number) => (
+              <figure
+                key={i}
+                className="flex-shrink-0 rounded-2xl bg-zinc-50 px-8 py-10 text-center"
+                style={{ width: `${100 / (block.props.itemsPerView ?? 2)}%`, minWidth: "300px" }}
+              >
+                {item.rating > 0 && (
+                  <div className="text-amber-400">
+                    {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
+                  </div>
+                )}
+                <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800">
+                  <div
+                    className="rte-content"
+                    dangerouslySetInnerHTML={{
+                      __html: renderLocalizedContent(item.quote, ctx),
+                    }}
+                  />
+                </blockquote>
+                <figcaption className="mt-4 text-sm text-zinc-500">
+                  {item.avatar && (
+                    <img
+                      src={item.avatar}
+                      alt={item.author}
+                      className="mx-auto mb-2 h-10 w-10 rounded-full object-cover"
+                    />
+                  )}
+                  — {item.author}
+                  {item.role ? `, ${item.role}` : ""}
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      </section>,
+    );
+  }
+
   return styleScope(
     block,
     <section className="px-6 py-12">
-      <figure className="mx-auto max-w-3xl rounded-2xl bg-zinc-50 px-8 py-10 text-center">
-        <div className="text-amber-400">
-          {"★".repeat(Math.max(0, Math.min(5, block.props.rating)))}</div>
-        <blockquote className="mt-4 text-xl font-medium leading-relaxed text-zinc-800">
-          <div
-            className="rte-content"
-            dangerouslySetInnerHTML={{
-              __html: renderLocalizedContent(block.props.quote, ctx),
-            }}
-          />
-        </blockquote>
-        <figcaption className="mt-4 text-sm text-zinc-500">
-          — {block.props.author}
-          {block.props.role ? `, ${block.props.role}` : ""}
-        </figcaption>
-      </figure>
+      {block.props.heading && (
+        <h2 className="mb-8 text-center text-3xl font-bold text-zinc-900">
+          {renderLocalizedContent(block.props.heading, ctx)}
+        </h2>
+      )}
+      <div className={`mx-auto grid max-w-6xl gap-6 ${colClass}`}>
+        {items.map((item: { quote: string; author: string; role: string; rating: number; avatar?: string }, i: number) => (
+          <figure key={i} className="rounded-2xl bg-zinc-50 px-8 py-10 text-center">
+            {item.rating > 0 && (
+              <div className="text-amber-400">
+                {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
+              </div>
+            )}
+            <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800">
+              <div
+                className="rte-content"
+                dangerouslySetInnerHTML={{
+                  __html: renderLocalizedContent(item.quote, ctx),
+                }}
+              />
+            </blockquote>
+            <figcaption className="mt-4 text-sm text-zinc-500">
+              {item.avatar && (
+                <img
+                  src={item.avatar}
+                  alt={item.author}
+                  className="mx-auto mb-2 h-10 w-10 rounded-full object-cover"
+                />
+              )}
+              — {item.author}
+              {item.role ? `, ${item.role}` : ""}
+            </figcaption>
+          </figure>
+        ))}
+      </div>
     </section>,
   );
 }
@@ -402,19 +524,28 @@ function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
         backgroundRepeat: "no-repeat",
       }
     : { backgroundColor: block.props.bgColor };
+
+  const rowWidth = block.props.width ?? (block.props.fullWidth ? "full" : "boxed");
+  const isBoxed = rowWidth === "boxed";
+
   return (
     <section
-      className={block.props.fullWidth ? "py-0" : "px-6 py-6"}
+      className="py-6"
       style={{
         ...bg,
         color: block.props.textColor,
-        paddingTop: block.props.fullWidth ? undefined : block.props.paddingY,
-        paddingBottom: block.props.fullWidth ? undefined : block.props.paddingY,
+        paddingTop: block.props.paddingY,
+        paddingBottom: block.props.paddingY,
+        minHeight: block.props.minHeight,
       }}
     >
       <div
-        className="grid grid-cols-12"
-        style={{ gap: block.props.gap, alignItems: block.props.align }}
+        className="grid grid-cols-12 mx-auto"
+        style={{
+          gap: block.props.gap,
+          alignItems: block.props.align,
+          maxWidth: isBoxed ? (block.props.maxWidth ? `${block.props.maxWidth}px` : "var(--theme-max-width, 1200px)") : "100%",
+        }}
       >
         {block.props.columns.map((column) => {
           const colBg = column.bgImage
@@ -432,7 +563,15 @@ function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
               className={renderColumnSpanClass(
                 resolveColumnWidths(column, block.props.stackOnMobile !== false),
               )}
-              style={{ minWidth: 0, ...colBg }}
+              style={{
+                minWidth: 0,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: column.justifyContent ?? "flex-start",
+                alignItems: column.alignItems ?? "stretch",
+                minHeight: column.minHeight,
+                ...colBg,
+              }}
             >
               <RenderBlocks blocks={column.blocks} ctx={ctx} />
             </div>

@@ -231,32 +231,59 @@ export function BlockPreview({
         </div>
       );
       break;
-    case "testimonial":
+    case "testimonial": {
+      const items = block.props.items ?? [];
+      const display = block.props.display ?? "grid";
+      const columns = block.props.columns ?? 2;
+      const colCls = columns === 1 ? "grid-cols-1" : columns === 3 ? "grid-cols-3" : "grid-cols-2";
+
       body = (
-        <div className="mx-2 mb-2 rounded-md bg-zinc-50 px-3 py-3 text-xs">
-          <div className="text-amber-400">{"★".repeat(Math.max(0, Math.min(5, block.props.rating)))}</div>
-          {edit ? (
-            <InlineText
-              multiline
-              value={block.props.quote}
-              onChange={(v) => patch({ ...block.props, quote: v })}
-              className="mt-1 italic text-zinc-700"
-            />
-          ) : (
-            <div
-              className="mt-1 italic text-zinc-700 rte-content"
-              dangerouslySetInnerHTML={{
-                __html: block.props.quote || "<p>Testimonial quote</p>",
-              }}
-            />
+        <div className="mx-2 mb-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-3 text-xs">
+          {block.props.heading && (
+            <div className="mb-2 text-center text-[10px] font-bold text-zinc-700">
+              {block.props.heading}
+            </div>
           )}
-          <div className="mt-1 text-zinc-500">
-            — {block.props.author || "Author"}
-            {block.props.role ? `, ${block.props.role}` : ""}
+          {display === "slider" ? (
+            <div className="flex gap-2 overflow-x-auto">
+              {items.map((item: { quote: string; author: string; role: string; rating: number; avatar?: string }, i: number) => (
+                <div key={i} className="min-w-[140px] flex-shrink-0 rounded-lg border border-zinc-200 bg-white p-2">
+                  {item.rating > 0 && <div className="text-[8px] text-amber-400">{"★".repeat(item.rating)}</div>}
+                  {item.avatar && <img src={item.avatar} alt="" className="my-1 h-5 w-5 rounded-full object-cover" />}
+                  <div
+                    className="mt-1 italic text-[10px] text-zinc-600 line-clamp-3 rte-content"
+                    dangerouslySetInnerHTML={{ __html: item.quote || "<p>Quote</p>" }}
+                  />
+                  <div className="mt-1 text-[8px] text-zinc-500">
+                    — {item.author || "Author"}{item.role ? `, ${item.role}` : ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className={`grid gap-2 ${colCls}`}>
+              {items.map((item: { quote: string; author: string; role: string; rating: number; avatar?: string }, i: number) => (
+                <div key={i} className="rounded-lg border border-zinc-200 bg-white p-2">
+                  {item.rating > 0 && <div className="text-[8px] text-amber-400">{"★".repeat(item.rating)}</div>}
+                  {item.avatar && <img src={item.avatar} alt="" className="my-1 h-5 w-5 rounded-full object-cover" />}
+                  <div
+                    className="mt-1 italic text-[10px] text-zinc-600 line-clamp-3 rte-content"
+                    dangerouslySetInnerHTML={{ __html: item.quote || "<p>Quote</p>" }}
+                  />
+                  <div className="mt-1 text-[8px] text-zinc-500">
+                    — {item.author || "Author"}{item.role ? `, ${item.role}` : ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="mt-2 text-center text-[9px] text-zinc-400">
+            {items.length} testimonial{items.length !== 1 ? "s" : ""} · {display}
           </div>
         </div>
       );
       break;
+    }
     case "spacer":
       body = (
         <div className="mx-2 mb-2 flex items-center justify-center text-xs text-zinc-300">

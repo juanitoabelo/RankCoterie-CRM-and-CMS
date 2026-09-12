@@ -48,7 +48,34 @@ export interface ImageBlock extends BlockBase {
     src: string;
     alt: string;
     caption: string;
-    width: "full" | "wide" | "narrow";
+    // Content
+    imageResolution?: "full" | "large" | "medium" | "thumbnail";
+    linkType?: "none" | "custom" | "media";
+    linkUrl?: string;
+    // Style
+    alignment?: "left" | "center" | "right";
+    imageWidth?: number; // percentage
+    imageMaxWidth?: number; // px
+    imageHeight?: number; // px
+    imageMaxHeight?: number; // px
+    opacity?: number; // 0-100
+    hoverOpacity?: number; // 0-100
+    borderStyle?: "none" | "solid" | "dashed" | "dotted";
+    borderWidth?: number;
+    borderColor?: string;
+    borderRadiusTop?: number;
+    borderRadiusRight?: number;
+    borderRadiusBottom?: number;
+    borderRadiusLeft?: number;
+    boxShadow?: string;
+    // Advanced
+    margin?: { top: number; right: number; bottom: number; left: number };
+    padding?: { top: number; right: number; bottom: number; left: number };
+    width?: "default" | "full" | "boxed" | "custom";
+    alignSelf?: "auto" | "flex-start" | "center" | "flex-end" | "stretch";
+    zIndex?: number;
+    cssId?: string;
+    cssClasses?: string;
   };
 }
 
@@ -101,13 +128,22 @@ export interface FaqBlock extends BlockBase {
   };
 }
 
+export interface TestimonialItem {
+  quote: string;
+  author: string;
+  role: string;
+  rating: 0 | 1 | 2 | 3 | 4 | 5;
+  avatar?: string;
+}
+
 export interface TestimonialBlock extends BlockBase {
   type: "testimonial";
   props: {
-    quote: string;
-    author: string;
-    role: string;
-    rating: 0 | 1 | 2 | 3 | 4 | 5;
+    items: TestimonialItem[];
+    display: "grid" | "slider";
+    columns: 1 | 2 | 3;
+    itemsPerView: number;
+    heading?: string;
     style?: StyleBreakpoints;
   };
 }
@@ -201,8 +237,29 @@ export interface ColumnData {
   /** Optional mobile override (grid units). Falls back to the row's stack-on-mobile default. */
   spanSm?: number;
   blocks: Block[];
+  // Layout
+  justifyContent?: "flex-start" | "center" | "flex-end" | "space-between" | "space-around" | "space-evenly";
+  alignItems?: "flex-start" | "center" | "flex-end" | "stretch";
+  minHeight?: number;
+  // Style
   bgColor?: string;
   bgImage?: string;
+  bgPosition?: string;
+  bgSize?: string;
+  bgRepeat?: string;
+  overlayColor?: string;
+  overlayOpacity?: number;
+  borderStyle?: "none" | "solid" | "dashed" | "dotted";
+  borderWidth?: number;
+  borderColor?: string;
+  borderRadius?: number;
+  boxShadow?: string;
+  // Advanced
+  margin?: { top: number; right: number; bottom: number; left: number };
+  padding?: { top: number; right: number; bottom: number; left: number };
+  zindex?: number;
+  cssId?: string;
+  cssClasses?: string;
 }
 
 export interface RowBlock extends BlockBase {
@@ -212,11 +269,37 @@ export interface RowBlock extends BlockBase {
     gap: number; // px between columns
     align: "start" | "center" | "end" | "stretch";
     stackOnMobile: boolean; // columns become full-width on small screens
+    // Layout
+    direction?: "row" | "column";
+    justifyContent?: "flex-start" | "center" | "flex-end" | "space-between" | "space-around" | "space-evenly";
+    gapRow?: number; // vertical gap between rows when wrapping
+    wrap?: "nowrap" | "wrap";
+    // Content Width
+    width?: "full" | "boxed";
+    maxWidth?: number;
+    minHeight?: number;
+    // Style
     bgColor?: string;
     bgImage?: string;
+    bgPosition?: string;
+    bgSize?: string;
+    bgRepeat?: string;
+    overlayColor?: string;
+    overlayOpacity?: number;
     textColor?: string;
-    paddingY?: number; // vertical padding in px
+    paddingY?: number; // vertical padding in px (legacy)
+    padding?: { top: number; right: number; bottom: number; left: number }; // per-side padding
+    margin?: { top: number; right: number; bottom: number; left: number };
     fullWidth?: boolean; // stretch the row edge-to-edge (no horizontal padding)
+    borderStyle?: "none" | "solid" | "dashed" | "dotted";
+    borderWidth?: number;
+    borderColor?: string;
+    borderRadius?: number;
+    boxShadow?: string;
+    // Advanced
+    zindex?: number;
+    cssId?: string;
+    cssClasses?: string;
   };
 }
 
@@ -228,11 +311,38 @@ export interface SectionBlock extends BlockBase {
   type: "section";
   props: {
     rows: RowBlock[];
+    // Layout
+    width?: "full" | "boxed";
+    maxWidth?: number;
+    minHeight?: number;
+    direction?: "row" | "column";
+    justifyContent?: "flex-start" | "center" | "flex-end" | "space-between" | "space-around" | "space-evenly";
+    alignItems?: "stretch" | "flex-start" | "center" | "flex-end";
+    gapCol?: number;
+    gapRow?: number;
+    wrap?: "nowrap" | "wrap";
+    // Style
     bgColor?: string;
     bgImage?: string;
+    bgPosition?: string;
+    bgSize?: string;
+    bgRepeat?: string;
+    overlayColor?: string;
+    overlayOpacity?: number;
     textColor?: string;
+    borderStyle?: "none" | "solid" | "dashed" | "dotted";
+    borderWidth?: number;
+    borderColor?: string;
+    borderRadius?: number;
+    boxShadow?: string;
+    // Advanced
     paddingTop?: number;
     paddingBottom?: number;
+    margin?: { top: number; right: number; bottom: number; left: number };
+    padding?: { top: number; right: number; bottom: number; left: number };
+    zindex?: number;
+    cssId?: string;
+    cssClasses?: string;
   };
 }
 
@@ -420,10 +530,18 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     label: "Testimonial",
     icon: "💬",
     defaults: {
-      quote: "This changed everything for us.",
-      author: "Jane Doe",
-      role: "Founder, Acme Co.",
-      rating: 5,
+      items: [
+        {
+          quote: "This changed everything for us.",
+          author: "Jane Doe",
+          role: "Founder, Acme Co.",
+          rating: 5,
+        },
+      ],
+      display: "grid",
+      columns: 2,
+      itemsPerView: 2,
+      heading: "",
     },
   },
   {

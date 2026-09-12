@@ -11,9 +11,9 @@ import { TENANT_ID } from "@/modules/shared";
 // Cache for layout data (tenant, menu, company) - avoids repeated DB hits
 interface LayoutCache {
   tenant: { theme: unknown; companyId: string | null } | null;
-  headerMenu: { items: { id: string; label: string; href: string; target: string | null; order: number }[] } | null;
-  footerMenu: { items: { id: string; label: string; href: string; target: string | null; order: number }[] } | null;
-  sidebarMenu: { items: { id: string; label: string; href: string; target: string | null; order: number }[] } | null;
+  headerMenu: { items: { id: string; label: string; href: string; target: string | null; order: number; children?: { id: string; label: string; href: string; target: string | null; order: number }[] }[] } | null;
+  footerMenu: { items: { id: string; label: string; href: string; target: string | null; order: number; children?: { id: string; label: string; href: string; target: string | null; order: number }[] }[] } | null;
+  sidebarMenu: { items: { id: string; label: string; href: string; target: string | null; order: number; children?: { id: string; label: string; href: string; target: string | null; order: number }[] }[] } | null;
   company: { ga4: string | null; gtm: string | null; fbPixel: string | null; gscVerificationTag: string | null } | null;
   headerBlocks: HeaderFooterBlock[];
   headerContainerSettings: ContainerSettings;
@@ -34,15 +34,33 @@ async function getLayoutData() {
     prisma.tenant.findUnique({ where: { id: TENANT_ID } }),
     prisma.menu.findFirst({
       where: { tenantId: TENANT_ID, location: "HEADER" },
-      include: { items: { orderBy: { order: "asc" } } },
+      include: {
+        items: {
+          where: { parentId: null },
+          orderBy: { order: "asc" },
+          include: { children: { orderBy: { order: "asc" } } },
+        },
+      },
     }),
     prisma.menu.findFirst({
       where: { tenantId: TENANT_ID, location: "FOOTER" },
-      include: { items: { orderBy: { order: "asc" } } },
+      include: {
+        items: {
+          where: { parentId: null },
+          orderBy: { order: "asc" },
+          include: { children: { orderBy: { order: "asc" } } },
+        },
+      },
     }),
     prisma.menu.findFirst({
       where: { tenantId: TENANT_ID, location: "SIDEBAR" },
-      include: { items: { orderBy: { order: "asc" } } },
+      include: {
+        items: {
+          where: { parentId: null },
+          orderBy: { order: "asc" },
+          include: { children: { orderBy: { order: "asc" } } },
+        },
+      },
     }),
   ]);
 
@@ -136,11 +154,19 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       {company?.fbPixel && <meta name="fb:pixel_id" content={company.fbPixel} />}
 
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <header className="border-b border-zinc-200 bg-white">
+      <header className={useHeaderBuilder ? "" : "border-b border-zinc-200 bg-white"}>
         {useHeaderBuilder ? (
           <HeaderFooterRenderer
             blocks={layoutData.headerBlocks}
             containerSettings={layoutData.headerContainerSettings}
+            menus={{
+              header: headerMenu?.items ?? [
+                { id: "home", label: "Home", href: "/" },
+                { id: "directory", label: "Directory", href: "/" },
+                { id: "apply", label: "Apply to list", href: "/apply" },
+              ],
+              footer: footerMenu?.items ?? [],
+            }}
           />
         ) : (
           <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
@@ -166,11 +192,15 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">{children}</main>
 
       {/* ── Footer ────────────────────────────────────────────────── */}
-      <footer className="border-t border-zinc-200 bg-white">
+      <footer className={useFooterBuilder ? "" : "border-t border-zinc-200 bg-white"}>
         {useFooterBuilder ? (
           <HeaderFooterRenderer
             blocks={layoutData.footerBlocks}
             containerSettings={layoutData.footerContainerSettings}
+            menus={{
+              header: headerMenu?.items ?? [],
+              footer: footerMenu?.items ?? [],
+            }}
           />
         ) : (
           <>

@@ -75,6 +75,18 @@ export default function HeaderFooterPalette({
           Layout
         </h3>
         <div className="grid grid-cols-2 gap-1.5">
+          <DraggableItem
+            id={`${LAYOUT_PREFIX}container`}
+            icon="▣"
+            label="Container"
+            onClick={() => onAddLayout("container")}
+          />
+          <DraggableItem
+            id={`${LAYOUT_PREFIX}row`}
+            icon="▦"
+            label="Row"
+            onClick={() => onAddLayout("row")}
+          />
           {HEADER_FOOTER_ROW_LAYOUTS.map((layout) => (
             <DraggableItem
               key={layout.id}
