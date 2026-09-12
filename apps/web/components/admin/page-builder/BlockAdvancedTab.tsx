@@ -22,7 +22,9 @@ export type AdvancedSection =
   | "mask"
   | "responsive"
   | "attributes"
-  | "customCss";
+  | "customCss"
+  | "displayConditions"
+  | "cacheSettings";
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 
@@ -54,7 +56,7 @@ function ToggleTab({ active, onChange }: { active: "normal" | "hover"; onChange:
 /* ── Component ───────────────────────────────────────────────────────────── */
 
 export default function BlockAdvancedTab({ props: p, set, show }: AdvancedTabProps) {
-  const allSections = show ?? (["layout", "motionEffects", "transform", "background", "border", "mask", "responsive", "attributes", "customCss"] as AdvancedSection[]);
+  const allSections = show ?? (["layout", "motionEffects", "transform", "background", "border", "mask", "responsive", "attributes", "customCss", "displayConditions", "cacheSettings"] as AdvancedSection[]);
   const [openSection, setOpenSection] = useState<string | null>("layout");
 
   const toggle = (key: string) => setOpenSection(openSection === key ? null : key);
@@ -113,6 +115,28 @@ export default function BlockAdvancedTab({ props: p, set, show }: AdvancedTabPro
 
               <label className={labelCls}>CSS Classes
                 <input type="text" className={inputCls} value={(p.cssClasses as string) || ""} onChange={(e) => set({ cssClasses: e.target.value })} placeholder="class1 class2" />
+              </label>
+
+              <div className="border-t border-zinc-200 pt-3">
+                <span className="text-xs font-semibold text-zinc-700">Grid Item</span>
+              </div>
+
+              <label className={labelCls}>Column Span
+                <select className={inputCls} value={(p.gridColumnSpan as string) || "default"} onChange={(e) => set({ gridColumnSpan: e.target.value })}>
+                  <option value="default">Default</option>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
+                    <option key={n} value={String(n)}>{n}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className={labelCls}>Row Span
+                <select className={inputCls} value={(p.gridRowSpan as string) || "default"} onChange={(e) => set({ gridRowSpan: e.target.value })}>
+                  <option value="default">Default</option>
+                  {[1, 2, 3, 4, 5, 6].map((n) => (
+                    <option key={n} value={String(n)}>{n}</option>
+                  ))}
+                </select>
               </label>
             </div>
           )}
@@ -434,6 +458,71 @@ export default function BlockAdvancedTab({ props: p, set, show }: AdvancedTabPro
               </label>
               <p className="text-[11px] leading-snug text-zinc-400">
                 Use <span className="font-semibold">custom CSS</span> to style your content or add the &quot;selector&quot; prefix to target specific elements.
+              </p>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ═══ DISPLAY CONDITIONS ═══ */}
+      {allSections.includes("displayConditions") && (
+        <>
+          <SectionHeader label="Display Conditions" isOpen={openSection === "displayConditions"} onToggle={() => toggle("displayConditions")} />
+          {openSection === "displayConditions" && (
+            <div className="space-y-3 pb-3">
+              <div className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
+                <svg className="h-4 w-4 shrink-0 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                <span className="text-xs text-zinc-500">Display conditions control when this element is visible on the front end.</span>
+              </div>
+
+              <label className={labelCls}>Display
+                <select className={inputCls} value={(p.displayCondition as string) || "always"} onChange={(e) => set({ displayCondition: e.target.value })}>
+                  <option value="always">Always</option>
+                  <option value="logged_in">Logged In User</option>
+                  <option value="logged_out">Logged Out User</option>
+                  <option value="date_after">Date After</option>
+                  <option value="date_before">Date Before</option>
+                  <option value="url_contains">URL Contains</option>
+                </select>
+              </label>
+
+              {(p.displayCondition as string) === "date_after" && (
+                <label className={labelCls}>Date
+                  <input type="date" className={inputCls} value={(p.displayConditionDate as string) || ""} onChange={(e) => set({ displayConditionDate: e.target.value })} />
+                </label>
+              )}
+
+              {(p.displayCondition as string) === "date_before" && (
+                <label className={labelCls}>Date
+                  <input type="date" className={inputCls} value={(p.displayConditionDate as string) || ""} onChange={(e) => set({ displayConditionDate: e.target.value })} />
+                </label>
+              )}
+
+              {(p.displayCondition as string) === "url_contains" && (
+                <label className={labelCls}>URL Fragment
+                  <input type="text" className={inputCls} value={(p.displayConditionUrl as string) || ""} onChange={(e) => set({ displayConditionUrl: e.target.value })} placeholder="e.g. ?ref=homepage" />
+                </label>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ═══ CACHE SETTINGS ═══ */}
+      {allSections.includes("cacheSettings") && (
+        <>
+          <SectionHeader label="Cache Settings" isOpen={openSection === "cacheSettings"} onToggle={() => toggle("cacheSettings")} />
+          {openSection === "cacheSettings" && (
+            <div className="space-y-3 pb-3">
+              <label className={labelCls}>Cache
+                <select className={inputCls} value={(p.cacheSetting as string) || "default"} onChange={(e) => set({ cacheSetting: e.target.value })}>
+                  <option value="default">Default</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </label>
+              <p className="text-[11px] leading-snug text-zinc-400">
+                The default cache status for this element is: <span className="font-semibold">Active</span>. Activating cache improves loading times by storing a static version of this element.
               </p>
             </div>
           )}
