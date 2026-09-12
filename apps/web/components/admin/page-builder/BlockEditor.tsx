@@ -100,37 +100,90 @@ function TextEditor({
   block: Block & { type: "text" };
   onChange: (props: Block["props"]) => void;
 }) {
+  const [activeTab, setActiveTab] = useState<"content" | "style" | "advanced">("content");
+  const p = block.props;
+  const set = (patch: Record<string, unknown>) => onChange({ ...p, ...patch });
+
   return (
-    <>
-      <div>
-        <label className={labelCls}>Content</label>
-        <div className="mt-1">
-          <RichTextEditor
-            value={block.props.content}
-            onChange={(v) => onChange({ ...block.props, content: v })}
-            placeholder="Write your content…"
-            showSource
-          />
+    <div className="space-y-3">
+      {/* Tabs */}
+      <div className="flex border-b border-zinc-200">
+        {(["content", "style", "advanced"] as const).map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-2 text-xs font-medium capitalize ${activeTab === tab ? "border-b-2 border-zinc-900 text-zinc-900" : "text-zinc-500 hover:text-zinc-700"}`}>
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Content Tab ─────────────────────────────────── */}
+      {activeTab === "content" && (
+        <div className="space-y-3">
+          <div className="border-t border-zinc-200 pt-3">
+            <span className="text-xs font-semibold text-zinc-700">Text Editor</span>
+          </div>
+
+          <div>
+            <label className={labelCls}>Content</label>
+            <div className="mt-1">
+              <RichTextEditor
+                value={p.content}
+                onChange={(v) => set({ content: v })}
+                placeholder="Write your content…"
+                showSource
+              />
+            </div>
+            <p className="mt-1 text-[11px] leading-snug text-zinc-400">
+              Format with the toolbar, add links, lists and headings, or paste from Word —
+              it becomes clean HTML automatically.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className={labelCls}>Drop Cap</span>
+            <button type="button" onClick={() => set({ dropCap: !p.dropCap })} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${p.dropCap ? "bg-zinc-900" : "bg-zinc-300"}`}>
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${p.dropCap ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+          </div>
+
+          <label className={labelCls}>Columns
+            <select className={inputCls} value={p.columns || 1} onChange={(e) => set({ columns: Number(e.target.value) })}>
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </label>
+
+          {Number(p.columns) > 1 && (
+            <label className={labelCls}>Columns Gap
+              <select className={inputCls} value={p.columnsGap || "default"} onChange={(e) => set({ columnsGap: e.target.value })}>
+                <option value="default">Default</option>
+                <option value="no-gap">No Gap</option>
+                <option value="narrow">Narrow</option>
+                <option value="extended">Extended</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+          )}
         </div>
-        <p className="mt-1 text-[11px] leading-snug text-zinc-400">
-          Format with the toolbar, add links, lists and headings, or paste from Word —
-          it becomes clean HTML automatically.
-        </p>
-      </div>
-      <div>
-        <label className={labelCls}>Alignment</label>
-        <select
-          className={inputCls}
-          value={block.props.align}
-          onChange={(e) => onChange({ ...block.props, align: e.target.value as "left" })}
-        >
-          <option value="left">Left</option>
-          <option value="center">Center</option>
-          <option value="right">Right</option>
-        </select>
-      </div>
-      {styleFields(block, onChange)}
-    </>
+      )}
+
+      {/* ── Style Tab ─────────────────────────────────── */}
+      {activeTab === "style" && (
+        <div className="space-y-3">
+          <div className="border-t border-zinc-200 pt-3">
+            <span className="text-xs font-semibold text-zinc-700">Text Editor</span>
+          </div>
+          <BlockStyleTab props={p as Record<string, unknown>} set={set} />
+        </div>
+      )}
+
+      {/* ── Advanced Tab ─────────────────────────────────── */}
+      {activeTab === "advanced" && (
+        <div className="space-y-3">
+          <BlockAdvancedTab props={p as Record<string, unknown>} set={set} />
+        </div>
+      )}
+    </div>
   );
 }
 

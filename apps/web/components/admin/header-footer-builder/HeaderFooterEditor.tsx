@@ -776,21 +776,65 @@ function HeroEditor({ block, onChange, themeColors }: EditorProps) {
 /* ── Text Editor ──────────────────────────────────────────────────────── */
 
 function TextEditor({ block, onChange }: EditorProps) {
+  const [activeTab, setActiveTab] = useState<"content" | "style" | "advanced">("content");
   const p = block.props as { content: string; align: "left" | "center" | "right" };
   const set = createSetter(block, onChange);
 
   return (
     <div className="space-y-3">
-      <label className={labelCls}>Content
-        <RichTextEditor value={p.content} onChange={(v) => set({ content: v })} minHeight={120} />
-      </label>
-      <label className={labelCls}>Alignment
-        <select value={p.align} onChange={(e) => set({ align: e.target.value })} className={inputCls}>
-          <option value="left">Left</option>
-          <option value="center">Center</option>
-          <option value="right">Right</option>
-        </select>
-      </label>
+      {/* Tabs */}
+      <div className="flex border-b border-zinc-200">
+        {(["content", "style", "advanced"] as const).map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-2 text-xs font-medium capitalize ${activeTab === tab ? "border-b-2 border-zinc-900 text-zinc-900" : "text-zinc-500 hover:text-zinc-700"}`}>
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Content Tab ─────────────────────────────────── */}
+      {activeTab === "content" && (
+        <div className="space-y-3">
+          <div className="border-t border-zinc-200 pt-3">
+            <span className="text-xs font-semibold text-zinc-700">Text Editor</span>
+          </div>
+
+          <label className={labelCls}>Content
+            <RichTextEditor value={p.content} onChange={(v) => set({ content: v })} minHeight={120} />
+          </label>
+
+          <div className="flex items-center justify-between">
+            <span className={labelCls}>Drop Cap</span>
+            <button type="button" onClick={() => set({ dropCap: !(p as Record<string, unknown>).dropCap })} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${(p as Record<string, unknown>).dropCap ? "bg-zinc-900" : "bg-zinc-300"}`}>
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${(p as Record<string, unknown>).dropCap ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+          </div>
+
+          <label className={labelCls}>Columns
+            <select className={inputCls} value={(p as Record<string, unknown>).columns || 1} onChange={(e) => set({ columns: Number(e.target.value) })}>
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+
+      {/* ── Style Tab ─────────────────────────────────── */}
+      {activeTab === "style" && (
+        <div className="space-y-3">
+          <div className="border-t border-zinc-200 pt-3">
+            <span className="text-xs font-semibold text-zinc-700">Text Editor</span>
+          </div>
+          <BlockStyleTab props={p as Record<string, unknown>} set={set} />
+        </div>
+      )}
+
+      {/* ── Advanced Tab ─────────────────────────────────── */}
+      {activeTab === "advanced" && (
+        <div className="space-y-3">
+          <BlockAdvancedTab props={p as Record<string, unknown>} set={set} />
+        </div>
+      )}
     </div>
   );
 }
