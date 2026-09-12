@@ -40,6 +40,17 @@ const ENTRANCE_ANIMATIONS = [
   "zoomIn", "zoomInUp", "bounceIn", "slideInUp", "slideInDown",
 ];
 
+/* ── Reusable Toggle Tab ─────────────────────────────────────────────────── */
+
+function ToggleTab({ active, onChange }: { active: "normal" | "hover"; onChange: (v: "normal" | "hover") => void }) {
+  return (
+    <div className="mb-2 flex rounded-lg border border-zinc-200 p-0.5">
+      <button type="button" onClick={() => onChange("normal")} className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${active === "normal" ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100"}`}>Normal</button>
+      <button type="button" onClick={() => onChange("hover")} className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${active === "hover" ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100"}`}>Hover</button>
+    </div>
+  );
+}
+
 /* ── Component ───────────────────────────────────────────────────────────── */
 
 export default function BlockAdvancedTab({ props: p, set, show }: AdvancedTabProps) {
@@ -52,6 +63,15 @@ export default function BlockAdvancedTab({ props: p, set, show }: AdvancedTabPro
   const padding: SpacingValues = (p.padding as SpacingValues) ?? { top: 0, right: 0, bottom: 0, left: 0 };
   const [linkedMargin, setLinkedMargin] = useState(false);
   const [linkedPadding, setLinkedPadding] = useState(false);
+
+  const [transformState, setTransformState] = useState<"normal" | "hover">("normal");
+  const [bgState, setBgState] = useState<"normal" | "hover">("normal");
+  const [borderState, setBorderState] = useState<"normal" | "hover">("normal");
+
+  /** Helper to pick normal vs hover prop prefix */
+  const tp = (base: string) => transformState === "hover" ? `hover${base.charAt(0).toUpperCase()}${base.slice(1)}` : base;
+  const bp = (base: string) => borderState === "hover" ? `hover${base.charAt(0).toUpperCase()}${base.slice(1)}` : base;
+  const gp = (base: string) => bgState === "hover" ? `hover${base.charAt(0).toUpperCase()}${base.slice(1)}` : base;
 
   return (
     <div className="space-y-1">
@@ -105,20 +125,34 @@ export default function BlockAdvancedTab({ props: p, set, show }: AdvancedTabPro
           <SectionHeader label="Motion Effects" isOpen={openSection === "motionEffects"} onToggle={() => toggle("motionEffects")} />
           {openSection === "motionEffects" && (
             <div className="space-y-3 pb-3">
-              <label className={labelCls}>Entrance Animation
-                <select className={inputCls} value={(p.entranceAnimation as string) || ""} onChange={(e) => set({ entranceAnimation: e.target.value || undefined })}>
-                  <option value="">Default</option>
-                  {ENTRANCE_ANIMATIONS.filter(Boolean).map((a) => (
-                    <option key={a} value={a}>{a}</option>
-                  ))}
-                </select>
-              </label>
+              <div className="flex items-center justify-between">
+                <span className={labelCls}>Scrolling Effects</span>
+                <button type="button" onClick={() => set({ scrollingEffects: !(p.scrollingEffects as boolean) })} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${(p.scrollingEffects as boolean) ? "bg-zinc-900" : "bg-zinc-300"}`}>
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${(p.scrollingEffects as boolean) ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className={labelCls}>Mouse Effects</span>
+                <button type="button" onClick={() => set({ mouseEffects: !(p.mouseEffects as boolean) })} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${(p.mouseEffects as boolean) ? "bg-zinc-900" : "bg-zinc-300"}`}>
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${(p.mouseEffects as boolean) ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
 
               <label className={labelCls}>Sticky
                 <select className={inputCls} value={(p.sticky as string) || "none"} onChange={(e) => set({ sticky: e.target.value })}>
                   <option value="none">None</option>
                   <option value="top">Top</option>
                   <option value="bottom">Bottom</option>
+                </select>
+              </label>
+
+              <label className={labelCls}>Entrance Animation
+                <select className={inputCls} value={(p.entranceAnimation as string) || ""} onChange={(e) => set({ entranceAnimation: e.target.value || undefined })}>
+                  <option value="">Default</option>
+                  {ENTRANCE_ANIMATIONS.filter(Boolean).map((a) => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
                 </select>
               </label>
             </div>
@@ -132,37 +166,39 @@ export default function BlockAdvancedTab({ props: p, set, show }: AdvancedTabPro
           <SectionHeader label="Transform" isOpen={openSection === "transform"} onToggle={() => toggle("transform")} />
           {openSection === "transform" && (
             <div className="space-y-3 pb-3">
+              <ToggleTab active={transformState} onChange={setTransformState} />
+
               <label className={labelCls}>Rotate
                 <div className="flex items-stretch gap-1">
-                  <input type="number" className={`${inputCls} mt-0 min-w-0 flex-1`} value={(p.rotateZ as number) || ""} onChange={(e) => set({ rotateZ: Number(e.target.value) || undefined })} min={-360} max={360} placeholder="0" />
+                  <input type="number" className={`${inputCls} mt-0 min-w-0 flex-1`} value={(p[tp("rotateZ")] as number) || ""} onChange={(e) => set({ [tp("rotateZ")]: Number(e.target.value) || undefined })} min={-360} max={360} placeholder="0" />
                   <span className="flex items-center text-xs text-zinc-400">deg</span>
                 </div>
               </label>
 
               <div className="grid grid-cols-2 gap-2">
                 <label className={labelCls}>Scale X
-                  <input type="number" className={inputCls} value={(p.scaleX as number) || ""} onChange={(e) => set({ scaleX: Number(e.target.value) || undefined })} min={0} max={5} step={0.1} placeholder="1" />
+                  <input type="number" className={inputCls} value={(p[tp("scaleX")] as number) || ""} onChange={(e) => set({ [tp("scaleX")]: Number(e.target.value) || undefined })} min={0} max={5} step={0.1} placeholder="1" />
                 </label>
                 <label className={labelCls}>Scale Y
-                  <input type="number" className={inputCls} value={(p.scaleY as number) || ""} onChange={(e) => set({ scaleY: Number(e.target.value) || undefined })} min={0} max={5} step={0.1} placeholder="1" />
+                  <input type="number" className={inputCls} value={(p[tp("scaleY")] as number) || ""} onChange={(e) => set({ [tp("scaleY")]: Number(e.target.value) || undefined })} min={0} max={5} step={0.1} placeholder="1" />
                 </label>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <label className={labelCls}>Offset X
-                  <input type="number" className={inputCls} value={(p.offsetX as number) || ""} onChange={(e) => set({ offsetX: Number(e.target.value) || undefined })} placeholder="0" />
+                  <input type="number" className={inputCls} value={(p[tp("offsetX")] as number) || ""} onChange={(e) => set({ [tp("offsetX")]: Number(e.target.value) || undefined })} placeholder="0" />
                 </label>
                 <label className={labelCls}>Offset Y
-                  <input type="number" className={inputCls} value={(p.offsetY as number) || ""} onChange={(e) => set({ offsetY: Number(e.target.value) || undefined })} placeholder="0" />
+                  <input type="number" className={inputCls} value={(p[tp("offsetY")] as number) || ""} onChange={(e) => set({ [tp("offsetY")]: Number(e.target.value) || undefined })} placeholder="0" />
                 </label>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <label className={labelCls}>Skew X
-                  <input type="number" className={inputCls} value={(p.skewX as number) || ""} onChange={(e) => set({ skewX: Number(e.target.value) || undefined })} min={-45} max={45} placeholder="0" />
+                  <input type="number" className={inputCls} value={(p[tp("skewX")] as number) || ""} onChange={(e) => set({ [tp("skewX")]: Number(e.target.value) || undefined })} min={-45} max={45} placeholder="0" />
                 </label>
                 <label className={labelCls}>Skew Y
-                  <input type="number" className={inputCls} value={(p.skewY as number) || ""} onChange={(e) => set({ skewY: Number(e.target.value) || undefined })} min={-45} max={45} placeholder="0" />
+                  <input type="number" className={inputCls} value={(p[tp("skewY")] as number) || ""} onChange={(e) => set({ [tp("skewY")]: Number(e.target.value) || undefined })} min={-45} max={45} placeholder="0" />
                 </label>
               </div>
 
@@ -170,15 +206,15 @@ export default function BlockAdvancedTab({ props: p, set, show }: AdvancedTabPro
                 <div>
                   <span className={labelCls}>Flip Horizontal</span>
                   <div className="mt-1 flex gap-1">
-                    <button type="button" onClick={() => set({ flipH: false })} className={`flex h-8 flex-1 items-center justify-center rounded border text-sm ${(p.flipH as boolean) !== true ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`}>Off</button>
-                    <button type="button" onClick={() => set({ flipH: true })} className={`flex h-8 flex-1 items-center justify-center rounded border text-sm ${(p.flipH as boolean) === true ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`}>On</button>
+                    <button type="button" onClick={() => set({ [tp("flipH")]: false })} className={`flex h-8 flex-1 items-center justify-center rounded border text-sm ${p[tp("flipH")] !== true ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`}>Off</button>
+                    <button type="button" onClick={() => set({ [tp("flipH")]: true })} className={`flex h-8 flex-1 items-center justify-center rounded border text-sm ${p[tp("flipH")] === true ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`}>On</button>
                   </div>
                 </div>
                 <div>
                   <span className={labelCls}>Flip Vertical</span>
                   <div className="mt-1 flex gap-1">
-                    <button type="button" onClick={() => set({ flipV: false })} className={`flex h-8 flex-1 items-center justify-center rounded border text-sm ${(p.flipV as boolean) !== true ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`}>Off</button>
-                    <button type="button" onClick={() => set({ flipV: true })} className={`flex h-8 flex-1 items-center justify-center rounded border text-sm ${(p.flipV as boolean) === true ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`}>On</button>
+                    <button type="button" onClick={() => set({ [tp("flipV")]: false })} className={`flex h-8 flex-1 items-center justify-center rounded border text-sm ${p[tp("flipV")] !== true ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`}>Off</button>
+                    <button type="button" onClick={() => set({ [tp("flipV")]: true })} className={`flex h-8 flex-1 items-center justify-center rounded border text-sm ${p[tp("flipV")] === true ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`}>On</button>
                   </div>
                 </div>
               </div>
@@ -193,39 +229,84 @@ export default function BlockAdvancedTab({ props: p, set, show }: AdvancedTabPro
           <SectionHeader label="Background" isOpen={openSection === "background"} onToggle={() => toggle("background")} />
           {openSection === "background" && (
             <div className="space-y-3 pb-3">
-              <label className={labelCls}>Background Color
-                <div className="flex items-center gap-2">
-                  <input type="color" className="h-10 w-12 rounded-lg border border-zinc-300" value={(p.bgColor as string) || "#ffffff"} onChange={(e) => set({ bgColor: e.target.value })} />
-                  <input className={inputCls} value={(p.bgColor as string) || ""} onChange={(e) => set({ bgColor: e.target.value })} placeholder="#ffffff" />
+              <ToggleTab active={bgState} onChange={setBgState} />
+
+              <div>
+                <span className={labelCls}>Background Type</span>
+                <div className="mt-1 flex gap-1">
+                  <button type="button" onClick={() => set({ [gp("bgType")]: "classic" })} className={`flex h-8 w-8 items-center justify-center rounded border text-sm ${((p[gp("bgType")] as string) || "classic") === "classic" ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`} title="Classic">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  </button>
+                  <button type="button" onClick={() => set({ [gp("bgType")]: "gradient" })} className={`flex h-8 w-8 items-center justify-center rounded border text-sm ${p[gp("bgType")] === "gradient" ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`} title="Gradient">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>
+                  </button>
                 </div>
-              </label>
+              </div>
 
-              <label className={labelCls}>Background Image
-                <input type="text" className={inputCls} value={(p.bgImage as string) || ""} onChange={(e) => set({ bgImage: e.target.value })} placeholder="URL" />
-              </label>
-
-              {Boolean(p.bgImage) && (
+              {(p[gp("bgType")] || "classic") === "classic" ? (
                 <>
-                  <label className={labelCls}>Position
-                    <select className={inputCls} value={(p.bgPosition as string) || "center center"} onChange={(e) => set({ bgPosition: e.target.value })}>
-                      {["center center", "top left", "top center", "top right", "center left", "center right", "bottom left", "bottom center", "bottom right"].map((pos) => (
-                        <option key={pos} value={pos}>{pos}</option>
-                      ))}
-                    </select>
+                  <label className={labelCls}>Background Color
+                    <div className="flex items-center gap-2">
+                      <input type="color" className="h-10 w-12 rounded-lg border border-zinc-300" value={(p[gp("bgColor")] as string) || "#ffffff"} onChange={(e) => set({ [gp("bgColor")]: e.target.value })} />
+                      <input className={inputCls} value={(p[gp("bgColor")] as string) || ""} onChange={(e) => set({ [gp("bgColor")]: e.target.value })} placeholder="#ffffff" />
+                    </div>
                   </label>
-                  <label className={labelCls}>Size
-                    <select className={inputCls} value={(p.bgSize as string) || "cover"} onChange={(e) => set({ bgSize: e.target.value })}>
-                      <option value="auto">Auto</option>
-                      <option value="cover">Cover</option>
-                      <option value="contain">Contain</option>
-                    </select>
+
+                  <label className={labelCls}>Background Image
+                    <input type="text" className={inputCls} value={(p[gp("bgImage")] as string) || ""} onChange={(e) => set({ [gp("bgImage")]: e.target.value })} placeholder="URL" />
                   </label>
-                  <label className={labelCls}>Repeat
-                    <select className={inputCls} value={(p.bgRepeat as string) || "no-repeat"} onChange={(e) => set({ bgRepeat: e.target.value })}>
-                      <option value="repeat">Repeat</option>
-                      <option value="no-repeat">No Repeat</option>
-                      <option value="repeat-x">Repeat X</option>
-                      <option value="repeat-y">Repeat Y</option>
+
+                  {Boolean(p[gp("bgImage")]) && (
+                    <>
+                      <label className={labelCls}>Position
+                        <select className={inputCls} value={(p[gp("bgPosition")] as string) || "center center"} onChange={(e) => set({ [gp("bgPosition")]: e.target.value })}>
+                          {["center center", "top left", "top center", "top right", "center left", "center right", "bottom left", "bottom center", "bottom right"].map((pos) => (
+                            <option key={pos} value={pos}>{pos}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className={labelCls}>Size
+                        <select className={inputCls} value={(p[gp("bgSize")] as string) || "cover"} onChange={(e) => set({ [gp("bgSize")]: e.target.value })}>
+                          <option value="auto">Auto</option>
+                          <option value="cover">Cover</option>
+                          <option value="contain">Contain</option>
+                        </select>
+                      </label>
+                      <label className={labelCls}>Repeat
+                        <select className={inputCls} value={(p[gp("bgRepeat")] as string) || "no-repeat"} onChange={(e) => set({ [gp("bgRepeat")]: e.target.value })}>
+                          <option value="repeat">Repeat</option>
+                          <option value="no-repeat">No Repeat</option>
+                          <option value="repeat-x">Repeat X</option>
+                          <option value="repeat-y">Repeat Y</option>
+                        </select>
+                      </label>
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  <label className={labelCls}>Gradient Color
+                    <div className="flex items-center gap-2">
+                      <input type="color" className="h-10 w-12 rounded-lg border border-zinc-300" value={(p[gp("bgGradientStart")] as string) || "#000000"} onChange={(e) => set({ [gp("bgGradientStart")]: e.target.value })} />
+                      <input className={inputCls} value={(p[gp("bgGradientStart")] as string) || ""} onChange={(e) => set({ [gp("bgGradientStart")]: e.target.value })} placeholder="#000000" />
+                    </div>
+                  </label>
+                  <label className={labelCls}>Gradient Color (End)
+                    <div className="flex items-center gap-2">
+                      <input type="color" className="h-10 w-12 rounded-lg border border-zinc-300" value={(p[gp("bgGradientEnd")] as string) || "#ffffff"} onChange={(e) => set({ [gp("bgGradientEnd")]: e.target.value })} />
+                      <input className={inputCls} value={(p[gp("bgGradientEnd")] as string) || ""} onChange={(e) => set({ [gp("bgGradientEnd")]: e.target.value })} placeholder="#ffffff" />
+                    </div>
+                  </label>
+                  <label className={labelCls}>Angle
+                    <div className="flex items-stretch gap-1">
+                      <input type="number" className={`${inputCls} mt-0 min-w-0 flex-1`} value={(p[gp("bgGradientAngle")] as number) || ""} onChange={(e) => set({ [gp("bgGradientAngle")]: Number(e.target.value) || undefined })} min={0} max={360} placeholder="180" />
+                      <span className="flex items-center text-xs text-zinc-400">deg</span>
+                    </div>
+                  </label>
+                  <label className={labelCls}>Type
+                    <select className={inputCls} value={(p[gp("bgGradientType")] as string) || "linear"} onChange={(e) => set({ [gp("bgGradientType")]: e.target.value })}>
+                      <option value="linear">Linear</option>
+                      <option value="radial">Radial</option>
                     </select>
                   </label>
                 </>
@@ -241,8 +322,10 @@ export default function BlockAdvancedTab({ props: p, set, show }: AdvancedTabPro
           <SectionHeader label="Border" isOpen={openSection === "border"} onToggle={() => toggle("border")} />
           {openSection === "border" && (
             <div className="space-y-3 pb-3">
+              <ToggleTab active={borderState} onChange={setBorderState} />
+
               <label className={labelCls}>Border Type
-                <select className={inputCls} value={(p.borderStyle as string) || "none"} onChange={(e) => set({ borderStyle: e.target.value })}>
+                <select className={inputCls} value={(p[bp("borderStyle")] as string) || "none"} onChange={(e) => set({ [bp("borderStyle")]: e.target.value })}>
                   <option value="none">Default</option>
                   <option value="solid">Solid</option>
                   <option value="dashed">Dashed</option>
@@ -251,13 +334,13 @@ export default function BlockAdvancedTab({ props: p, set, show }: AdvancedTabPro
                 </select>
               </label>
 
-              {Boolean(p.borderStyle) && p.borderStyle !== "none" && (
+              {Boolean(p[bp("borderStyle")]) && p[bp("borderStyle")] !== "none" && (
                 <div className="grid grid-cols-2 gap-2">
                   <label className={labelCls}>Width
-                    <input type="number" className={inputCls} value={(p.borderWidth as number) || 1} onChange={(e) => set({ borderWidth: Number(e.target.value) || 1 })} min={0} max={20} />
+                    <input type="number" className={inputCls} value={(p[bp("borderWidth")] as number) || 1} onChange={(e) => set({ [bp("borderWidth")]: Number(e.target.value) || 1 })} min={0} max={20} />
                   </label>
                   <label className={labelCls}>Color
-                    <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={(p.borderColor as string) || "#000000"} onChange={(e) => set({ borderColor: e.target.value })} />
+                    <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={(p[bp("borderColor")] as string) || "#000000"} onChange={(e) => set({ [bp("borderColor")]: e.target.value })} />
                   </label>
                 </div>
               )}
