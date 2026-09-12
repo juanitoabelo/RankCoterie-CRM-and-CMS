@@ -871,16 +871,137 @@ function RowRenderer({ block }: { block: Block }) {
 
 /* ── Simple Leaf Renderers (reuse from page builder where possible) ─────── */
 
+const HEADING_SIZES = {
+  1: "text-4xl font-bold tracking-tight sm:text-5xl",
+  2: "text-3xl font-bold tracking-tight sm:text-4xl",
+  3: "text-2xl font-bold text-zinc-900 sm:text-3xl",
+  4: "text-xl font-semibold text-zinc-900 sm:text-2xl",
+  5: "text-lg font-semibold text-zinc-900",
+  6: "text-base font-semibold text-zinc-900",
+} as const;
+
 function HeadingRenderer({ block }: { block: Block }) {
-  const p = block.props as { text: string; level: number; align: string };
-  const textAlign = p.align as React.CSSProperties["textAlign"];
-  
-  if (p.level === 1) return <h1 style={{ textAlign }}>{p.text}</h1>;
-  if (p.level === 2) return <h2 style={{ textAlign }}>{p.text}</h2>;
-  if (p.level === 3) return <h3 style={{ textAlign }}>{p.text}</h3>;
-  if (p.level === 4) return <h4 style={{ textAlign }}>{p.text}</h4>;
-  if (p.level === 5) return <h5 style={{ textAlign }}>{p.text}</h5>;
-  return <h6 style={{ textAlign }}>{p.text}</h6>;
+  const p = block.props as Record<string, unknown>;
+  const level = (p.level as number) || 2;
+  const Tag = (["h1", "h2", "h3", "h4", "h5", "h6"] as const)[level - 1] as React.ElementType;
+
+  const alignCls =
+    p.align === "center"
+      ? "text-center"
+      : p.align === "right"
+        ? "text-right"
+        : p.align === "justify"
+          ? "text-justify"
+          : "text-left";
+
+  // Responsive hide classes
+  const hideClasses = [
+    p.hideOnDesktop ? "hidden lg:block" : "",
+    p.hideOnTablet ? "hidden md:block" : "",
+    p.hideOnMobile ? "hidden sm:block" : "",
+  ].filter(Boolean).join(" ");
+
+  // Width classes
+  const widthCls = p.width === "full" ? "w-full" : p.width === "boxed" ? "mx-auto max-w-3xl" : p.width === "inline" ? "inline-block" : "";
+
+  // Build inline styles
+  const headingStyle: React.CSSProperties = {};
+
+  if (p.textColor) headingStyle.color = p.textColor as string;
+  if (p.fontFamily) headingStyle.fontFamily = p.fontFamily as string;
+  if (p.fontWeight) headingStyle.fontWeight = p.fontWeight as string;
+  if (p.fontSize) headingStyle.fontSize = `${p.fontSize}${p.fontSizeUnit || "px"}`;
+  if (p.textTransform) headingStyle.textTransform = p.textTransform as React.CSSProperties["textTransform"];
+  if (p.textDecoration) headingStyle.textDecoration = p.textDecoration as React.CSSProperties["textDecoration"];
+  if (p.lineHeight) headingStyle.lineHeight = p.lineHeight as number;
+  if (p.letterSpacing !== undefined) headingStyle.letterSpacing = p.letterSpacing as number;
+  if (p.wordSpacing !== undefined) headingStyle.wordSpacing = p.wordSpacing as number;
+  if (p.textShadow) headingStyle.textShadow = p.textShadow as string;
+  if (p.blendMode) headingStyle.mixBlendMode = p.blendMode as string;
+
+  // Margin
+  if (p.margin) {
+    const m = p.margin as Record<string, string>;
+    headingStyle.marginTop = m.top || undefined;
+    headingStyle.marginRight = m.right || undefined;
+    headingStyle.marginBottom = m.bottom || undefined;
+    headingStyle.marginLeft = m.left || undefined;
+  }
+
+  // Padding
+  if (p.padding) {
+    const pad = p.padding as Record<string, string>;
+    headingStyle.paddingTop = pad.top || undefined;
+    headingStyle.paddingRight = pad.right || undefined;
+    headingStyle.paddingBottom = pad.bottom || undefined;
+    headingStyle.paddingLeft = pad.left || undefined;
+  }
+
+  // Border
+  if (p.borderStyle && p.borderStyle !== "none") {
+    headingStyle.borderStyle = p.borderStyle as string;
+    headingStyle.borderWidth = p.borderWidth ? `${p.borderWidth}px` : "1px";
+    headingStyle.borderColor = (p.borderColor as string) || "#000";
+  }
+
+  // Border radius
+  if (p.borderRadiusTop || p.borderRadiusRight || p.borderRadiusBottom || p.borderRadiusLeft) {
+    headingStyle.borderTopLeftRadius = p.borderRadiusTop ? `${p.borderRadiusTop}px` : undefined;
+    headingStyle.borderTopRightRadius = p.borderRadiusRight ? `${p.borderRadiusRight}px` : undefined;
+    headingStyle.borderBottomRightRadius = p.borderRadiusBottom ? `${p.borderRadiusBottom}px` : undefined;
+    headingStyle.borderBottomLeftRadius = p.borderRadiusLeft ? `${p.borderRadiusLeft}px` : undefined;
+  }
+
+  if (p.boxShadow) headingStyle.boxShadow = p.boxShadow as string;
+  if (p.bgColor) headingStyle.backgroundColor = p.bgColor as string;
+  if (p.zIndex !== undefined) headingStyle.zIndex = p.zIndex as number;
+
+  // Background image
+  if (p.bgImage) {
+    headingStyle.backgroundImage = `url(${p.bgImage})`;
+    headingStyle.backgroundPosition = (p.bgPosition as string) || "center center";
+    headingStyle.backgroundSize = (p.bgSize as string) || "cover";
+    headingStyle.backgroundRepeat = (p.bgRepeat as string) || "no-repeat";
+  }
+
+  // Transform
+  const transforms: string[] = [];
+  if (p.rotateZ) transforms.push(`rotate(${p.rotateZ}deg)`);
+  if (p.rotateX) transforms.push(`rotateX(${p.rotateX}deg)`);
+  if (p.rotateY) transforms.push(`rotateY(${p.rotateY}deg)`);
+  if (p.scaleX || p.scaleY) transforms.push(`scale(${p.scaleX || 1}, ${p.scaleY || 1})`);
+  if (p.skewX) transforms.push(`skewX(${p.skewX}deg)`);
+  if (p.skewY) transforms.push(`skewY(${p.skewY}deg)`);
+  if (p.offsetX || p.offsetY) transforms.push(`translate(${p.offsetX || 0}px, ${p.offsetY || 0}px)`);
+  if (p.flipH) transforms.push("scaleX(-1)");
+  if (p.flipV) transforms.push("scaleY(-1)");
+  if (transforms.length > 0) headingStyle.transform = transforms.join(" ");
+
+  // Entrance animation
+  const animStyle = p.entranceAnimation ? { animation: `${p.entranceAnimation} 0.6s ease-out` } : {};
+
+  const headingContent = (
+    <Tag
+      className={`${HEADING_SIZES[level as keyof typeof HEADING_SIZES] || HEADING_SIZES[2]} ${alignCls} ${widthCls} ${hideClasses}`}
+      style={headingStyle}
+      id={(p.cssId as string) || undefined}
+    >
+      {p.text as string}
+    </Tag>
+  );
+
+  // Wrap in link if provided
+  const wrapped = p.link ? (
+    <a href={p.link as string} target={(p.linkTarget as string) || undefined} className="no-underline" style={{ color: "inherit" }}>
+      {headingContent}
+    </a>
+  ) : headingContent;
+
+  return (
+    <div className={(p.cssClasses as string) || ""} {...animStyle}>
+      {wrapped}
+    </div>
+  );
 }
 
 function TextRenderer({ block }: { block: Block }) {

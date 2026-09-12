@@ -1453,6 +1453,15 @@ function HeadingEditor({ block, onChange }: EditorProps) {
             </label>
           </div>
 
+          {/* Text Stroke */}
+          <div>
+            <div className="flex items-center justify-between">
+              <span className={labelCls}>Text Stroke</span>
+              <span className="text-[10px] text-zinc-400">px</span>
+            </div>
+            <input type="number" className={inputCls} value={(p.textStroke as number) || ""} onChange={(e) => set({ textStroke: Number(e.target.value) || undefined })} min={0} max={10} placeholder="None" />
+          </div>
+
           {/* Text Shadow */}
           <label className={labelCls}>Text Shadow
             <input type="text" className={inputCls} value={(p.textShadow as string) || ""} onChange={(e) => set({ textShadow: e.target.value })} placeholder="2px 2px 4px rgba(0,0,0,0.3)" />
@@ -1467,6 +1476,16 @@ function HeadingEditor({ block, onChange }: EditorProps) {
               <option value="overlay">Overlay</option>
               <option value="darken">Darken</option>
               <option value="lighten">Lighten</option>
+              <option value="color-dodge">Color Dodge</option>
+              <option value="color-burn">Color Burn</option>
+              <option value="hard-light">Hard Light</option>
+              <option value="soft-light">Soft Light</option>
+              <option value="difference">Difference</option>
+              <option value="exclusion">Exclusion</option>
+              <option value="hue">Hue</option>
+              <option value="saturation">Saturation</option>
+              <option value="color">Color</option>
+              <option value="luminosity">Luminosity</option>
             </select>
           </label>
 
@@ -1618,6 +1637,41 @@ function HeadingEditor({ block, onChange }: EditorProps) {
               <label className={labelCls}>Background Color
                 <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={(p.bgColor as string) || "#ffffff"} onChange={(e) => set({ bgColor: e.target.value })} />
               </label>
+              <label className={labelCls}>Background Image
+                <input type="text" className={inputCls} value={(p.bgImage as string) || ""} onChange={(e) => set({ bgImage: e.target.value })} placeholder="URL" />
+              </label>
+              {p.bgImage && (
+                <>
+                  <label className={labelCls}>Position
+                    <select className={inputCls} value={(p.bgPosition as string) || "center center"} onChange={(e) => set({ bgPosition: e.target.value })}>
+                      <option value="center center">Center</option>
+                      <option value="top left">Top Left</option>
+                      <option value="top center">Top Center</option>
+                      <option value="top right">Top Right</option>
+                      <option value="center left">Center Left</option>
+                      <option value="center right">Center Right</option>
+                      <option value="bottom left">Bottom Left</option>
+                      <option value="bottom center">Bottom Center</option>
+                      <option value="bottom right">Bottom Right</option>
+                    </select>
+                  </label>
+                  <label className={labelCls}>Size
+                    <select className={inputCls} value={(p.bgSize as string) || "cover"} onChange={(e) => set({ bgSize: e.target.value })}>
+                      <option value="auto">Auto</option>
+                      <option value="cover">Cover</option>
+                      <option value="contain">Contain</option>
+                    </select>
+                  </label>
+                  <label className={labelCls}>Repeat
+                    <select className={inputCls} value={(p.bgRepeat as string) || "no-repeat"} onChange={(e) => set({ bgRepeat: e.target.value })}>
+                      <option value="repeat">Repeat</option>
+                      <option value="no-repeat">No Repeat</option>
+                      <option value="repeat-x">Repeat X</option>
+                      <option value="repeat-y">Repeat Y</option>
+                    </select>
+                  </label>
+                </>
+              )}
             </div>
           )}
 
