@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { inputCls, labelCls } from "./settings";
 import { SpacingInput, type SpacingValues } from "./settings";
+import MediaLibraryPicker from "./MediaLibraryPicker";
 
 /* ── Types ───────────────────────────────────────────────────────────────── */
 
@@ -276,9 +277,11 @@ export default function BlockAdvancedTab({ props: p, set, show }: AdvancedTabPro
                     </div>
                   </label>
 
-                  <label className={labelCls}>Background Image
-                    <input type="text" className={inputCls} value={(p[gp("bgImage")] as string) || ""} onChange={(e) => set({ [gp("bgImage")]: e.target.value })} placeholder="URL" />
-                  </label>
+                  <MediaLibraryPicker
+                    value={(p[gp("bgImage")] as string) || ""}
+                    onChange={(url) => set({ [gp("bgImage")]: url })}
+                    label="Background Image"
+                  />
 
                   {Boolean(p[gp("bgImage")]) && (
                     <>
