@@ -512,18 +512,28 @@ function MenuRenderer({ block }: { block: Block }) {
       </nav>
 
       {/* Mobile Toggle Button */}
-      <button
-        type="button"
-        className="menu-mobile-toggle hidden items-center justify-center"
-        onClick={() => setMobileOpen(true)}
-        style={{
-          color: p.toggleColor ?? p.textColor,
-          padding: "8px",
-        }}
-        aria-label="Open menu"
+      <div
+        className={`menu-mobile-toggle hidden items-center ${
+          p.toggleAlign === "center"
+            ? "justify-center"
+            : p.toggleAlign === "right"
+              ? "justify-end"
+              : "justify-start"
+        }`}
       >
-        <HamburgerIcon size={p.toggleSize ?? 24} color={p.toggleColor ?? p.textColor} />
-      </button>
+        <button
+          type="button"
+          className="flex items-center justify-center"
+          onClick={() => setMobileOpen(true)}
+          style={{
+            color: p.toggleColor ?? p.textColor,
+            padding: "8px",
+          }}
+          aria-label="Open menu"
+        >
+          <HamburgerIcon size={p.toggleSize ?? 24} color={p.toggleColor ?? p.textColor} />
+        </button>
+      </div>
 
       {/* Mobile Menu Panel */}
       <MobileMenuPanel
