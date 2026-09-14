@@ -8,6 +8,7 @@ type MediaAsset = {
   filename: string | null;
   mimeType: string;
   size: number;
+  alt: string | null;
   createdAt: string;
 };
 
@@ -187,6 +188,9 @@ export default function MediaLibraryPicker({
                       />
                       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <p className="truncate text-[9px] text-white">{asset.filename || "Untitled"}</p>
+                        {asset.alt && (
+                          <p className="truncate text-[9px] text-white/60 italic">&quot;{asset.alt}&quot;</p>
+                        )}
                         <p className="text-[9px] text-white/70">{formatSize(asset.size)}</p>
                       </div>
                     </button>

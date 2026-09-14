@@ -874,10 +874,10 @@ function RowRenderer({ block }: { block: Block }) {
 const HEADING_SIZES = {
   1: "text-4xl font-bold tracking-tight sm:text-5xl",
   2: "text-3xl font-bold tracking-tight sm:text-4xl",
-  3: "text-2xl font-bold text-zinc-900 sm:text-3xl",
-  4: "text-xl font-semibold text-zinc-900 sm:text-2xl",
-  5: "text-lg font-semibold text-zinc-900",
-  6: "text-base font-semibold text-zinc-900",
+  3: "text-2xl font-bold sm:text-3xl",
+  4: "text-xl font-semibold sm:text-2xl",
+  5: "text-lg font-semibold",
+  6: "text-base font-semibold",
 } as const;
 
 function HeadingRenderer({ block }: { block: Block }) {
@@ -908,6 +908,7 @@ function HeadingRenderer({ block }: { block: Block }) {
   const headingStyle: React.CSSProperties = {};
 
   if (p.textColor) headingStyle.color = p.textColor as string;
+  else headingStyle.color = "rgb(24, 24, 27)";
   if (p.fontFamily) headingStyle.fontFamily = p.fontFamily as string;
   if (p.fontWeight) headingStyle.fontWeight = p.fontWeight as string;
   if (p.fontSize) headingStyle.fontSize = `${p.fontSize}${p.fontSizeUnit || "px"}`;
@@ -1005,11 +1006,14 @@ function HeadingRenderer({ block }: { block: Block }) {
 }
 
 function TextRenderer({ block }: { block: Block }) {
-  const p = block.props as { content: string; align: string };
+  const p = block.props as Record<string, unknown>;
   return (
     <div
-      style={{ textAlign: p.align as React.CSSProperties["textAlign"] }}
-      dangerouslySetInnerHTML={{ __html: p.content }}
+      style={{
+        textAlign: (p.align as React.CSSProperties["textAlign"]) || undefined,
+        color: (p.textColor as string) || undefined,
+      }}
+      dangerouslySetInnerHTML={{ __html: p.content as string }}
     />
   );
 }

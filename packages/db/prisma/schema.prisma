@@ -574,6 +574,11 @@ model Asset {
   size      Int
   bytes     Bytes
   filename  String?
+  title     String?
+  alt       String?
+  caption   String?
+  width     Int?
+  height    Int?
   createdAt DateTime @default(now())
   @@index([tenantId])
   widgets Widget[]
