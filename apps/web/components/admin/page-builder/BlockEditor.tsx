@@ -2395,6 +2395,275 @@ function GoogleMapEditor({
   );
 }
 
+function VideoEditor({
+  block,
+  onChange,
+}: {
+  block: Block & { type: "video" };
+  onChange: (props: Block["props"]) => void;
+}) {
+  const p = block.props;
+  const [activeTab, setActiveTab] = useState<"content" | "style" | "advanced">("content");
+  const [videoOpen, setVideoOpen] = useState(true);
+  const [imageOverlayOpen, setImageOverlayOpen] = useState(false);
+  const [cssFilterOpen, setCssFilterOpen] = useState(false);
+
+  const Toggle = ({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) => (
+    <div className="flex items-center justify-between">
+      <label className={labelCls}>{label}</label>
+      <button
+        type="button"
+        onClick={() => onChange(!value)}
+        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${value ? "bg-zinc-900" : "bg-zinc-300"}`}
+      >
+        <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${value ? "translate-x-4" : "translate-x-0.5"}`} />
+      </button>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex border-b border-zinc-200">
+        {(["content", "style", "advanced"] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 px-3 py-2 text-xs font-medium capitalize transition-colors ${
+              activeTab === tab
+                ? "border-b-2 border-zinc-900 text-zinc-900"
+                : "text-zinc-500 hover:text-zinc-700"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "content" && (
+        <div className="space-y-3">
+          {/* Video Section */}
+          <div className="rounded-lg border border-zinc-200">
+            <button
+              type="button"
+              onClick={() => setVideoOpen(!videoOpen)}
+              className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold text-zinc-700"
+            >
+              <span>▸ Video</span>
+              <span>{videoOpen ? "▼" : "▶"}</span>
+            </button>
+            {videoOpen && (
+              <div className="space-y-3 border-t border-zinc-200 p-3">
+                <div>
+                  <label className={labelCls}>Source</label>
+                  <select
+                    className={inputCls}
+                    value={p.source}
+                    onChange={(e) => onChange({ ...p, source: e.target.value })}
+                  >
+                    <option value="youtube">YouTube</option>
+                    <option value="vimeo">Vimeo</option>
+                    <option value="dailymotion">Dailymotion</option>
+                    <option value="selfHosted">Self-Hosted</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className={labelCls}>Link</label>
+                  <input
+                    className={inputCls}
+                    value={p.link || ""}
+                    onChange={(e) => onChange({ ...p, link: e.target.value })}
+                    placeholder="https://..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className={labelCls}>Start Time (sec)</label>
+                    <input
+                      type="number"
+                      className={inputCls}
+                      value={p.startTime ?? 0}
+                      onChange={(e) => onChange({ ...p, startTime: Number(e.target.value) })}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>End Time (sec)</label>
+                    <input
+                      type="number"
+                      className={inputCls}
+                      value={p.endTime ?? 0}
+                      onChange={(e) => onChange({ ...p, endTime: Number(e.target.value) })}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-[10px] font-semibold text-zinc-500 uppercase">Video Options</p>
+                  <Toggle label="Autoplay" value={!!p.autoplay} onChange={(v) => onChange({ ...p, autoplay: v })} />
+                  <Toggle label="Mute" value={!!p.mute} onChange={(v) => onChange({ ...p, mute: v })} />
+                  <Toggle label="Loop" value={!!p.loop} onChange={(v) => onChange({ ...p, loop: v })} />
+                  <Toggle label="Player Controls" value={!!p.playerControls} onChange={(v) => onChange({ ...p, playerControls: v })} />
+                  <Toggle label="Captions" value={!!p.captions} onChange={(v) => onChange({ ...p, captions: v })} />
+                  <Toggle label="Privacy Mode" value={!!p.privacyMode} onChange={(v) => onChange({ ...p, privacyMode: v })} />
+                  <Toggle label="Lazy Load" value={!!p.lazyLoad} onChange={(v) => onChange({ ...p, lazyLoad: v })} />
+                  <div>
+                    <label className={labelCls}>Suggested Videos</label>
+                    <select
+                      className={inputCls}
+                      value={p.suggestedVideos || "current"}
+                      onChange={(e) => onChange({ ...p, suggestedVideos: e.target.value })}
+                    >
+                      <option value="current">Current Video Channel</option>
+                      <option value="any">Any</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Image Overlay Section */}
+          <div className="rounded-lg border border-zinc-200">
+            <button
+              type="button"
+              onClick={() => setImageOverlayOpen(!imageOverlayOpen)}
+              className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold text-zinc-700"
+            >
+              <span>▸ Image Overlay</span>
+              <span>{imageOverlayOpen ? "▼" : "▶"}</span>
+            </button>
+            {imageOverlayOpen && (
+              <div className="space-y-3 border-t border-zinc-200 p-3">
+                <Toggle label="Image Overlay" value={!!p.imageOverlay} onChange={(v) => onChange({ ...p, imageOverlay: v })} />
+
+                {p.imageOverlay && (
+                  <>
+                    <div>
+                      <label className={labelCls}>Choose Image</label>
+                      <input
+                        className={inputCls}
+                        value={p.overlayImage || ""}
+                        onChange={(e) => onChange({ ...p, overlayImage: e.target.value })}
+                        placeholder="Image URL"
+                      />
+                    </div>
+
+                    <div>
+                      <label className={labelCls}>Image Resolution</label>
+                      <select
+                        className={inputCls}
+                        value={p.overlayImageResolution || "full"}
+                        onChange={(e) => onChange({ ...p, overlayImageResolution: e.target.value })}
+                      >
+                        <option value="thumbnail">Thumbnail</option>
+                        <option value="medium">Medium</option>
+                        <option value="medium_large">Medium Large</option>
+                        <option value="large">Large</option>
+                        <option value="full">Full</option>
+                      </select>
+                    </div>
+
+                    <Toggle label="Play Icon" value={!!p.playIcon} onChange={(v) => onChange({ ...p, playIcon: v })} />
+
+                    {p.playIcon && (
+                      <div>
+                        <label className={labelCls}>Icon</label>
+                        <div className="flex gap-2">
+                          {(["circle", "upArrow", "star"] as const).map((type) => (
+                            <button
+                              key={type}
+                              type="button"
+                              onClick={() => onChange({ ...p, playIconType: type })}
+                              className={`flex h-8 w-8 items-center justify-center rounded border ${
+                                p.playIconType === type
+                                  ? "border-zinc-900 bg-zinc-900 text-white"
+                                  : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50"
+                              }`}
+                            >
+                              {type === "circle" ? "▶" : type === "upArrow" ? "▲" : "★"}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <Toggle label="Lightbox" value={!!p.lightbox} onChange={(v) => onChange({ ...p, lightbox: v })} />
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "style" && (
+        <div className="space-y-3">
+          <div>
+            <label className={labelCls}>Aspect Ratio</label>
+            <select
+              className={inputCls}
+              value={p.aspectRatio || "16:9"}
+              onChange={(e) => onChange({ ...p, aspectRatio: e.target.value })}
+            >
+              <option value="16:9">16:9</option>
+              <option value="4:3">4:3</option>
+              <option value="1:1">1:1</option>
+              <option value="21:9">21:9</option>
+            </select>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between">
+              <label className={labelCls}>CSS Filters</label>
+              <button
+                type="button"
+                onClick={() => setCssFilterOpen(!cssFilterOpen)}
+                className="text-xs text-zinc-500 hover:text-zinc-700"
+              >
+                {cssFilterOpen ? "▼" : "▶"}
+              </button>
+            </div>
+            {cssFilterOpen && (
+              <div className="mt-2 space-y-3 rounded-lg border border-zinc-200 p-3">
+                <div>
+                  <label className={labelCls}>Blur ({p.cssFilterBlur ?? 0}px)</label>
+                  <input type="range" min={0} max={20} value={p.cssFilterBlur ?? 0} onChange={(e) => onChange({ ...p, cssFilterBlur: Number(e.target.value) })} className="mt-1 w-full" />
+                </div>
+                <div>
+                  <label className={labelCls}>Brightness ({p.cssFilterBrightness ?? 100}%)</label>
+                  <input type="range" min={0} max={200} value={p.cssFilterBrightness ?? 100} onChange={(e) => onChange({ ...p, cssFilterBrightness: Number(e.target.value) })} className="mt-1 w-full" />
+                </div>
+                <div>
+                  <label className={labelCls}>Contrast ({p.cssFilterContrast ?? 100}%)</label>
+                  <input type="range" min={0} max={200} value={p.cssFilterContrast ?? 100} onChange={(e) => onChange({ ...p, cssFilterContrast: Number(e.target.value) })} className="mt-1 w-full" />
+                </div>
+                <div>
+                  <label className={labelCls}>Saturation ({p.cssFilterSaturation ?? 100}%)</label>
+                  <input type="range" min={0} max={200} value={p.cssFilterSaturation ?? 100} onChange={(e) => onChange({ ...p, cssFilterSaturation: Number(e.target.value) })} className="mt-1 w-full" />
+                </div>
+                <div>
+                  <label className={labelCls}>Hue ({p.cssFilterHue ?? 0}deg)</label>
+                  <input type="range" min={0} max={360} value={p.cssFilterHue ?? 0} onChange={(e) => onChange({ ...p, cssFilterHue: Number(e.target.value) })} className="mt-1 w-full" />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "advanced" && (
+        <BlockAdvancedTab
+          props={p}
+          set={(patch: Record<string, unknown>) => onChange({ ...p, ...patch })}
+          show={["motionEffects", "transform", "background", "border", "responsive", "attributes", "customCss", "displayConditions", "cacheSettings"]}
+        />
+      )}
+    </div>
+  );
+}
+
 const EDITORS: Record<string, React.ComponentType<EditorProps>> = {
   hero: HeroEditor as React.ComponentType<EditorProps>,
   text: TextEditor as React.ComponentType<EditorProps>,
@@ -2411,6 +2680,7 @@ const EDITORS: Record<string, React.ComponentType<EditorProps>> = {
   list: ListEditor as React.ComponentType<EditorProps>,
   iconList: IconListEditor as React.ComponentType<EditorProps>,
   googleMap: GoogleMapEditor as React.ComponentType<EditorProps>,
+  video: VideoEditor as React.ComponentType<EditorProps>,
   slider: SliderEditor as React.ComponentType<EditorProps>,
   contentGrid: ContentGridEditor as React.ComponentType<EditorProps>,
   row: RowEditor as React.ComponentType<EditorProps>,

@@ -331,6 +331,57 @@ export interface GoogleMapBlock extends BlockBase {
   };
 }
 
+export interface VideoBlock extends BlockBase {
+  type: "video";
+  props: {
+    source: "youtube" | "vimeo" | "dailymotion" | "selfHosted";
+    link: string;
+    startTime?: number;
+    endTime?: number;
+    // Video Options
+    autoplay?: boolean;
+    mute?: boolean;
+    loop?: boolean;
+    playerControls?: boolean;
+    captions?: boolean;
+    privacyMode?: boolean;
+    lazyLoad?: boolean;
+    suggestedVideos?: "current" | "any";
+    // Image Overlay
+    imageOverlay?: boolean;
+    overlayImage?: string;
+    overlayImageResolution?: "thumbnail" | "medium" | "medium_large" | "large" | "full";
+    playIcon?: boolean;
+    playIconType?: "circle" | "upArrow" | "star";
+    lightbox?: boolean;
+    // Style
+    aspectRatio?: "16:9" | "4:3" | "1:1" | "21:9";
+    cssFilterBlur?: number;
+    cssFilterBrightness?: number;
+    cssFilterContrast?: number;
+    cssFilterSaturation?: number;
+    cssFilterHue?: number;
+    // Advanced
+    margin?: { top: string; right: string; bottom: string; left: string };
+    padding?: { top: string; right: string; bottom: string; left: string };
+    cssId?: string;
+    cssClasses?: string;
+    customCss?: string;
+    displayConditions?: {
+      showOnDesktop?: boolean;
+      showOnTablet?: boolean;
+      showOnMobile?: boolean;
+    };
+    cacheSettings?: {
+      enabled?: boolean;
+      duration?: number;
+    };
+    hideOnDesktop?: boolean;
+    hideOnTablet?: boolean;
+    hideOnMobile?: boolean;
+  };
+}
+
 export interface SliderSlide {
   src: string;
   alt: string;
@@ -514,6 +565,7 @@ export type Block =
   | ListBlock
   | IconListBlock
   | GoogleMapBlock
+  | VideoBlock
   | SliderBlock
   | ContentGridBlock
   | RowBlock
@@ -546,6 +598,7 @@ export const LEAF_BLOCK_TYPES: BlockType[] = [
   "list",
   "iconList",
   "googleMap",
+  "video",
   "slider",
   "contentGrid",
 ];
@@ -759,6 +812,37 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       location: "London Eye, London, United Kingdom",
       zoom: 10,
       height: 400,
+      cssFilterBlur: 0,
+      cssFilterBrightness: 100,
+      cssFilterContrast: 100,
+      cssFilterSaturation: 100,
+      cssFilterHue: 0,
+    },
+  },
+  {
+    type: "video",
+    label: "Video",
+    icon: "▶",
+    defaults: {
+      source: "youtube",
+      link: "",
+      startTime: 0,
+      endTime: 0,
+      autoplay: false,
+      mute: false,
+      loop: false,
+      playerControls: true,
+      captions: false,
+      privacyMode: false,
+      lazyLoad: false,
+      suggestedVideos: "current",
+      imageOverlay: false,
+      overlayImage: "",
+      overlayImageResolution: "full",
+      playIcon: true,
+      playIconType: "circle",
+      lightbox: false,
+      aspectRatio: "16:9",
       cssFilterBlur: 0,
       cssFilterBrightness: 100,
       cssFilterContrast: 100,

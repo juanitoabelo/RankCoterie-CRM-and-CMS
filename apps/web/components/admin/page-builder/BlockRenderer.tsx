@@ -1,5 +1,5 @@
 import type React from "react";
-import { type Block, type RowBlock, type SectionBlock, type StyleBreakpoints, type IconListBlock } from "@/lib/page-builder/types";
+import { type Block, type RowBlock, type SectionBlock, type StyleBreakpoints, type IconListBlock, type VideoBlock } from "@/lib/page-builder/types";
 import {
   renderColumnSpanClass,
   resolveColumnWidths,
@@ -874,6 +874,143 @@ function GoogleMapBlock({ block }: { block: Block; ctx: RegionContext }) {
   );
 }
 
+function VideoBlock({ block }: { block: Block; ctx: RegionContext }) {
+  const p = block.props as VideoBlock["props"];
+  const source = p.source || "youtube";
+  const link = p.link || "";
+  const aspectRatio = p.aspectRatio || "16:9";
+
+  const filters: string[] = [];
+  if (p.cssFilterBlur) filters.push(`blur(${p.cssFilterBlur}px)`);
+  if (p.cssFilterBrightness && p.cssFilterBrightness !== 100) filters.push(`brightness(${p.cssFilterBrightness}%)`);
+  if (p.cssFilterContrast && p.cssFilterContrast !== 100) filters.push(`contrast(${p.cssFilterContrast}%)`);
+  if (p.cssFilterSaturation && p.cssFilterSaturation !== 100) filters.push(`saturate(${p.cssFilterSaturation}%)`);
+  if (p.cssFilterHue) filters.push(`hue-rotate(${p.cssFilterHue}deg)`);
+
+  const containerStyle: React.CSSProperties = {
+    width: "100%",
+    position: "relative",
+    overflow: "hidden",
+  };
+
+  const aspectMap: Record<string, string> = {
+    "16:9": "56.25%",
+    "4:3": "75%",
+    "1:1": "100%",
+    "21:9": "42.86%",
+  };
+  containerStyle.paddingBottom = aspectMap[aspectRatio] || "56.25%";
+
+  if (p.margin) {
+    if (p.margin.top) containerStyle.marginTop = p.margin.top;
+    if (p.margin.right) containerStyle.marginRight = p.margin.right;
+    if (p.margin.bottom) containerStyle.marginBottom = p.margin.bottom;
+    if (p.margin.left) containerStyle.marginLeft = p.margin.left;
+  }
+  if (p.padding) {
+    if (p.padding.top) containerStyle.paddingTop = p.padding.top;
+    if (p.padding.right) containerStyle.paddingRight = p.padding.right;
+    if (p.padding.bottom) containerStyle.paddingBottom = p.padding.bottom;
+    if (p.padding.left) containerStyle.paddingLeft = p.padding.left;
+  }
+
+  const iframeStyle: React.CSSProperties = {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    border: 0,
+  };
+  if (filters.length > 0) {
+    iframeStyle.filter = filters.join(" ");
+  }
+
+  let videoUrl = "";
+  const params: string[] = [];
+
+  if (p.autoplay) params.push("autoplay=1");
+  if (p.mute) params.push("mute=1");
+  if (p.loop) params.push("loop=1");
+  if (!p.playerControls) params.push("controls=0");
+  if (p.captions) params.push("cc_load_policy=1");
+  if (p.privacyMode && (source === "youtube" || source === "vimeo")) params.push("dnt=1");
+  if (p.startTime) params.push(`start=${p.startTime}`);
+  if (p.endTime) params.push(`end=${p.endTime}`);
+  if (p.suggestedVideos === "any") params.push("rel=1");
+
+  const queryString = params.length > 0 ? `?${params.join("&")}` : "";
+
+  if (source === "youtube") {
+    const videoId = link.match(/(?:v=|youtu\.be\/)([^&]+)/)?.[1] || "";
+    videoUrl = videoId ? `https://www.youtube.com/embed/${videoId}${queryString}` : "";
+  } else if (source === "vimeo") {
+    const videoId = link.match(/vimeo\.com\/(\d+)/)?.[1] || "";
+    videoUrl = videoId ? `https://player.vimeo.com/video/${videoId}${queryString}` : "";
+  } else if (source === "dailymotion") {
+    const videoId = link.match(/dailymotion\.com\/video\/([^_]+)/)?.[1] || "";
+    videoUrl = videoId ? `https://www.dailymotion.com/embed/video/${videoId}${queryString}` : "";
+  }
+
+  const playIconStyle: React.CSSProperties = {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    width: "68px",
+    height: "48px",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    borderRadius: p.playIconType === "circle" ? "50%" : "12px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    zIndex: 2,
+  };
+
+  const playIconSymbol = p.playIconType === "upArrow" ? "▲" : p.playIconType === "star" ? "★" : "▶";
+
+  return (
+    <div
+      id={p.cssId || undefined}
+      className={p.cssClasses || undefined}
+      style={containerStyle}
+    >
+      {p.imageOverlay && p.overlayImage ? (
+        <div className="relative h-full w-full">
+          <img
+            src={p.overlayImage}
+            alt="Video thumbnail"
+            className="h-full w-full object-cover"
+            style={filters.length > 0 ? { filter: filters.join(" ") } : undefined}
+          />
+          {p.playIcon && (
+            <div style={playIconStyle}>
+              <span style={{ color: "white", fontSize: "20px", marginLeft: "3px" }}>{playIconSymbol}</span>
+            </div>
+          )}
+        </div>
+      ) : videoUrl ? (
+        <iframe
+          src={videoUrl}
+          style={iframeStyle}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          loading={p.lazyLoad ? "lazy" : "eager"}
+          title="Video"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-zinc-200">
+          <div className="text-center text-zinc-500">
+            <span className="text-4xl">▶</span>
+            <p className="mt-2 text-sm">Choose your video</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const RENDERERS: Record<string, React.ComponentType<{ block: Block; ctx: RegionContext }>> = {
   hero: HeroBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   text: TextBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
@@ -890,6 +1027,7 @@ const RENDERERS: Record<string, React.ComponentType<{ block: Block; ctx: RegionC
   list: ListBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   iconList: IconListBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   googleMap: GoogleMapBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  video: VideoBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   slider: SliderBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   contentGrid: ContentGridBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   row: RowBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
