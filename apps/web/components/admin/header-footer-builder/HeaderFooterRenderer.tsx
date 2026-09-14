@@ -1187,6 +1187,110 @@ function TestimonialRenderer({ block }: { block: Block }) {
   );
 }
 
+/* ── Icon List Renderer ──────────────────────────────────────────────────── */
+
+function IconListRenderer({ block }: { block: Block }) {
+  const p = block.props as Record<string, unknown>;
+  const items = (p.items || []) as Array<{ text: string; icon: string; link?: string }>;
+  const layout = (p.layout as string) || "list";
+  const isInline = layout === "inline";
+  const gap = (p.iconGap as number) ?? 8;
+  const space = (p.spaceBetween as number) ?? 0;
+
+  const textStyle: React.CSSProperties = {};
+  if (p.textColor) textStyle.color = p.textColor as string;
+  if (p.typography && typeof p.typography === "object") {
+    const t = p.typography as Record<string, unknown>;
+    if (t.fontFamily) textStyle.fontFamily = t.fontFamily as string;
+    if (t.fontWeight) textStyle.fontWeight = t.fontWeight as string;
+    if (t.fontSize) textStyle.fontSize = `${t.fontSize}${t.fontSizeUnit || "px"}`;
+    if (t.lineHeight) textStyle.lineHeight = t.lineHeight as number;
+    if (t.letterSpacing !== undefined) textStyle.letterSpacing = t.letterSpacing as number;
+    if (t.textTransform) textStyle.textTransform = t.textTransform as React.CSSProperties["textTransform"];
+    if (t.textDecoration) textStyle.textDecoration = t.textDecoration as React.CSSProperties["textDecoration"];
+  }
+  if (p.textShadow) textStyle.textShadow = p.textShadow as string;
+
+  const listStyle: React.CSSProperties = {
+    display: "flex",
+    flexDirection: isInline ? "row" : "column",
+    alignItems: p.align === "center" ? "center" : p.align === "right" ? "flex-end" : "flex-start",
+    gap: isInline ? `${gap * 2}px` : `${space}px`,
+    listStyle: "none",
+    margin: 0,
+    padding: 0,
+  };
+
+  const itemAlign = p.iconVerticalAlign === "top" ? "flex-start" : p.iconVerticalAlign === "bottom" ? "flex-end" : "center";
+
+  if (p.margin && typeof p.margin === "object") {
+    const m = p.margin as Record<string, string>;
+    if (m.top) listStyle.marginTop = m.top;
+    if (m.right) listStyle.marginRight = m.right;
+    if (m.bottom) listStyle.marginBottom = m.bottom;
+    if (m.left) listStyle.marginLeft = m.left;
+  }
+  if (p.padding && typeof p.padding === "object") {
+    const pd = p.padding as Record<string, string>;
+    if (pd.top) listStyle.paddingTop = pd.top;
+    if (pd.right) listStyle.paddingRight = pd.right;
+    if (pd.bottom) listStyle.paddingBottom = pd.bottom;
+    if (pd.left) listStyle.paddingLeft = pd.left;
+  }
+
+  return (
+    <ul
+      id={(p.cssId as string) || undefined}
+      className={(p.cssClasses as string) || undefined}
+      style={listStyle}
+    >
+      {items.map((item, i) => {
+        const iconStyle: React.CSSProperties = {
+          color: (p.iconColor as string) || "#1e40af",
+          fontSize: `${(p.iconSize as number) ?? 14}px`,
+          lineHeight: 1,
+          flexShrink: 0,
+        };
+
+        const itemStyle: React.CSSProperties = {
+          display: "flex",
+          alignItems: itemAlign,
+          gap: `${gap}px`,
+        };
+
+        const content = (
+          <li key={i} style={itemStyle}>
+            {item.icon && <span style={iconStyle}>{item.icon}</span>}
+            <span style={textStyle}>{item.text}</span>
+          </li>
+        );
+
+        if (item.link && p.applyLinkOn !== "icon_only") {
+          const relParts: string[] = [];
+          if (p.openInNewTab) relParts.push("noopener", "noreferrer");
+          if (p.linkRel) relParts.push(...(p.linkRel as string).split(" ").filter(Boolean));
+          const relAttr = relParts.length > 0 ? relParts.join(" ") : undefined;
+
+          return (
+            <a
+              key={i}
+              href={item.link}
+              target={p.openInNewTab ? "_blank" : undefined}
+              rel={relAttr}
+              style={{ ...itemStyle, textDecoration: "none", color: "inherit" }}
+            >
+              {item.icon && <span style={iconStyle}>{item.icon}</span>}
+              <span style={textStyle}>{item.text}</span>
+            </a>
+          );
+        }
+
+        return content;
+      })}
+    </ul>
+  );
+}
+
 /* ── Renderer Map ────────────────────────────────────────────────────────── */
 
 const RENDERERS: Record<string, React.ComponentType<{ block: Block }>> = {
@@ -1203,6 +1307,7 @@ const RENDERERS: Record<string, React.ComponentType<{ block: Block }>> = {
   divider: DividerRenderer,
   embed: EmbedRenderer,
   testimonial: TestimonialRenderer,
+  iconList: IconListRenderer,
 };
 
 /* ── Section Renderer ───────────────────────────────────────────────────── */

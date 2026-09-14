@@ -243,6 +243,61 @@ export interface ListBlock extends BlockBase {
   };
 }
 
+export interface IconListItem {
+  text: string;
+  icon: string;
+  link?: string;
+}
+
+export interface IconListBlock extends BlockBase {
+  type: "iconList";
+  props: {
+    items: IconListItem[];
+    layout: "list" | "inline";
+    applyLinkOn: "full_width" | "icon_only" | "text_only";
+    openInNewTab?: boolean;
+    linkRel?: string;
+    // List style
+    spaceBetween?: number;
+    align?: "left" | "center" | "right";
+    divider?: boolean;
+    dividerColor?: string;
+    dividerStyle?: string;
+    // Icon style
+    iconColor?: string;
+    iconHoverColor?: string;
+    iconSize?: number;
+    iconGap?: number;
+    iconHorizontalAlign?: "left" | "center" | "right";
+    iconVerticalAlign?: "top" | "middle" | "bottom";
+    iconVerticalOffset?: number;
+    // Text style
+    textColor?: string;
+    textHoverColor?: string;
+    typography?: {
+      fontFamily?: string;
+      fontWeight?: string;
+      fontSize?: number;
+      fontSizeUnit?: string;
+      lineHeight?: number;
+      letterSpacing?: number;
+      textTransform?: string;
+      textDecoration?: string;
+    };
+    textShadow?: string;
+    // Advanced
+    margin?: { top: string; right: string; bottom: string; left: string };
+    padding?: { top: string; right: string; bottom: string; left: string };
+    cssId?: string;
+    cssClasses?: string;
+    customCss?: string;
+    // Responsive
+    hideOnDesktop?: boolean;
+    hideOnTablet?: boolean;
+    hideOnMobile?: boolean;
+  };
+}
+
 export interface SliderSlide {
   src: string;
   alt: string;
@@ -424,6 +479,7 @@ export type Block =
   | DividerBlock
   | HeadingBlock
   | ListBlock
+  | IconListBlock
   | SliderBlock
   | ContentGridBlock
   | RowBlock
@@ -454,6 +510,7 @@ export const LEAF_BLOCK_TYPES: BlockType[] = [
   "divider",
   "heading",
   "list",
+  "iconList",
   "slider",
   "contentGrid",
 ];
@@ -637,6 +694,26 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     defaults: {
       ordered: false,
       items: ["First item", "Second item", "Third item"],
+    },
+  },
+  {
+    type: "iconList",
+    label: "Icon List",
+    icon: "✔",
+    defaults: {
+      items: [
+        { text: "List Item #1", icon: "✔", link: "" },
+        { text: "List Item #2", icon: "✕", link: "" },
+        { text: "List Item #3", icon: "◉", link: "" },
+      ],
+      layout: "list",
+      applyLinkOn: "full_width",
+      spaceBetween: 0,
+      align: "left",
+      divider: false,
+      iconColor: "#1e40af",
+      iconSize: 14,
+      iconGap: 8,
     },
   },
   {

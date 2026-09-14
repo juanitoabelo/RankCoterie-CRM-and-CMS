@@ -1,5 +1,5 @@
 import type React from "react";
-import { type Block, type RowBlock, type SectionBlock, type StyleBreakpoints } from "@/lib/page-builder/types";
+import { type Block, type RowBlock, type SectionBlock, type StyleBreakpoints, type IconListBlock } from "@/lib/page-builder/types";
 import {
   renderColumnSpanClass,
   resolveColumnWidths,
@@ -707,6 +707,112 @@ function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
   );
 }
 
+function IconListBlock({ block }: { block: Block; ctx: RegionContext }) {
+  const p = block.props as IconListBlock["props"];
+  const isInline = p.layout === "inline";
+  const gap = p.iconGap ?? 8;
+  const space = p.spaceBetween ?? 0;
+
+  const textStyle: React.CSSProperties = {};
+  if (p.textColor) textStyle.color = p.textColor;
+  if (p.typography?.fontFamily) textStyle.fontFamily = p.typography.fontFamily;
+  if (p.typography?.fontWeight) textStyle.fontWeight = p.typography.fontWeight;
+  if (p.typography?.fontSize) textStyle.fontSize = `${p.typography.fontSize}${p.typography.fontSizeUnit || "px"}`;
+  if (p.typography?.lineHeight) textStyle.lineHeight = p.typography.lineHeight;
+  if (p.typography?.letterSpacing !== undefined) textStyle.letterSpacing = p.typography.letterSpacing;
+  if (p.typography?.textTransform) textStyle.textTransform = p.typography.textTransform as React.CSSProperties["textTransform"];
+  if (p.typography?.textDecoration) textStyle.textDecoration = p.typography.textDecoration as React.CSSProperties["textDecoration"];
+  if (p.textShadow) textStyle.textShadow = p.textShadow;
+
+  const listStyle: React.CSSProperties = {
+    display: "flex",
+    flexDirection: isInline ? "row" : "column",
+    alignItems: p.align === "center" ? "center" : p.align === "right" ? "flex-end" : "flex-start",
+    gap: isInline ? `${gap * 2}px` : `${space}px`,
+    listStyle: "none",
+    margin: 0,
+    padding: 0,
+  };
+
+  const itemStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: p.iconVerticalAlign === "top" ? "flex-start" : p.iconVerticalAlign === "bottom" ? "flex-end" : "center",
+    gap: `${gap}px`,
+  };
+
+  if (p.margin) {
+    Object.assign(listStyle, {
+      marginTop: p.margin.top || undefined,
+      marginRight: p.margin.right || undefined,
+      marginBottom: p.margin.bottom || undefined,
+      marginLeft: p.margin.left || undefined,
+    });
+  }
+  if (p.padding) {
+    Object.assign(listStyle, {
+      paddingTop: p.padding.top || undefined,
+      paddingRight: p.padding.right || undefined,
+      paddingBottom: p.padding.bottom || undefined,
+      paddingLeft: p.padding.left || undefined,
+    });
+  }
+
+  return (
+    <ul
+      id={p.cssId || undefined}
+      className={p.cssClasses || undefined}
+      style={listStyle}
+    >
+      {p.items.map((item, i) => {
+        const iconStyle: React.CSSProperties = {
+          color: p.iconColor || "#1e40af",
+          fontSize: `${p.iconSize ?? 14}px`,
+          lineHeight: 1,
+          flexShrink: 0,
+        };
+
+        const content = (
+          <li key={i} style={itemStyle}>
+            {item.icon && <span style={iconStyle}>{item.icon}</span>}
+            <span style={textStyle}>{item.text}</span>
+          </li>
+        );
+
+        if (item.link && p.applyLinkOn !== "icon_only") {
+          const relParts: string[] = [];
+          if (p.openInNewTab) relParts.push("noopener", "noreferrer");
+          if (p.linkRel) relParts.push(...p.linkRel.split(" ").filter(Boolean));
+          const relAttr = relParts.length > 0 ? relParts.join(" ") : undefined;
+
+          return (
+            <a
+              key={i}
+              href={item.link}
+              target={p.openInNewTab ? "_blank" : undefined}
+              rel={relAttr}
+              style={{ ...itemStyle, textDecoration: "none", color: "inherit" }}
+              className="group"
+            >
+              {item.icon && <span style={iconStyle}>{item.icon}</span>}
+              <span
+                style={{
+                  ...textStyle,
+                  color: p.textHoverColor || undefined,
+                }}
+                className="transition-colors"
+              >
+                {item.text}
+              </span>
+            </a>
+          );
+        }
+
+        return content;
+      })}
+    </ul>
+  );
+}
+
 const RENDERERS: Record<string, React.ComponentType<{ block: Block; ctx: RegionContext }>> = {
   hero: HeroBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   text: TextBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
@@ -721,6 +827,7 @@ const RENDERERS: Record<string, React.ComponentType<{ block: Block; ctx: RegionC
   divider: DividerBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   heading: HeadingBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   list: ListBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  iconList: IconListBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   slider: SliderBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   contentGrid: ContentGridBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   row: RowBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,

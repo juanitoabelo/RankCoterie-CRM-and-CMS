@@ -1852,6 +1852,392 @@ function RowEditor({
   );
 }
 
+const ICON_PRESETS = [
+  { value: "", label: "No Icon" },
+  { value: "✔", label: "Checkmark" },
+  { value: "✕", label: "Cross" },
+  { value: "◉", label: "Circle" },
+  { value: "●", label: "Bullet" },
+  { value: "▸", label: "Arrow" },
+  { value: "★", label: "Star" },
+  { value: "♥", label: "Heart" },
+  { value: "✓", label: "Tick" },
+  { value: "→", label: "Right Arrow" },
+  { value: "★", label: "Filled Star" },
+];
+
+function IconListEditor({
+  block,
+  onChange,
+}: {
+  block: Block & { type: "iconList" };
+  onChange: (props: Block["props"]) => void;
+}) {
+  const p = block.props;
+  const [activeTab, setActiveTab] = useState<"content" | "style" | "advanced">("content");
+
+  const updateItem = (index: number, field: string, value: string) => {
+    const items = [...p.items];
+    items[index] = { ...items[index], [field]: value };
+    onChange({ ...p, items });
+  };
+
+  const addItem = () => {
+    onChange({
+      ...p,
+      items: [...p.items, { text: "New item", icon: "✔", link: "" }],
+    });
+  };
+
+  const removeItem = (index: number) => {
+    onChange({ ...p, items: p.items.filter((_, i) => i !== index) });
+  };
+
+  const moveItem = (from: number, to: number) => {
+    if (to < 0 || to >= p.items.length) return;
+    const items = [...p.items];
+    const [moved] = items.splice(from, 1);
+    items.splice(to, 0, moved);
+    onChange({ ...p, items });
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Tab bar */}
+      <div className="flex border-b border-zinc-200">
+        {(["content", "style", "advanced"] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 px-3 py-2 text-xs font-medium capitalize transition-colors ${
+              activeTab === tab
+                ? "border-b-2 border-zinc-900 text-zinc-900"
+                : "text-zinc-500 hover:text-zinc-700"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "content" && (
+        <div className="space-y-3">
+          {/* Layout */}
+          <div>
+            <label className={labelCls}>Layout</label>
+            <div className="flex gap-1">
+              {(["list", "inline"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => onChange({ ...p, layout: v })}
+                  className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium capitalize ${
+                    p.layout === v
+                      ? "border-zinc-900 bg-zinc-900 text-white"
+                      : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50"
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Items */}
+          <div>
+            <label className={labelCls}>Items</label>
+            <div className="mt-1 space-y-2">
+              {p.items.map((item, i) => (
+                <div
+                  key={i}
+                  className="rounded-lg border border-zinc-200 p-3 space-y-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-zinc-500">
+                      {item.icon || "—"} Item {i + 1}
+                    </span>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => moveItem(i, i - 1)}
+                        disabled={i === 0}
+                        className="text-xs text-zinc-400 hover:text-zinc-700 disabled:opacity-30"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveItem(i, i + 1)}
+                        disabled={i === p.items.length - 1}
+                        className="text-xs text-zinc-400 hover:text-zinc-700 disabled:opacity-30"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeItem(i)}
+                        className="text-xs text-red-500 hover:text-red-700"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                  <input
+                    className={inputCls}
+                    value={item.text}
+                    onChange={(e) => updateItem(i, "text", e.target.value)}
+                    placeholder="Text"
+                  />
+                  <div className="flex gap-2">
+                    <select
+                      className={inputCls}
+                      value={item.icon}
+                      onChange={(e) => updateItem(i, "icon", e.target.value)}
+                    >
+                      {ICON_PRESETS.map((ic) => (
+                        <option key={ic.value} value={ic.value}>
+                          {ic.value} {ic.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      className={inputCls}
+                      value={item.link || ""}
+                      onChange={(e) => updateItem(i, "link", e.target.value)}
+                      placeholder="Link URL (optional)"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={addItem}
+              className="mt-2 w-full rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-500 hover:border-zinc-400 hover:text-zinc-700"
+            >
+              + Add Item
+            </button>
+          </div>
+
+          {/* Apply Link On */}
+          <div>
+            <label className={labelCls}>Apply Link On</label>
+            <select
+              className={inputCls}
+              value={p.applyLinkOn}
+              onChange={(e) => onChange({ ...p, applyLinkOn: e.target.value })}
+            >
+              <option value="full_width">Full Width</option>
+              <option value="icon_only">Icon Only</option>
+              <option value="text_only">Text Only</option>
+            </select>
+          </div>
+
+          {/* Open in New Tab */}
+          <div className="flex items-center justify-between">
+            <label className={labelCls}>Open in New Tab</label>
+            <button
+              type="button"
+              onClick={() => onChange({ ...p, openInNewTab: !p.openInNewTab })}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                p.openInNewTab ? "bg-zinc-900" : "bg-zinc-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
+                  p.openInNewTab ? "translate-x-4" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Link Rel */}
+          {p.items?.some((item: IconListItem) => item.link) && (
+            <div>
+              <label className={labelCls}>Link Rel Attributes</label>
+              <div className="mt-1 space-y-2">
+                {["nofollow", "sponsored", "ugc"].map((attr) => {
+                  const rels = (p.linkRel || "").split(" ").filter(Boolean);
+                  const checked = rels.includes(attr);
+                  return (
+                    <label key={attr} className="flex items-center gap-2 text-xs text-zinc-600">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          const newRels = checked
+                            ? rels.filter((r) => r !== attr)
+                            : [...rels, attr];
+                          onChange({ ...p, linkRel: newRels.join(" ") });
+                        }}
+                        className="h-3.5 w-3.5 rounded border-zinc-300"
+                      />
+                      {attr}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === "style" && (
+        <div className="space-y-4">
+          {/* List section */}
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-zinc-700">List</p>
+            <div>
+              <label className={labelCls}>Space Between</label>
+              <input
+                type="number"
+                className={inputCls}
+                value={p.spaceBetween ?? 0}
+                onChange={(e) => onChange({ ...p, spaceBetween: Number(e.target.value) })}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Alignment</label>
+              <div className="flex gap-1">
+                {(["left", "center", "right"] as const).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => onChange({ ...p, align: v })}
+                    className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium capitalize ${
+                      p.align === v
+                        ? "border-zinc-900 bg-zinc-900 text-white"
+                        : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50"
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <label className={labelCls}>Divider</label>
+              <button
+                type="button"
+                onClick={() => onChange({ ...p, divider: !p.divider })}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  p.divider ? "bg-zinc-900" : "bg-zinc-300"
+                }`}
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
+                    p.divider ? "translate-x-4" : "translate-x-0.5"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Icon section */}
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-zinc-700">Icon</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className={labelCls}>Color</label>
+                <input
+                  type="color"
+                  className="mt-1 h-9 w-full rounded-lg border border-zinc-300"
+                  value={p.iconColor || "#1e40af"}
+                  onChange={(e) => onChange({ ...p, iconColor: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Hover Color</label>
+                <input
+                  type="color"
+                  className="mt-1 h-9 w-full rounded-lg border border-zinc-300"
+                  value={p.iconHoverColor || "#1e40af"}
+                  onChange={(e) => onChange({ ...p, iconHoverColor: e.target.value })}
+                />
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Size ({p.iconSize ?? 14}px)</label>
+              <input
+                type="range"
+                min={8}
+                max={48}
+                value={p.iconSize ?? 14}
+                onChange={(e) => onChange({ ...p, iconSize: Number(e.target.value) })}
+                className="mt-1 w-full"
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Gap ({p.iconGap ?? 8}px)</label>
+              <input
+                type="range"
+                min={0}
+                max={32}
+                value={p.iconGap ?? 8}
+                onChange={(e) => onChange({ ...p, iconGap: Number(e.target.value) })}
+                className="mt-1 w-full"
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Vertical Alignment</label>
+              <div className="flex gap-1">
+                {(["top", "middle", "bottom"] as const).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => onChange({ ...p, iconVerticalAlign: v })}
+                    className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium capitalize ${
+                      (p.iconVerticalAlign ?? "middle") === v
+                        ? "border-zinc-900 bg-zinc-900 text-white"
+                        : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50"
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Text section */}
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-zinc-700">Text</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className={labelCls}>Color</label>
+                <input
+                  type="color"
+                  className="mt-1 h-9 w-full rounded-lg border border-zinc-300"
+                  value={p.textColor || "#18181b"}
+                  onChange={(e) => onChange({ ...p, textColor: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Hover Color</label>
+                <input
+                  type="color"
+                  className="mt-1 h-9 w-full rounded-lg border border-zinc-300"
+                  value={p.textHoverColor || "#18181b"}
+                  onChange={(e) => onChange({ ...p, textHoverColor: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "advanced" && (
+        <BlockAdvancedTab
+          props={p}
+          set={(patch: Record<string, unknown>) => onChange({ ...p, ...patch })}
+          show={["layout", "motionEffects", "transform", "background", "border", "responsive", "attributes", "customCss", "displayConditions", "cacheSettings"]}
+        />
+      )}
+    </div>
+  );
+}
+
 const EDITORS: Record<string, React.ComponentType<EditorProps>> = {
   hero: HeroEditor as React.ComponentType<EditorProps>,
   text: TextEditor as React.ComponentType<EditorProps>,
@@ -1866,6 +2252,7 @@ const EDITORS: Record<string, React.ComponentType<EditorProps>> = {
   divider: DividerEditor as React.ComponentType<EditorProps>,
   heading: HeadingEditor as React.ComponentType<EditorProps>,
   list: ListEditor as React.ComponentType<EditorProps>,
+  iconList: IconListEditor as React.ComponentType<EditorProps>,
   slider: SliderEditor as React.ComponentType<EditorProps>,
   contentGrid: ContentGridEditor as React.ComponentType<EditorProps>,
   row: RowEditor as React.ComponentType<EditorProps>,

@@ -1564,6 +1564,250 @@ function InlineSectionEditor({ block, onChange, onRemove, onDuplicate, themeColo
   );
 }
 
+/* ── Icon List Editor ───────────────────────────────────────────────────── */
+
+const HF_ICON_PRESETS = [
+  { value: "", label: "No Icon" },
+  { value: "✔", label: "Checkmark" },
+  { value: "✕", label: "Cross" },
+  { value: "◉", label: "Circle" },
+  { value: "●", label: "Bullet" },
+  { value: "▸", label: "Arrow" },
+  { value: "★", label: "Star" },
+  { value: "♥", label: "Heart" },
+  { value: "✓", label: "Tick" },
+  { value: "→", label: "Right Arrow" },
+];
+
+function IconListEditor({ block, onChange }: EditorProps) {
+  const p = block.props as Record<string, unknown>;
+  const items = (p.items || []) as Array<{ text: string; icon: string; link?: string }>;
+  const [activeTab, setActiveTab] = useState<"content" | "style" | "advanced">("content");
+
+  const set = (patch: Record<string, unknown>) => onChange({ ...p, ...patch } as Block["props"]);
+
+  const updateItem = (index: number, patch: Record<string, unknown>) => {
+    const updated = [...items];
+    updated[index] = { ...updated[index], ...patch };
+    set({ items: updated });
+  };
+
+  const addItem = () => set({ items: [...items, { text: "New item", icon: "✔", link: "" }] });
+  const removeItem = (index: number) => set({ items: items.filter((_, i) => i !== index) });
+  const moveItem = (from: number, to: number) => {
+    if (to < 0 || to >= items.length) return;
+    const arr = [...items];
+    const [moved] = arr.splice(from, 1);
+    arr.splice(to, 0, moved);
+    set({ items: arr });
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex border-b border-zinc-200">
+        {(["content", "style", "advanced"] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 px-3 py-2 text-xs font-medium capitalize transition-colors ${
+              activeTab === tab
+                ? "border-b-2 border-zinc-900 text-zinc-900"
+                : "text-zinc-500 hover:text-zinc-700"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "content" && (
+        <div className="space-y-3">
+          <div>
+            <label className={labelCls}>Layout</label>
+            <div className="flex gap-1">
+              {(["list", "inline"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => set({ layout: v })}
+                  className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium capitalize ${
+                    p.layout === v
+                      ? "border-zinc-900 bg-zinc-900 text-white"
+                      : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50"
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Items</label>
+            <div className="mt-1 space-y-2">
+              {items.map((item, i) => (
+                <div key={i} className="rounded-lg border border-zinc-200 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-zinc-500">{item.icon || "—"} Item {i + 1}</span>
+                    <div className="flex gap-1">
+                      <button type="button" onClick={() => moveItem(i, i - 1)} disabled={i === 0} className="text-xs text-zinc-400 hover:text-zinc-700 disabled:opacity-30">↑</button>
+                      <button type="button" onClick={() => moveItem(i, i + 1)} disabled={i === items.length - 1} className="text-xs text-zinc-400 hover:text-zinc-700 disabled:opacity-30">↓</button>
+                      <button type="button" onClick={() => removeItem(i)} className="text-xs text-red-500 hover:text-red-700">✕</button>
+                    </div>
+                  </div>
+                  <input className={inputCls} value={item.text} onChange={(e) => updateItem(i, { text: e.target.value })} placeholder="Text" />
+                  <div className="flex gap-2">
+                    <select className={inputCls} value={item.icon} onChange={(e) => updateItem(i, { icon: e.target.value })}>
+                      {HF_ICON_PRESETS.map((ic) => (
+                        <option key={ic.value} value={ic.value}>{ic.value} {ic.label}</option>
+                      ))}
+                    </select>
+                    <input className={inputCls} value={item.link || ""} onChange={(e) => updateItem(i, { link: e.target.value })} placeholder="Link URL (optional)" />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button type="button" onClick={addItem} className="mt-2 w-full rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-500 hover:border-zinc-400 hover:text-zinc-700">+ Add Item</button>
+          </div>
+
+          <div>
+            <label className={labelCls}>Apply Link On</label>
+            <select className={inputCls} value={(p.applyLinkOn as string) || "full_width"} onChange={(e) => set({ applyLinkOn: e.target.value })}>
+              <option value="full_width">Full Width</option>
+              <option value="icon_only">Icon Only</option>
+              <option value="text_only">Text Only</option>
+            </select>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <label className={labelCls}>Open in New Tab</label>
+            <button
+              type="button"
+              onClick={() => set({ openInNewTab: !p.openInNewTab })}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                p.openInNewTab ? "bg-zinc-900" : "bg-zinc-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
+                  p.openInNewTab ? "translate-x-4" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+          </div>
+
+          {(items as Array<{ link?: string }>).some((item) => item.link) && (
+            <div>
+              <label className={labelCls}>Link Rel Attributes</label>
+              <div className="mt-1 space-y-2">
+                {["nofollow", "sponsored", "ugc"].map((attr) => {
+                  const rels = ((p.linkRel as string) || "").split(" ").filter(Boolean);
+                  const checked = rels.includes(attr);
+                  return (
+                    <label key={attr} className="flex items-center gap-2 text-xs text-zinc-600">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          const newRels = checked
+                            ? rels.filter((r) => r !== attr)
+                            : [...rels, attr];
+                          set({ linkRel: newRels.join(" ") });
+                        }}
+                        className="h-3.5 w-3.5 rounded border-zinc-300"
+                      />
+                      {attr}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === "style" && (
+        <div className="space-y-4">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-zinc-700">List</p>
+            <div>
+              <label className={labelCls}>Space Between</label>
+              <input type="number" className={inputCls} value={(p.spaceBetween as number) ?? 0} onChange={(e) => set({ spaceBetween: Number(e.target.value) })} />
+            </div>
+            <div>
+              <label className={labelCls}>Alignment</label>
+              <div className="flex gap-1">
+                {(["left", "center", "right"] as const).map((v) => (
+                  <button key={v} type="button" onClick={() => set({ align: v })} className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium capitalize ${p.align === v ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50"}`}>{v}</button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <label className={labelCls}>Divider</label>
+              <button type="button" onClick={() => set({ divider: !p.divider })} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${p.divider ? "bg-zinc-900" : "bg-zinc-300"}`}>
+                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${p.divider ? "translate-x-4" : "translate-x-0.5"}`} />
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-zinc-700">Icon</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className={labelCls}>Color</label>
+                <input type="color" className="mt-1 h-9 w-full rounded-lg border border-zinc-300" value={(p.iconColor as string) || "#1e40af"} onChange={(e) => set({ iconColor: e.target.value })} />
+              </div>
+              <div>
+                <label className={labelCls}>Hover Color</label>
+                <input type="color" className="mt-1 h-9 w-full rounded-lg border border-zinc-300" value={(p.iconHoverColor as string) || "#1e40af"} onChange={(e) => set({ iconHoverColor: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Size ({(p.iconSize as number) ?? 14}px)</label>
+              <input type="range" min={8} max={48} value={(p.iconSize as number) ?? 14} onChange={(e) => set({ iconSize: Number(e.target.value) })} className="mt-1 w-full" />
+            </div>
+            <div>
+              <label className={labelCls}>Gap ({(p.iconGap as number) ?? 8}px)</label>
+              <input type="range" min={0} max={32} value={(p.iconGap as number) ?? 8} onChange={(e) => set({ iconGap: Number(e.target.value) })} className="mt-1 w-full" />
+            </div>
+            <div>
+              <label className={labelCls}>Vertical Alignment</label>
+              <div className="flex gap-1">
+                {(["top", "middle", "bottom"] as const).map((v) => (
+                  <button key={v} type="button" onClick={() => set({ iconVerticalAlign: v })} className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium capitalize ${(p.iconVerticalAlign ?? "middle") === v ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50"}`}>{v}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-zinc-700">Text</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className={labelCls}>Color</label>
+                <input type="color" className="mt-1 h-9 w-full rounded-lg border border-zinc-300" value={(p.textColor as string) || "#18181b"} onChange={(e) => set({ textColor: e.target.value })} />
+              </div>
+              <div>
+                <label className={labelCls}>Hover Color</label>
+                <input type="color" className="mt-1 h-9 w-full rounded-lg border border-zinc-300" value={(p.textHoverColor as string) || "#18181b"} onChange={(e) => set({ textHoverColor: e.target.value })} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "advanced" && (
+        <BlockAdvancedTab
+          props={p as Block["props"]}
+          set={(patch: Record<string, unknown>) => set(patch)}
+          show={["layout", "motionEffects", "transform", "background", "border", "responsive", "attributes", "customCss", "displayConditions", "cacheSettings"]}
+        />
+      )}
+    </div>
+  );
+}
+
 /* ── Generic Fallback Editor ───────────────────────────────────────────── */
 
 function GenericEditor({ block, onChange }: EditorProps) {
@@ -1596,6 +1840,7 @@ const EDITORS: Record<string, React.ComponentType<EditorProps>> = {
   divider: DividerEditor,
   heading: HeadingEditor,
   list: ListEditor,
+  iconList: IconListEditor,
   slider: SliderEditor,
   contentGrid: ContentGridEditor,
   row: InlineRowEditor,
@@ -1636,7 +1881,7 @@ function getBlockIcon(type: string): string {
     logo: "◎", menu: "☰", socialIcons: "⏹", contactInfo: "📞", search: "🔍",
     hero: "⬛", text: "📝", image: "🖼", cta: "🔘", features: "📊",
     button: "🔗", embed: "</>", faq: "❓", testimonial: "💬", spacer: "↕",
-    divider: "—", heading: "H", list: "≡", slider: "◫", contentGrid: "▦",
+    divider: "—", heading: "H", list: "≡", iconList: "✔", slider: "◫", contentGrid: "▦",
     row: "▦", section: "▣",
   };
   return icons[type] ?? "□";
@@ -1647,7 +1892,7 @@ function getBlockLabel(type: string): string {
     logo: "Logo", menu: "Menu", socialIcons: "Social Icons", contactInfo: "Contact Info", search: "Search",
     hero: "Hero", text: "Text", image: "Image", cta: "CTA", features: "Features",
     button: "Button", embed: "Embed", faq: "FAQ", testimonial: "Testimonial", spacer: "Spacer",
-    divider: "Divider", heading: "Heading", list: "List", slider: "Slider", contentGrid: "Content Grid",
+    divider: "Divider", heading: "Heading", list: "List", iconList: "Icon List", slider: "Slider", contentGrid: "Content Grid",
     row: "Row", section: "Section",
   };
   return labels[type] ?? type;
