@@ -73,16 +73,23 @@ function ImageBlock({ block }: { block: Block & { type: "image" } }) {
     }
     return fallback;
   };
+
+  const marginToCss = (v: unknown): string | undefined => {
+    if (v === undefined || v === null) return undefined;
+    if (typeof v === "number") return v === 0 ? undefined : `${v}px`;
+    if (typeof v === "string") return v || undefined;
+    return undefined;
+  };
   
   const containerStyle: React.CSSProperties = {
-    marginTop: p.margin?.top,
-    marginRight: p.margin?.right,
-    marginBottom: p.margin?.bottom,
-    marginLeft: p.margin?.left,
-    paddingTop: p.padding?.top,
-    paddingRight: p.padding?.right,
-    paddingBottom: p.padding?.bottom,
-    paddingLeft: p.padding?.left,
+    marginTop: marginToCss(p.margin?.top),
+    marginRight: marginToCss(p.margin?.right),
+    marginBottom: marginToCss(p.margin?.bottom),
+    marginLeft: marginToCss(p.margin?.left),
+    paddingTop: marginToCss(p.padding?.top),
+    paddingRight: marginToCss(p.padding?.right),
+    paddingBottom: marginToCss(p.padding?.bottom),
+    paddingLeft: marginToCss(p.padding?.left),
     alignSelf: p.alignSelf,
     zIndex: p.zIndex,
   };

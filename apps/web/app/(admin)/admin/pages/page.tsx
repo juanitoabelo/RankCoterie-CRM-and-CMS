@@ -16,7 +16,7 @@ export default async function PagesAdminPage() {
       <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Pages</h1>
       <p className="mt-2 max-w-2xl text-sm text-zinc-600">
         Build and manage pages with the visual drag-and-drop editor.
-        Each page is accessible at <code>/p/[slug]</code>.
+        Each page is accessible at <code>/[slug]</code>.
       </p>
 
       <form
@@ -82,7 +82,7 @@ export default async function PagesAdminPage() {
                   </a>
                 </td>
                 <td className="px-4 py-3 font-mono text-xs text-zinc-500">
-                  /p/{p.slug}
+                  /{p.slug}
                 </td>
                 <td className="px-4 py-3">
                   <span

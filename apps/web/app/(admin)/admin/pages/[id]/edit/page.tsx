@@ -60,7 +60,7 @@ export default async function PageEditPage({
         </h1>
         {page.slug && page.status === "LIVE" && (
           <a
-            href={`/p/${page.slug}`}
+            href={`/${page.slug}`}
             target="_blank"
             rel="noreferrer"
             className="text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700"

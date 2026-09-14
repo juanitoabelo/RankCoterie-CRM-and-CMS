@@ -1031,9 +1031,27 @@ function ImageRenderer({ block }: { block: Block }) {
     }
     return fallback;
   };
+
+  const marginToCss = (v: unknown): string | undefined => {
+    if (v === undefined || v === null) return undefined;
+    if (typeof v === "number") return v === 0 ? undefined : `${v}px`;
+    if (typeof v === "string") return v || undefined;
+    return undefined;
+  };
   
   const alignment = (p.alignment as string) ?? "left";
   const alignClass = alignment === "center" ? "mx-auto" : alignment === "right" ? "ml-auto" : "";
+
+  const containerStyle: React.CSSProperties = {
+    marginTop: marginToCss(p.margin?.top),
+    marginRight: marginToCss(p.margin?.right),
+    marginBottom: marginToCss(p.margin?.bottom),
+    marginLeft: marginToCss(p.margin?.left),
+    paddingTop: marginToCss(p.padding?.top),
+    paddingRight: marginToCss(p.padding?.right),
+    paddingBottom: marginToCss(p.padding?.bottom),
+    paddingLeft: marginToCss(p.padding?.left),
+  };
   
   const imgStyle: React.CSSProperties = {
     width: sizeToCss(p.imageWidth, "100%"),
@@ -1054,14 +1072,16 @@ function ImageRenderer({ block }: { block: Block }) {
   };
   
   return (
-    <figure className={alignClass}>
-      <img src={p.src as string} alt={(p.alt as string) || ""} style={imgStyle} className="hover:opacity-75" />
-      {(p.caption as string) && (
-        <figcaption className="mt-2 text-center text-sm text-zinc-500">
-          {p.caption as string}
-        </figcaption>
-      )}
-    </figure>
+    <div style={containerStyle}>
+      <figure className={alignClass}>
+        <img src={p.src as string} alt={(p.alt as string) || ""} style={imgStyle} className="hover:opacity-75" />
+        {(p.caption as string) && (
+          <figcaption className="mt-2 text-center text-sm text-zinc-500">
+            {p.caption as string}
+          </figcaption>
+        )}
+      </figure>
+    </div>
   );
 }
 
