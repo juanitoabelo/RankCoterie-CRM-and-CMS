@@ -813,6 +813,67 @@ function IconListBlock({ block }: { block: Block; ctx: RegionContext }) {
   );
 }
 
+function GoogleMapBlock({ block }: { block: Block; ctx: RegionContext }) {
+  const p = block.props as GoogleMapBlock["props"];
+  const location = p.location || "London Eye, London, United Kingdom";
+  const zoom = p.zoom ?? 10;
+  const height = p.height ?? 400;
+
+  const filters: string[] = [];
+  if (p.cssFilterBlur) filters.push(`blur(${p.cssFilterBlur}px)`);
+  if (p.cssFilterBrightness && p.cssFilterBrightness !== 100) filters.push(`brightness(${p.cssFilterBrightness}%)`);
+  if (p.cssFilterContrast && p.cssFilterContrast !== 100) filters.push(`contrast(${p.cssFilterContrast}%)`);
+  if (p.cssFilterSaturation && p.cssFilterSaturation !== 100) filters.push(`saturate(${p.cssFilterSaturation}%)`);
+  if (p.cssFilterHue) filters.push(`hue-rotate(${p.cssFilterHue}deg)`);
+
+  const containerStyle: React.CSSProperties = {
+    width: "100%",
+    height: `${height}px`,
+    position: "relative",
+    overflow: "hidden",
+  };
+  if (p.margin) {
+    if (p.margin.top) containerStyle.marginTop = p.margin.top;
+    if (p.margin.right) containerStyle.marginRight = p.margin.right;
+    if (p.margin.bottom) containerStyle.marginBottom = p.margin.bottom;
+    if (p.margin.left) containerStyle.marginLeft = p.margin.left;
+  }
+  if (p.padding) {
+    if (p.padding.top) containerStyle.paddingTop = p.padding.top;
+    if (p.padding.right) containerStyle.paddingRight = p.padding.right;
+    if (p.padding.bottom) containerStyle.paddingBottom = p.padding.bottom;
+    if (p.padding.left) containerStyle.paddingLeft = p.padding.left;
+  }
+
+  const iframeStyle: React.CSSProperties = {
+    width: "100%",
+    height: "100%",
+    border: 0,
+  };
+  if (filters.length > 0) {
+    iframeStyle.filter = filters.join(" ");
+  }
+
+  const mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(location)}&t=&z=${zoom}&ie=UTF8&iwloc=&output=embed`;
+
+  return (
+    <div
+      id={p.cssId || undefined}
+      className={p.cssClasses || undefined}
+      style={containerStyle}
+    >
+      <iframe
+        src={mapUrl}
+        style={iframeStyle}
+        allowFullScreen
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+        title={`Map: ${location}`}
+      />
+    </div>
+  );
+}
+
 const RENDERERS: Record<string, React.ComponentType<{ block: Block; ctx: RegionContext }>> = {
   hero: HeroBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   text: TextBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
@@ -828,6 +889,7 @@ const RENDERERS: Record<string, React.ComponentType<{ block: Block; ctx: RegionC
   heading: HeadingBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   list: ListBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   iconList: IconListBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  googleMap: GoogleMapBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   slider: SliderBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   contentGrid: ContentGridBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   row: RowBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,

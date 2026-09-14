@@ -298,6 +298,39 @@ export interface IconListBlock extends BlockBase {
   };
 }
 
+export interface GoogleMapBlock extends BlockBase {
+  type: "googleMap";
+  props: {
+    location: string;
+    zoom: number;
+    height: number;
+    // CSS Filters
+    cssFilterBlur?: number;
+    cssFilterBrightness?: number;
+    cssFilterContrast?: number;
+    cssFilterSaturation?: number;
+    cssFilterHue?: number;
+    // Advanced
+    margin?: { top: string; right: string; bottom: string; left: string };
+    padding?: { top: string; right: string; bottom: string; left: string };
+    cssId?: string;
+    cssClasses?: string;
+    customCss?: string;
+    displayConditions?: {
+      showOnDesktop?: boolean;
+      showOnTablet?: boolean;
+      showOnMobile?: boolean;
+    };
+    cacheSettings?: {
+      enabled?: boolean;
+      duration?: number;
+    };
+    hideOnDesktop?: boolean;
+    hideOnTablet?: boolean;
+    hideOnMobile?: boolean;
+  };
+}
+
 export interface SliderSlide {
   src: string;
   alt: string;
@@ -480,6 +513,7 @@ export type Block =
   | HeadingBlock
   | ListBlock
   | IconListBlock
+  | GoogleMapBlock
   | SliderBlock
   | ContentGridBlock
   | RowBlock
@@ -511,6 +545,7 @@ export const LEAF_BLOCK_TYPES: BlockType[] = [
   "heading",
   "list",
   "iconList",
+  "googleMap",
   "slider",
   "contentGrid",
 ];
@@ -714,6 +749,21 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       iconColor: "#1e40af",
       iconSize: 14,
       iconGap: 8,
+    },
+  },
+  {
+    type: "googleMap",
+    label: "Google Maps",
+    icon: "🗺",
+    defaults: {
+      location: "London Eye, London, United Kingdom",
+      zoom: 10,
+      height: 400,
+      cssFilterBlur: 0,
+      cssFilterBrightness: 100,
+      cssFilterContrast: 100,
+      cssFilterSaturation: 100,
+      cssFilterHue: 0,
     },
   },
   {

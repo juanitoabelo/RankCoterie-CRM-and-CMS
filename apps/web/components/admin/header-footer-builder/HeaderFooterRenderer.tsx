@@ -1291,6 +1291,71 @@ function IconListRenderer({ block }: { block: Block }) {
   );
 }
 
+/* ── Google Map Renderer ────────────────────────────────────────────────── */
+
+function GoogleMapRenderer({ block }: { block: Block }) {
+  const p = block.props as Record<string, unknown>;
+  const location = (p.location as string) || "London Eye, London, United Kingdom";
+  const zoom = (p.zoom as number) ?? 10;
+  const height = (p.height as number) ?? 400;
+
+  const filters: string[] = [];
+  if (p.cssFilterBlur) filters.push(`blur(${p.cssFilterBlur}px)`);
+  if (p.cssFilterBrightness && p.cssFilterBrightness !== 100) filters.push(`brightness(${p.cssFilterBrightness}%)`);
+  if (p.cssFilterContrast && p.cssFilterContrast !== 100) filters.push(`contrast(${p.cssFilterContrast}%)`);
+  if (p.cssFilterSaturation && p.cssFilterSaturation !== 100) filters.push(`saturate(${p.cssFilterSaturation}%)`);
+  if (p.cssFilterHue) filters.push(`hue-rotate(${p.cssFilterHue}deg)`);
+
+  const containerStyle: React.CSSProperties = {
+    width: "100%",
+    height: `${height}px`,
+    position: "relative",
+    overflow: "hidden",
+  };
+  if (p.margin && typeof p.margin === "object") {
+    const m = p.margin as Record<string, string>;
+    if (m.top) containerStyle.marginTop = m.top;
+    if (m.right) containerStyle.marginRight = m.right;
+    if (m.bottom) containerStyle.marginBottom = m.bottom;
+    if (m.left) containerStyle.marginLeft = m.left;
+  }
+  if (p.padding && typeof p.padding === "object") {
+    const pd = p.padding as Record<string, string>;
+    if (pd.top) containerStyle.paddingTop = pd.top;
+    if (pd.right) containerStyle.paddingRight = pd.right;
+    if (pd.bottom) containerStyle.paddingBottom = pd.bottom;
+    if (pd.left) containerStyle.paddingLeft = pd.left;
+  }
+
+  const iframeStyle: React.CSSProperties = {
+    width: "100%",
+    height: "100%",
+    border: 0,
+  };
+  if (filters.length > 0) {
+    iframeStyle.filter = filters.join(" ");
+  }
+
+  const mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(location)}&t=&z=${zoom}&ie=UTF8&iwloc=&output=embed`;
+
+  return (
+    <div
+      id={(p.cssId as string) || undefined}
+      className={(p.cssClasses as string) || undefined}
+      style={containerStyle}
+    >
+      <iframe
+        src={mapUrl}
+        style={iframeStyle}
+        allowFullScreen
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+        title={`Map: ${location}`}
+      />
+    </div>
+  );
+}
+
 /* ── Renderer Map ────────────────────────────────────────────────────────── */
 
 const RENDERERS: Record<string, React.ComponentType<{ block: Block }>> = {
@@ -1308,6 +1373,7 @@ const RENDERERS: Record<string, React.ComponentType<{ block: Block }>> = {
   embed: EmbedRenderer,
   testimonial: TestimonialRenderer,
   iconList: IconListRenderer,
+  googleMap: GoogleMapRenderer,
 };
 
 /* ── Section Renderer ───────────────────────────────────────────────────── */

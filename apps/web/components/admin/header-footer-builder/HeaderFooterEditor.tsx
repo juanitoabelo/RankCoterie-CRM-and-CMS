@@ -1808,6 +1808,123 @@ function IconListEditor({ block, onChange }: EditorProps) {
   );
 }
 
+/* ── Google Map Editor ────────────────────────────────────────────────── */
+
+function GoogleMapEditor({ block, onChange }: EditorProps) {
+  const p = block.props as Record<string, unknown>;
+  const [activeTab, setActiveTab] = useState<"content" | "style" | "advanced">("content");
+  const [cssFilterOpen, setCssFilterOpen] = useState(false);
+
+  const set = (patch: Record<string, unknown>) => onChange({ ...p, ...patch } as Block["props"]);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex border-b border-zinc-200">
+        {(["content", "style", "advanced"] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 px-3 py-2 text-xs font-medium capitalize transition-colors ${
+              activeTab === tab
+                ? "border-b-2 border-zinc-900 text-zinc-900"
+                : "text-zinc-500 hover:text-zinc-700"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "content" && (
+        <div className="space-y-3">
+          <div>
+            <label className={labelCls}>Location</label>
+            <input
+              className={inputCls}
+              value={(p.location as string) || ""}
+              onChange={(e) => set({ location: e.target.value })}
+              placeholder="Enter address..."
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Zoom ({(p.zoom as number) ?? 10})</label>
+            <input
+              type="range"
+              min={1}
+              max={20}
+              value={(p.zoom as number) ?? 10}
+              onChange={(e) => set({ zoom: Number(e.target.value) })}
+              className="mt-1 w-full"
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Height</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                className={inputCls}
+                value={(p.height as number) ?? 400}
+                onChange={(e) => set({ height: Number(e.target.value) })}
+              />
+              <span className="text-xs text-zinc-500">px</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "style" && (
+        <div className="space-y-3">
+          <div>
+            <div className="flex items-center justify-between">
+              <label className={labelCls}>CSS Filters</label>
+              <button
+                type="button"
+                onClick={() => setCssFilterOpen(!cssFilterOpen)}
+                className="text-xs text-zinc-500 hover:text-zinc-700"
+              >
+                {cssFilterOpen ? "▼" : "▶"}
+              </button>
+            </div>
+            {cssFilterOpen && (
+              <div className="mt-2 space-y-3 rounded-lg border border-zinc-200 p-3">
+                <div>
+                  <label className={labelCls}>Blur ({(p.cssFilterBlur as number) ?? 0}px)</label>
+                  <input type="range" min={0} max={20} value={(p.cssFilterBlur as number) ?? 0} onChange={(e) => set({ cssFilterBlur: Number(e.target.value) })} className="mt-1 w-full" />
+                </div>
+                <div>
+                  <label className={labelCls}>Brightness ({(p.cssFilterBrightness as number) ?? 100}%)</label>
+                  <input type="range" min={0} max={200} value={(p.cssFilterBrightness as number) ?? 100} onChange={(e) => set({ cssFilterBrightness: Number(e.target.value) })} className="mt-1 w-full" />
+                </div>
+                <div>
+                  <label className={labelCls}>Contrast ({(p.cssFilterContrast as number) ?? 100}%)</label>
+                  <input type="range" min={0} max={200} value={(p.cssFilterContrast as number) ?? 100} onChange={(e) => set({ cssFilterContrast: Number(e.target.value) })} className="mt-1 w-full" />
+                </div>
+                <div>
+                  <label className={labelCls}>Saturation ({(p.cssFilterSaturation as number) ?? 100}%)</label>
+                  <input type="range" min={0} max={200} value={(p.cssFilterSaturation as number) ?? 100} onChange={(e) => set({ cssFilterSaturation: Number(e.target.value) })} className="mt-1 w-full" />
+                </div>
+                <div>
+                  <label className={labelCls}>Hue ({(p.cssFilterHue as number) ?? 0}deg)</label>
+                  <input type="range" min={0} max={360} value={(p.cssFilterHue as number) ?? 0} onChange={(e) => set({ cssFilterHue: Number(e.target.value) })} className="mt-1 w-full" />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "advanced" && (
+        <BlockAdvancedTab
+          props={p as Block["props"]}
+          set={(patch: Record<string, unknown>) => set(patch)}
+          show={["motionEffects", "transform", "background", "border", "responsive", "attributes", "customCss", "displayConditions", "cacheSettings"]}
+        />
+      )}
+    </div>
+  );
+}
+
 /* ── Generic Fallback Editor ───────────────────────────────────────────── */
 
 function GenericEditor({ block, onChange }: EditorProps) {
@@ -1841,6 +1958,7 @@ const EDITORS: Record<string, React.ComponentType<EditorProps>> = {
   heading: HeadingEditor,
   list: ListEditor,
   iconList: IconListEditor,
+  googleMap: GoogleMapEditor,
   slider: SliderEditor,
   contentGrid: ContentGridEditor,
   row: InlineRowEditor,
@@ -1881,7 +1999,7 @@ function getBlockIcon(type: string): string {
     logo: "◎", menu: "☰", socialIcons: "⏹", contactInfo: "📞", search: "🔍",
     hero: "⬛", text: "📝", image: "🖼", cta: "🔘", features: "📊",
     button: "🔗", embed: "</>", faq: "❓", testimonial: "💬", spacer: "↕",
-    divider: "—", heading: "H", list: "≡", iconList: "✔", slider: "◫", contentGrid: "▦",
+    divider: "—", heading: "H", list: "≡",     iconList: "✔", slider: "◫", googleMap: "🗺", contentGrid: "▦",
     row: "▦", section: "▣",
   };
   return icons[type] ?? "□";
@@ -1892,7 +2010,7 @@ function getBlockLabel(type: string): string {
     logo: "Logo", menu: "Menu", socialIcons: "Social Icons", contactInfo: "Contact Info", search: "Search",
     hero: "Hero", text: "Text", image: "Image", cta: "CTA", features: "Features",
     button: "Button", embed: "Embed", faq: "FAQ", testimonial: "Testimonial", spacer: "Spacer",
-    divider: "Divider", heading: "Heading", list: "List", iconList: "Icon List", slider: "Slider", contentGrid: "Content Grid",
+    divider: "Divider", heading: "Heading", list: "List",     iconList: "Icon List", googleMap: "Google Maps", slider: "Slider", contentGrid: "Content Grid",
     row: "Row", section: "Section",
   };
   return labels[type] ?? type;

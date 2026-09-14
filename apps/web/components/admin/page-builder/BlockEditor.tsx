@@ -2238,6 +2238,163 @@ function IconListEditor({
   );
 }
 
+function GoogleMapEditor({
+  block,
+  onChange,
+}: {
+  block: Block & { type: "googleMap" };
+  onChange: (props: Block["props"]) => void;
+}) {
+  const p = block.props;
+  const [activeTab, setActiveTab] = useState<"content" | "style" | "advanced">("content");
+  const [cssFilterOpen, setCssFilterOpen] = useState(false);
+
+  return (
+    <div className="space-y-3">
+      {/* Tab bar */}
+      <div className="flex border-b border-zinc-200">
+        {(["content", "style", "advanced"] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 px-3 py-2 text-xs font-medium capitalize transition-colors ${
+              activeTab === tab
+                ? "border-b-2 border-zinc-900 text-zinc-900"
+                : "text-zinc-500 hover:text-zinc-700"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "content" && (
+        <div className="space-y-3">
+          <div>
+            <label className={labelCls}>Location</label>
+            <input
+              className={inputCls}
+              value={p.location || ""}
+              onChange={(e) => onChange({ ...p, location: e.target.value })}
+              placeholder="Enter address..."
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>Zoom ({p.zoom ?? 10})</label>
+            <input
+              type="range"
+              min={1}
+              max={20}
+              value={p.zoom ?? 10}
+              onChange={(e) => onChange({ ...p, zoom: Number(e.target.value) })}
+              className="mt-1 w-full"
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>Height</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                className={inputCls}
+                value={p.height ?? 400}
+                onChange={(e) => onChange({ ...p, height: Number(e.target.value) })}
+              />
+              <span className="text-xs text-zinc-500">px</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "style" && (
+        <div className="space-y-3">
+          <div>
+            <div className="flex items-center justify-between">
+              <label className={labelCls}>CSS Filters</label>
+              <button
+                type="button"
+                onClick={() => setCssFilterOpen(!cssFilterOpen)}
+                className="text-xs text-zinc-500 hover:text-zinc-700"
+              >
+                {cssFilterOpen ? "▼" : "▶"}
+              </button>
+            </div>
+            {cssFilterOpen && (
+              <div className="mt-2 space-y-3 rounded-lg border border-zinc-200 p-3">
+                <div>
+                  <label className={labelCls}>Blur ({p.cssFilterBlur ?? 0}px)</label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={20}
+                    value={p.cssFilterBlur ?? 0}
+                    onChange={(e) => onChange({ ...p, cssFilterBlur: Number(e.target.value) })}
+                    className="mt-1 w-full"
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Brightness ({p.cssFilterBrightness ?? 100}%)</label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={200}
+                    value={p.cssFilterBrightness ?? 100}
+                    onChange={(e) => onChange({ ...p, cssFilterBrightness: Number(e.target.value) })}
+                    className="mt-1 w-full"
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Contrast ({p.cssFilterContrast ?? 100}%)</label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={200}
+                    value={p.cssFilterContrast ?? 100}
+                    onChange={(e) => onChange({ ...p, cssFilterContrast: Number(e.target.value) })}
+                    className="mt-1 w-full"
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Saturation ({p.cssFilterSaturation ?? 100}%)</label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={200}
+                    value={p.cssFilterSaturation ?? 100}
+                    onChange={(e) => onChange({ ...p, cssFilterSaturation: Number(e.target.value) })}
+                    className="mt-1 w-full"
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Hue ({p.cssFilterHue ?? 0}deg)</label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={360}
+                    value={p.cssFilterHue ?? 0}
+                    onChange={(e) => onChange({ ...p, cssFilterHue: Number(e.target.value) })}
+                    className="mt-1 w-full"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "advanced" && (
+        <BlockAdvancedTab
+          props={p}
+          set={(patch: Record<string, unknown>) => onChange({ ...p, ...patch })}
+          show={["motionEffects", "transform", "background", "border", "responsive", "attributes", "customCss", "displayConditions", "cacheSettings"]}
+        />
+      )}
+    </div>
+  );
+}
+
 const EDITORS: Record<string, React.ComponentType<EditorProps>> = {
   hero: HeroEditor as React.ComponentType<EditorProps>,
   text: TextEditor as React.ComponentType<EditorProps>,
@@ -2253,6 +2410,7 @@ const EDITORS: Record<string, React.ComponentType<EditorProps>> = {
   heading: HeadingEditor as React.ComponentType<EditorProps>,
   list: ListEditor as React.ComponentType<EditorProps>,
   iconList: IconListEditor as React.ComponentType<EditorProps>,
+  googleMap: GoogleMapEditor as React.ComponentType<EditorProps>,
   slider: SliderEditor as React.ComponentType<EditorProps>,
   contentGrid: ContentGridEditor as React.ComponentType<EditorProps>,
   row: RowEditor as React.ComponentType<EditorProps>,
