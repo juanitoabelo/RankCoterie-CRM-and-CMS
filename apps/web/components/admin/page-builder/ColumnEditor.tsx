@@ -81,8 +81,14 @@ export default function ColumnEditor({
         label="Column background"
         color={column.bgColor}
         image={column.bgImage}
+        bgPosition={column.bgPosition}
+        bgSize={column.bgSize}
+        bgRepeat={column.bgRepeat}
         onColor={(value) => onChange({ bgColor: value || undefined })}
         onImage={(value) => onChange({ bgImage: value })}
+        onBgPosition={(value) => onChange({ bgPosition: value })}
+        onBgSize={(value) => onChange({ bgSize: value })}
+        onBgRepeat={(value) => onChange({ bgRepeat: value })}
       />
 
       <div className="flex gap-2">

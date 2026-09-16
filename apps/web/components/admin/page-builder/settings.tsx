@@ -256,14 +256,26 @@ export function BackgroundFields({
   label = "Background",
   color,
   image,
+  bgPosition,
+  bgSize,
+  bgRepeat,
   onColor,
   onImage,
+  onBgPosition,
+  onBgSize,
+  onBgRepeat,
 }: {
   label?: string;
   color?: string;
   image?: string;
+  bgPosition?: string;
+  bgSize?: string;
+  bgRepeat?: string;
   onColor: (value: string) => void;
   onImage: (value: string) => void;
+  onBgPosition?: (value: string) => void;
+  onBgSize?: (value: string) => void;
+  onBgRepeat?: (value: string) => void;
 }) {
   return (
     <div className="space-y-3">
@@ -299,6 +311,51 @@ export function BackgroundFields({
         onChange={onImage}
         label={`${label} image`}
       />
+
+      {image && onBgPosition && onBgSize && onBgRepeat && (
+        <>
+          <label className={labelCls}>Position
+            <select
+              className={inputCls}
+              value={bgPosition || "center center"}
+              onChange={(e) => onBgPosition(e.target.value)}
+            >
+              <option value="left top">Left Top</option>
+              <option value="center top">Center Top</option>
+              <option value="right top">Right Top</option>
+              <option value="left center">Left Center</option>
+              <option value="center center">Center Center</option>
+              <option value="right center">Right Center</option>
+              <option value="left bottom">Left Bottom</option>
+              <option value="center bottom">Center Bottom</option>
+              <option value="right bottom">Right Bottom</option>
+            </select>
+          </label>
+          <label className={labelCls}>Size
+            <select
+              className={inputCls}
+              value={bgSize || "cover"}
+              onChange={(e) => onBgSize(e.target.value)}
+            >
+              <option value="auto">Auto</option>
+              <option value="cover">Cover</option>
+              <option value="contain">Contain</option>
+            </select>
+          </label>
+          <label className={labelCls}>Repeat
+            <select
+              className={inputCls}
+              value={bgRepeat || "no-repeat"}
+              onChange={(e) => onBgRepeat(e.target.value)}
+            >
+              <option value="repeat">Repeat</option>
+              <option value="no-repeat">No Repeat</option>
+              <option value="repeat-x">Repeat X</option>
+              <option value="repeat-y">Repeat Y</option>
+            </select>
+          </label>
+        </>
+      )}
     </div>
   );
 }

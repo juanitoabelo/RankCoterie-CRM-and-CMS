@@ -737,9 +737,9 @@ function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
               ? {
                   backgroundColor: column.bgColor,
                   backgroundImage: `url(${column.bgImage})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                  backgroundRepeat: "no-repeat",
+                  backgroundSize: column.bgSize || "cover",
+                  backgroundPosition: column.bgPosition || "center center",
+                  backgroundRepeat: column.bgRepeat || "no-repeat",
                 }
               : { backgroundColor: column.bgColor };
             return (

@@ -272,12 +272,21 @@ export default function ContainerSettingsEditor({ settings, onChange, themeColor
         {settings.bgImage && (
           <>
             <label className={labelCls}>Position
-              <input
-                type="text"
+              <select
                 value={settings.bgPosition || "center center"}
                 onChange={(e) => onChange({ ...settings, bgPosition: e.target.value })}
                 className={inputCls}
-              />
+              >
+                <option value="left top">Left Top</option>
+                <option value="center top">Center Top</option>
+                <option value="right top">Right Top</option>
+                <option value="left center">Left Center</option>
+                <option value="center center">Center Center</option>
+                <option value="right center">Right Center</option>
+                <option value="left bottom">Left Bottom</option>
+                <option value="center bottom">Center Bottom</option>
+                <option value="right bottom">Right Bottom</option>
+              </select>
             </label>
             <label className={labelCls}>Size
               <select

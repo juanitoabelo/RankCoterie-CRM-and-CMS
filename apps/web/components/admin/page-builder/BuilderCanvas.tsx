@@ -54,9 +54,9 @@ function ColumnCell({
     ? {
         backgroundColor: column.bgColor,
         backgroundImage: `url(${column.bgImage})`,
-        backgroundSize: "cover" as const,
-        backgroundPosition: "center" as const,
-        backgroundRepeat: "no-repeat" as const,
+        backgroundSize: (column.bgSize || "cover") as "cover" | "contain" | "auto",
+        backgroundPosition: (column.bgPosition || "center center") as React.CSSProperties["backgroundPosition"],
+        backgroundRepeat: (column.bgRepeat || "no-repeat") as React.CSSProperties["backgroundRepeat"],
       }
     : { backgroundColor: column.bgColor };
 
@@ -156,9 +156,9 @@ function RowBody({
     ? {
         backgroundColor: block.props.bgColor,
         backgroundImage: `url(${block.props.bgImage})`,
-        backgroundSize: "cover" as const,
-        backgroundPosition: "center" as const,
-        backgroundRepeat: "no-repeat" as const,
+        backgroundSize: (block.props.bgSize || "cover") as "cover" | "contain" | "auto",
+        backgroundPosition: (block.props.bgPosition || "center center") as React.CSSProperties["backgroundPosition"],
+        backgroundRepeat: (block.props.bgRepeat || "no-repeat") as React.CSSProperties["backgroundRepeat"],
         color: block.props.textColor,
       }
     : { backgroundColor: block.props.bgColor, color: block.props.textColor };
@@ -216,9 +216,9 @@ function SectionBody({
     ? {
         backgroundColor: block.props.bgColor,
         backgroundImage: `url(${block.props.bgImage})`,
-        backgroundSize: "cover" as const,
-        backgroundPosition: "center" as const,
-        backgroundRepeat: "no-repeat" as const,
+        backgroundSize: (block.props.bgSize || "cover") as "cover" | "contain" | "auto",
+        backgroundPosition: (block.props.bgPosition || "center center") as React.CSSProperties["backgroundPosition"],
+        backgroundRepeat: (block.props.bgRepeat || "no-repeat") as React.CSSProperties["backgroundRepeat"],
         color: block.props.textColor,
         paddingTop: block.props.paddingTop ?? 48,
         paddingBottom: block.props.paddingBottom ?? 48,
