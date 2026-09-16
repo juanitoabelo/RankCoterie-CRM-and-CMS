@@ -3,10 +3,26 @@ import { getCatalogRepo } from "@/lib/directory/catalog";
 import { prisma } from "@/modules/shared";
 import { sanitizeHtml } from "@/lib/style-guide";
 import { TENANT_ID } from "@/modules/shared";
+import BlockRenderer from "@/components/admin/page-builder/BlockRenderer";
+import type { Block } from "@/lib/page-builder/types";
 
 export const revalidate = 3600;
 
 export default async function HomePage() {
+  const homepagePage = await prisma.page.findFirst({
+    where: { tenantId: TENANT_ID, isHomepage: true, status: "LIVE" },
+  });
+
+  if (homepagePage) {
+    const blocks: Block[] = homepagePage.data ? JSON.parse(homepagePage.data) : [];
+    return (
+      <div>
+        {homepagePage.title && <title>{homepagePage.title}</title>}
+        <BlockRenderer blocks={blocks} />
+      </div>
+    );
+  }
+
   const repo = await getCatalogRepo();
   const [categories, sections, widgets] = await Promise.all([
     repo.getCategories(),

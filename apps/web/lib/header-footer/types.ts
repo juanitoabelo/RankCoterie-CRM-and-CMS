@@ -588,7 +588,8 @@ export const DEFAULT_HEADER_BLOCKS: HeaderFooterBlock[] = [
       align: "center",
       stackOnMobile: true,
       paddingY: 16,
-      fullWidth: false,
+      width: "full",
+      fullWidth: true,
     },
   },
 ];
@@ -698,6 +699,7 @@ export const DEFAULT_FOOTER_BLOCKS: HeaderFooterBlock[] = [
       align: "start",
       stackOnMobile: true,
       paddingY: 48,
+      width: "full",
       fullWidth: true,
       bgColor: "#111827",
       textColor: "#f9fafb",

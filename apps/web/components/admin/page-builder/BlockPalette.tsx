@@ -93,7 +93,23 @@ export default function BlockPalette({
         <p className="mt-1 text-[11px] leading-snug text-zinc-400">
           Insert a fully formed row with columns already set up.
         </p>
-        <div className="mt-3 space-y-2">
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <DraggableItem
+            dragId={`${LAYOUT_PREFIX}container`}
+            onClick={() => onAddLayout("container")}
+            ariaLabel="Add Container"
+          >
+            <span className="text-base text-zinc-400">▣</span>
+            Container
+          </DraggableItem>
+          <DraggableItem
+            dragId={`${LAYOUT_PREFIX}row`}
+            onClick={() => onAddLayout("row")}
+            ariaLabel="Add Row"
+          >
+            <span className="text-base text-zinc-400">▦</span>
+            Row
+          </DraggableItem>
           {ROW_LAYOUTS.map((layout) => (
             <DraggableItem
               key={layout.id}

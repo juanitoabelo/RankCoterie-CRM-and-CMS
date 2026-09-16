@@ -888,10 +888,11 @@ export interface RowLayout {
 /** Prebuilt row layouts — clicking/dragging one inserts a fully formed row. */
 export const ROW_LAYOUTS: RowLayout[] = [
   { id: "two-halves", label: "2 columns (6+6)", icon: "▥", spans: [6, 6] },
-  { id: "main-sidebar", label: "Main + sidebar (8+4)", icon: "▤", spans: [8, 4] },
-  { id: "sidebar-main", label: "Sidebar + main (4+8)", icon: "▧", spans: [4, 8] },
+  { id: "logo-nav", label: "Logo + Nav (3+9)", icon: "▤", spans: [3, 9] },
+  { id: "nav-logo", label: "Nav + Logo (9+3)", icon: "▧", spans: [9, 3] },
   { id: "three", label: "3 columns (4+4+4)", icon: "▦", spans: [4, 4, 4] },
-  { id: "wide-narrow", label: "Wide + narrow (9+3)", icon: "▧", spans: [9, 3] },
+  { id: "logo-center-nav", label: "Logo Center + Nav (2+8+2)", icon: "▥", spans: [2, 8, 2] },
+  { id: "footer-four", label: "4 columns (3+3+3+3)", icon: "▦", spans: [3, 3, 3, 3] },
 ];
 
 function freshColumn(span: number): ColumnData {
@@ -914,7 +915,8 @@ export function createRowLayout(layoutId: string): RowBlock {
       bgImage: "",
       textColor: undefined,
       paddingY: 24,
-      fullWidth: false,
+      width: "full",
+      fullWidth: true,
     },
   };
 }

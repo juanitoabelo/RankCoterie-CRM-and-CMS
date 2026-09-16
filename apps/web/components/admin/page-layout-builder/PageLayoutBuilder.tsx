@@ -14,17 +14,17 @@ import {
   type CollisionDetection,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import type { Block, BlockType, RowBlock } from "@/lib/page-builder/types";
+import type { Block, RowBlock } from "@/lib/page-builder/types";
 import {
   createRowLayout,
 } from "@/lib/page-builder/types";
 import {
-  createHeaderFooterBlock,
-  type HeaderFooterBlock,
-  type HeaderFooterBlockType,
+  createPageLayoutBlock,
+  type PageLayoutBlock,
+  type PageLayoutBlockType,
   type ContainerSettings,
   DEFAULT_CONTAINER_SETTINGS,
-} from "@/lib/header-footer/types";
+} from "@/lib/page-layout/types";
 import {
   mapBlocks,
   findBlock,
@@ -39,19 +39,18 @@ import {
   flattenIds,
   addRowToSection,
 } from "@/lib/page-builder/tree";
-import type { HeaderFooterRevisionRow } from "@/modules/header-footer";
-import HeaderFooterCanvas from "./HeaderFooterCanvas";
-import HeaderFooterPalette from "./HeaderFooterPalette";
-import HeaderFooterEditor from "./HeaderFooterEditor";
+import type { PageLayoutRevisionRow } from "@/modules/page-layout";
+import PageLayoutCanvas from "./PageLayoutCanvas";
+import PageLayoutPalette from "./PageLayoutPalette";
+import PageLayoutEditor from "./PageLayoutEditor";
 import ContainerSettingsEditor from "./ContainerSettingsEditor";
-import ColumnEditor from "./ColumnEditor";
+import ColumnEditor from "../header-footer-builder/ColumnEditor";
 
 type SaveResult = { ok: true } | { ok: false; error: string };
 
 interface Props {
   templateId: string;
   templateName: string;
-  templateType: "HEADER" | "FOOTER";
   initialBlocks: Block[];
   initialContainerSettings?: ContainerSettings;
   isDefault: boolean;
@@ -67,7 +66,7 @@ interface Props {
     data: string,
     opts?: { createRevision?: boolean },
   ) => Promise<SaveResult>;
-  onListRevisions: (id: string) => Promise<HeaderFooterRevisionRow[]>;
+  onListRevisions: (id: string) => Promise<PageLayoutRevisionRow[]>;
   onRestoreRevision: (
     id: string,
     revisionId: string,
@@ -82,10 +81,9 @@ interface Props {
   ) => Promise<SaveResult>;
 }
 
-export default function HeaderFooterBuilder({
+export default function PageLayoutBuilder({
   templateId,
   templateName,
-  templateType,
   initialBlocks,
   initialContainerSettings,
   isDefault,
@@ -110,7 +108,7 @@ export default function HeaderFooterBuilder({
   const [dirty, setDirty] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
-  const [revisions, setRevisions] = useState<HeaderFooterRevisionRow[]>([]);
+  const [revisions, setRevisions] = useState<PageLayoutRevisionRow[]>([]);
   const [showAssignments, setShowAssignments] = useState(false);
   const [containerSettings, setContainerSettings] = useState<ContainerSettings>(
     initialContainerSettings ?? DEFAULT_CONTAINER_SETTINGS,
@@ -179,7 +177,7 @@ export default function HeaderFooterBuilder({
   /* ── Block Mutations ────────────────────────────────────────────── */
   const addBlock = useCallback(
     (type: string) => {
-      const block = createHeaderFooterBlock(type as HeaderFooterBlockType);
+      const block = createPageLayoutBlock(type as PageLayoutBlockType);
       commit((present) => addBlockFromPalette(present, block as Block));
     },
     [commit],
@@ -188,7 +186,6 @@ export default function HeaderFooterBuilder({
   const addLayout = useCallback(
     (layoutId: string) => {
       if (layoutId === "container") {
-        // Create a section (container that holds rows)
         const section: Block = {
           id: crypto.randomUUID(),
           type: "section",
@@ -204,7 +201,6 @@ export default function HeaderFooterBuilder({
         };
         commit((present) => [...present, section]);
       } else if (layoutId === "row") {
-        // Create a simple single-column row
         const row: RowBlock = {
           id: crypto.randomUUID(),
           type: "row",
@@ -244,7 +240,7 @@ export default function HeaderFooterBuilder({
   );
 
   const updateProps = useCallback(
-    (id: string, props: HeaderFooterBlock["props"]) => {
+    (id: string, props: PageLayoutBlock["props"]) => {
       commit((present) => updateBlockProps(present, id, props as Block["props"]));
     },
     [commit],
@@ -339,7 +335,7 @@ export default function HeaderFooterBuilder({
 
       if (activeId.startsWith("palette:")) {
         const type = activeId.replace("palette:", "");
-        const block = createHeaderFooterBlock(type as HeaderFooterBlockType);
+        const block = createPageLayoutBlock(type as PageLayoutBlockType);
         commit((present) => addBlockFromPalette(present, block as Block, overId));
       } else if (activeId.startsWith("layout:")) {
         const layoutId = activeId.replace("layout:", "");
@@ -469,7 +465,7 @@ export default function HeaderFooterBuilder({
       {/* ── TOOLBAR ──────────────────────────────────────────────── */}
       <div className="mb-4 flex items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-2">
         <span className="text-sm font-medium text-zinc-700">
-          {templateType === "HEADER" ? "🟦 Header" : "🟩 Footer"}:
+          📄 Page Layout:
         </span>
         <span className="text-sm text-zinc-900">{templateName}</span>
 
@@ -537,7 +533,7 @@ export default function HeaderFooterBuilder({
           {/* Canvas */}
           <div className="min-w-0 flex-1">
             <div className={viewportCls}>
-              <HeaderFooterCanvas
+              <PageLayoutCanvas
                 blocks={blocks}
                 viewport={viewport}
                 containerSettings={containerSettings}
@@ -554,7 +550,7 @@ export default function HeaderFooterBuilder({
 
           {/* Sidebar */}
           <div className="w-80 shrink-0 space-y-4">
-            <HeaderFooterPalette
+            <PageLayoutPalette
               onAdd={addBlock}
               onAddLayout={addLayout}
             />
@@ -589,7 +585,7 @@ export default function HeaderFooterBuilder({
             )}
 
             {selectedBlock && (
-              <HeaderFooterEditor
+              <PageLayoutEditor
                 block={selectedBlock}
                 onChange={(props) => updateProps(selectedBlock.id, props)}
                 onRemove={() => removeBlockById(selectedBlock.id)}

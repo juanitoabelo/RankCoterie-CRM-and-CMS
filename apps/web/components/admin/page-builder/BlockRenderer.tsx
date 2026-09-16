@@ -621,94 +621,148 @@ function ContentGridBlock({ block }: { block: Block & { type: "contentGrid" } })
 }
 
 function SectionBlock({ block, ctx }: { block: SectionBlock; ctx: RegionContext }) {
-  const bg = block.props.bgImage
-    ? {
-        backgroundColor: block.props.bgColor,
-        backgroundImage: `url(${block.props.bgImage})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }
-    : { backgroundColor: block.props.bgColor };
+  const p = block.props;
+  const isBoxed = (p.width ?? "full") === "boxed";
+
+  const outerStyle: React.CSSProperties = {
+    width: "100%",
+    backgroundColor: p.bgColor,
+    backgroundImage: p.bgImage ? `url(${p.bgImage})` : undefined,
+    backgroundSize: p.bgSize || "cover",
+    backgroundPosition: p.bgPosition || "center",
+    backgroundRepeat: p.bgRepeat || "no-repeat",
+    color: p.textColor,
+    borderStyle: p.borderStyle !== "none" ? p.borderStyle : undefined,
+    borderWidth: p.borderWidth ? `${p.borderWidth}px` : undefined,
+    borderColor: p.borderColor,
+    borderRadius: p.borderRadius ? `${p.borderRadius}px` : undefined,
+    boxShadow: p.boxShadow,
+    position: "relative",
+    zIndex: p.zindex,
+    marginTop: p.margin?.top ? `${p.margin.top}px` : undefined,
+    marginRight: p.margin?.right ? `${p.margin.right}px` : undefined,
+    marginBottom: p.margin?.bottom ? `${p.margin.bottom}px` : undefined,
+    marginLeft: p.margin?.left ? `${p.margin.left}px` : undefined,
+  };
+
+  const innerStyle: React.CSSProperties = {
+    maxWidth: isBoxed ? (p.maxWidth || 1200) : "100%",
+    margin: isBoxed ? "0 auto" : undefined,
+    minHeight: p.minHeight || undefined,
+    display: "flex",
+    flexDirection: p.direction === "row" ? "row" : "column",
+    justifyContent: p.justifyContent || "flex-start",
+    alignItems: p.alignItems || "stretch",
+    columnGap: p.gapCol ? `${p.gapCol}px` : undefined,
+    rowGap: p.gapRow ? `${p.gapRow}px` : undefined,
+    flexWrap: p.wrap === "wrap" ? "wrap" : undefined,
+    paddingTop: p.padding?.top ? `${p.padding.top}px` : p.paddingTop ? `${p.paddingTop}px` : undefined,
+    paddingRight: p.padding?.right ? `${p.padding.right}px` : undefined,
+    paddingBottom: p.padding?.bottom ? `${p.padding.bottom}px` : p.paddingBottom ? `${p.paddingBottom}px` : undefined,
+    paddingLeft: p.padding?.left ? `${p.padding.left}px` : undefined,
+  };
+
+  // Overlay
+  const hasOverlay = p.overlayColor && p.overlayOpacity !== undefined;
+
   return (
     <section
-      style={{
-        ...bg,
-        color: block.props.textColor,
-        paddingTop: block.props.paddingTop ?? 48,
-        paddingBottom: block.props.paddingBottom ?? 48,
-      }}
+      style={outerStyle}
+      id={p.cssId || undefined}
+      className={p.cssClasses || undefined}
     >
-      {block.props.rows.map((row) => (
-        <RowBlock key={row.id} block={row} ctx={ctx} />
-      ))}
+      {hasOverlay && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundColor: p.overlayColor,
+            opacity: (p.overlayOpacity ?? 50) / 100,
+            pointerEvents: "none",
+          }}
+        />
+      )}
+      <div style={innerStyle}>
+        {p.rows.map((row) => (
+          <RowBlock key={row.id} block={row} ctx={ctx} />
+        ))}
+      </div>
     </section>
   );
 }
 
 function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
-  const bg = block.props.bgImage
-    ? {
-        backgroundColor: block.props.bgColor,
-        backgroundImage: `url(${block.props.bgImage})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }
-    : { backgroundColor: block.props.bgColor };
-
-  const rowWidth = block.props.width ?? (block.props.fullWidth ? "full" : "boxed");
+  const p = block.props;
+  const rowWidth = p.width ?? (p.fullWidth ? "full" : "boxed");
   const isBoxed = rowWidth === "boxed";
 
+  const outerStyle: React.CSSProperties = {
+    width: "100%",
+    backgroundColor: p.bgColor,
+    backgroundImage: p.bgImage ? `url(${p.bgImage})` : undefined,
+    backgroundSize: p.bgSize || "cover",
+    backgroundPosition: p.bgPosition || "center",
+    backgroundRepeat: p.bgRepeat || "no-repeat",
+    color: p.textColor,
+    position: "relative",
+    zIndex: p.zindex,
+    marginTop: p.margin?.top ? `${p.margin.top}px` : undefined,
+    marginRight: p.margin?.right ? `${p.margin.right}px` : undefined,
+    marginBottom: p.margin?.bottom ? `${p.margin.bottom}px` : undefined,
+    marginLeft: p.margin?.left ? `${p.margin.left}px` : undefined,
+  };
+
+  const innerStyle: React.CSSProperties = {
+    maxWidth: isBoxed ? (p.maxWidth ? `${p.maxWidth}px` : "var(--theme-max-width, 1200px)") : "100%",
+    margin: isBoxed ? "0 auto" : undefined,
+    minHeight: p.minHeight || undefined,
+    paddingTop: p.paddingY ? `${p.paddingY}px` : p.padding?.top ? `${p.padding.top}px` : undefined,
+    paddingRight: p.padding?.right ? `${p.padding.right}px` : undefined,
+    paddingBottom: p.paddingY ? `${p.paddingY}px` : p.padding?.bottom ? `${p.padding.bottom}px` : undefined,
+    paddingLeft: p.padding?.left ? `${p.padding.left}px` : undefined,
+  };
+
   return (
-    <section
-      className="py-6"
-      style={{
-        ...bg,
-        color: block.props.textColor,
-        paddingTop: block.props.paddingY,
-        paddingBottom: block.props.paddingY,
-        minHeight: block.props.minHeight,
-      }}
-    >
-      <div
-        className="grid grid-cols-12 mx-auto"
-        style={{
-          gap: block.props.gap,
-          alignItems: block.props.align,
-          maxWidth: isBoxed ? (block.props.maxWidth ? `${block.props.maxWidth}px` : "var(--theme-max-width, 1200px)") : "100%",
-        }}
-      >
-        {block.props.columns.map((column) => {
-          const colBg = column.bgImage
-            ? {
-                backgroundColor: column.bgColor,
-                backgroundImage: `url(${column.bgImage})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
-              }
-            : { backgroundColor: column.bgColor };
-          return (
-            <div
-              key={column.id}
-              className={renderColumnSpanClass(
-                resolveColumnWidths(column, block.props.stackOnMobile !== false),
-              )}
-              style={{
-                minWidth: 0,
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: column.justifyContent ?? "flex-start",
-                alignItems: column.alignItems ?? "stretch",
-                minHeight: column.minHeight,
-                ...colBg,
-              }}
-            >
-              <RenderBlocks blocks={column.blocks} ctx={ctx} />
-            </div>
-          );
-        })}
+    <section style={outerStyle}>
+      <div style={innerStyle}>
+        <div
+          className="grid grid-cols-12"
+          style={{
+            gap: p.gap,
+            alignItems: p.align,
+          }}
+        >
+          {p.columns.map((column) => {
+            const colBg = column.bgImage
+              ? {
+                  backgroundColor: column.bgColor,
+                  backgroundImage: `url(${column.bgImage})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  backgroundRepeat: "no-repeat",
+                }
+              : { backgroundColor: column.bgColor };
+            return (
+              <div
+                key={column.id}
+                className={renderColumnSpanClass(
+                  resolveColumnWidths(column, p.stackOnMobile !== false),
+                )}
+                style={{
+                  minWidth: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: column.justifyContent ?? "flex-start",
+                  alignItems: column.alignItems ?? "stretch",
+                  minHeight: column.minHeight,
+                  ...colBg,
+                }}
+              >
+                <RenderBlocks blocks={column.blocks} ctx={ctx} />
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );

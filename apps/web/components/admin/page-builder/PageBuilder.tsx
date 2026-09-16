@@ -27,9 +27,11 @@ import {
   type Block,
   type BlockType,
   type ColumnData,
+  type RowBlock,
 } from "@/lib/page-builder/types";
 import {
   addBlockFromPalette,
+  addRowToSection as addRowToSectionInTree,
   cloneBlock,
   columnById,
   duplicateBlock,
@@ -243,9 +245,63 @@ export default function PageBuilder({
 
   const addLayout = useCallback(
     (layoutId: string) => {
-      const row = createRowLayout(layoutId);
-      commit((prev) => [...prev, row]);
-      setSelectedId(row.id);
+      if (layoutId === "container") {
+        const section: Block = {
+          id: crypto.randomUUID(),
+          type: "section",
+          props: {
+            rows: [],
+            width: "full",
+            bgColor: undefined,
+            bgImage: "",
+            textColor: undefined,
+            paddingTop: 24,
+            paddingBottom: 24,
+          },
+        };
+        commit((prev) => [...prev, section]);
+        setSelectedId(section.id);
+      } else if (layoutId === "row") {
+        const row: RowBlock = {
+          id: crypto.randomUUID(),
+          type: "row",
+          props: {
+            columns: [{ id: crypto.randomUUID(), span: 12, blocks: [] }],
+            gap: 24,
+            align: "stretch",
+            stackOnMobile: true,
+            paddingY: 16,
+            width: "full",
+            fullWidth: true,
+          },
+        };
+        commit((prev) => [...prev, row]);
+        setSelectedId(row.id);
+      } else {
+        const row = createRowLayout(layoutId);
+        commit((prev) => [...prev, row]);
+        setSelectedId(row.id);
+      }
+    },
+    [commit],
+  );
+
+  const addRowToSectionHandler = useCallback(
+    (sectionId: string) => {
+      const row: RowBlock = {
+        id: crypto.randomUUID(),
+        type: "row",
+        props: {
+          columns: [{ id: crypto.randomUUID(), span: 12, blocks: [] }],
+          gap: 24,
+          align: "stretch",
+          stackOnMobile: true,
+          paddingY: 16,
+          width: "full",
+          fullWidth: true,
+        },
+      };
+      commit((prev) => addRowToSectionInTree(prev, sectionId, row));
     },
     [commit],
   );
@@ -739,6 +795,7 @@ export default function PageBuilder({
                 onSelectColumn={onSelectColumn}
                 onRemove={removeBlock}
                 onDuplicate={duplicate}
+                onAddRowToSection={addRowToSectionHandler}
                 inlineEditing={inlineEditing}
                 onUpdateProps={updateBlockProps}
               />

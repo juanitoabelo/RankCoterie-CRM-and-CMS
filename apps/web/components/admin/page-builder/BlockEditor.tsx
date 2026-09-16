@@ -1494,96 +1494,320 @@ function SectionEditor({
   onChange: (props: Block["props"]) => void;
 }) {
   const section = block as SectionBlock;
+  const p = section.props;
+  const [activeTab, setActiveTab] = useState<"layout" | "style" | "advanced">("layout");
+
+  const set = (patch: Record<string, unknown>) => onChange({ ...p, ...patch });
+
   const addRow = () => {
     const newRow = createBlock("row") as RowBlock;
-    onChange({ ...section.props, rows: [...section.props.rows, newRow] });
+    onChange({ ...p, rows: [...p.rows, newRow] });
   };
 
   const removeRow = (rowId: string) => {
-    onChange({
-      ...section.props,
-      rows: section.props.rows.filter((r) => r.id !== rowId),
-    });
+    onChange({ ...p, rows: p.rows.filter((r) => r.id !== rowId) });
   };
 
   return (
     <>
-      <BackgroundFields
-        label="Section background"
-        color={section.props.bgColor}
-        image={section.props.bgImage}
-        onColor={(value) => onChange({ ...section.props, bgColor: value || undefined })}
-        onImage={(value) => onChange({ ...section.props, bgImage: value })}
-      />
-      <div>
-        <label className={labelCls}>Text color</label>
-        <input
-          type="color"
-          className="mt-1 h-10 w-full rounded-lg border border-zinc-300"
-          value={section.props.textColor || "#18181b"}
-          onChange={(e) => onChange({ ...section.props, textColor: e.target.value })}
-        />
+      {/* Tab bar */}
+      <div className="flex border-b border-zinc-200">
+        {(["layout", "style", "advanced"] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 px-3 py-2 text-xs font-medium capitalize transition-colors ${
+              activeTab === tab
+                ? "border-b-2 border-zinc-900 text-zinc-900"
+                : "text-zinc-500 hover:text-zinc-700"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={labelCls}>Padding top (px)</label>
-          <input
-            type="number"
-            min={0}
-            max={300}
-            className={inputCls}
-            value={section.props.paddingTop ?? 48}
-            onChange={(e) =>
-              onChange({ ...section.props, paddingTop: Number(e.target.value) })
-            }
-          />
-        </div>
-        <div>
-          <label className={labelCls}>Padding bottom (px)</label>
-          <input
-            type="number"
-            min={0}
-            max={300}
-            className={inputCls}
-            value={section.props.paddingBottom ?? 48}
-            onChange={(e) =>
-              onChange({ ...section.props, paddingBottom: Number(e.target.value) })
-            }
-          />
-        </div>
-      </div>
-      <div>
-        <label className={labelCls}>Rows ({section.props.rows.length})</label>
-        <p className="mt-1 text-[11px] leading-snug text-zinc-400">
-          Add rows inside this section. Each row can have its own columns and blocks.
-        </p>
-        <div className="mt-2 space-y-2">
-          {section.props.rows.map((row, i) => (
-            <div
-              key={row.id}
-              className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2"
-            >
-              <span className="text-xs text-zinc-600">
-                Row {i + 1} · {row.props.columns.length} col{row.props.columns.length !== 1 ? "s" : ""}
-              </span>
+
+      {activeTab === "layout" && (
+        <div className="space-y-3">
+          {/* Content Width */}
+          <div>
+            <label className={labelCls}>Content Width</label>
+            <div className="mt-1 flex gap-1">
               <button
                 type="button"
-                onClick={() => removeRow(row.id)}
-                className="text-xs text-red-500 hover:text-red-700"
+                onClick={() => set({ width: "full" })}
+                className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium ${
+                  (p.width ?? "full") === "full"
+                    ? "border-zinc-900 bg-zinc-900 text-white"
+                    : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50"
+                }`}
               >
-                Remove
+                ↔ Full Width
+              </button>
+              <button
+                type="button"
+                onClick={() => set({ width: "boxed" })}
+                className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium ${
+                  p.width === "boxed"
+                    ? "border-zinc-900 bg-zinc-900 text-white"
+                    : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50"
+                }`}
+              >
+                ▣ Boxed
               </button>
             </div>
-          ))}
+          </div>
+
+          {p.width === "boxed" && (
+            <div>
+              <label className={labelCls}>Max Width ({p.maxWidth || 1200}px)</label>
+              <input
+                type="range"
+                min={400}
+                max={1920}
+                step={10}
+                value={p.maxWidth || 1200}
+                onChange={(e) => set({ maxWidth: Number(e.target.value) })}
+                className="mt-1 w-full"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className={labelCls}>Min Height ({p.minHeight ?? 0}px)</label>
+            <input
+              type="range"
+              min={0}
+              max={800}
+              step={10}
+              value={p.minHeight ?? 0}
+              onChange={(e) => set({ minHeight: Number(e.target.value) })}
+              className="mt-1 w-full"
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>Direction</label>
+            <div className="flex gap-1">
+              {(["column", "row"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => set({ direction: v })}
+                  className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium capitalize ${
+                    (p.direction ?? "column") === v
+                      ? "border-zinc-900 bg-zinc-900 text-white"
+                      : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50"
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Justify Content</label>
+            <select
+              className={inputCls}
+              value={p.justifyContent || "flex-start"}
+              onChange={(e) => set({ justifyContent: e.target.value })}
+            >
+              <option value="flex-start">Start</option>
+              <option value="center">Center</option>
+              <option value="flex-end">End</option>
+              <option value="space-between">Space Between</option>
+              <option value="space-around">Space Around</option>
+              <option value="space-evenly">Space Evenly</option>
+            </select>
+          </div>
+
+          <div>
+            <label className={labelCls}>Align Items</label>
+            <select
+              className={inputCls}
+              value={p.alignItems || "stretch"}
+              onChange={(e) => set({ alignItems: e.target.value })}
+            >
+              <option value="stretch">Stretch</option>
+              <option value="flex-start">Start</option>
+              <option value="center">Center</option>
+              <option value="flex-end">End</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className={labelCls}>Gap Col ({p.gapCol ?? 0}px)</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                className={inputCls}
+                value={p.gapCol ?? 0}
+                onChange={(e) => set({ gapCol: Number(e.target.value) })}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Gap Row ({p.gapRow ?? 0}px)</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                className={inputCls}
+                value={p.gapRow ?? 0}
+                onChange={(e) => set({ gapRow: Number(e.target.value) })}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Wrap</label>
+            <div className="flex gap-1">
+              {(["nowrap", "wrap"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => set({ wrap: v })}
+                  className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium capitalize ${
+                    (p.wrap ?? "nowrap") === v
+                      ? "border-zinc-900 bg-zinc-900 text-white"
+                      : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50"
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Rows ({p.rows.length})</label>
+            <div className="mt-2 space-y-2">
+              {p.rows.map((row, i) => (
+                <div
+                  key={row.id}
+                  className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2"
+                >
+                  <span className="text-xs text-zinc-600">
+                    Row {i + 1} · {row.props.columns.length} col{row.props.columns.length !== 1 ? "s" : ""}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeRow(row.id)}
+                    className="text-xs text-red-500 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={addRow}
+              className="mt-2 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-500 hover:border-zinc-400 hover:text-zinc-700"
+            >
+              + Add row
+            </button>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={addRow}
-          className="mt-2 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-500 hover:border-zinc-400 hover:text-zinc-700"
-        >
-          + Add row
-        </button>
-      </div>
+      )}
+
+      {activeTab === "style" && (
+        <div className="space-y-3">
+          <BackgroundFields
+            label="Section background"
+            color={p.bgColor}
+            image={p.bgImage}
+            onColor={(value) => set({ bgColor: value || undefined })}
+            onImage={(value) => set({ bgImage: value })}
+          />
+          <div>
+            <label className={labelCls}>Text color</label>
+            <input
+              type="color"
+              className="mt-1 h-10 w-full rounded-lg border border-zinc-300"
+              value={p.textColor || "#18181b"}
+              onChange={(e) => set({ textColor: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Overlay Color</label>
+            <input
+              type="color"
+              className="mt-1 h-10 w-full rounded-lg border border-zinc-300"
+              value={p.overlayColor || "#000000"}
+              onChange={(e) => set({ overlayColor: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Overlay Opacity ({p.overlayOpacity ?? 50}%)</label>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={p.overlayOpacity ?? 50}
+              onChange={(e) => set({ overlayOpacity: Number(e.target.value) })}
+              className="mt-1 w-full"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className={labelCls}>Padding Top (px)</label>
+              <input
+                type="number"
+                min={0}
+                max={300}
+                className={inputCls}
+                value={p.padding?.top ?? p.paddingTop ?? 48}
+                onChange={(e) => set({ padding: { ...(p.padding ?? { top: 0, right: 0, bottom: 0, left: 0 }), top: Number(e.target.value) } })}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Padding Bottom (px)</label>
+              <input
+                type="number"
+                min={0}
+                max={300}
+                className={inputCls}
+                value={p.padding?.bottom ?? p.paddingBottom ?? 48}
+                onChange={(e) => set({ padding: { ...(p.padding ?? { top: 0, right: 0, bottom: 0, left: 0 }), bottom: Number(e.target.value) } })}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Padding Left (px)</label>
+              <input
+                type="number"
+                min={0}
+                max={300}
+                className={inputCls}
+                value={p.padding?.left ?? 0}
+                onChange={(e) => set({ padding: { ...(p.padding ?? { top: 0, right: 0, bottom: 0, left: 0 }), left: Number(e.target.value) } })}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Padding Right (px)</label>
+              <input
+                type="number"
+                min={0}
+                max={300}
+                className={inputCls}
+                value={p.padding?.right ?? 0}
+                onChange={(e) => set({ padding: { ...(p.padding ?? { top: 0, right: 0, bottom: 0, left: 0 }), right: Number(e.target.value) } })}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "advanced" && (
+        <BlockAdvancedTab
+          props={p}
+          set={(patch: Record<string, unknown>) => set(patch)}
+          show={["margin", "padding", "border", "responsive", "attributes", "customCss", "zIndex"]}
+        />
+      )}
     </>
   );
 }

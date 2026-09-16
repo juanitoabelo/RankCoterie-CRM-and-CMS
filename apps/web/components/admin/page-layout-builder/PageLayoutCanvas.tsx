@@ -11,8 +11,8 @@ import type { Block, RowBlock, ColumnData } from "@/lib/page-builder/types";
 import { isRowBlock, isSectionBlock } from "@/lib/page-builder/types";
 import { resolveColumnWidths, canvasColumnSpanClass } from "@/lib/page-builder/spans";
 import { validateBlock } from "@/lib/page-builder/validate";
-import type { ContainerSettings } from "@/lib/header-footer/types";
-import { HeaderFooterBlockRenderer } from "./HeaderFooterRenderer";
+import type { ContainerSettings } from "@/lib/page-layout/types";
+import { PageLayoutBlockRenderer } from "./PageLayoutRenderer";
 
 /* ── Sortable Block Wrapper ─────────────────────────────────────────────── */
 
@@ -303,7 +303,7 @@ function SortableBlock({
         </div>
         {/* Live preview */}
         <div className="pointer-events-none overflow-hidden bg-white">
-          <HeaderFooterBlockRenderer block={block} />
+          <PageLayoutBlockRenderer block={block} />
         </div>
       </div>
     </div>
@@ -388,7 +388,7 @@ function ColumnCell({
 
 /* ── Main Canvas ────────────────────────────────────────────────────────── */
 
-export default function HeaderFooterCanvas({
+export default function PageLayoutCanvas({
   blocks,
   viewport,
   containerSettings,
@@ -508,10 +508,10 @@ export default function HeaderFooterCanvas({
         {blocks.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <p className="text-sm text-zinc-400">
-              Drag blocks from the left panel to build your {viewport} layout
+              Drag blocks from the left panel to build your page layout
             </p>
             <p className="mt-1 text-xs text-zinc-300">
-              Start with a Logo and Navigation Menu block
+              Start with a Row or Section container
             </p>
           </div>
         )}
@@ -524,11 +524,6 @@ export default function HeaderFooterCanvas({
 
 function getBlockIcon(type: string): string {
   const icons: Record<string, string> = {
-    logo: "◎",
-    menu: "☰",
-    socialIcons: "⏹",
-    contactInfo: "📞",
-    search: "🔍",
     hero: "⬛",
     text: "📝",
     image: "🖼",
@@ -552,11 +547,6 @@ function getBlockIcon(type: string): string {
 
 function getBlockLabel(type: string): string {
   const labels: Record<string, string> = {
-    logo: "Logo",
-    menu: "Menu",
-    socialIcons: "Social Icons",
-    contactInfo: "Contact Info",
-    search: "Search",
     hero: "Hero",
     text: "Text",
     image: "Image",

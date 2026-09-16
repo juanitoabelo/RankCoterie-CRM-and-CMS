@@ -196,6 +196,7 @@ function SectionBody({
   onSelectColumn,
   onRemove,
   onDuplicate,
+  onAddRowToSection,
   inlineEditing,
   onUpdateProps,
 }: {
@@ -207,6 +208,7 @@ function SectionBody({
   onSelectColumn: (id: string) => void;
   onRemove: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onAddRowToSection: (sectionId: string) => void;
   inlineEditing?: boolean;
   onUpdateProps?: (id: string, props: Block["props"]) => void;
 }) {
@@ -230,31 +232,77 @@ function SectionBody({
 
   return (
     <div className="mb-2 rounded-md border border-zinc-200/60" style={sectionStyle}>
-      <div className="px-2 pt-1">
+      <div className="flex items-center gap-2 px-2 pt-1">
         <span className="rounded bg-white/80 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-          ▣ Section · full width
+          ▣ Section · {block.props.rows.length} row{block.props.rows.length !== 1 ? "s" : ""}
         </span>
+        <button
+          onClick={() => onAddRowToSection(block.id)}
+          className="rounded bg-white/80 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 hover:bg-blue-50"
+        >
+          + Row
+        </button>
       </div>
       <div className="space-y-2 px-2 pb-2">
         {block.props.rows.length === 0 ? (
-          <p className="flex min-h-[64px] items-center justify-center rounded border border-dashed border-zinc-300 text-[11px] text-zinc-400">
-            Click "+ Add row" in the editor to add rows to this section
-          </p>
+          <button
+            onClick={() => onAddRowToSection(block.id)}
+            className="flex min-h-[64px] w-full items-center justify-center rounded border border-dashed border-zinc-300 text-[11px] text-zinc-400 hover:border-blue-400 hover:text-blue-500"
+          >
+            Empty section — click to add a row
+          </button>
         ) : (
           block.props.rows.map((row) => (
-            <RowBody
+            <div
               key={row.id}
-              block={row}
-              viewport={viewport}
-              selected={selected}
-              selectedColumnId={selectedColumnId}
-              onSelect={onSelect}
-              onSelectColumn={onSelectColumn}
-              onRemove={onRemove}
-              onDuplicate={onDuplicate}
-              inlineEditing={inlineEditing}
-              onUpdateProps={onUpdateProps}
-            />
+              className={`group/row relative rounded border border-dashed p-2 ${
+                selected === row.id
+                  ? "border-amber-400 bg-amber-50"
+                  : "border-zinc-200 hover:border-zinc-300"
+              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(row.id);
+              }}
+            >
+              <div className="mb-1 flex items-center gap-2">
+                <span className="text-[10px] font-medium uppercase text-zinc-400">
+                  Row · {row.props.columns.length} col
+                </span>
+                <div className="ml-auto flex gap-1 opacity-0 group-hover/row:opacity-100">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDuplicate(row.id);
+                    }}
+                    className="rounded px-1.5 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-200"
+                  >
+                    ⧉
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemove(row.id);
+                    }}
+                    className="rounded px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-100"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+              <RowBody
+                block={row}
+                viewport={viewport}
+                selected={selected}
+                selectedColumnId={selectedColumnId}
+                onSelect={onSelect}
+                onSelectColumn={onSelectColumn}
+                onRemove={onRemove}
+                onDuplicate={onDuplicate}
+                inlineEditing={inlineEditing}
+                onUpdateProps={onUpdateProps}
+              />
+            </div>
           ))
         )}
       </div>
@@ -271,6 +319,7 @@ function SortableBlock({
   onSelectColumn,
   onRemove,
   onDuplicate,
+  onAddRowToSection,
   inlineEditing,
   onUpdateProps,
 }: {
@@ -282,6 +331,7 @@ function SortableBlock({
   onSelectColumn: (id: string) => void;
   onRemove: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onAddRowToSection: (sectionId: string) => void;
   inlineEditing?: boolean;
   onUpdateProps?: (id: string, props: Block["props"]) => void;
 }) {
@@ -373,6 +423,7 @@ function SortableBlock({
           onSelectColumn={onSelectColumn}
           onRemove={onRemove}
           onDuplicate={onDuplicate}
+          onAddRowToSection={onAddRowToSection}
           inlineEditing={inlineEditing}
           onUpdateProps={onUpdateProps}
         />
@@ -409,6 +460,7 @@ export default function BuilderCanvas({
   onSelectColumn,
   onRemove,
   onDuplicate,
+  onAddRowToSection,
   inlineEditing,
   onUpdateProps,
 }: {
@@ -420,6 +472,7 @@ export default function BuilderCanvas({
   onSelectColumn: (id: string) => void;
   onRemove: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onAddRowToSection: (sectionId: string) => void;
   inlineEditing?: boolean;
   onUpdateProps?: (id: string, props: Block["props"]) => void;
 }) {
@@ -458,6 +511,7 @@ export default function BuilderCanvas({
             onSelectColumn={onSelectColumn}
             onRemove={onRemove}
             onDuplicate={onDuplicate}
+            onAddRowToSection={onAddRowToSection}
             inlineEditing={inlineEditing}
             onUpdateProps={onUpdateProps}
           />

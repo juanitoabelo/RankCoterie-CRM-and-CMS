@@ -492,17 +492,18 @@ model Merchant {
 // ---------------------------------------------------------------------------
 
 model Page {
-  id        String   @id @default(cuid())
-  tenantId  String
-  name      String
-  slug      String   @default("")
-  title     String   @default("")
-  status    String   @default("DRAFT") // DRAFT | LIVE | DISABLED
-  layout    String?
-  data      String? // builder blocks JSON
-  revisions PageRevision[]
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  slug        String   @default("")
+  title       String   @default("")
+  status      String   @default("DRAFT") // DRAFT | LIVE | DISABLED
+  isHomepage  Boolean  @default(false)
+  layout      String?
+  data        String? // builder blocks JSON
+  revisions   PageRevision[]
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
   @@unique([tenantId, slug])
 }
 
@@ -564,6 +565,46 @@ model HeaderFooterAssignment {
   createdAt      DateTime     @default(now())
   @@unique([tenantId, headerFooterId, pageId, pageType])
   @@index([tenantId, headerFooterId])
+}
+
+// ---------------------------------------------------------------------------
+// Page Layout Builder
+// ---------------------------------------------------------------------------
+
+model PageLayout {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  data        String?  // builder blocks JSON (Block[] + containerSettings)
+  isDefault   Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  revisions   PageLayoutRevision[]
+  assignments PageLayoutAssignment[]
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model PageLayoutRevision {
+  id             String       @id @default(cuid())
+  pageLayoutId   String
+  pageLayout     PageLayout   @relation(fields: [pageLayoutId], references: [id], onDelete: Cascade)
+  data           String       // builder blocks JSON snapshot
+  createdAt      DateTime     @default(now())
+  @@index([pageLayoutId, createdAt])
+}
+
+model PageLayoutAssignment {
+  id             String       @id @default(cuid())
+  tenantId       String
+  pageLayoutId   String
+  pageLayout     PageLayout   @relation(fields: [pageLayoutId], references: [id], onDelete: Cascade)
+  priority       Int          @default(0) // higher = more specific
+  pageId         String?      // null = global or type-level
+  pageType       String?      // null = global or page-level ("blog", "landing", etc.)
+  createdAt      DateTime     @default(now())
+  @@unique([tenantId, pageLayoutId, pageId, pageType])
+  @@index([tenantId, pageLayoutId])
 }
 
 model Asset {

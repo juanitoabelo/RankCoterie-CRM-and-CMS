@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import type { Metadata } from "next";
 import { prisma } from "@/modules/shared";
 import { DEFAULT_STYLE_GUIDE, renderGlobalStyleGuide, type StyleGuide } from "@/lib/style-guide";
@@ -6,6 +7,9 @@ import { DEFAULT_THEME_SETTINGS, renderThemeSettingsCSS, type ThemeSettings } fr
 import { DEFAULT_HEADER_BLOCKS, DEFAULT_FOOTER_BLOCKS, type HeaderFooterBlock, type ContainerSettings, DEFAULT_CONTAINER_SETTINGS } from "@/lib/header-footer/types";
 import { resolveHeaderFooter, parseHeaderFooterData } from "@/modules/header-footer";
 import HeaderFooterRenderer from "@/components/admin/header-footer-builder/HeaderFooterRenderer";
+import { resolvePageLayout, parsePageLayoutData } from "@/modules/page-layout";
+import type { PageLayoutBlock } from "@/lib/page-layout/types";
+import PageLayoutRenderer from "@/components/admin/page-layout-builder/PageLayoutRenderer";
 import { TENANT_ID } from "@/modules/shared";
 
 // Cache for layout data (tenant, menu, company) - avoids repeated DB hits
@@ -19,6 +23,8 @@ interface LayoutCache {
   headerContainerSettings: ContainerSettings;
   footerBlocks: HeaderFooterBlock[];
   footerContainerSettings: ContainerSettings;
+  pageLayoutBlocks: PageLayoutBlock[];
+  pageLayoutContainerSettings: ContainerSettings;
   expiresAt: number;
 }
 
@@ -73,6 +79,8 @@ async function getLayoutData() {
   let headerContainerSettings: ContainerSettings = DEFAULT_CONTAINER_SETTINGS;
   let footerBlocks: HeaderFooterBlock[] = DEFAULT_FOOTER_BLOCKS;
   let footerContainerSettings: ContainerSettings = DEFAULT_CONTAINER_SETTINGS;
+  let pageLayoutBlocks: PageLayoutBlock[] = [];
+  let pageLayoutContainerSettings: ContainerSettings = DEFAULT_CONTAINER_SETTINGS;
 
   try {
     const resolvedHeader = await resolveHeaderFooter("HEADER");
@@ -91,6 +99,20 @@ async function getLayoutData() {
     // Header/footer builder models may not exist yet — fall back to defaults
   }
 
+  // Resolve page layout blocks for the current route
+  try {
+    const hdrs = await headers();
+    const pathname = hdrs.get("x-nextjs-pathname") ?? hdrs.get("next-url") ?? "/";
+    const resolvedLayout = await resolvePageLayout({ pathname });
+    if (resolvedLayout) {
+      const parsed = parsePageLayoutData(resolvedLayout.data);
+      pageLayoutBlocks = parsed.blocks;
+      pageLayoutContainerSettings = parsed.containerSettings;
+    }
+  } catch {
+    // Page layout models may not exist yet — fall back to empty (no layout applied)
+  }
+
   layoutCache = {
     tenant: tenant ? { theme: tenant.theme, companyId: tenant.companyId } : null,
     headerMenu: headerMenu ? { items: headerMenu.items } : null,
@@ -101,6 +123,8 @@ async function getLayoutData() {
     headerContainerSettings,
     footerBlocks,
     footerContainerSettings,
+    pageLayoutBlocks,
+    pageLayoutContainerSettings,
     expiresAt: Date.now() + LAYOUT_CACHE_TTL_MS,
   };
 
@@ -189,7 +213,16 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       </header>
 
       {/* ── Main Content ──────────────────────────────────────────── */}
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">{children}</main>
+      <main className="flex-1">
+        {layoutData.pageLayoutBlocks.length > 0 ? (
+          <PageLayoutRenderer
+            blocks={layoutData.pageLayoutBlocks}
+            containerSettings={layoutData.pageLayoutContainerSettings}
+          />
+        ) : (
+          <div className="w-full">{children}</div>
+        )}
+      </main>
 
       {/* ── Footer ────────────────────────────────────────────────── */}
       <footer className={useFooterBuilder ? "" : "border-t border-zinc-200 bg-white"}>
