@@ -154,6 +154,15 @@ export async function updatePageMeta(
   const slug = String(formData.get("slug") ?? "").trim();
   const title = String(formData.get("title") ?? "").trim();
   const status = String(formData.get("status") ?? "DRAFT").trim();
+  const seoTitle = String(formData.get("seoTitle") ?? "").trim() || null;
+  const metaDesc = String(formData.get("metaDesc") ?? "").trim() || null;
+  const metaKeywords = String(formData.get("metaKeywords") ?? "[]").trim();
+  const focusKeyphrase = String(formData.get("focusKeyphrase") ?? "").trim() || null;
+  const ogImage = String(formData.get("ogImage") ?? "").trim() || null;
+  const canonicalUrl = String(formData.get("canonicalUrl") ?? "").trim() || null;
+  const robotsIndex = formData.get("robotsIndex") === "true";
+  const robotsFollow = formData.get("robotsFollow") === "true";
+  const jsonSchema = String(formData.get("jsonSchema") ?? "").trim() || null;
 
   if (!name) return { ok: false, error: "Name is required." };
   if (!slug) return { ok: false, error: "Slug is required." };
@@ -161,7 +170,21 @@ export async function updatePageMeta(
   try {
     await prisma.page.update({
       where: { id: pageId },
-      data: { name, slug, title: title || name, status },
+      data: {
+        name,
+        slug,
+        title: title || name,
+        status,
+        seoTitle,
+        metaDesc,
+        metaKeywords,
+        focusKeyphrase,
+        ogImage,
+        canonicalUrl,
+        robotsIndex,
+        robotsFollow,
+        jsonSchema,
+      },
     });
     await logAudit({
       action: "PAGE_UPDATE",

@@ -17,7 +17,27 @@ export default async function PageEditPage({
 }) {
   const { id } = await params;
 
-  const page = await prisma.page.findUnique({ where: { id } });
+  const page = await prisma.page.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      title: true,
+      status: true,
+      isHomepage: true,
+      data: true,
+      seoTitle: true,
+      metaDesc: true,
+      metaKeywords: true,
+      focusKeyphrase: true,
+      ogImage: true,
+      canonicalUrl: true,
+      robotsIndex: true,
+      robotsFollow: true,
+      jsonSchema: true,
+    },
+  });
   if (!page) {
     return <p className="text-sm text-zinc-500">Page not found.</p>;
   }

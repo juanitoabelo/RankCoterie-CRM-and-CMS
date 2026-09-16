@@ -17,10 +17,20 @@ export async function generateMetadata({
 
   const article = await prisma.contentTemplate.findFirst({
     where: { slug, status: "LIVE" },
+    select: {
+      title: true,
+      metaDesc: true,
+      metaKeywords: true,
+      seoTitle: true,
+      ogImage: true,
+      canonicalUrl: true,
+      robotsIndex: true,
+      robotsFollow: true,
+    },
   });
   if (!article) return { title: "Article not found" };
 
-  let title = article.title;
+  let title = article.seoTitle || article.title;
   if (region) {
     const regionRow = await prisma.region.findFirst({ where: { slug: region } });
     if (regionRow) {
@@ -29,13 +39,30 @@ export async function generateMetadata({
           ? `${regionRow.city}, ${regionRow.state}`
           : regionRow.stateFull,
       };
-      title = renderLocalizedContent(article.title, ctx);
+      title = renderLocalizedContent(article.seoTitle || article.title, ctx);
     }
   }
+
+  const metaKeywords = article.metaKeywords
+    ? (JSON.parse(article.metaKeywords) as string[])
+    : [];
 
   return {
     title: article.metaDesc ? `${title} | Canopy` : title,
     description: article.metaDesc ?? undefined,
+    keywords: metaKeywords.length > 0 ? metaKeywords : undefined,
+    robots: {
+      index: article.robotsIndex,
+      follow: article.robotsFollow,
+    },
+    alternates: article.canonicalUrl ? { canonical: article.canonicalUrl } : undefined,
+    openGraph: article.ogImage
+      ? {
+          title,
+          description: article.metaDesc ?? undefined,
+          images: [{ url: article.ogImage }],
+        }
+      : undefined,
   };
 }
 
@@ -67,7 +94,6 @@ export default async function ArticlePage({
     );
   }
 
-  // Check for pre-materialized variant
   let body = article.body;
   let regionDisplayName: string | null = null;
 
@@ -78,7 +104,6 @@ export default async function ArticlePage({
         ? `${regionRow.city}, ${regionRow.state}`
         : regionRow.stateFull;
 
-      // Try to find a pre-materialized variant first
       const variant = await prisma.contentVariant.findFirst({
         where: { templateId: article.id, regionId: regionRow.id, status: "LIVE" },
       });
@@ -86,7 +111,6 @@ export default async function ArticlePage({
       if (variant) {
         body = variant.body;
       } else {
-        // Fall back to live token rendering
         const ctx: RegionContext = {
           regionName: regionDisplayName,
           categoryName: article.category?.title,
@@ -95,7 +119,6 @@ export default async function ArticlePage({
       }
     }
   } else {
-    // No region — strip all region tokens
     body = renderLocalizedContent(article.body, {});
   }
 
@@ -128,6 +151,13 @@ export default async function ArticlePage({
         className="prose prose-zinc mt-8 max-w-none"
         dangerouslySetInnerHTML={{ __html: body ?? "" }}
       />
+
+      {article.jsonSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: article.jsonSchema }}
+        />
+      )}
     </article>
   );
 }

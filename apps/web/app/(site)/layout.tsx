@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import type { Metadata } from "next";
-import { prisma } from "@/modules/shared";
+import { prisma, TENANT_ID } from "@/modules/shared";
 import { DEFAULT_STYLE_GUIDE, renderGlobalStyleGuide, type StyleGuide } from "@/lib/style-guide";
 import { DEFAULT_THEME_SETTINGS, renderThemeSettingsCSS, type ThemeSettings } from "@/lib/theme-settings";
 import { DEFAULT_HEADER_BLOCKS, DEFAULT_FOOTER_BLOCKS, type HeaderFooterBlock, type ContainerSettings, DEFAULT_CONTAINER_SETTINGS } from "@/lib/header-footer/types";
@@ -10,7 +10,6 @@ import HeaderFooterRenderer from "@/components/admin/header-footer-builder/Heade
 import { resolvePageLayout, parsePageLayoutData } from "@/modules/page-layout";
 import type { PageLayoutBlock } from "@/lib/page-layout/types";
 import PageLayoutRenderer from "@/components/admin/page-layout-builder/PageLayoutRenderer";
-import { TENANT_ID } from "@/modules/shared";
 
 // Cache for layout data (tenant, menu, company) - avoids repeated DB hits
 interface LayoutCache {
@@ -131,10 +130,23 @@ async function getLayoutData() {
   return layoutCache;
 }
 
-export const metadata: Metadata = {
-  title: "Canopy Directory",
-  description: "Localized business directory with paid listings and SEO-ready region pages",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const tenant = await prisma.tenant.findUnique({ where: { id: TENANT_ID } });
+  const theme = (tenant?.theme ?? {}) as {
+    generalSettings?: { siteIconUrl?: string; siteTitle?: string };
+  };
+  const siteIconUrl = theme.generalSettings?.siteIconUrl;
+  const siteTitle = theme.generalSettings?.siteTitle || "Canopy Directory";
+  return {
+    title: siteTitle,
+    description: "Localized business directory with paid listings and SEO-ready region pages",
+    icons: siteIconUrl
+      ? {
+          icon: { url: siteIconUrl, type: "image/png", sizes: "any" },
+        }
+      : undefined,
+  };
+}
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   const layoutData = await getLayoutData();
@@ -162,6 +174,8 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       containerPadding: { ...DEFAULT_THEME_SETTINGS.responsive.containerPadding, ...theme.themeSettings?.responsive?.containerPadding },
     },
   };
+  const readingSettings = (theme.readingSettings ?? {}) as { searchEngineVisibility?: string };
+  const noindex = readingSettings.searchEngineVisibility === "hidden";
   const company = layoutData.company;
   const headerMenu = layoutData.headerMenu;
   const footerMenu = layoutData.footerMenu;
@@ -170,12 +184,6 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
 
   return (
     <div className="min-h-full flex flex-col">
-      <style dangerouslySetInnerHTML={{ __html: renderGlobalStyleGuide(guide) }} />
-      <style dangerouslySetInnerHTML={{ __html: renderThemeSettingsCSS(themeSettings) }} />
-      {company?.gscVerificationTag && <meta name="google-site-verification" content={company.gscVerificationTag} />}
-      {company?.gtm && <script async src={`https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(company.gtm)}`} />}
-      {company?.ga4 && <script async src={`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(company.ga4)}`} />}
-      {company?.fbPixel && <meta name="fb:pixel_id" content={company.fbPixel} />}
 
       {/* ── Header ─────────────────────────────────────────────────── */}
       <header className={useHeaderBuilder ? "" : "border-b border-zinc-200 bg-white"}>

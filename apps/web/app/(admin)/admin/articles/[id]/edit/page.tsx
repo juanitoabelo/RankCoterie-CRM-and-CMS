@@ -60,6 +60,14 @@ export default async function ArticleEditPage({
             metaDesc: article.metaDesc,
             categoryId: article.categoryId,
             status: article.status,
+            seoTitle: article.seoTitle,
+            metaKeywords: article.metaKeywords,
+            focusKeyphrase: article.focusKeyphrase,
+            ogImage: article.ogImage,
+            canonicalUrl: article.canonicalUrl,
+            robotsIndex: article.robotsIndex,
+            robotsFollow: article.robotsFollow,
+            jsonSchema: article.jsonSchema,
           }}
           categories={formCategories}
           submitLabel="Save changes"

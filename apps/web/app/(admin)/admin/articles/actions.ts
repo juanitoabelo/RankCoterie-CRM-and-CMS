@@ -17,6 +17,14 @@ export async function createArticle(formData: FormData): Promise<ActionResult> {
   const categoryId = String(formData.get("categoryId") ?? "").trim() || null;
   const slug = String(formData.get("slug") ?? "").trim()
     || title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const seoTitle = String(formData.get("seoTitle") ?? "").trim() || null;
+  const metaKeywords = String(formData.get("metaKeywords") ?? "[]").trim();
+  const focusKeyphrase = String(formData.get("focusKeyphrase") ?? "").trim() || null;
+  const ogImage = String(formData.get("ogImage") ?? "").trim() || null;
+  const canonicalUrl = String(formData.get("canonicalUrl") ?? "").trim() || null;
+  const robotsIndex = formData.get("robotsIndex") !== "false";
+  const robotsFollow = formData.get("robotsFollow") !== "false";
+  const jsonSchema = String(formData.get("jsonSchema") ?? "").trim() || null;
 
   if (!title) return { ok: false, error: "Title is required." };
   if (!body) return { ok: false, error: "Body is required." };
@@ -31,6 +39,14 @@ export async function createArticle(formData: FormData): Promise<ActionResult> {
         metaDesc,
         categoryId: categoryId || undefined,
         status: "DRAFT",
+        seoTitle,
+        metaKeywords,
+        focusKeyphrase,
+        ogImage,
+        canonicalUrl,
+        robotsIndex,
+        robotsFollow,
+        jsonSchema,
       },
     });
     await logAudit({
@@ -58,6 +74,14 @@ export async function updateArticle(
   const status = String(formData.get("status") ?? "DRAFT").trim();
   const slug = String(formData.get("slug") ?? "").trim()
     || title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const seoTitle = String(formData.get("seoTitle") ?? "").trim() || null;
+  const metaKeywords = String(formData.get("metaKeywords") ?? "[]").trim();
+  const focusKeyphrase = String(formData.get("focusKeyphrase") ?? "").trim() || null;
+  const ogImage = String(formData.get("ogImage") ?? "").trim() || null;
+  const canonicalUrl = String(formData.get("canonicalUrl") ?? "").trim() || null;
+  const robotsIndex = formData.get("robotsIndex") !== "false";
+  const robotsFollow = formData.get("robotsFollow") !== "false";
+  const jsonSchema = String(formData.get("jsonSchema") ?? "").trim() || null;
 
   if (!title) return { ok: false, error: "Title is required." };
   if (!body) return { ok: false, error: "Body is required." };
@@ -72,6 +96,14 @@ export async function updateArticle(
         metaDesc,
         categoryId: categoryId || null,
         status: status as ContentStatus,
+        seoTitle,
+        metaKeywords,
+        focusKeyphrase,
+        ogImage,
+        canonicalUrl,
+        robotsIndex,
+        robotsFollow,
+        jsonSchema,
       },
     });
     await logAudit({

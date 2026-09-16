@@ -1,12 +1,53 @@
 import Link from "next/link";
 import { getCatalogRepo } from "@/lib/directory/catalog";
-import { prisma } from "@/modules/shared";
+import { prisma, TENANT_ID } from "@/modules/shared";
 import { sanitizeHtml } from "@/lib/style-guide";
-import { TENANT_ID } from "@/modules/shared";
 import BlockRenderer from "@/components/admin/page-builder/BlockRenderer";
 import type { Block } from "@/lib/page-builder/types";
+import type { Metadata } from "next";
 
-export const revalidate = 3600;
+export const revalidate = 0;
+
+export async function generateMetadata(): Promise<Metadata> {
+  const homepagePage = await prisma.page.findFirst({
+    where: { tenantId: TENANT_ID, isHomepage: true, status: "LIVE" },
+    select: {
+      title: true,
+      name: true,
+      seoTitle: true,
+      metaDesc: true,
+      metaKeywords: true,
+      ogImage: true,
+      canonicalUrl: true,
+      robotsIndex: true,
+      robotsFollow: true,
+    },
+  });
+  if (!homepagePage) return {};
+
+  const title = homepagePage.seoTitle || homepagePage.title || homepagePage.name;
+  const metaKeywords = homepagePage.metaKeywords
+    ? (JSON.parse(homepagePage.metaKeywords) as string[])
+    : [];
+
+  return {
+    title,
+    description: homepagePage.metaDesc ?? undefined,
+    keywords: metaKeywords.length > 0 ? metaKeywords : undefined,
+    robots: {
+      index: homepagePage.robotsIndex,
+      follow: homepagePage.robotsFollow,
+    },
+    alternates: homepagePage.canonicalUrl ? { canonical: homepagePage.canonicalUrl } : undefined,
+    openGraph: homepagePage.ogImage
+      ? {
+          title,
+          description: homepagePage.metaDesc ?? undefined,
+          images: [{ url: homepagePage.ogImage }],
+        }
+      : undefined,
+  };
+}
 
 export default async function HomePage() {
   const homepagePage = await prisma.page.findFirst({
@@ -17,8 +58,13 @@ export default async function HomePage() {
     const blocks: Block[] = homepagePage.data ? JSON.parse(homepagePage.data) : [];
     return (
       <div>
-        {homepagePage.title && <title>{homepagePage.title}</title>}
         <BlockRenderer blocks={blocks} />
+        {homepagePage.jsonSchema && (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: homepagePage.jsonSchema }}
+          />
+        )}
       </div>
     );
   }

@@ -18,6 +18,8 @@ const SECTION_ROLES: SectionRoles = {
   menus: ["SUPER_ADMIN", "ADMIN", "EDITOR"],
   regions: ["SUPER_ADMIN", "ADMIN", "MARKETING"],
   widgets: ["SUPER_ADMIN", "ADMIN", "MARKETING"],
+  general: ["SUPER_ADMIN", "ADMIN"],
+  reading: ["SUPER_ADMIN", "ADMIN"],
   themeSettings: ["SUPER_ADMIN", "ADMIN"],
   headerFooter: ["SUPER_ADMIN", "ADMIN"],
   styleGuide: ["SUPER_ADMIN", "ADMIN", "MARKETING"],

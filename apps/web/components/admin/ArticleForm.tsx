@@ -7,6 +7,7 @@ import {
   type ActionResult,
 } from "@/app/(admin)/admin/articles/actions";
 import RichTextEditor from "./page-builder/RichTextEditor";
+import SeoFields, { DEFAULT_SEO_DATA, type SeoData } from "./SeoFields";
 
 export interface ArticleFormCategory {
   id: string;
@@ -22,6 +23,14 @@ export interface ArticleFormArticle {
   metaDesc: string | null;
   categoryId: string | null;
   status: string;
+  seoTitle: string | null;
+  metaKeywords: string | null;
+  focusKeyphrase: string | null;
+  ogImage: string | null;
+  canonicalUrl: string | null;
+  robotsIndex: boolean;
+  robotsFollow: boolean;
+  jsonSchema: string | null;
 }
 
 const inputCls = "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm";
@@ -50,6 +59,18 @@ export default function ArticleForm({
   const [isPending, startTransition] = useTransition();
   const [showTokens, setShowTokens] = useState(false);
   const [body, setBody] = useState(article?.body ?? "");
+  const [slug, setSlug] = useState(article?.slug ?? "");
+  const [seoData, setSeoData] = useState<SeoData>({
+    seoTitle: article?.seoTitle ?? "",
+    metaDesc: article?.metaDesc ?? "",
+    metaKeywords: article?.metaKeywords ? JSON.parse(article.metaKeywords) : [],
+    focusKeyphrase: article?.focusKeyphrase ?? "",
+    ogImage: article?.ogImage ?? "",
+    canonicalUrl: article?.canonicalUrl ?? "",
+    robotsIndex: article?.robotsIndex ?? true,
+    robotsFollow: article?.robotsFollow ?? true,
+    jsonSchema: article?.jsonSchema ?? "",
+  });
 
   const action = article
     ? updateArticle.bind(null, article.id)
@@ -57,6 +78,16 @@ export default function ArticleForm({
 
   const onSubmit = (formData: FormData) => {
     formData.set("body", body);
+    // Inject SEO data into formData
+    formData.set("seoTitle", seoData.seoTitle);
+    formData.set("metaDesc", seoData.metaDesc);
+    formData.set("metaKeywords", JSON.stringify(seoData.metaKeywords));
+    formData.set("focusKeyphrase", seoData.focusKeyphrase);
+    formData.set("ogImage", seoData.ogImage);
+    formData.set("canonicalUrl", seoData.canonicalUrl);
+    formData.set("robotsIndex", seoData.robotsIndex ? "true" : "false");
+    formData.set("robotsFollow", seoData.robotsFollow ? "true" : "false");
+    formData.set("jsonSchema", seoData.jsonSchema);
     setMessage(null);
     startTransition(async () => {
       const res = await action(formData);
@@ -89,6 +120,7 @@ export default function ArticleForm({
             defaultValue={article?.slug ?? ""}
             className={inputCls}
             placeholder="auto-generated from title"
+            onChange={(e) => setSlug(e.target.value)}
           />
         </div>
         <div>
@@ -151,24 +183,25 @@ export default function ArticleForm({
         </div>
       </div>
 
+      {/* SEO Section */}
       <div>
-        <label className={labelCls}>Meta description (SEO)</label>
-        <textarea
-          name="metaDesc"
-          rows={2}
-          defaultValue={article?.metaDesc ?? ""}
-          className={inputCls}
-          placeholder="Brief description for search engines..."
-        />
+        <h3 className="mb-3 text-sm font-medium text-zinc-900">SEO &amp; Social</h3>
+        <SeoFields data={seoData} onChange={setSeoData} slugPreview={slug || article?.slug} />
       </div>
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="rounded-lg bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
-      >
-        {isPending ? "Saving..." : submitLabel}
-      </button>
+      {/* Save */}
+      <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+        <button
+          type="submit"
+          disabled={isPending}
+          className="rounded-lg bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-40"
+        >
+          {isPending ? "Saving..." : submitLabel}
+        </button>
+        <p className="text-xs text-zinc-500">
+          Saves article content, SEO metadata, and JSON schema together.
+        </p>
+      </div>
     </form>
   );
 }

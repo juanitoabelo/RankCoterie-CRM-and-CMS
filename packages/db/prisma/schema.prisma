@@ -307,6 +307,15 @@ model ContentTemplate {
   publishedAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  // SEO fields
+  seoTitle        String?
+  metaKeywords    String? // JSON array of keywords
+  focusKeyphrase  String?
+  ogImage         String?
+  canonicalUrl    String?
+  robotsIndex     Boolean  @default(true)
+  robotsFollow    Boolean  @default(true)
+  jsonSchema      String? // JSON-LD schema
   variants    ContentVariant[]
   sectionLinks SubTopicSection[]
   @@unique([tenantId, slug])
@@ -492,18 +501,28 @@ model Merchant {
 // ---------------------------------------------------------------------------
 
 model Page {
-  id          String   @id @default(cuid())
-  tenantId    String
-  name        String
-  slug        String   @default("")
-  title       String   @default("")
-  status      String   @default("DRAFT") // DRAFT | LIVE | DISABLED
-  isHomepage  Boolean  @default(false)
-  layout      String?
-  data        String? // builder blocks JSON
-  revisions   PageRevision[]
-  updatedAt   DateTime @updatedAt
-  createdAt   DateTime @default(now())
+  id              String   @id @default(cuid())
+  tenantId        String
+  name            String
+  slug            String   @default("")
+  title           String   @default("")
+  status          String   @default("DRAFT") // DRAFT | LIVE | DISABLED
+  isHomepage      Boolean  @default(false)
+  layout          String?
+  data            String? // builder blocks JSON
+  // SEO fields
+  seoTitle        String?
+  metaDesc        String?
+  metaKeywords    String? // JSON array of keywords
+  focusKeyphrase  String?
+  ogImage         String?
+  canonicalUrl    String?
+  robotsIndex     Boolean  @default(true)
+  robotsFollow    Boolean  @default(true)
+  jsonSchema      String? // JSON-LD schema
+  revisions       PageRevision[]
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
   @@unique([tenantId, slug])
 }
 
