@@ -1,4 +1,4 @@
-import type React from "react";
+import React from "react";
 import { type Block, type RowBlock, type SectionBlock, type StyleBreakpoints, type IconListBlock, type VideoBlock } from "@/lib/page-builder/types";
 import {
   renderColumnSpanClass,
@@ -8,6 +8,18 @@ import { renderStyleGuide, styleScopeClass } from "@/lib/page-builder/style";
 import { renderLocalizedContent, type RegionContext } from "@/lib/localization/render";
 import SliderCarousel from "./SliderCarousel";
 import ContentGridFrontend from "./ContentGridFrontend";
+import {
+  getEntranceAnimationClass,
+  getVisibilityClasses,
+  getHeightStyle,
+  getBackgroundStyle,
+  renderOverlay,
+  renderShapeDivider,
+  getStickyStyle,
+  getTypographyScopeStyle,
+  getVerticalAlignStyle,
+  resolveTag,
+} from "./renderHelpers";
 
 /** Wrap a block's markup so per-breakpoint style-guide CSS applies to it. */
 function styleScope(block: Block, inner: React.ReactNode): React.ReactNode {
@@ -624,13 +636,21 @@ function SectionBlock({ block, ctx }: { block: SectionBlock; ctx: RegionContext 
   const p = block.props;
   const isBoxed = (p.width ?? "full") === "boxed";
 
+  const bgStyle = getBackgroundStyle({
+    bgType: p.bgType,
+    bgColor: p.bgColor,
+    bgImage: p.bgImage,
+    bgSize: p.bgSize,
+    bgPosition: p.bgPosition,
+    bgRepeat: p.bgRepeat,
+    bgGradientStart: p.bgGradientStart,
+    bgGradientEnd: p.bgGradientEnd,
+    bgGradientAngle: p.bgGradientAngle,
+  });
+
   const outerStyle: React.CSSProperties = {
     width: "100%",
-    backgroundColor: p.bgColor,
-    backgroundImage: p.bgImage ? `url(${p.bgImage})` : undefined,
-    backgroundSize: p.bgSize || "cover",
-    backgroundPosition: p.bgPosition || "center",
-    backgroundRepeat: p.bgRepeat || "no-repeat",
+    ...bgStyle,
     color: p.textColor,
     borderStyle: p.borderStyle !== "none" ? p.borderStyle : undefined,
     borderWidth: p.borderWidth ? `${p.borderWidth}px` : undefined,
@@ -643,12 +663,16 @@ function SectionBlock({ block, ctx }: { block: SectionBlock; ctx: RegionContext 
     marginRight: p.margin?.right ? `${p.margin.right}px` : undefined,
     marginBottom: p.margin?.bottom ? `${p.margin.bottom}px` : undefined,
     marginLeft: p.margin?.left ? `${p.margin.left}px` : undefined,
+    overflow: p.overflow && p.overflow !== "default" ? p.overflow : undefined,
+    ...getStickyStyle(p.sticky),
   };
+
+  const heightStyle = getHeightStyle(p.height, p.minHeight);
 
   const innerStyle: React.CSSProperties = {
     maxWidth: isBoxed ? (p.maxWidth || 1200) : "100%",
     margin: isBoxed ? "0 auto" : undefined,
-    minHeight: p.minHeight || undefined,
+    ...(heightStyle || {}),
     display: "flex",
     flexDirection: p.direction === "row" ? "row" : "column",
     justifyContent: p.justifyContent || "flex-start",
@@ -660,34 +684,42 @@ function SectionBlock({ block, ctx }: { block: SectionBlock; ctx: RegionContext 
     paddingRight: p.padding?.right ? `${p.padding.right}px` : undefined,
     paddingBottom: p.padding?.bottom ? `${p.padding.bottom}px` : p.paddingBottom ? `${p.paddingBottom}px` : undefined,
     paddingLeft: p.padding?.left ? `${p.padding.left}px` : undefined,
+    ...getVerticalAlignStyle(p.verticalAlign),
+    ...getTypographyScopeStyle({
+      headingColor: p.headingColor,
+      textColor: p.textColor,
+      linkColor: p.linkColor,
+      linkHoverColor: p.linkHoverColor,
+      textAlign: p.textAlign,
+    }),
   };
 
-  // Overlay
-  const hasOverlay = p.overlayColor && p.overlayOpacity !== undefined;
+  const animClass = getEntranceAnimationClass(p.entranceAnimation);
+  const visClass = getVisibilityClasses({
+    hideOnDesktop: p.hideOnDesktop,
+    hideOnTablet: p.hideOnTablet,
+    hideOnMobile: p.hideOnMobile,
+  });
+  const sectionClasses = ["pb-section", animClass, visClass, p.cssClasses].filter(Boolean).join(" ");
+
+  const SectionTag = resolveTag(p.htmlTag, "section");
 
   return (
-    <section
+    <SectionTag
       style={outerStyle}
       id={p.cssId || undefined}
-      className={p.cssClasses || undefined}
+      className={sectionClasses || undefined}
     >
-      {hasOverlay && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundColor: p.overlayColor,
-            opacity: (p.overlayOpacity ?? 50) / 100,
-            pointerEvents: "none",
-          }}
-        />
-      )}
+      {renderOverlay({ overlayColor: p.overlayColor, overlayOpacity: p.overlayOpacity })}
+      {renderShapeDivider("top", p.shapeDividerTop, p.shapeDividerTopColor, p.shapeDividerTopWidth, p.shapeDividerTopHeight)}
+      {renderShapeDivider("bottom", p.shapeDividerBottom, p.shapeDividerBottomColor, p.shapeDividerBottomWidth, p.shapeDividerBottomHeight)}
       <div style={innerStyle}>
         {p.rows.map((row) => (
           <RowBlock key={row.id} block={row} ctx={ctx} />
         ))}
       </div>
-    </section>
+      {p.customCss && <style dangerouslySetInnerHTML={{ __html: p.customCss }} />}
+    </SectionTag>
   );
 }
 
@@ -696,13 +728,21 @@ function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
   const rowWidth = p.width ?? (p.fullWidth ? "full" : "boxed");
   const isBoxed = rowWidth === "boxed";
 
+  const bgStyle = getBackgroundStyle({
+    bgType: p.bgType,
+    bgColor: p.bgColor,
+    bgImage: p.bgImage,
+    bgSize: p.bgSize,
+    bgPosition: p.bgPosition,
+    bgRepeat: p.bgRepeat,
+    bgGradientStart: p.bgGradientStart,
+    bgGradientEnd: p.bgGradientEnd,
+    bgGradientAngle: p.bgGradientAngle,
+  });
+
   const outerStyle: React.CSSProperties = {
     width: "100%",
-    backgroundColor: p.bgColor,
-    backgroundImage: p.bgImage ? `url(${p.bgImage})` : undefined,
-    backgroundSize: p.bgSize || "cover",
-    backgroundPosition: p.bgPosition || "center",
-    backgroundRepeat: p.bgRepeat || "no-repeat",
+    ...bgStyle,
     color: p.textColor,
     position: "relative",
     zIndex: p.zindex,
@@ -710,29 +750,53 @@ function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
     marginRight: p.margin?.right ? `${p.margin.right}px` : undefined,
     marginBottom: p.margin?.bottom ? `${p.margin.bottom}px` : undefined,
     marginLeft: p.margin?.left ? `${p.margin.left}px` : undefined,
+    borderStyle: p.borderStyle !== "none" ? p.borderStyle : undefined,
+    borderWidth: p.borderWidth ? `${p.borderWidth}px` : undefined,
+    borderColor: p.borderColor,
+    borderRadius: p.borderRadius ? `${p.borderRadius}px` : undefined,
+    boxShadow: p.boxShadow,
+    overflow: p.overflow && p.overflow !== "default" ? p.overflow : undefined,
+    ...getStickyStyle(p.sticky),
   };
+
+  const heightStyle = getHeightStyle(p.height, p.minHeight);
 
   const innerStyle: React.CSSProperties = {
     maxWidth: isBoxed ? (p.maxWidth ? `${p.maxWidth}px` : "var(--theme-max-width, 1200px)") : "100%",
     margin: isBoxed ? "0 auto" : undefined,
-    minHeight: p.minHeight || undefined,
+    ...(heightStyle || {}),
     paddingTop: p.paddingY ? `${p.paddingY}px` : p.padding?.top ? `${p.padding.top}px` : undefined,
     paddingRight: p.padding?.right ? `${p.padding.right}px` : undefined,
     paddingBottom: p.paddingY ? `${p.paddingY}px` : p.padding?.bottom ? `${p.padding.bottom}px` : undefined,
     paddingLeft: p.padding?.left ? `${p.padding.left}px` : undefined,
   };
 
+  const animClass = getEntranceAnimationClass(p.entranceAnimation);
+  const visClass = getVisibilityClasses({
+    hideOnDesktop: p.hideOnDesktop,
+    hideOnTablet: p.hideOnTablet,
+    hideOnMobile: p.hideOnMobile,
+  });
+  const reverseTablet = p.reverseColumnsTablet ? "pb-reverse-tablet" : "";
+  const reverseMobile = p.reverseColumnsMobile ? "pb-reverse-mobile" : "";
+  const rowClasses = [animClass, visClass, p.cssClasses].filter(Boolean).join(" ");
+
+  const RowTag = resolveTag(p.htmlTag, "section");
+
   return (
-    <section style={outerStyle}>
+    <RowTag style={outerStyle} id={p.cssId || undefined} className={rowClasses || undefined}>
+      {renderOverlay({ overlayColor: p.overlayColor, overlayOpacity: p.overlayOpacity })}
+      {renderShapeDivider("top", p.shapeDividerTop, p.shapeDividerTopColor, p.shapeDividerTopWidth, p.shapeDividerTopHeight)}
+      {renderShapeDivider("bottom", p.shapeDividerBottom, p.shapeDividerBottomColor, p.shapeDividerBottomWidth, p.shapeDividerBottomHeight)}
       <div style={innerStyle}>
         <div
-          className="grid grid-cols-12"
+          className={`grid grid-cols-12 ${reverseTablet} ${reverseMobile}`}
           style={{
             gap: p.gap,
             alignItems: p.align,
           }}
         >
-          {p.columns.map((column) => {
+          {p.columns.map((column, idx) => {
             const colBg = column.bgImage
               ? {
                   backgroundColor: column.bgColor,
@@ -742,6 +806,8 @@ function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
                   backgroundRepeat: column.bgRepeat || "no-repeat",
                 }
               : { backgroundColor: column.bgColor };
+            const totalCols = p.columns.length;
+            const reversedIdx = totalCols - 1 - idx;
             return (
               <div
                 key={column.id}
@@ -755,6 +821,12 @@ function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
                   justifyContent: column.justifyContent ?? "flex-start",
                   alignItems: column.alignItems ?? "stretch",
                   minHeight: column.minHeight,
+                  borderStyle: column.borderStyle !== "none" ? column.borderStyle : undefined,
+                  borderWidth: column.borderWidth ? `${column.borderWidth}px` : undefined,
+                  borderColor: column.borderColor,
+                  borderRadius: column.borderRadius ? `${column.borderRadius}px` : undefined,
+                  boxShadow: column.boxShadow,
+                  order: idx,
                   ...colBg,
                 }}
               >
@@ -764,7 +836,8 @@ function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
           })}
         </div>
       </div>
-    </section>
+      {p.customCss && <style dangerouslySetInnerHTML={{ __html: p.customCss }} />}
+    </RowTag>
   );
 }
 

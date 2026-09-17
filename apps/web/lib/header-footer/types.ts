@@ -54,6 +54,10 @@ export interface ContainerSettings {
   gapCol: number;
   gapRow: number;
   wrap: "nowrap" | "wrap";
+  height?: "default" | "fitToScreen" | "minHeight";
+  overflow?: "default" | "hidden" | "visible" | "scroll" | "auto";
+  verticalAlign?: "default" | "top" | "middle" | "bottom" | "spaceBetween" | "spaceAround";
+  htmlTag?: "default" | "div" | "section" | "article" | "aside" | "main" | "header" | "footer" | "nav";
 
   // Style
   bgColor?: string;
@@ -67,6 +71,34 @@ export interface ContainerSettings {
   borderWidth: number;
   borderColor?: string;
   borderRadius: number;
+  boxShadow?: string;
+  textColor?: string;
+  linkColor?: string;
+  linkHoverColor?: string;
+  // Background Type
+  bgType?: "classic" | "gradient" | "video" | "slideshow";
+  bgGradientStart?: string;
+  bgGradientEnd?: string;
+  bgGradientAngle?: number;
+  bgGradientType?: "linear" | "radial";
+  // Background Overlay
+  overlayBgType?: "classic" | "gradient";
+  overlayColor2?: string;
+  overlayGradientStart?: string;
+  overlayGradientEnd?: string;
+  overlayGradientAngle?: number;
+  // Shape Divider
+  shapeDividerTop?: string;
+  shapeDividerTopColor?: string;
+  shapeDividerTopWidth?: number;
+  shapeDividerTopHeight?: number;
+  shapeDividerBottom?: string;
+  shapeDividerBottomColor?: string;
+  shapeDividerBottomWidth?: number;
+  shapeDividerBottomHeight?: number;
+  // Typography
+  headingColor?: string;
+  textAlign?: "left" | "center" | "right" | "justify";
 
   // Advanced
   margin: SpacingValues;
@@ -74,6 +106,22 @@ export interface ContainerSettings {
   zindex: number;
   cssId: string;
   cssClasses: string;
+  customCss?: string;
+  customAttributes?: string;
+  // Motion Effects
+  scrollingEffects?: boolean;
+  sticky?: "none" | "top" | "bottom";
+  entranceAnimation?: string;
+  // Responsive
+  reverseColumnsTablet?: boolean;
+  reverseColumnsMobile?: boolean;
+  hideOnDesktop?: boolean;
+  hideOnTablet?: boolean;
+  hideOnMobile?: boolean;
+  // Display Conditions
+  displayCondition?: string;
+  displayConditionDate?: string;
+  displayConditionUrl?: string;
 }
 
 export const DEFAULT_CONTAINER_SETTINGS: ContainerSettings = {
@@ -97,6 +145,7 @@ export const DEFAULT_CONTAINER_SETTINGS: ContainerSettings = {
   borderWidth: 0,
   borderColor: undefined,
   borderRadius: 0,
+  boxShadow: undefined,
   margin: { top: 0, right: 0, bottom: 0, left: 0 },
   padding: { top: 0, right: 0, bottom: 0, left: 0 },
   zindex: 0,
@@ -141,6 +190,11 @@ export interface SectionLayoutSettings {
   gapCol: number;
   gapRow: number;
   wrap: "nowrap" | "wrap";
+  height?: "default" | "fitToScreen" | "minHeight";
+  overflow?: "default" | "hidden" | "visible" | "scroll" | "auto";
+  verticalAlign?: "default" | "top" | "middle" | "bottom" | "spaceBetween" | "spaceAround";
+  stretchSection?: boolean;
+  htmlTag?: "default" | "div" | "section" | "article" | "aside" | "main" | "header" | "footer" | "nav";
 }
 
 export interface RowLayoutSettings {
@@ -152,6 +206,10 @@ export interface RowLayoutSettings {
   wrap: "nowrap" | "wrap";
   stackOnMobile: boolean;
   fullWidth: boolean;
+  height?: "default" | "fitToScreen" | "minHeight";
+  overflow?: "default" | "hidden" | "visible" | "scroll" | "auto";
+  verticalAlign?: "default" | "top" | "middle" | "bottom" | "spaceBetween" | "spaceAround";
+  htmlTag?: "default" | "div" | "section" | "article" | "aside" | "main" | "header" | "footer" | "nav";
 }
 
 export interface ColumnLayoutSettings {

@@ -1496,6 +1496,9 @@ function SectionEditor({
   const section = block as SectionBlock;
   const p = section.props;
   const [activeTab, setActiveTab] = useState<"layout" | "style" | "advanced">("layout");
+  const [bgState, setBgState] = useState<"normal" | "hover">("normal");
+  const [dividerTab, setDividerTab] = useState<"top" | "bottom">("top");
+  const [openAdvanced, setOpenAdvanced] = useState<string | null>("layout");
 
   const set = (patch: Record<string, unknown>) => onChange({ ...p, ...patch });
 
@@ -1507,6 +1510,31 @@ function SectionEditor({
   const removeRow = (rowId: string) => {
     onChange({ ...p, rows: p.rows.filter((r) => r.id !== rowId) });
   };
+
+  const toggleAdvanced = (key: string) => setOpenAdvanced(openAdvanced === key ? null : key);
+
+  const SHAPE_DIVIDER_TYPES = [
+    { value: "", label: "None" },
+    { value: "mountains", label: "Mountains" },
+    { value: "drops", label: "Drops" },
+    { value: "clouds", label: "Clouds" },
+    { value: "tilt", label: "Tilt" },
+    { value: "wave", label: "Wave" },
+    { value: "tilt_opacity", label: "Tilt Opacity" },
+    { value: "mountains_opacity", label: "Mountains Opacity" },
+    { value: "clouds_opacity", label: "Clouds Opacity" },
+    { value: "drops_opacity", label: "Drops Opacity" },
+    { value: "curve_opacity", label: "Curve Opacity" },
+    { value: "fan_opacity", label: "Fan Opacity" },
+    { value: "wave_opacity", label: "Wave Opacity" },
+    { value: "triangle_opacity", label: "Triangle Opacity" },
+  ];
+
+  const ENTRANCE_ANIMATIONS = [
+    "", "fadeIn", "fadeInUp", "fadeInDown", "fadeInLeft", "fadeInRight",
+    "zoomIn", "zoomInUp", "bounceIn", "slideInUp", "slideInDown",
+    "slideInRight", "slideInLeft",
+  ];
 
   return (
     <>
@@ -1528,285 +1556,578 @@ function SectionEditor({
         ))}
       </div>
 
+      {/* ── Layout Tab ────────────────────────────────────────────────────── */}
       {activeTab === "layout" && (
         <div className="space-y-3">
-          {/* Content Width */}
-          <div>
-            <label className={labelCls}>Content Width</label>
-            <div className="mt-1 flex gap-1">
-              <button
-                type="button"
-                onClick={() => set({ width: "full" })}
-                className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium ${
-                  (p.width ?? "full") === "full"
-                    ? "border-zinc-900 bg-zinc-900 text-white"
-                    : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50"
-                }`}
-              >
-                ↔ Full Width
-              </button>
-              <button
-                type="button"
-                onClick={() => set({ width: "boxed" })}
-                className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium ${
-                  p.width === "boxed"
-                    ? "border-zinc-900 bg-zinc-900 text-white"
-                    : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50"
-                }`}
-              >
-                ▣ Boxed
-              </button>
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+            <label className={labelCls}>Layout</label>
+            <div className="mt-2 space-y-3">
+              <div>
+                <label className={labelCls}>Content Width</label>
+                <select
+                  className={inputCls}
+                  value={p.width ?? "full"}
+                  onChange={(e) => set({ width: e.target.value })}
+                >
+                  <option value="full">Full Width</option>
+                  <option value="boxed">Boxed</option>
+                </select>
+              </div>
+
+              {p.width === "boxed" && (
+                <div>
+                  <label className={labelCls}>Width ({p.maxWidth || 1200}px)</label>
+                  <input
+                    type="range"
+                    min={400}
+                    max={1920}
+                    step={10}
+                    value={p.maxWidth || 1200}
+                    onChange={(e) => set({ maxWidth: Number(e.target.value) })}
+                    className="mt-1 w-full"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className={labelCls}>Columns Gap</label>
+                <select
+                  className={inputCls}
+                  value={p.gapCol ?? 0}
+                  onChange={(e) => set({ gapCol: Number(e.target.value) })}
+                >
+                  <option value={0}>Default</option>
+                  <option value={0}>No Gap</option>
+                  <option value={10}>Narrow</option>
+                  <option value={20}>Extended</option>
+                  <option value={40}>Wide</option>
+                  <option value={60}>Wide Maximum</option>
+                </select>
+              </div>
+
+              <div>
+                <label className={labelCls}>Height</label>
+                <select
+                  className={inputCls}
+                  value={p.height ?? "default"}
+                  onChange={(e) => set({ height: e.target.value })}
+                >
+                  <option value="default">Default</option>
+                  <option value="fitToScreen">Fit To Screen</option>
+                  <option value="minHeight">Min Height</option>
+                </select>
+              </div>
+
+              {p.height === "minHeight" && (
+                <div>
+                  <label className={labelCls}>Minimum Height ({p.minHeight ?? 0}px)</label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1500}
+                    step={10}
+                    value={p.minHeight ?? 0}
+                    onChange={(e) => set({ minHeight: Number(e.target.value) })}
+                    className="mt-1 w-full"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className={labelCls}>Vertical Align</label>
+                <select
+                  className={inputCls}
+                  value={p.verticalAlign ?? "default"}
+                  onChange={(e) => set({ verticalAlign: e.target.value })}
+                >
+                  <option value="default">Default</option>
+                  <option value="top">Top</option>
+                  <option value="middle">Middle</option>
+                  <option value="bottom">Bottom</option>
+                  <option value="spaceBetween">Space Between</option>
+                  <option value="spaceAround">Space Around</option>
+                </select>
+              </div>
+
+              <div>
+                <label className={labelCls}>Overflow</label>
+                <select
+                  className={inputCls}
+                  value={p.overflow ?? "default"}
+                  onChange={(e) => set({ overflow: e.target.value })}
+                >
+                  <option value="default">Default</option>
+                  <option value="hidden">Hidden</option>
+                  <option value="visible">Visible</option>
+                  <option value="scroll">Scroll</option>
+                  <option value="auto">Auto</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <label className={labelCls}>Stretch Section</label>
+                <button
+                  type="button"
+                  onClick={() => set({ stretchSection: !p.stretchSection })}
+                  className={`relative h-6 w-11 rounded-full transition-colors ${p.stretchSection ? "bg-zinc-900" : "bg-zinc-300"}`}
+                >
+                  <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${p.stretchSection ? "translate-x-5" : ""}`} />
+                </button>
+              </div>
+              <p className="text-[10px] text-zinc-400">Stretch the section to the full width of the page using JS.</p>
+
+              <div>
+                <label className={labelCls}>HTML Tag</label>
+                <select
+                  className={inputCls}
+                  value={p.htmlTag ?? "default"}
+                  onChange={(e) => set({ htmlTag: e.target.value })}
+                >
+                  <option value="default">Default</option>
+                  <option value="div">div</option>
+                  <option value="section">section</option>
+                  <option value="article">article</option>
+                  <option value="aside">aside</option>
+                  <option value="main">main</option>
+                  <option value="header">header</option>
+                  <option value="footer">footer</option>
+                  <option value="nav">nav</option>
+                </select>
+              </div>
+
+              <div>
+                <label className={labelCls}>Rows ({p.rows.length})</label>
+                <div className="mt-2 space-y-2">
+                  {p.rows.map((row, i) => (
+                    <div
+                      key={row.id}
+                      className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2"
+                    >
+                      <span className="text-xs text-zinc-600">
+                        Row {i + 1} · {row.props.columns.length} col{row.props.columns.length !== 1 ? "s" : ""}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeRow(row.id)}
+                        className="text-xs text-red-500 hover:text-red-700"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={addRow}
+                  className="mt-2 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-500 hover:border-zinc-400 hover:text-zinc-700"
+                >
+                  + Add row
+                </button>
+              </div>
             </div>
           </div>
 
-          {p.width === "boxed" && (
-            <div>
-              <label className={labelCls}>Max Width ({p.maxWidth || 1200}px)</label>
-              <input
-                type="range"
-                min={400}
-                max={1920}
-                step={10}
-                value={p.maxWidth || 1200}
-                onChange={(e) => set({ maxWidth: Number(e.target.value) })}
-                className="mt-1 w-full"
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+            <label className={labelCls}>Structure</label>
+          </div>
+        </div>
+      )}
+
+      {/* ── Style Tab ─────────────────────────────────────────────────────── */}
+      {activeTab === "style" && (
+        <div className="space-y-3">
+          {/* Background */}
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+            <label className={labelCls}>Background</label>
+            <div className="mt-2 space-y-3">
+              <div className="flex rounded-lg border border-zinc-200 p-0.5">
+                <button type="button" onClick={() => setBgState("normal")} className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${bgState === "normal" ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100"}`}>Normal</button>
+                <button type="button" onClick={() => setBgState("hover")} className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${bgState === "hover" ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100"}`}>Hover</button>
+              </div>
+
+              <div>
+                <label className={labelCls}>Background Type</label>
+                <div className="mt-1 flex gap-1">
+                  {[
+                    { value: "classic", icon: "🎨", label: "Classic" },
+                    { value: "gradient", icon: "🌈", label: "Gradient" },
+                    { value: "video", icon: "🎬", label: "Video" },
+                    { value: "slideshow", icon: "🖼", label: "Slideshow" },
+                  ].map((type) => (
+                    <button
+                      key={type.value}
+                      type="button"
+                      onClick={() => set({ bgType: type.value })}
+                      className={`flex h-8 w-8 items-center justify-center rounded border text-sm ${
+                        (p.bgType ?? "classic") === type.value
+                          ? "border-zinc-900 bg-zinc-900 text-white"
+                          : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"
+                      }`}
+                      title={type.label}
+                    >
+                      {type.icon}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {(p.bgType ?? "classic") === "gradient" ? (
+                <>
+                  <div>
+                    <label className={labelCls}>Gradient Start</label>
+                    <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={p.bgGradientStart || "#000000"} onChange={(e) => set({ bgGradientStart: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Gradient End</label>
+                    <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={p.bgGradientEnd || "#ffffff"} onChange={(e) => set({ bgGradientEnd: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Angle ({p.bgGradientAngle || 180}deg)</label>
+                    <input type="range" min={0} max={360} value={p.bgGradientAngle || 180} onChange={(e) => set({ bgGradientAngle: Number(e.target.value) })} className="mt-1 w-full" />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <BackgroundFields
+                    label="Section background"
+                    color={bgState === "hover" ? undefined : p.bgColor}
+                    image={p.bgImage}
+                    onColor={(value) => set({ bgColor: value || undefined })}
+                    onImage={(value) => set({ bgImage: value })}
+                  />
+                  {p.bgImage && (
+                    <>
+                      <div>
+                        <label className={labelCls}>Position</label>
+                        <select className={inputCls} value={p.bgPosition || "center center"} onChange={(e) => set({ bgPosition: e.target.value })}>
+                          <option value="left top">Left Top</option>
+                          <option value="center top">Center Top</option>
+                          <option value="right top">Right Top</option>
+                          <option value="left center">Left Center</option>
+                          <option value="center center">Center Center</option>
+                          <option value="right center">Right Center</option>
+                          <option value="left bottom">Left Bottom</option>
+                          <option value="center bottom">Center Bottom</option>
+                          <option value="right bottom">Right Bottom</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Size</label>
+                        <select className={inputCls} value={p.bgSize || "cover"} onChange={(e) => set({ bgSize: e.target.value })}>
+                          <option value="auto">Auto</option>
+                          <option value="cover">Cover</option>
+                          <option value="contain">Contain</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Repeat</label>
+                        <select className={inputCls} value={p.bgRepeat || "no-repeat"} onChange={(e) => set({ bgRepeat: e.target.value })}>
+                          <option value="repeat">Repeat</option>
+                          <option value="no-repeat">No Repeat</option>
+                          <option value="repeat-x">Repeat X</option>
+                          <option value="repeat-y">Repeat Y</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Background Overlay */}
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+            <label className={labelCls}>Background Overlay</label>
+            <div className="mt-2 space-y-3">
+              <div>
+                <label className={labelCls}>Background Type</label>
+                <div className="mt-1 flex gap-1">
+                  <button type="button" onClick={() => set({ overlayBgType: "classic" })} className={`flex h-8 w-8 items-center justify-center rounded border text-sm ${(p.overlayBgType ?? "classic") === "classic" ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`} title="Classic">🎨</button>
+                  <button type="button" onClick={() => set({ overlayBgType: "gradient" })} className={`flex h-8 w-8 items-center justify-center rounded border text-sm ${p.overlayBgType === "gradient" ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`} title="Gradient">🌈</button>
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Overlay Color</label>
+                <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={p.overlayColor || "#000000"} onChange={(e) => set({ overlayColor: e.target.value })} />
+              </div>
+              <div>
+                <label className={labelCls}>Opacity ({p.overlayOpacity ?? 50}%)</label>
+                <input type="range" min={0} max={100} value={p.overlayOpacity ?? 50} onChange={(e) => set({ overlayOpacity: Number(e.target.value) })} className="mt-1 w-full" />
+              </div>
+            </div>
+          </div>
+
+          {/* Border */}
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+            <label className={labelCls}>Border</label>
+            <div className="mt-2 space-y-3">
+              <div>
+                <label className={labelCls}>Border Type</label>
+                <select className={inputCls} value={p.borderStyle ?? "none"} onChange={(e) => set({ borderStyle: e.target.value })}>
+                  <option value="none">Default</option>
+                  <option value="solid">Solid</option>
+                  <option value="dashed">Dashed</option>
+                  <option value="dotted">Dotted</option>
+                  <option value="double">Double</option>
+                </select>
+              </div>
+              {p.borderStyle && p.borderStyle !== "none" && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className={labelCls}>Width ({p.borderWidth ?? 1}px)</label>
+                    <input type="range" min={0} max={20} value={p.borderWidth ?? 1} onChange={(e) => set({ borderWidth: Number(e.target.value) })} className="mt-1 w-full" />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Color</label>
+                    <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={p.borderColor || "#000000"} onChange={(e) => set({ borderColor: e.target.value })} />
+                  </div>
+                </div>
+              )}
+              <div>
+                <label className={labelCls}>Border Radius ({p.borderRadius ?? 0}px)</label>
+                <input type="range" min={0} max={100} value={p.borderRadius ?? 0} onChange={(e) => set({ borderRadius: Number(e.target.value) })} className="mt-1 w-full" />
+              </div>
+              <div>
+                <label className={labelCls}>Box Shadow</label>
+                <select className={inputCls} value={p.boxShadow ?? ""} onChange={(e) => set({ boxShadow: e.target.value || undefined })}>
+                  <option value="">None</option>
+                  <option value="0 1px 3px rgba(0,0,0,0.12)">Subtle</option>
+                  <option value="0 4px 6px rgba(0,0,0,0.1)">Medium</option>
+                  <option value="0 10px 15px rgba(0,0,0,0.1)">Large</option>
+                  <option value="0 20px 25px rgba(0,0,0,0.15)">Extra Large</option>
+                  <option value="inset 0 2px 4px rgba(0,0,0,0.06)">Inset</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Shape Divider */}
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+            <label className={labelCls}>Shape Divider</label>
+            <div className="mt-2 space-y-3">
+              <div className="flex rounded-lg border border-zinc-200 p-0.5">
+                <button type="button" onClick={() => setDividerTab("top")} className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${dividerTab === "top" ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100"}`}>Top</button>
+                <button type="button" onClick={() => setDividerTab("bottom")} className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${dividerTab === "bottom" ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100"}`}>Bottom</button>
+              </div>
+              <div>
+                <label className={labelCls}>Type</label>
+                <div className="mt-1 grid grid-cols-2 gap-2">
+                  {SHAPE_DIVIDER_TYPES.map((shape) => {
+                    const currentValue = dividerTab === "top" ? p.shapeDividerTop : p.shapeDividerBottom;
+                    return (
+                      <button
+                        key={shape.value}
+                        type="button"
+                        onClick={() => set(dividerTab === "top" ? { shapeDividerTop: shape.value } : { shapeDividerBottom: shape.value })}
+                        className={`rounded border p-2 text-[10px] ${currentValue === shape.value ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`}
+                      >
+                        {shape.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {(dividerTab === "top" ? p.shapeDividerTop : p.shapeDividerBottom) && (
+                <>
+                  <div>
+                    <label className={labelCls}>Color</label>
+                    <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={dividerTab === "top" ? (p.shapeDividerTopColor || "#000000") : (p.shapeDividerBottomColor || "#000000")} onChange={(e) => set(dividerTab === "top" ? { shapeDividerTopColor: e.target.value } : { shapeDividerBottomColor: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Width ({(dividerTab === "top" ? p.shapeDividerTopWidth : p.shapeDividerBottomWidth) ?? 100}%)</label>
+                    <input type="range" min={0} max={100} value={(dividerTab === "top" ? p.shapeDividerTopWidth : p.shapeDividerBottomWidth) ?? 100} onChange={(e) => set(dividerTab === "top" ? { shapeDividerTopWidth: Number(e.target.value) } : { shapeDividerBottomWidth: Number(e.target.value) })} className="mt-1 w-full" />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Height ({(dividerTab === "top" ? p.shapeDividerTopHeight : p.shapeDividerBottomHeight) ?? 100}px)</label>
+                    <input type="range" min={0} max={500} value={(dividerTab === "top" ? p.shapeDividerTopHeight : p.shapeDividerBottomHeight) ?? 100} onChange={(e) => set(dividerTab === "top" ? { shapeDividerTopHeight: Number(e.target.value) } : { shapeDividerBottomHeight: Number(e.target.value) })} className="mt-1 w-full" />
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Typography */}
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+            <label className={labelCls}>Typography</label>
+            <div className="mt-2 space-y-3">
+              <div>
+                <label className={labelCls}>Heading Color</label>
+                <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={p.headingColor || "#18181b"} onChange={(e) => set({ headingColor: e.target.value })} />
+              </div>
+              <div>
+                <label className={labelCls}>Text Color</label>
+                <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={p.textColor || "#18181b"} onChange={(e) => set({ textColor: e.target.value })} />
+              </div>
+              <div>
+                <label className={labelCls}>Link Color</label>
+                <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={p.linkColor || "#18181b"} onChange={(e) => set({ linkColor: e.target.value })} />
+              </div>
+              <div>
+                <label className={labelCls}>Link Hover Color</label>
+                <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={p.linkHoverColor || "#18181b"} onChange={(e) => set({ linkHoverColor: e.target.value })} />
+              </div>
+              <div>
+                <label className={labelCls}>Text Align</label>
+                <div className="mt-1 flex gap-1">
+                  {["left", "center", "right", "justify"].map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => set({ textAlign: v })}
+                      className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium capitalize ${
+                        (p.textAlign ?? "left") === v
+                          ? "border-zinc-900 bg-zinc-900 text-white"
+                          : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50"
+                      }`}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Advanced Tab ──────────────────────────────────────────────────── */}
+      {activeTab === "advanced" && (
+        <div className="space-y-1">
+          {/* Layout (Margin/Padding/Z-Index/CSS) */}
+          <button type="button" onClick={() => toggleAdvanced("layout")} className="flex w-full items-center justify-between border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-700">
+            Layout
+            <span className="text-zinc-400">{openAdvanced === "layout" ? "▾" : "▸"}</span>
+          </button>
+          {openAdvanced === "layout" && (
+            <div className="space-y-3 pb-3">
+              <BlockAdvancedTab
+                props={p}
+                set={(patch: Record<string, unknown>) => set(patch)}
+                show={["layout"]}
               />
             </div>
           )}
 
-          <div>
-            <label className={labelCls}>Min Height ({p.minHeight ?? 0}px)</label>
-            <input
-              type="range"
-              min={0}
-              max={800}
-              step={10}
-              value={p.minHeight ?? 0}
-              onChange={(e) => set({ minHeight: Number(e.target.value) })}
-              className="mt-1 w-full"
-            />
-          </div>
-
-          <div>
-            <label className={labelCls}>Direction</label>
-            <div className="flex gap-1">
-              {(["column", "row"] as const).map((v) => (
+          {/* Motion Effects */}
+          <button type="button" onClick={() => toggleAdvanced("motionEffects")} className="flex w-full items-center justify-between border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-700">
+            Motion Effects
+            <span className="text-zinc-400">{openAdvanced === "motionEffects" ? "▾" : "▸"}</span>
+          </button>
+          {openAdvanced === "motionEffects" && (
+            <div className="space-y-3 pb-3">
+              <div className="flex items-center justify-between">
+                <label className={labelCls}>Scrolling Effects</label>
                 <button
-                  key={v}
                   type="button"
-                  onClick={() => set({ direction: v })}
-                  className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium capitalize ${
-                    (p.direction ?? "column") === v
-                      ? "border-zinc-900 bg-zinc-900 text-white"
-                      : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50"
-                  }`}
+                  onClick={() => set({ scrollingEffects: !p.scrollingEffects })}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${p.scrollingEffects ? "bg-zinc-900" : "bg-zinc-300"}`}
                 >
-                  {v}
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${p.scrollingEffects ? "translate-x-6" : "translate-x-1"}`} />
                 </button>
-              ))}
+              </div>
+              <div>
+                <label className={labelCls}>Sticky</label>
+                <select className={inputCls} value={p.sticky ?? "none"} onChange={(e) => set({ sticky: e.target.value })}>
+                  <option value="none">None</option>
+                  <option value="top">Top</option>
+                  <option value="bottom">Bottom</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Entrance Animation</label>
+                <select className={inputCls} value={p.entranceAnimation ?? ""} onChange={(e) => set({ entranceAnimation: e.target.value || undefined })}>
+                  <option value="">Default</option>
+                  {ENTRANCE_ANIMATIONS.filter(Boolean).map((a) => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
+          )}
 
-          <div>
-            <label className={labelCls}>Justify Content</label>
-            <select
-              className={inputCls}
-              value={p.justifyContent || "flex-start"}
-              onChange={(e) => set({ justifyContent: e.target.value })}
-            >
-              <option value="flex-start">Start</option>
-              <option value="center">Center</option>
-              <option value="flex-end">End</option>
-              <option value="space-between">Space Between</option>
-              <option value="space-around">Space Around</option>
-              <option value="space-evenly">Space Evenly</option>
-            </select>
-          </div>
-
-          <div>
-            <label className={labelCls}>Align Items</label>
-            <select
-              className={inputCls}
-              value={p.alignItems || "stretch"}
-              onChange={(e) => set({ alignItems: e.target.value })}
-            >
-              <option value="stretch">Stretch</option>
-              <option value="flex-start">Start</option>
-              <option value="center">Center</option>
-              <option value="flex-end">End</option>
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className={labelCls}>Gap Col ({p.gapCol ?? 0}px)</label>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                className={inputCls}
-                value={p.gapCol ?? 0}
-                onChange={(e) => set({ gapCol: Number(e.target.value) })}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Gap Row ({p.gapRow ?? 0}px)</label>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                className={inputCls}
-                value={p.gapRow ?? 0}
-                onChange={(e) => set({ gapRow: Number(e.target.value) })}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className={labelCls}>Wrap</label>
-            <div className="flex gap-1">
-              {(["nowrap", "wrap"] as const).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => set({ wrap: v })}
-                  className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium capitalize ${
-                    (p.wrap ?? "nowrap") === v
-                      ? "border-zinc-900 bg-zinc-900 text-white"
-                      : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50"
-                  }`}
-                >
-                  {v}
+          {/* Responsive */}
+          <button type="button" onClick={() => toggleAdvanced("responsive")} className="flex w-full items-center justify-between border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-700">
+            Responsive
+            <span className="text-zinc-400">{openAdvanced === "responsive" ? "▾" : "▸"}</span>
+          </button>
+          {openAdvanced === "responsive" && (
+            <div className="space-y-3 pb-3">
+              <div className="flex items-center justify-between">
+                <label className={labelCls}>Reverse Columns (Tablet)</label>
+                <button type="button" onClick={() => set({ reverseColumnsTablet: !p.reverseColumnsTablet })} className={`relative h-6 w-11 rounded-full transition-colors ${p.reverseColumnsTablet ? "bg-zinc-900" : "bg-zinc-300"}`}>
+                  <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${p.reverseColumnsTablet ? "translate-x-5" : ""}`} />
                 </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className={labelCls}>Rows ({p.rows.length})</label>
-            <div className="mt-2 space-y-2">
-              {p.rows.map((row, i) => (
-                <div
-                  key={row.id}
-                  className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2"
-                >
-                  <span className="text-xs text-zinc-600">
-                    Row {i + 1} · {row.props.columns.length} col{row.props.columns.length !== 1 ? "s" : ""}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => removeRow(row.id)}
-                    className="text-xs text-red-500 hover:text-red-700"
-                  >
-                    Remove
+              </div>
+              <div className="flex items-center justify-between">
+                <label className={labelCls}>Reverse Columns (Mobile)</label>
+                <button type="button" onClick={() => set({ reverseColumnsMobile: !p.reverseColumnsMobile })} className={`relative h-6 w-11 rounded-full transition-colors ${p.reverseColumnsMobile ? "bg-zinc-900" : "bg-zinc-300"}`}>
+                  <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${p.reverseColumnsMobile ? "translate-x-5" : ""}`} />
+                </button>
+              </div>
+              <div className="border-t border-zinc-200 pt-3">
+                <span className="text-xs font-semibold text-zinc-700">Visibility</span>
+                <p className="mt-1 text-[10px] text-zinc-400">Responsive visibility will take effect only on preview mode or live page.</p>
+              </div>
+              {[
+                { key: "hideOnDesktop", label: "Hide On Desktop" },
+                { key: "hideOnTablet", label: "Hide On Tablet Portrait" },
+                { key: "hideOnMobile", label: "Hide On Mobile Portrait" },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center justify-between">
+                  <label className={labelCls}>{label}</label>
+                  <button type="button" onClick={() => set({ [key]: !(p as Record<string, unknown>)[key] })} className={`relative h-6 w-11 rounded-full transition-colors ${(p as Record<string, unknown>)[key] ? "bg-zinc-900" : "bg-zinc-300"}`}>
+                    <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${(p as Record<string, unknown>)[key] ? "translate-x-5" : ""}`} />
                   </button>
                 </div>
               ))}
             </div>
-            <button
-              type="button"
-              onClick={addRow}
-              className="mt-2 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-500 hover:border-zinc-400 hover:text-zinc-700"
-            >
-              + Add row
-            </button>
-          </div>
-        </div>
-      )}
+          )}
 
-      {activeTab === "style" && (
-        <div className="space-y-3">
-          <BackgroundFields
-            label="Section background"
-            color={p.bgColor}
-            image={p.bgImage}
-            onColor={(value) => set({ bgColor: value || undefined })}
-            onImage={(value) => set({ bgImage: value })}
-          />
-          <div>
-            <label className={labelCls}>Text color</label>
-            <input
-              type="color"
-              className="mt-1 h-10 w-full rounded-lg border border-zinc-300"
-              value={p.textColor || "#18181b"}
-              onChange={(e) => set({ textColor: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className={labelCls}>Overlay Color</label>
-            <input
-              type="color"
-              className="mt-1 h-10 w-full rounded-lg border border-zinc-300"
-              value={p.overlayColor || "#000000"}
-              onChange={(e) => set({ overlayColor: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className={labelCls}>Overlay Opacity ({p.overlayOpacity ?? 50}%)</label>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={p.overlayOpacity ?? 50}
-              onChange={(e) => set({ overlayOpacity: Number(e.target.value) })}
-              className="mt-1 w-full"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className={labelCls}>Padding Top (px)</label>
-              <input
-                type="number"
-                min={0}
-                max={300}
-                className={inputCls}
-                value={p.padding?.top ?? p.paddingTop ?? 48}
-                onChange={(e) => set({ padding: { ...(p.padding ?? { top: 0, right: 0, bottom: 0, left: 0 }), top: Number(e.target.value) } })}
+          {/* Border */}
+          <button type="button" onClick={() => toggleAdvanced("border")} className="flex w-full items-center justify-between border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-700">
+            Border
+            <span className="text-zinc-400">{openAdvanced === "border" ? "▾" : "▸"}</span>
+          </button>
+          {openAdvanced === "border" && (
+            <div className="space-y-3 pb-3">
+              <BlockAdvancedTab
+                props={p}
+                set={(patch: Record<string, unknown>) => set(patch)}
+                show={["border"]}
               />
             </div>
-            <div>
-              <label className={labelCls}>Padding Bottom (px)</label>
-              <input
-                type="number"
-                min={0}
-                max={300}
-                className={inputCls}
-                value={p.padding?.bottom ?? p.paddingBottom ?? 48}
-                onChange={(e) => set({ padding: { ...(p.padding ?? { top: 0, right: 0, bottom: 0, left: 0 }), bottom: Number(e.target.value) } })}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Padding Left (px)</label>
-              <input
-                type="number"
-                min={0}
-                max={300}
-                className={inputCls}
-                value={p.padding?.left ?? 0}
-                onChange={(e) => set({ padding: { ...(p.padding ?? { top: 0, right: 0, bottom: 0, left: 0 }), left: Number(e.target.value) } })}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Padding Right (px)</label>
-              <input
-                type="number"
-                min={0}
-                max={300}
-                className={inputCls}
-                value={p.padding?.right ?? 0}
-                onChange={(e) => set({ padding: { ...(p.padding ?? { top: 0, right: 0, bottom: 0, left: 0 }), right: Number(e.target.value) } })}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {activeTab === "advanced" && (
-        <BlockAdvancedTab
-          props={p}
-          set={(patch: Record<string, unknown>) => set(patch)}
-          show={["margin", "padding", "border", "responsive", "attributes", "customCss", "zIndex"]}
-        />
+          {/* Attributes */}
+          <button type="button" onClick={() => toggleAdvanced("attributes")} className="flex w-full items-center justify-between border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-700">
+            Attributes
+            <span className="text-zinc-400">{openAdvanced === "attributes" ? "▾" : "▸"}</span>
+          </button>
+          {openAdvanced === "attributes" && (
+            <div className="space-y-3 pb-3">
+              <BlockAdvancedTab
+                props={p}
+                set={(patch: Record<string, unknown>) => set(patch)}
+                show={["attributes"]}
+              />
+            </div>
+          )}
+
+          {/* Custom CSS */}
+          <button type="button" onClick={() => toggleAdvanced("customCss")} className="flex w-full items-center justify-between border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-700">
+            Custom CSS
+            <span className="text-zinc-400">{openAdvanced === "customCss" ? "▾" : "▸"}</span>
+          </button>
+          {openAdvanced === "customCss" && (
+            <div className="space-y-3 pb-3">
+              <BlockAdvancedTab
+                props={p}
+                set={(patch: Record<string, unknown>) => set(patch)}
+                show={["customCss"]}
+              />
+            </div>
+          )}
+        </div>
       )}
     </>
   );
@@ -1821,257 +2142,617 @@ function RowEditor({
   onChange: (props: Block["props"]) => void;
   onAddToColumn?: (columnId: string, type: BlockType) => void;
 }) {
-  const updateColumns = (columns: ColumnData[]) => onChange({ ...block.props, columns });
+  const p = block.props;
+  const [activeTab, setActiveTab] = useState<"layout" | "style" | "advanced">("layout");
+  const [bgState, setBgState] = useState<"normal" | "hover">("normal");
+  const [openAdvanced, setOpenAdvanced] = useState<string | null>("layout");
+
+  const set = (patch: Record<string, unknown>) => onChange({ ...p, ...patch });
+  const updateColumns = (columns: ColumnData[]) => set({ columns });
 
   const addColumn = () => {
-    if (block.props.columns.length >= 6) return;
+    if (p.columns.length >= 6) return;
     updateColumns([
-      ...block.props.columns,
+      ...p.columns,
       { id: crypto.randomUUID(), span: 6, blocks: [] },
     ]);
   };
 
   const removeColumn = (id: string) => {
-    if (block.props.columns.length <= 1) return;
-    updateColumns(block.props.columns.filter((c) => c.id !== id));
+    if (p.columns.length <= 1) return;
+    updateColumns(p.columns.filter((c) => c.id !== id));
   };
 
   const duplicateSelectedColumn = (id: string) => {
-    if (block.props.columns.length >= 6) return;
-    const idx = block.props.columns.findIndex((c) => c.id === id);
+    if (p.columns.length >= 6) return;
+    const idx = p.columns.findIndex((c) => c.id === id);
     if (idx === -1) return;
-    const original = block.props.columns[idx];
+    const original = p.columns[idx];
     const copy: ColumnData = {
       ...original,
       id: crypto.randomUUID(),
       blocks: original.blocks.map((child) => cloneBlock(child)),
     };
-    const columns = [...block.props.columns];
+    const columns = [...p.columns];
     columns.splice(idx + 1, 0, copy);
     updateColumns(columns);
   };
 
   const setColumn = (id: string, patch: Partial<ColumnData>) => {
     updateColumns(
-      block.props.columns.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+      p.columns.map((c) => (c.id === id ? { ...c, ...patch } : c)),
     );
   };
 
+  const toggleAdvanced = (key: string) => setOpenAdvanced(openAdvanced === key ? null : key);
+
   return (
     <>
-      <BackgroundFields
-        label="Row background"
-        color={block.props.bgColor}
-        image={block.props.bgImage}
-        onColor={(value) => onChange({ ...block.props, bgColor: value || undefined })}
-        onImage={(value) => onChange({ ...block.props, bgImage: value })}
-      />
-
-      <div>
-        <label className={labelCls}>Text color</label>
-        <input
-          type="color"
-          className="mt-1 h-10 w-full rounded-lg border border-zinc-300"
-          value={block.props.textColor || "#18181b"}
-          onChange={(e) => onChange({ ...block.props, textColor: e.target.value })}
-        />
+      {/* Tab bar */}
+      <div className="flex border-b border-zinc-200">
+        {(["layout", "style", "advanced"] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 px-3 py-2 text-xs font-medium capitalize transition-colors ${
+              activeTab === tab
+                ? "border-b-2 border-zinc-900 text-zinc-900"
+                : "text-zinc-500 hover:text-zinc-700"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={labelCls}>Vertical padding (px)</label>
-          <input
-            type="number"
-            min={0}
-            max={200}
-            className={inputCls}
-            value={block.props.paddingY ?? 24}
-            onChange={(e) => onChange({ ...block.props, paddingY: Number(e.target.value) })}
-          />
-        </div>
-        <div>
-          <label className={labelCls}>Content Width</label>
-          <div className="mt-1 flex gap-1">
-            <button
-              type="button"
-              onClick={() => onChange({ ...block.props, width: "full", fullWidth: true })}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${(block.props.width ?? (block.props.fullWidth ? "full" : "boxed")) === "full" ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`}
-            >
-              Full
-            </button>
-            <button
-              type="button"
-              onClick={() => onChange({ ...block.props, width: "boxed", fullWidth: false })}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${(block.props.width ?? (block.props.fullWidth ? "full" : "boxed")) === "boxed" ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`}
-            >
-              Boxed
-            </button>
+      {/* ── Layout Tab ────────────────────────────────────────────────────── */}
+      {activeTab === "layout" && (
+        <div className="space-y-3">
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+            <label className={labelCls}>Layout</label>
+            <div className="mt-2 space-y-3">
+              <div>
+                <label className={labelCls}>Content Width</label>
+                <select
+                  className={inputCls}
+                  value={p.width ?? "boxed"}
+                  onChange={(e) => set({ width: e.target.value })}
+                >
+                  <option value="full">Full Width</option>
+                  <option value="boxed">Boxed</option>
+                </select>
+              </div>
+
+              {p.width === "boxed" && (
+                <div>
+                  <label className={labelCls}>Width ({p.maxWidth || 1200}px)</label>
+                  <input
+                    type="range"
+                    min={400}
+                    max={1920}
+                    step={10}
+                    value={p.maxWidth || 1200}
+                    onChange={(e) => set({ maxWidth: Number(e.target.value) })}
+                    className="mt-1 w-full"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className={labelCls}>Columns Gap</label>
+                <select
+                  className={inputCls}
+                  value={p.gap ?? 24}
+                  onChange={(e) => set({ gap: Number(e.target.value) })}
+                >
+                  <option value={0}>No Gap</option>
+                  <option value={10}>Narrow</option>
+                  <option value={20}>Extended</option>
+                  <option value={24}>Default</option>
+                  <option value={40}>Wide</option>
+                  <option value={60}>Wide Maximum</option>
+                </select>
+              </div>
+
+              <div>
+                <label className={labelCls}>Height</label>
+                <select
+                  className={inputCls}
+                  value={p.height ?? "default"}
+                  onChange={(e) => set({ height: e.target.value })}
+                >
+                  <option value="default">Default</option>
+                  <option value="fitToScreen">Fit To Screen</option>
+                  <option value="minHeight">Min Height</option>
+                </select>
+              </div>
+
+              {p.height === "minHeight" && (
+                <div>
+                  <label className={labelCls}>Minimum Height ({p.minHeight ?? 0}px)</label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1500}
+                    step={10}
+                    value={p.minHeight ?? 0}
+                    onChange={(e) => set({ minHeight: Number(e.target.value) })}
+                    className="mt-1 w-full"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className={labelCls}>Vertical Align</label>
+                <select
+                  className={inputCls}
+                  value={p.verticalAlign ?? p.align ?? "default"}
+                  onChange={(e) => set({ verticalAlign: e.target.value, align: e.target.value })}
+                >
+                  <option value="default">Default</option>
+                  <option value="top">Top</option>
+                  <option value="middle">Middle</option>
+                  <option value="bottom">Bottom</option>
+                  <option value="spaceBetween">Space Between</option>
+                  <option value="spaceAround">Space Around</option>
+                </select>
+              </div>
+
+              <div>
+                <label className={labelCls}>Overflow</label>
+                <select
+                  className={inputCls}
+                  value={p.overflow ?? "default"}
+                  onChange={(e) => set({ overflow: e.target.value })}
+                >
+                  <option value="default">Default</option>
+                  <option value="hidden">Hidden</option>
+                  <option value="visible">Visible</option>
+                  <option value="scroll">Scroll</option>
+                  <option value="auto">Auto</option>
+                </select>
+              </div>
+
+              <div>
+                <label className={labelCls}>HTML Tag</label>
+                <select
+                  className={inputCls}
+                  value={p.htmlTag ?? "default"}
+                  onChange={(e) => set({ htmlTag: e.target.value })}
+                >
+                  <option value="default">Default</option>
+                  <option value="div">div</option>
+                  <option value="section">section</option>
+                  <option value="article">article</option>
+                </select>
+              </div>
+
+              <div>
+                <label className={labelCls}>Columns ({p.columns.length})</label>
+                <div className="mt-2 space-y-2">
+                  {p.columns.map((c, i) => (
+                    <div key={c.id} className="space-y-2 rounded-lg border border-zinc-200 p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-zinc-500">Column {i + 1}</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => duplicateSelectedColumn(c.id)}
+                            disabled={p.columns.length >= 6}
+                            title="Duplicate this column"
+                            className="text-xs text-zinc-500 hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            ⧉ Duplicate
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeColumn(c.id)}
+                            disabled={p.columns.length <= 1}
+                            className="text-xs text-red-500 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                      <ResponsiveSpanFields
+                        desktop={c.span}
+                        tablet={c.spanMd}
+                        mobile={c.spanSm}
+                        onDesktop={(n) => setColumn(c.id, { span: n })}
+                        onTablet={(n) => setColumn(c.id, { spanMd: n })}
+                        onMobile={(n) => setColumn(c.id, { spanSm: n })}
+                      />
+                      <select
+                        className={inputCls}
+                        value=""
+                        onChange={(e) => {
+                          const type = e.target.value as BlockType;
+                          if (type && onAddToColumn) onAddToColumn(c.id, type);
+                        }}
+                      >
+                        <option value="" disabled>
+                          + Add block…
+                        </option>
+                        {LEAF_BLOCK_TYPES.map((t) => {
+                          const def = BLOCK_DEFINITIONS.find((d) => d.type === t);
+                          return (
+                            <option key={t} value={t}>
+                              {def?.icon} {def?.label}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      <BackgroundFields
+                        label={`Column ${i + 1} background`}
+                        color={c.bgColor}
+                        image={c.bgImage}
+                        onColor={(value) => setColumn(c.id, { bgColor: value || undefined })}
+                        onImage={(value) => setColumn(c.id, { bgImage: value })}
+                      />
+                      <p className="text-[10px] text-zinc-400">
+                        {c.blocks.length} block{c.blocks.length === 1 ? "" : "s"} inside
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={addColumn}
+                  disabled={p.columns.length >= 6}
+                  className="mt-2 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-500 hover:border-zinc-400 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  + Add column
+                </button>
+              </div>
+            </div>
           </div>
-          {(block.props.width ?? (block.props.fullWidth ? "full" : "boxed")) === "boxed" && (
-            <div className="mt-2">
-              <label className={labelCls}>Max Width (px)</label>
-              <input
-                type="number"
-                min={320}
-                max={3840}
-                className={inputCls}
-                value={block.props.maxWidth ?? 1200}
-                onChange={(e) => onChange({ ...block.props, maxWidth: Number(e.target.value) || 1200 })}
+        </div>
+      )}
+
+      {/* ── Style Tab ─────────────────────────────────────────────────────── */}
+      {activeTab === "style" && (
+        <div className="space-y-3">
+          {/* Background */}
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+            <label className={labelCls}>Background</label>
+            <div className="mt-2 space-y-3">
+              <div className="flex rounded-lg border border-zinc-200 p-0.5">
+                <button type="button" onClick={() => setBgState("normal")} className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${bgState === "normal" ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100"}`}>Normal</button>
+                <button type="button" onClick={() => setBgState("hover")} className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${bgState === "hover" ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100"}`}>Hover</button>
+              </div>
+
+              <div>
+                <label className={labelCls}>Background Type</label>
+                <div className="mt-1 flex gap-1">
+                  {[
+                    { value: "classic", icon: "🎨", label: "Classic" },
+                    { value: "gradient", icon: "🌈", label: "Gradient" },
+                    { value: "video", icon: "🎬", label: "Video" },
+                    { value: "slideshow", icon: "🖼", label: "Slideshow" },
+                  ].map((type) => (
+                    <button
+                      key={type.value}
+                      type="button"
+                      onClick={() => set({ bgType: type.value })}
+                      className={`flex h-8 w-8 items-center justify-center rounded border text-sm ${
+                        (p.bgType ?? "classic") === type.value
+                          ? "border-zinc-900 bg-zinc-900 text-white"
+                          : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"
+                      }`}
+                      title={type.label}
+                    >
+                      {type.icon}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {(p.bgType ?? "classic") === "gradient" ? (
+                <>
+                  <div>
+                    <label className={labelCls}>Gradient Start</label>
+                    <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={p.bgGradientStart || "#000000"} onChange={(e) => set({ bgGradientStart: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Gradient End</label>
+                    <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={p.bgGradientEnd || "#ffffff"} onChange={(e) => set({ bgGradientEnd: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Angle ({p.bgGradientAngle || 180}deg)</label>
+                    <input type="range" min={0} max={360} value={p.bgGradientAngle || 180} onChange={(e) => set({ bgGradientAngle: Number(e.target.value) })} className="mt-1 w-full" />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <BackgroundFields
+                    label="Row background"
+                    color={bgState === "hover" ? undefined : p.bgColor}
+                    image={p.bgImage}
+                    onColor={(value) => set({ bgColor: value || undefined })}
+                    onImage={(value) => set({ bgImage: value })}
+                  />
+                  {p.bgImage && (
+                    <>
+                      <div>
+                        <label className={labelCls}>Position</label>
+                        <select className={inputCls} value={p.bgPosition || "center center"} onChange={(e) => set({ bgPosition: e.target.value })}>
+                          <option value="left top">Left Top</option>
+                          <option value="center top">Center Top</option>
+                          <option value="right top">Right Top</option>
+                          <option value="left center">Left Center</option>
+                          <option value="center center">Center Center</option>
+                          <option value="right center">Right Center</option>
+                          <option value="left bottom">Left Bottom</option>
+                          <option value="center bottom">Center Bottom</option>
+                          <option value="right bottom">Right Bottom</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Size</label>
+                        <select className={inputCls} value={p.bgSize || "cover"} onChange={(e) => set({ bgSize: e.target.value })}>
+                          <option value="auto">Auto</option>
+                          <option value="cover">Cover</option>
+                          <option value="contain">Contain</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Repeat</label>
+                        <select className={inputCls} value={p.bgRepeat || "no-repeat"} onChange={(e) => set({ bgRepeat: e.target.value })}>
+                          <option value="repeat">Repeat</option>
+                          <option value="no-repeat">No Repeat</option>
+                          <option value="repeat-x">Repeat X</option>
+                          <option value="repeat-y">Repeat Y</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Background Overlay */}
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+            <label className={labelCls}>Background Overlay</label>
+            <div className="mt-2 space-y-3">
+              <div>
+                <label className={labelCls}>Background Type</label>
+                <div className="mt-1 flex gap-1">
+                  <button type="button" onClick={() => set({ overlayBgType: "classic" })} className={`flex h-8 w-8 items-center justify-center rounded border text-sm ${(p.overlayBgType ?? "classic") === "classic" ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`} title="Classic">🎨</button>
+                  <button type="button" onClick={() => set({ overlayBgType: "gradient" })} className={`flex h-8 w-8 items-center justify-center rounded border text-sm ${p.overlayBgType === "gradient" ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"}`} title="Gradient">🌈</button>
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Overlay Color</label>
+                <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={p.overlayColor || "#000000"} onChange={(e) => set({ overlayColor: e.target.value })} />
+              </div>
+              <div>
+                <label className={labelCls}>Opacity ({p.overlayOpacity ?? 50}%)</label>
+                <input type="range" min={0} max={100} value={p.overlayOpacity ?? 50} onChange={(e) => set({ overlayOpacity: Number(e.target.value) })} className="mt-1 w-full" />
+              </div>
+            </div>
+          </div>
+
+          {/* Border */}
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+            <label className={labelCls}>Border</label>
+            <div className="mt-2 space-y-3">
+              <div>
+                <label className={labelCls}>Border Type</label>
+                <select className={inputCls} value={p.borderStyle ?? "none"} onChange={(e) => set({ borderStyle: e.target.value })}>
+                  <option value="none">Default</option>
+                  <option value="solid">Solid</option>
+                  <option value="dashed">Dashed</option>
+                  <option value="dotted">Dotted</option>
+                  <option value="double">Double</option>
+                </select>
+              </div>
+              {p.borderStyle && p.borderStyle !== "none" && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className={labelCls}>Width ({p.borderWidth ?? 1}px)</label>
+                    <input type="range" min={0} max={20} value={p.borderWidth ?? 1} onChange={(e) => set({ borderWidth: Number(e.target.value) })} className="mt-1 w-full" />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Color</label>
+                    <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={p.borderColor || "#000000"} onChange={(e) => set({ borderColor: e.target.value })} />
+                  </div>
+                </div>
+              )}
+              <div>
+                <label className={labelCls}>Border Radius ({p.borderRadius ?? 0}px)</label>
+                <input type="range" min={0} max={100} value={p.borderRadius ?? 0} onChange={(e) => set({ borderRadius: Number(e.target.value) })} className="mt-1 w-full" />
+              </div>
+              <div>
+                <label className={labelCls}>Box Shadow</label>
+                <select className={inputCls} value={p.boxShadow ?? ""} onChange={(e) => set({ boxShadow: e.target.value || undefined })}>
+                  <option value="">None</option>
+                  <option value="0 1px 3px rgba(0,0,0,0.12)">Subtle</option>
+                  <option value="0 4px 6px rgba(0,0,0,0.1)">Medium</option>
+                  <option value="0 10px 15px rgba(0,0,0,0.1)">Large</option>
+                  <option value="0 20px 25px rgba(0,0,0,0.15)">Extra Large</option>
+                  <option value="inset 0 2px 4px rgba(0,0,0,0.06)">Inset</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Typography */}
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+            <label className={labelCls}>Typography</label>
+            <div className="mt-2 space-y-3">
+              <div>
+                <label className={labelCls}>Heading Color</label>
+                <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={p.headingColor || "#18181b"} onChange={(e) => set({ headingColor: e.target.value })} />
+              </div>
+              <div>
+                <label className={labelCls}>Text Color</label>
+                <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={p.textColor || "#18181b"} onChange={(e) => set({ textColor: e.target.value })} />
+              </div>
+              <div>
+                <label className={labelCls}>Text Align</label>
+                <div className="mt-1 flex gap-1">
+                  {["left", "center", "right", "justify"].map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => set({ textAlign: v })}
+                      className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium capitalize ${
+                        (p.textAlign ?? "left") === v
+                          ? "border-zinc-900 bg-zinc-900 text-white"
+                          : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50"
+                      }`}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Advanced Tab ──────────────────────────────────────────────────── */}
+      {activeTab === "advanced" && (
+        <div className="space-y-1">
+          {/* Layout (Margin/Padding/Z-Index/CSS) */}
+          <button type="button" onClick={() => toggleAdvanced("layout")} className="flex w-full items-center justify-between border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-700">
+            Layout
+            <span className="text-zinc-400">{openAdvanced === "layout" ? "▾" : "▸"}</span>
+          </button>
+          {openAdvanced === "layout" && (
+            <div className="space-y-3 pb-3">
+              <BlockAdvancedTab
+                props={p}
+                set={(patch: Record<string, unknown>) => set(patch)}
+                show={["layout"]}
+              />
+            </div>
+          )}
+
+          {/* Motion Effects */}
+          <button type="button" onClick={() => toggleAdvanced("motionEffects")} className="flex w-full items-center justify-between border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-700">
+            Motion Effects
+            <span className="text-zinc-400">{openAdvanced === "motionEffects" ? "▾" : "▸"}</span>
+          </button>
+          {openAdvanced === "motionEffects" && (
+            <div className="space-y-3 pb-3">
+              <div className="flex items-center justify-between">
+                <label className={labelCls}>Scrolling Effects</label>
+                <button
+                  type="button"
+                  onClick={() => set({ scrollingEffects: !p.scrollingEffects })}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${p.scrollingEffects ? "bg-zinc-900" : "bg-zinc-300"}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${p.scrollingEffects ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+              <div>
+                <label className={labelCls}>Sticky</label>
+                <select className={inputCls} value={p.sticky ?? "none"} onChange={(e) => set({ sticky: e.target.value })}>
+                  <option value="none">None</option>
+                  <option value="top">Top</option>
+                  <option value="bottom">Bottom</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Entrance Animation</label>
+                <select className={inputCls} value={p.entranceAnimation ?? ""} onChange={(e) => set({ entranceAnimation: e.target.value || undefined })}>
+                  <option value="">Default</option>
+                  {["fadeIn", "fadeInUp", "fadeInDown", "fadeInLeft", "fadeInRight", "zoomIn", "zoomInUp", "bounceIn", "slideInUp", "slideInDown", "slideInRight", "slideInLeft"].map((a) => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Border */}
+          <button type="button" onClick={() => toggleAdvanced("border")} className="flex w-full items-center justify-between border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-700">
+            Border
+            <span className="text-zinc-400">{openAdvanced === "border" ? "▾" : "▸"}</span>
+          </button>
+          {openAdvanced === "border" && (
+            <div className="space-y-3 pb-3">
+              <BlockAdvancedTab
+                props={p}
+                set={(patch: Record<string, unknown>) => set(patch)}
+                show={["border"]}
+              />
+            </div>
+          )}
+
+          {/* Responsive */}
+          <button type="button" onClick={() => toggleAdvanced("responsive")} className="flex w-full items-center justify-between border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-700">
+            Responsive
+            <span className="text-zinc-400">{openAdvanced === "responsive" ? "▾" : "▸"}</span>
+          </button>
+          {openAdvanced === "responsive" && (
+            <div className="space-y-3 pb-3">
+              <div className="flex items-center justify-between">
+                <label className={labelCls}>Reverse Columns (Tablet)</label>
+                <button type="button" onClick={() => set({ reverseColumnsTablet: !p.reverseColumnsTablet })} className={`relative h-6 w-11 rounded-full transition-colors ${p.reverseColumnsTablet ? "bg-zinc-900" : "bg-zinc-300"}`}>
+                  <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${p.reverseColumnsTablet ? "translate-x-5" : ""}`} />
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+                <label className={labelCls}>Reverse Columns (Mobile)</label>
+                <button type="button" onClick={() => set({ reverseColumnsMobile: !p.reverseColumnsMobile })} className={`relative h-6 w-11 rounded-full transition-colors ${p.reverseColumnsMobile ? "bg-zinc-900" : "bg-zinc-300"}`}>
+                  <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${p.reverseColumnsMobile ? "translate-x-5" : ""}`} />
+                </button>
+              </div>
+              <div className="border-t border-zinc-200 pt-3">
+                <span className="text-xs font-semibold text-zinc-700">Visibility</span>
+                <p className="mt-1 text-[10px] text-zinc-400">Responsive visibility will take effect only on preview mode or live page.</p>
+              </div>
+              {[
+                { key: "hideOnDesktop", label: "Hide On Desktop" },
+                { key: "hideOnTablet", label: "Hide On Tablet Portrait" },
+                { key: "hideOnMobile", label: "Hide On Mobile Portrait" },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center justify-between">
+                  <label className={labelCls}>{label}</label>
+                  <button type="button" onClick={() => set({ [key]: !(p as Record<string, unknown>)[key] })} className={`relative h-6 w-11 rounded-full transition-colors ${(p as Record<string, unknown>)[key] ? "bg-zinc-900" : "bg-zinc-300"}`}>
+                    <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${(p as Record<string, unknown>)[key] ? "translate-x-5" : ""}`} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Attributes */}
+          <button type="button" onClick={() => toggleAdvanced("attributes")} className="flex w-full items-center justify-between border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-700">
+            Attributes
+            <span className="text-zinc-400">{openAdvanced === "attributes" ? "▾" : "▸"}</span>
+          </button>
+          {openAdvanced === "attributes" && (
+            <div className="space-y-3 pb-3">
+              <BlockAdvancedTab
+                props={p}
+                set={(patch: Record<string, unknown>) => set(patch)}
+                show={["attributes"]}
+              />
+            </div>
+          )}
+
+          {/* Custom CSS */}
+          <button type="button" onClick={() => toggleAdvanced("customCss")} className="flex w-full items-center justify-between border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-700">
+            Custom CSS
+            <span className="text-zinc-400">{openAdvanced === "customCss" ? "▾" : "▸"}</span>
+          </button>
+          {openAdvanced === "customCss" && (
+            <div className="space-y-3 pb-3">
+              <BlockAdvancedTab
+                props={p}
+                set={(patch: Record<string, unknown>) => set(patch)}
+                show={["customCss"]}
               />
             </div>
           )}
         </div>
-      </div>
-
-      <div>
-        <label className={labelCls}>Min Height (px)</label>
-        <div className="mt-1 flex items-center gap-2">
-          <input
-            type="range"
-            min={0}
-            max={2000}
-            className="h-1 flex-1 accent-zinc-900"
-            value={block.props.minHeight ?? 0}
-            onChange={(e) => onChange({ ...block.props, minHeight: Number(e.target.value) })}
-          />
-          <input
-            type="number"
-            min={0}
-            max={2000}
-            className="w-14 rounded border border-zinc-300 px-2 py-1 text-right text-xs"
-            value={block.props.minHeight ?? 0}
-            onChange={(e) => onChange({ ...block.props, minHeight: Number(e.target.value) })}
-          />
-          <span className="text-[10px] text-zinc-400">px</span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={labelCls}>Gap (px)</label>
-          <input
-            type="number"
-            min={0}
-            max={64}
-            className={inputCls}
-            value={block.props.gap}
-            onChange={(e) => onChange({ ...block.props, gap: Number(e.target.value) })}
-          />
-        </div>
-        <div>
-          <label className={labelCls}>Vertical align</label>
-          <select
-            className={inputCls}
-            value={block.props.align}
-            onChange={(e) => onChange({ ...block.props, align: e.target.value as "stretch" })}
-          >
-            <option value="stretch">Stretch</option>
-            <option value="start">Top</option>
-            <option value="center">Middle</option>
-            <option value="end">Bottom</option>
-          </select>
-        </div>
-      </div>
-      <div>
-        <label className={labelCls}>Default mobile layout</label>
-        <div className="mt-1 flex items-center gap-2">
-          <input
-            id={`stack-mobile-${block.id}`}
-            type="checkbox"
-            checked={block.props.stackOnMobile}
-            onChange={(e) => onChange({ ...block.props, stackOnMobile: e.target.checked })}
-            className="h-4 w-4 rounded border-zinc-300 text-zinc-900"
-          />
-          <label htmlFor={`stack-mobile-${block.id}`} className="text-sm text-zinc-700">
-            Stack columns to full width on mobile
-          </label>
-        </div>
-        <p className="mt-1 text-[11px] leading-snug text-zinc-400">
-          This is the default for columns in “Auto” mobile mode. Set a column’s
-          Mobile width below to override it per column.
-        </p>
-      </div>
-      <div>
-        <label className={labelCls}>Columns</label>
-        <p className="mt-1 text-[11px] leading-snug text-zinc-400">
-          Drag blocks between columns, or use “Add block” below a column. Click a column in the
-          canvas to make the palette add into it.
-        </p>
-        <div className="mt-2 space-y-2">
-          {block.props.columns.map((c, i) => (
-            <div key={c.id} className="space-y-2 rounded-lg border border-zinc-200 p-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-500">Column {i + 1}</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => duplicateSelectedColumn(c.id)}
-                    disabled={block.props.columns.length >= 6}
-                    title="Duplicate this column"
-                    className="text-xs text-zinc-500 hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    ⧉ Duplicate
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeColumn(c.id)}
-                    disabled={block.props.columns.length <= 1}
-                    className="text-xs text-red-500 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-              <ResponsiveSpanFields
-                desktop={c.span}
-                tablet={c.spanMd}
-                mobile={c.spanSm}
-                onDesktop={(n) => setColumn(c.id, { span: n })}
-                onTablet={(n) => setColumn(c.id, { spanMd: n })}
-                onMobile={(n) => setColumn(c.id, { spanSm: n })}
-              />
-              <select
-                className={inputCls}
-                value=""
-                onChange={(e) => {
-                  const type = e.target.value as BlockType;
-                  if (type && onAddToColumn) onAddToColumn(c.id, type);
-                }}
-              >
-                <option value="" disabled>
-                  + Add block…
-                </option>
-                {LEAF_BLOCK_TYPES.map((t) => {
-                  const def = BLOCK_DEFINITIONS.find((d) => d.type === t);
-                  return (
-                    <option key={t} value={t}>
-                      {def?.icon} {def?.label}
-                    </option>
-                  );
-                })}
-              </select>
-              <BackgroundFields
-                label={`Column ${i + 1} background`}
-                color={c.bgColor}
-                image={c.bgImage}
-                onColor={(value) => setColumn(c.id, { bgColor: value || undefined })}
-                onImage={(value) => setColumn(c.id, { bgImage: value })}
-              />
-              <p className="text-[10px] text-zinc-400">
-                {c.blocks.length} block{c.blocks.length === 1 ? "" : "s"} inside
-              </p>
-            </div>
-          ))}
-        </div>
-        <button
-          type="button"
-          onClick={addColumn}
-          disabled={block.props.columns.length >= 6}
-          className="mt-2 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-500 hover:border-zinc-400 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          + Add column
-        </button>
-      </div>
+      )}
     </>
   );
 }

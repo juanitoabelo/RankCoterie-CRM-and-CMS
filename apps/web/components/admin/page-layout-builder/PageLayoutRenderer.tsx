@@ -13,6 +13,18 @@ import { isRowBlock, isSectionBlock } from "@/lib/page-builder/types";
 import { resolveColumnWidths, renderColumnSpanClass } from "@/lib/page-builder/spans";
 import { styleScopeClass, renderStyleGuide } from "@/lib/page-builder/style";
 import type { StyleBreakpoints } from "@/lib/page-builder/types";
+import {
+  getEntranceAnimationClass,
+  getVisibilityClasses,
+  getHeightStyle,
+  getBackgroundStyle,
+  renderOverlay,
+  renderShapeDivider,
+  getStickyStyle,
+  getTypographyScopeStyle,
+  getVerticalAlignStyle,
+  resolveTag,
+} from "../page-builder/renderHelpers";
 
 /* ── Style Scope Helper ─────────────────────────────────────────────────── */
 
@@ -31,67 +43,24 @@ function styleScope(block: Block, inner: React.ReactNode): React.ReactNode {
 /* ── Row Renderer ────────────────────────────────────────────────────────── */
 
 function RowRenderer({ block }: { block: Block }) {
-  const p = block.props as {
-    columns: Array<{
-      id: string;
-      span: number;
-      spanMd?: number;
-      spanSm?: number;
-      blocks: Block[];
-      bgColor?: string;
-      bgImage?: string;
-      bgPosition?: string;
-      bgSize?: string;
-      bgRepeat?: string;
-      overlayColor?: string;
-      overlayOpacity?: number;
-      borderStyle?: string;
-      borderWidth?: number;
-      borderColor?: string;
-      borderRadius?: number;
-      boxShadow?: string;
-      margin?: { top: number; right: number; bottom: number; left: number };
-      padding?: { top: number; right: number; bottom: number; left: number };
-      zindex?: number;
-      cssId?: string;
-      cssClasses?: string;
-    }>;
-    gap: number;
-    align: string;
-    stackOnMobile: boolean;
-    paddingY: number;
-    fullWidth: boolean;
-    bgColor?: string;
-    bgImage?: string;
-    bgPosition?: string;
-    bgSize?: string;
-    bgRepeat?: string;
-    overlayColor?: string;
-    overlayOpacity?: number;
-    textColor?: string;
-    direction?: string;
-    justifyContent?: string;
-    gapRow?: number;
-    wrap?: string;
-    borderStyle?: string;
-    borderWidth?: number;
-    borderColor?: string;
-    borderRadius?: number;
-    boxShadow?: string;
-    margin?: { top: number; right: number; bottom: number; left: number };
-    padding?: { top: number; right: number; bottom: number; left: number };
-    zindex?: number;
-    cssId?: string;
-    cssClasses?: string;
-  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const p = block.props as any;
+
+  const bgStyle = getBackgroundStyle({
+    bgType: p.bgType,
+    bgColor: p.bgColor,
+    bgImage: p.bgImage,
+    bgSize: p.bgSize,
+    bgPosition: p.bgPosition,
+    bgRepeat: p.bgRepeat,
+    bgGradientStart: p.bgGradientStart,
+    bgGradientEnd: p.bgGradientEnd,
+    bgGradientAngle: p.bgGradientAngle,
+  });
 
   const rowStyle: React.CSSProperties = {
     width: "100%",
-    backgroundColor: p.bgColor,
-    backgroundImage: p.bgImage ? `url(${p.bgImage})` : undefined,
-    backgroundPosition: p.bgPosition,
-    backgroundSize: p.bgSize,
-    backgroundRepeat: p.bgRepeat,
+    ...bgStyle,
     color: p.textColor,
     paddingTop: p.padding?.top ?? p.paddingY,
     paddingRight: p.padding?.right,
@@ -108,18 +77,22 @@ function RowRenderer({ block }: { block: Block }) {
     boxShadow: p.boxShadow,
     zIndex: p.zindex || undefined,
     position: "relative",
-    minHeight: p.minHeight,
+    overflow: p.overflow && p.overflow !== "default" ? p.overflow : undefined,
+    ...getStickyStyle(p.sticky),
   };
 
-  const overlayStyle: React.CSSProperties | undefined = p.bgImage && p.overlayOpacity
-    ? {
-        position: "absolute",
-        inset: 0,
-        backgroundColor: p.overlayColor || "#000000",
-        opacity: p.overlayOpacity / 100,
-        pointerEvents: "none",
-      }
-    : undefined;
+  const heightStyle = getHeightStyle(p.height, p.minHeight);
+  if (heightStyle) Object.assign(rowStyle, heightStyle);
+
+  const animClass = getEntranceAnimationClass(p.entranceAnimation);
+  const visClass = getVisibilityClasses({
+    hideOnDesktop: p.hideOnDesktop,
+    hideOnTablet: p.hideOnTablet,
+    hideOnMobile: p.hideOnMobile,
+  });
+  const reverseTablet = p.reverseColumnsTablet ? "pb-reverse-tablet" : "";
+  const reverseMobile = p.reverseColumnsMobile ? "pb-reverse-mobile" : "";
+  const rowClasses = [animClass, visClass, p.cssClasses].filter(Boolean).join(" ");
 
   // Content Width: apply boxed or full-width constraints
   const rowWidth = p.width ?? (p.fullWidth ? "full" : "boxed");
@@ -129,18 +102,36 @@ function RowRenderer({ block }: { block: Block }) {
     rowStyle.marginRight = "auto";
   }
 
+  const RowTag = resolveTag(p.htmlTag, "div");
+
   return (
-    <div
+    <RowTag
       style={rowStyle}
       id={p.cssId || undefined}
-      className={p.cssClasses || undefined}
+      className={rowClasses || undefined}
     >
-      {overlayStyle && <div style={overlayStyle} />}
+      {renderOverlay({ overlayColor: p.overlayColor, overlayOpacity: p.overlayOpacity })}
+      {renderShapeDivider("top", p.shapeDividerTop, p.shapeDividerTopColor, p.shapeDividerTopWidth, p.shapeDividerTopHeight)}
+      {renderShapeDivider("bottom", p.shapeDividerBottom, p.shapeDividerBottomColor, p.shapeDividerBottomWidth, p.shapeDividerBottomHeight)}
       <div
-        className="grid grid-cols-12"
-        style={{ gap: p.gap, rowGap: p.gapRow, alignItems: p.align, flexDirection: p.direction === "column" ? "column" : undefined, flexWrap: p.wrap === "wrap" ? "wrap" : undefined }}
+        className={`grid grid-cols-12 ${reverseTablet} ${reverseMobile}`}
+        style={{
+          gap: p.gap,
+          rowGap: p.gapRow,
+          alignItems: p.align,
+          flexDirection: p.direction === "column" ? "column" : undefined,
+          flexWrap: p.wrap === "wrap" ? "wrap" : undefined,
+          ...getVerticalAlignStyle(p.verticalAlign),
+          ...getTypographyScopeStyle({
+            headingColor: p.headingColor,
+            textColor: p.textColor,
+            linkColor: p.linkColor,
+            linkHoverColor: p.linkHoverColor,
+            textAlign: p.textAlign,
+          }),
+        }}
       >
-        {p.columns.map((col) => {
+        {p.columns.map((col: any, idx: number) => {
           const widths = resolveColumnWidths(col, p.stackOnMobile);
           const spanClass = renderColumnSpanClass(widths);
           const colStyle: React.CSSProperties = {
@@ -169,6 +160,7 @@ function RowRenderer({ block }: { block: Block }) {
             justifyContent: col.justifyContent ?? "flex-start",
             alignItems: col.alignItems ?? "stretch",
             minHeight: col.minHeight,
+            order: idx,
           };
           const colOverlayStyle: React.CSSProperties | undefined = col.bgImage && col.overlayOpacity
             ? {
@@ -192,7 +184,8 @@ function RowRenderer({ block }: { block: Block }) {
           );
         })}
       </div>
-    </div>
+      {p.customCss && <style dangerouslySetInnerHTML={{ __html: p.customCss }} />}
+    </RowTag>
   );
 }
 
@@ -679,6 +672,10 @@ export function PageLayoutBlockRenderer({ block }: { block: Block }) {
       bgPosition?: string;
       bgSize?: string;
       bgRepeat?: string;
+      bgType?: string;
+      bgGradientStart?: string;
+      bgGradientEnd?: string;
+      bgGradientAngle?: number;
       overlayColor?: string;
       overlayOpacity?: number;
       textColor?: string;
@@ -694,15 +691,46 @@ export function PageLayoutBlockRenderer({ block }: { block: Block }) {
       zindex?: number;
       cssId?: string;
       cssClasses?: string;
+      height?: string;
+      verticalAlign?: string;
+      overflow?: string;
+      htmlTag?: string;
+      stretchSection?: boolean;
+      sticky?: string;
+      entranceAnimation?: string;
+      hideOnDesktop?: boolean;
+      hideOnTablet?: boolean;
+      hideOnMobile?: boolean;
+      headingColor?: string;
+      linkColor?: string;
+      linkHoverColor?: string;
+      textAlign?: string;
+      shapeDividerTop?: string;
+      shapeDividerTopColor?: string;
+      shapeDividerTopWidth?: number;
+      shapeDividerTopHeight?: number;
+      shapeDividerBottom?: string;
+      shapeDividerBottomColor?: string;
+      shapeDividerBottomWidth?: number;
+      shapeDividerBottomHeight?: number;
+      customCss?: string;
     };
+
+    const bgStyle = getBackgroundStyle({
+      bgType: p.bgType,
+      bgColor: p.bgColor,
+      bgImage: p.bgImage,
+      bgSize: p.bgSize,
+      bgPosition: p.bgPosition,
+      bgRepeat: p.bgRepeat,
+      bgGradientStart: p.bgGradientStart,
+      bgGradientEnd: p.bgGradientEnd,
+      bgGradientAngle: p.bgGradientAngle,
+    });
 
     const outerStyle: React.CSSProperties = {
       width: "100%",
-      backgroundColor: p.bgColor,
-      backgroundImage: p.bgImage ? `url(${p.bgImage})` : undefined,
-      backgroundPosition: p.bgPosition,
-      backgroundSize: p.bgSize || "cover",
-      backgroundRepeat: p.bgRepeat,
+      ...bgStyle,
       color: p.textColor,
       borderStyle: p.borderStyle !== "none" ? p.borderStyle : undefined,
       borderWidth: p.borderWidth,
@@ -719,12 +747,26 @@ export function PageLayoutBlockRenderer({ block }: { block: Block }) {
       paddingLeft: p.padding?.left,
       zIndex: p.zindex || undefined,
       position: "relative",
+      overflow: p.overflow && p.overflow !== "default" ? p.overflow : undefined,
+      ...getStickyStyle(p.sticky),
     };
+
+    const heightStyle = getHeightStyle(p.height, p.minHeight);
+    if (heightStyle) Object.assign(outerStyle, heightStyle);
+
+    const animClass = getEntranceAnimationClass(p.entranceAnimation);
+    const visClass = getVisibilityClasses({
+      hideOnDesktop: p.hideOnDesktop,
+      hideOnTablet: p.hideOnTablet,
+      hideOnMobile: p.hideOnMobile,
+    });
+    const sectionClasses = ["pb-section", animClass, visClass, p.cssClasses].filter(Boolean).join(" ");
+
+    const SectionTag = resolveTag(p.htmlTag, "div");
 
     const innerStyle: React.CSSProperties = {
       maxWidth: p.width === "boxed" ? p.maxWidth : "100%",
       margin: p.width === "boxed" ? "0 auto" : undefined,
-      minHeight: p.minHeight || undefined,
       display: "flex",
       flexDirection: p.direction === "column" ? "column" : "row",
       justifyContent: p.justifyContent,
@@ -732,29 +774,30 @@ export function PageLayoutBlockRenderer({ block }: { block: Block }) {
       columnGap: p.gapCol,
       rowGap: p.gapRow,
       flexWrap: p.wrap === "wrap" ? "wrap" : undefined,
+      ...getVerticalAlignStyle(p.verticalAlign),
+      ...getTypographyScopeStyle({
+        headingColor: p.headingColor,
+        textColor: p.textColor,
+        linkColor: p.linkColor,
+        linkHoverColor: p.linkHoverColor,
+        textAlign: p.textAlign,
+      }),
     };
 
-    const overlayStyle: React.CSSProperties | undefined = p.bgImage && p.overlayOpacity
-      ? {
-          position: "absolute",
-          inset: 0,
-          backgroundColor: p.overlayColor || "#000000",
-          opacity: p.overlayOpacity / 100,
-          pointerEvents: "none",
-        }
-      : undefined;
-
     return (
-      <div
+      <SectionTag
         style={outerStyle}
         id={p.cssId || undefined}
-        className={p.cssClasses || undefined}
+        className={sectionClasses || undefined}
       >
-        {overlayStyle && <div style={overlayStyle} />}
+        {renderOverlay({ overlayColor: p.overlayColor, overlayOpacity: p.overlayOpacity })}
+        {renderShapeDivider("top", p.shapeDividerTop, p.shapeDividerTopColor, p.shapeDividerTopWidth, p.shapeDividerTopHeight)}
+        {renderShapeDivider("bottom", p.shapeDividerBottom, p.shapeDividerBottomColor, p.shapeDividerBottomWidth, p.shapeDividerBottomHeight)}
         <div style={innerStyle}>
           <RenderBlocks blocks={p.rows as PageLayoutBlock[]} />
         </div>
-      </div>
+        {p.customCss && <style dangerouslySetInnerHTML={{ __html: p.customCss }} />}
+      </SectionTag>
     );
   }
 

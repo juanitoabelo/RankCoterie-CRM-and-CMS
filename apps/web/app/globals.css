@@ -149,3 +149,119 @@ textarea::placeholder {
   height: 0;
   pointer-events: none;
 }
+
+/* ── Page Builder: Entrance Animations ──────────────────────────────────── */
+
+@keyframes pb-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pb-fade-in-up {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pb-fade-in-down {
+  from { opacity: 0; transform: translateY(-30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pb-fade-in-left {
+  from { opacity: 0; transform: translateX(-30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes pb-fade-in-right {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes pb-zoom-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes pb-zoom-in-up {
+  from { opacity: 0; transform: scale(0.9) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes pb-bounce-in {
+  0% { opacity: 0; transform: scale(0.3); }
+  50% { opacity: 1; transform: scale(1.05); }
+  70% { transform: scale(0.9); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes pb-slide-in-up {
+  from { opacity: 0; transform: translateY(100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pb-slide-in-down {
+  from { opacity: 0; transform: translateY(-100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pb-fade-in { animation: pb-fade-in 0.6s ease-out both; }
+.pb-fade-in-up { animation: pb-fade-in-up 0.6s ease-out both; }
+.pb-fade-in-down { animation: pb-fade-in-down 0.6s ease-out both; }
+.pb-fade-in-left { animation: pb-fade-in-left 0.6s ease-out both; }
+.pb-fade-in-right { animation: pb-fade-in-right 0.6s ease-out both; }
+.pb-zoom-in { animation: pb-zoom-in 0.6s ease-out both; }
+.pb-zoom-in-up { animation: pb-zoom-in-up 0.6s ease-out both; }
+.pb-bounce-in { animation: pb-bounce-in 0.6s ease-out both; }
+.pb-slide-in-up { animation: pb-slide-in-up 0.6s ease-out both; }
+.pb-slide-in-down { animation: pb-slide-in-down 0.6s ease-out both; }
+@keyframes pb-slide-in-right {
+  from { opacity: 0; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes pb-slide-in-left {
+  from { opacity: 0; transform: translateX(-100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.pb-slide-in-right { animation: pb-slide-in-right 0.6s ease-out both; }
+.pb-slide-in-left { animation: pb-slide-in-left 0.6s ease-out both; }
+
+/* ── Page Builder: Responsive Visibility ────────────────────────────────── */
+
+@media (min-width: 1024px) {
+  .pb-hide-desktop { display: none !important; }
+}
+@media (min-width: 640px) and (max-width: 1023px) {
+  .pb-hide-tablet { display: none !important; }
+}
+@media (max-width: 639px) {
+  .pb-hide-mobile { display: none !important; }
+}
+
+/* ── Page Builder: Typography Scoping ───────────────────────────────────── */
+
+.pb-section h1, .pb-section h2, .pb-section h3,
+.pb-section h4, .pb-section h5, .pb-section h6 {
+  color: var(--pb-heading-color, inherit);
+}
+.pb-section p, .pb-section span, .pb-section li {
+  color: var(--pb-text-color, inherit);
+}
+.pb-section a {
+  color: var(--pb-link-color, inherit);
+}
+.pb-section a:hover {
+  color: var(--pb-link-hover-color, inherit);
+}
+
+/* ── Page Builder: Reverse Columns ────────────────────────────────────── */
+
+/* Reverse columns on tablet (md breakpoint and below) */
+@media (max-width: 767px) {
+  .pb-reverse-tablet > *:nth-child(1) { order: 99; }
+  .pb-reverse-tablet > *:nth-child(2) { order: 98; }
+  .pb-reverse-tablet > *:nth-child(3) { order: 97; }
+  .pb-reverse-tablet > *:nth-child(4) { order: 96; }
+  .pb-reverse-tablet > *:nth-child(5) { order: 95; }
+  .pb-reverse-tablet > *:nth-child(6) { order: 94; }
+}
+
+/* Reverse columns on mobile only */
+@media (max-width: 639px) {
+  .pb-reverse-mobile > *:nth-child(1) { order: 99; }
+  .pb-reverse-mobile > *:nth-child(2) { order: 98; }
+  .pb-reverse-mobile > *:nth-child(3) { order: 97; }
+  .pb-reverse-mobile > *:nth-child(4) { order: 96; }
+  .pb-reverse-mobile > *:nth-child(5) { order: 95; }
+  .pb-reverse-mobile > *:nth-child(6) { order: 94; }
+}

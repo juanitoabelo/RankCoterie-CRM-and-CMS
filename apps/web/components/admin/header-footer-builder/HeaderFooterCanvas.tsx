@@ -160,6 +160,7 @@ function SortableBlock({
                       onSelect={onSelect}
                       onRemove={onRemove}
                       onDuplicate={onDuplicate}
+                      onAddRowToSection={onAddRowToSection}
                     />
                   ))}
                 </div>
@@ -240,6 +241,7 @@ function SortableBlock({
                 onSelect={onSelect}
                 onRemove={onRemove}
                 onDuplicate={onDuplicate}
+                onAddRowToSection={onAddRowToSection}
               />
             ))}
           </div>
@@ -321,6 +323,7 @@ function ColumnCell({
   onSelect,
   onRemove,
   onDuplicate,
+  onAddRowToSection,
 }: {
   column: ColumnData;
   rowBlock: RowBlock;
@@ -330,6 +333,7 @@ function ColumnCell({
   onSelect: (id: string | null) => void;
   onRemove: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onAddRowToSection: (sectionId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const widths = resolveColumnWidths(column, rowBlock.props.stackOnMobile);

@@ -41,6 +41,7 @@ function SectionHeader({ label, isOpen, onToggle }: { label: string; isOpen: boo
 const ENTRANCE_ANIMATIONS = [
   "", "fadeIn", "fadeInUp", "fadeInDown", "fadeInLeft", "fadeInRight",
   "zoomIn", "zoomInUp", "bounceIn", "slideInUp", "slideInDown",
+  "slideInRight", "slideInLeft",
 ];
 
 /* ── Reusable Toggle Tab ─────────────────────────────────────────────────── */

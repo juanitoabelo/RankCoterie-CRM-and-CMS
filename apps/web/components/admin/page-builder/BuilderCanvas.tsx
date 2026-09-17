@@ -29,6 +29,7 @@ function ColumnCell({
   onSelectColumn,
   onRemove,
   onDuplicate,
+  onAddRowToSection,
   inlineEditing,
   onUpdateProps,
 }: {
@@ -41,6 +42,7 @@ function ColumnCell({
   onSelectColumn: (id: string) => void;
   onRemove: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onAddRowToSection: (sectionId: string) => void;
   inlineEditing?: boolean;
   onUpdateProps?: (id: string, props: Block["props"]) => void;
 }) {
@@ -117,6 +119,7 @@ function ColumnCell({
                 onSelectColumn={onSelectColumn}
                 onRemove={onRemove}
                 onDuplicate={onDuplicate}
+                onAddRowToSection={onAddRowToSection}
                 inlineEditing={inlineEditing}
                 onUpdateProps={onUpdateProps}
               />
@@ -137,6 +140,7 @@ function RowBody({
   onSelectColumn,
   onRemove,
   onDuplicate,
+  onAddRowToSection,
   inlineEditing,
   onUpdateProps,
 }: {
@@ -148,6 +152,7 @@ function RowBody({
   onSelectColumn: (id: string) => void;
   onRemove: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onAddRowToSection: (sectionId: string) => void;
   inlineEditing?: boolean;
   onUpdateProps?: (id: string, props: Block["props"]) => void;
 }) {
@@ -179,6 +184,7 @@ function RowBody({
           onSelectColumn={onSelectColumn}
           onRemove={onRemove}
           onDuplicate={onDuplicate}
+          onAddRowToSection={onAddRowToSection}
           inlineEditing={inlineEditing}
           onUpdateProps={onUpdateProps}
         />
@@ -299,6 +305,7 @@ function SectionBody({
                 onSelectColumn={onSelectColumn}
                 onRemove={onRemove}
                 onDuplicate={onDuplicate}
+                onAddRowToSection={onAddRowToSection}
                 inlineEditing={inlineEditing}
                 onUpdateProps={onUpdateProps}
               />
@@ -437,6 +444,7 @@ function SortableBlock({
           onSelectColumn={onSelectColumn}
           onRemove={onRemove}
           onDuplicate={onDuplicate}
+          onAddRowToSection={onAddRowToSection}
           inlineEditing={inlineEditing}
           onUpdateProps={onUpdateProps}
         />

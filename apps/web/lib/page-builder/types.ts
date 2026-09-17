@@ -481,6 +481,10 @@ export interface RowBlock extends BlockBase {
     width?: "full" | "boxed";
     maxWidth?: number;
     minHeight?: number;
+    height?: "default" | "fitToScreen" | "minHeight";
+    overflow?: "default" | "hidden" | "visible" | "scroll" | "auto";
+    verticalAlign?: "default" | "top" | "middle" | "bottom" | "spaceBetween" | "spaceAround";
+    htmlTag?: "default" | "div" | "section" | "article" | "aside" | "main" | "header" | "footer" | "nav";
     // Style
     bgColor?: string;
     bgImage?: string;
@@ -490,6 +494,8 @@ export interface RowBlock extends BlockBase {
     overlayColor?: string;
     overlayOpacity?: number;
     textColor?: string;
+    linkColor?: string;
+    linkHoverColor?: string;
     paddingY?: number; // vertical padding in px (legacy)
     padding?: { top: number; right: number; bottom: number; left: number }; // per-side padding
     margin?: { top: number; right: number; bottom: number; left: number };
@@ -499,10 +505,50 @@ export interface RowBlock extends BlockBase {
     borderColor?: string;
     borderRadius?: number;
     boxShadow?: string;
+    // Background Type
+    bgType?: "classic" | "gradient" | "video" | "slideshow";
+    bgGradientStart?: string;
+    bgGradientEnd?: string;
+    bgGradientAngle?: number;
+    bgGradientType?: "linear" | "radial";
+    // Background Overlay
+    overlayBgType?: "classic" | "gradient";
+    overlayColor2?: string;
+    overlayGradientStart?: string;
+    overlayGradientEnd?: string;
+    overlayGradientAngle?: number;
+    // Shape Divider
+    shapeDividerTop?: string;
+    shapeDividerTopColor?: string;
+    shapeDividerTopWidth?: number;
+    shapeDividerTopHeight?: number;
+    shapeDividerBottom?: string;
+    shapeDividerBottomColor?: string;
+    shapeDividerBottomWidth?: number;
+    shapeDividerBottomHeight?: number;
+    // Typography
+    headingColor?: string;
+    textAlign?: "left" | "center" | "right" | "justify";
     // Advanced
     zindex?: number;
     cssId?: string;
     cssClasses?: string;
+    customCss?: string;
+    customAttributes?: string;
+    // Motion Effects
+    scrollingEffects?: boolean;
+    sticky?: "none" | "top" | "bottom";
+    entranceAnimation?: string;
+    // Responsive
+    reverseColumnsTablet?: boolean;
+    reverseColumnsMobile?: boolean;
+    hideOnDesktop?: boolean;
+    hideOnTablet?: boolean;
+    hideOnMobile?: boolean;
+    // Display Conditions
+    displayCondition?: string;
+    displayConditionDate?: string;
+    displayConditionUrl?: string;
   };
 }
 
@@ -524,6 +570,11 @@ export interface SectionBlock extends BlockBase {
     gapCol?: number;
     gapRow?: number;
     wrap?: "nowrap" | "wrap";
+    height?: "default" | "fitToScreen" | "minHeight";
+    overflow?: "default" | "hidden" | "visible" | "scroll" | "auto";
+    verticalAlign?: "default" | "top" | "middle" | "bottom" | "spaceBetween" | "spaceAround";
+    stretchSection?: boolean;
+    htmlTag?: "default" | "div" | "section" | "article" | "aside" | "main" | "header" | "footer" | "nav";
     // Style
     bgColor?: string;
     bgImage?: string;
@@ -533,11 +584,37 @@ export interface SectionBlock extends BlockBase {
     overlayColor?: string;
     overlayOpacity?: number;
     textColor?: string;
+    linkColor?: string;
+    linkHoverColor?: string;
     borderStyle?: "none" | "solid" | "dashed" | "dotted";
     borderWidth?: number;
     borderColor?: string;
     borderRadius?: number;
     boxShadow?: string;
+    // Background Type
+    bgType?: "classic" | "gradient" | "video" | "slideshow";
+    bgGradientStart?: string;
+    bgGradientEnd?: string;
+    bgGradientAngle?: number;
+    bgGradientType?: "linear" | "radial";
+    // Background Overlay
+    overlayBgType?: "classic" | "gradient";
+    overlayColor2?: string;
+    overlayGradientStart?: string;
+    overlayGradientEnd?: string;
+    overlayGradientAngle?: number;
+    // Shape Divider
+    shapeDividerTop?: string;
+    shapeDividerTopColor?: string;
+    shapeDividerTopWidth?: number;
+    shapeDividerTopHeight?: number;
+    shapeDividerBottom?: string;
+    shapeDividerBottomColor?: string;
+    shapeDividerBottomWidth?: number;
+    shapeDividerBottomHeight?: number;
+    // Typography
+    headingColor?: string;
+    textAlign?: "left" | "center" | "right" | "justify";
     // Advanced
     paddingTop?: number;
     paddingBottom?: number;
@@ -546,6 +623,22 @@ export interface SectionBlock extends BlockBase {
     zindex?: number;
     cssId?: string;
     cssClasses?: string;
+    customCss?: string;
+    customAttributes?: string;
+    // Motion Effects
+    scrollingEffects?: boolean;
+    sticky?: "none" | "top" | "bottom";
+    entranceAnimation?: string;
+    // Responsive
+    reverseColumnsTablet?: boolean;
+    reverseColumnsMobile?: boolean;
+    hideOnDesktop?: boolean;
+    hideOnTablet?: boolean;
+    hideOnMobile?: boolean;
+    // Display Conditions
+    displayCondition?: string;
+    displayConditionDate?: string;
+    displayConditionUrl?: string;
   };
 }
 
