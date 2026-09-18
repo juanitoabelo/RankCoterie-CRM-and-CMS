@@ -16,13 +16,21 @@ export interface StyleGuideFonts {
 }
 
 export const FONT_STACKS = [
-  { label: "System (Georgia)", value: "Georgia, 'Times New Roman', serif" },
-  { label: "Sans (Arial/Helvetica)", value: "Arial, Helvetica, sans-serif" },
-  { label: "ui-sans-serif (Tailwind default)", value: "ui-sans-serif, system-ui, sans-serif" },
-  { label: "Inter", value: "'Inter', 'Helvetica Neue', Arial, sans-serif" },
-  { label: "Lato", value: "'Lato', Arial, sans-serif" },
-  { label: "Poppins", value: "'Poppins', Arial, sans-serif" },
+  { label: "Inter", value: "'Inter', system-ui, sans-serif" },
+  { label: "DM Sans", value: "'DM Sans', system-ui, sans-serif" },
+  { label: "Plus Jakarta Sans", value: "'Plus Jakarta Sans', system-ui, sans-serif" },
+  { label: "Manrope", value: "'Manrope', system-ui, sans-serif" },
+  { label: "Outfit", value: "'Outfit', system-ui, sans-serif" },
+  { label: "Roboto", value: "'Roboto', system-ui, sans-serif" },
+  { label: "Open Sans", value: "'Open Sans', system-ui, sans-serif" },
+  { label: "Lato", value: "'Lato', system-ui, sans-serif" },
+  { label: "Montserrat", value: "'Montserrat', system-ui, sans-serif" },
+  { label: "Poppins", value: "'Poppins', system-ui, sans-serif" },
+  { label: "Playfair Display", value: "'Playfair Display', Georgia, serif" },
+  { label: "Lora", value: "'Lora', Georgia, serif" },
   { label: "Merriweather", value: "'Merriweather', Georgia, serif" },
+  { label: "Geist Sans", value: "var(--font-geist-sans), system-ui, sans-serif" },
+  { label: "System Sans", value: "system-ui, -apple-system, 'Segoe UI', sans-serif" },
 ] as const;
 
 export interface StyleGuide {
@@ -51,8 +59,8 @@ export const DEFAULT_STYLE_GUIDE: StyleGuide = {
   accent: "#2563eb",
   headingColor: "#111827",
   fonts: {
-    heading: "ui-sans-serif, system-ui, sans-serif",
-    body: "Arial, Helvetica, sans-serif",
+    heading: "'Inter', system-ui, sans-serif",
+    body: "'Inter', system-ui, sans-serif",
   },
   linkColor: "#2563eb",
   linkHoverColor: "#1d4ed8",

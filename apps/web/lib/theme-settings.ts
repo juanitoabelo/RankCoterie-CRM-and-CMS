@@ -126,9 +126,9 @@ export const DEFAULT_FONT_SIZES: Record<"mobile" | "tablet" | "desktop", FontSiz
 };
 
 export const DEFAULT_FONT_SETTINGS: FontSettings = {
-  heading: "ui-sans-serif, system-ui, sans-serif",
-  body: "Arial, Helvetica, sans-serif",
-  mono: "ui-monospace, monospace",
+  heading: "'Inter', system-ui, sans-serif",
+  body: "'Inter', system-ui, sans-serif",
+  mono: "'JetBrains Mono', ui-monospace, monospace",
   sizes: DEFAULT_FONT_SIZES,
 };
 
@@ -179,19 +179,19 @@ export const THEME_PRESETS: ThemePreset[] = [
   {
     id: "default",
     name: "Default",
-    description: "Clean, professional look with blue accents",
+    description: "Clean, professional look with Inter font",
     colors: DEFAULT_COLOR_PALETTE,
     fonts: {
-      heading: "ui-sans-serif, system-ui, sans-serif",
-      body: "Arial, Helvetica, sans-serif",
-      mono: "ui-monospace, monospace",
+      heading: "'Inter', system-ui, sans-serif",
+      body: "'Inter', system-ui, sans-serif",
+      mono: "'JetBrains Mono', ui-monospace, monospace",
     },
     layout: DEFAULT_LAYOUT_SETTINGS,
   },
   {
     id: "minimal",
     name: "Minimal",
-    description: "Light, airy design with neutral tones",
+    description: "Light, airy design with Inter and neutral tones",
     colors: {
       ...DEFAULT_COLOR_PALETTE,
       accent: "#111827",
@@ -202,8 +202,8 @@ export const THEME_PRESETS: ThemePreset[] = [
       border: "#f3f4f6",
     },
     fonts: {
-      heading: "'Inter', 'Helvetica Neue', Arial, sans-serif",
-      body: "'Inter', 'Helvetica Neue', Arial, sans-serif",
+      heading: "'Inter', system-ui, sans-serif",
+      body: "'Inter', system-ui, sans-serif",
       mono: "'JetBrains Mono', ui-monospace, monospace",
     },
     layout: { ...DEFAULT_LAYOUT_SETTINGS, maxWidth: "1024px" },
@@ -211,7 +211,7 @@ export const THEME_PRESETS: ThemePreset[] = [
   {
     id: "bold",
     name: "Bold",
-    description: "High contrast with red accents and strong typography",
+    description: "High contrast with Montserrat and Open Sans",
     colors: {
       ...DEFAULT_COLOR_PALETTE,
       accent: "#dc2626",
@@ -231,7 +231,7 @@ export const THEME_PRESETS: ThemePreset[] = [
   {
     id: "corporate",
     name: "Corporate",
-    description: "Business formal with navy blue and Poppins",
+    description: "Business formal with Poppins and Lato",
     colors: {
       ...DEFAULT_COLOR_PALETTE,
       accent: "#1e40af",
@@ -251,7 +251,7 @@ export const THEME_PRESETS: ThemePreset[] = [
   {
     id: "warm",
     name: "Warm",
-    description: "Friendly, inviting design with amber tones",
+    description: "Friendly, inviting design with Playfair Display and Lato",
     colors: {
       ...DEFAULT_COLOR_PALETTE,
       accent: "#d97706",
@@ -264,7 +264,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       border: "#fef3c7",
     },
     fonts: {
-      heading: "'Merriweather', Georgia, serif",
+      heading: "'Playfair Display', Georgia, serif",
       body: "'Lato', system-ui, sans-serif",
       mono: "'Fira Code', ui-monospace, monospace",
     },
@@ -273,7 +273,7 @@ export const THEME_PRESETS: ThemePreset[] = [
   {
     id: "modern",
     name: "Modern",
-    description: "Tech-forward with purple accents and Geist fonts",
+    description: "Tech-forward with Geist fonts and purple accents",
     colors: {
       ...DEFAULT_COLOR_PALETTE,
       accent: "#7c3aed",
@@ -297,11 +297,14 @@ export const THEME_PRESETS: ThemePreset[] = [
 /* ──────────────────────────────────────────────────────────────────────────── */
 
 export const FONT_FAMILY_OPTIONS = [
-  { label: "System Sans", value: "system-ui, -apple-system, 'Segoe UI', sans-serif" },
-  { label: "Arial", value: "Arial, Helvetica, sans-serif" },
-  { label: "Helvetica", value: "'Helvetica Neue', Helvetica, Arial, sans-serif" },
-  { label: "Geist Sans", value: "var(--font-geist-sans), system-ui, sans-serif" },
+  // Modern Sans-Serif (Professional)
   { label: "Inter", value: "'Inter', system-ui, sans-serif" },
+  { label: "DM Sans", value: "'DM Sans', system-ui, sans-serif" },
+  { label: "Plus Jakarta Sans", value: "'Plus Jakarta Sans', system-ui, sans-serif" },
+  { label: "Manrope", value: "'Manrope', system-ui, sans-serif" },
+  { label: "Outfit", value: "'Outfit', system-ui, sans-serif" },
+  
+  // Classic Sans-Serif
   { label: "Roboto", value: "'Roboto', system-ui, sans-serif" },
   { label: "Open Sans", value: "'Open Sans', system-ui, sans-serif" },
   { label: "Lato", value: "'Lato', system-ui, sans-serif" },
@@ -309,14 +312,27 @@ export const FONT_FAMILY_OPTIONS = [
   { label: "Poppins", value: "'Poppins', system-ui, sans-serif" },
   { label: "Raleway", value: "'Raleway', system-ui, sans-serif" },
   { label: "Nunito", value: "'Nunito', system-ui, sans-serif" },
-  { label: "Serif (Georgia)", value: "Georgia, 'Times New Roman', serif" },
+  
+  // Geist & System
+  { label: "Geist Sans", value: "var(--font-geist-sans), system-ui, sans-serif" },
+  { label: "System Sans", value: "system-ui, -apple-system, 'Segoe UI', sans-serif" },
+  { label: "Helvetica", value: "'Helvetica Neue', Helvetica, Arial, sans-serif" },
+  { label: "Arial", value: "Arial, Helvetica, sans-serif" },
+  
+  // Elegant Serif (For headings/editorial)
   { label: "Playfair Display", value: "'Playfair Display', Georgia, serif" },
   { label: "Lora", value: "'Lora', Georgia, serif" },
   { label: "Merriweather", value: "'Merriweather', Georgia, serif" },
   { label: "Libre Baskerville", value: "'Libre Baskerville', Georgia, serif" },
-  { label: "Monospace", value: "var(--font-geist-mono), ui-monospace, monospace" },
-  { label: "Fira Code", value: "'Fira Code', ui-monospace, monospace" },
+  { label: "Source Serif 4", value: "'Source Serif 4', Georgia, serif" },
+  { label: "Crimson Pro", value: "'Crimson Pro', Georgia, serif" },
+  
+  // Monospace
   { label: "JetBrains Mono", value: "'JetBrains Mono', ui-monospace, monospace" },
+  { label: "Fira Code", value: "'Fira Code', ui-monospace, monospace" },
+  { label: "Geist Mono", value: "var(--font-geist-mono), ui-monospace, monospace" },
+  
+  // Custom
   { label: "Custom...", value: "" },
 ] as const;
 
@@ -458,6 +474,10 @@ function collectGoogleFonts(fonts: FontSettings): string[] {
   const families = new Set<string>();
   const googleKeywords: Record<string, string> = {
     Inter: "Inter",
+    "DM Sans": "DM+Sans",
+    "Plus Jakarta Sans": "Plus+Jakarta+Sans",
+    Manrope: "Manrope",
+    Outfit: "Outfit",
     Roboto: "Roboto",
     "Open Sans": "Open+Sans",
     Lato: "Lato",
@@ -469,6 +489,8 @@ function collectGoogleFonts(fonts: FontSettings): string[] {
     Lora: "Lora",
     Merriweather: "Merriweather",
     "Libre Baskerville": "Libre+Baskerville",
+    "Source Serif 4": "Source+Serif+4",
+    "Crimson Pro": "Crimson+Pro",
     "Fira Code": "Fira+Code",
     "JetBrains Mono": "JetBrains+Mono",
     Caveat: "Caveat",
