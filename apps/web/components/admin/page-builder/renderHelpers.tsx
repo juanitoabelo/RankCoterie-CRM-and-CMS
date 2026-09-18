@@ -94,9 +94,9 @@ export function getBackgroundStyle(props: {
   return {
     backgroundColor: props.bgColor,
     backgroundImage: props.bgImage ? `url(${props.bgImage})` : undefined,
-    backgroundSize: props.bgSize || undefined,
-    backgroundPosition: props.bgPosition || undefined,
-    backgroundRepeat: props.bgRepeat || undefined,
+    backgroundSize: props.bgImage ? (props.bgSize || "cover") : undefined,
+    backgroundPosition: props.bgImage ? (props.bgPosition || "center center") : undefined,
+    backgroundRepeat: props.bgImage ? (props.bgRepeat || "no-repeat") : undefined,
   };
 }
 

@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { ColumnData } from "@/lib/page-builder/types";
 import type { SpacingValues } from "@/lib/header-footer/types";
 import GlobalColorPicker from "./GlobalColorPicker";
-import BuilderImageUploader from "./BuilderImageUploader";
+import { BackgroundFields } from "../page-builder/settings";
 
 type Props = {
   column: ColumnData;
@@ -145,54 +145,25 @@ function LayoutTab({ column, onUpdate }: { column: ColumnData; onUpdate: (p: Rec
 function StyleTab({ column, onUpdate, themeColors }: { column: ColumnData; onUpdate: (p: Record<string, unknown>) => void; themeColors?: Array<{ key: string; label: string; color: string }> }) {
   return (
     <div className="space-y-4">
-      <GlobalColorPicker label="Background Color" value={column.bgColor} onChange={(c) => onUpdate({ bgColor: c || undefined })} allowClear paletteOverride={themeColors} />
-
-      <BuilderImageUploader label="Background Image" value={column.bgImage || ""} onChange={(url) => onUpdate({ bgImage: url || undefined })} />
-
-      {column.bgImage && (
-        <>
-          <div>
-            <span className={labelCls}>Background Position</span>
-            <select value={column.bgPosition || "center center"} onChange={(e) => onUpdate({ bgPosition: e.target.value })} className={inputCls}>
-              <option value="left top">Left Top</option>
-              <option value="center top">Center Top</option>
-              <option value="right top">Right Top</option>
-              <option value="left center">Left Center</option>
-              <option value="center center">Center Center</option>
-              <option value="right center">Right Center</option>
-              <option value="left bottom">Left Bottom</option>
-              <option value="center bottom">Center Bottom</option>
-              <option value="right bottom">Right Bottom</option>
-            </select>
-          </div>
-          <div>
-            <span className={labelCls}>Background Size</span>
-            <select value={column.bgSize || "cover"} onChange={(e) => onUpdate({ bgSize: e.target.value })} className={inputCls}>
-              <option value="auto">Auto</option>
-              <option value="cover">Cover</option>
-              <option value="contain">Contain</option>
-            </select>
-          </div>
-          <div>
-            <span className={labelCls}>Background Repeat</span>
-            <select value={column.bgRepeat || "no-repeat"} onChange={(e) => onUpdate({ bgRepeat: e.target.value })} className={inputCls}>
-              <option value="repeat">Repeat</option>
-              <option value="no-repeat">No Repeat</option>
-              <option value="repeat-x">Repeat X</option>
-              <option value="repeat-y">Repeat Y</option>
-            </select>
-          </div>
-        </>
-      )}
-
-      {column.bgImage && (
-        <div className="border-t border-zinc-200 pt-4">
-          <GlobalColorPicker label="Overlay Color" value={column.overlayColor} onChange={(c) => onUpdate({ overlayColor: c || undefined })} paletteOverride={themeColors} />
-          <div className="mt-3">
-            <NumberSlider label="Overlay Opacity" value={column.overlayOpacity || 0} onChange={(v) => onUpdate({ overlayOpacity: v })} min={0} max={100} suffix="%" />
-          </div>
-        </div>
-      )}
+      <BackgroundFields
+        label="Column"
+        color={column.bgColor}
+        image={column.bgImage}
+        bgPosition={column.bgPosition}
+        bgSize={column.bgSize}
+        bgRepeat={column.bgRepeat}
+        onColor={(c) => onUpdate({ bgColor: c || undefined })}
+        onImage={(url) => onUpdate({ bgImage: url || undefined })}
+        onBgPosition={(v) => onUpdate({ bgPosition: v })}
+        onBgSize={(v) => onUpdate({ bgSize: v })}
+        onBgRepeat={(v) => onUpdate({ bgRepeat: v })}
+        themeColors={themeColors}
+        showOverlay
+        overlayColor={column.overlayColor}
+        overlayOpacity={column.overlayOpacity}
+        onOverlayColor={(c) => onUpdate({ overlayColor: c || undefined })}
+        onOverlayOpacity={(v) => onUpdate({ overlayOpacity: v })}
+      />
 
       <div className="border-t border-zinc-200 pt-4">
         <span className={labelCls}>Border Style</span>

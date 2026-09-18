@@ -137,9 +137,9 @@ function RowRenderer({ block }: { block: Block }) {
           const colStyle: React.CSSProperties = {
             backgroundColor: col.bgColor,
             backgroundImage: col.bgImage ? `url(${col.bgImage})` : undefined,
-            backgroundPosition: col.bgPosition,
-            backgroundSize: col.bgSize,
-            backgroundRepeat: col.bgRepeat,
+            backgroundPosition: col.bgImage ? (col.bgPosition || "center center") : undefined,
+            backgroundSize: col.bgImage ? (col.bgSize || "cover") : undefined,
+            backgroundRepeat: col.bgImage ? (col.bgRepeat || "no-repeat") : undefined,
             borderStyle: col.borderStyle !== "none" ? col.borderStyle : undefined,
             borderWidth: col.borderWidth,
             borderColor: col.borderColor,
@@ -825,9 +825,9 @@ export default function PageLayoutRenderer({
   if (containerSettings) {
     outerStyle.backgroundColor = containerSettings.bgColor;
     outerStyle.backgroundImage = containerSettings.bgImage ? `url(${containerSettings.bgImage})` : undefined;
-    outerStyle.backgroundPosition = containerSettings.bgPosition;
-    outerStyle.backgroundSize = containerSettings.bgSize;
-    outerStyle.backgroundRepeat = containerSettings.bgRepeat;
+    outerStyle.backgroundPosition = containerSettings.bgImage ? (containerSettings.bgPosition || "center center") : undefined;
+    outerStyle.backgroundSize = containerSettings.bgImage ? (containerSettings.bgSize || "cover") : undefined;
+    outerStyle.backgroundRepeat = containerSettings.bgImage ? (containerSettings.bgRepeat || "no-repeat") : undefined;
     outerStyle.borderStyle = containerSettings.borderStyle !== "none" ? containerSettings.borderStyle : undefined;
     outerStyle.borderWidth = containerSettings.borderWidth;
     outerStyle.borderColor = containerSettings.borderColor;

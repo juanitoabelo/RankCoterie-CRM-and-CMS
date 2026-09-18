@@ -5,6 +5,7 @@ import { FULL_COLUMN_SPANS } from "@/lib/page-builder/types";
 import type { StyleBreakpoints, TypographyStyle } from "@/lib/page-builder/types";
 import { FONT_FAMILY_PRESETS, STYLE_BREAKPOINTS } from "@/lib/page-builder/style";
 import MediaLibraryPicker from "./MediaLibraryPicker";
+import GlobalColorPicker from "../header-footer-builder/GlobalColorPicker";
 
 export const inputCls = "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm";
 export const labelCls = "block text-sm font-medium text-zinc-800";
@@ -264,6 +265,12 @@ export function BackgroundFields({
   onBgPosition,
   onBgSize,
   onBgRepeat,
+  themeColors,
+  showOverlay,
+  overlayColor,
+  overlayOpacity,
+  onOverlayColor,
+  onOverlayOpacity,
 }: {
   label?: string;
   color?: string;
@@ -276,35 +283,51 @@ export function BackgroundFields({
   onBgPosition?: (value: string) => void;
   onBgSize?: (value: string) => void;
   onBgRepeat?: (value: string) => void;
+  themeColors?: Array<{ key: string; label: string; color: string }>;
+  showOverlay?: boolean;
+  overlayColor?: string;
+  overlayOpacity?: number;
+  onOverlayColor?: (value: string) => void;
+  onOverlayOpacity?: (value: number) => void;
 }) {
   return (
     <div className="space-y-3">
-      <div>
-        <label className={labelCls}>{label} color</label>
-        <div className="mt-1 flex items-center gap-2">
-          <input
-            type="color"
-            className="h-10 w-12 rounded-lg border border-zinc-300"
-            value={color || "#ffffff"}
-            onChange={(e) => onColor(e.target.value)}
-          />
-          <input
-            className={inputCls}
-            value={color ?? ""}
-            onChange={(e) => onColor(e.target.value)}
-            placeholder="No background color"
-          />
+      {themeColors ? (
+        <GlobalColorPicker
+          label={`${label} Color`}
+          value={color}
+          onChange={onColor}
+          allowClear
+          paletteOverride={themeColors}
+        />
+      ) : (
+        <div>
+          <label className={labelCls}>{label} color</label>
+          <div className="mt-1 flex items-center gap-2">
+            <input
+              type="color"
+              className="h-10 w-12 rounded-lg border border-zinc-300"
+              value={color || "#ffffff"}
+              onChange={(e) => onColor(e.target.value)}
+            />
+            <input
+              className={inputCls}
+              value={color ?? ""}
+              onChange={(e) => onColor(e.target.value)}
+              placeholder="No background color"
+            />
+          </div>
+          {color && (
+            <button
+              type="button"
+              onClick={() => onColor("")}
+              className="mt-1 text-[11px] text-zinc-400 underline underline-offset-2 hover:text-zinc-600"
+            >
+              Clear color
+            </button>
+          )}
         </div>
-        {color && (
-          <button
-            type="button"
-            onClick={() => onColor("")}
-            className="mt-1 text-[11px] text-zinc-400 underline underline-offset-2 hover:text-zinc-600"
-          >
-            Clear color
-          </button>
-        )}
-      </div>
+      )}
 
       <MediaLibraryPicker
         value={image || ""}
@@ -340,6 +363,7 @@ export function BackgroundFields({
               <option value="auto">Auto</option>
               <option value="cover">Cover</option>
               <option value="contain">Contain</option>
+              <option value="100% 100%">Stretch</option>
             </select>
           </label>
           <label className={labelCls}>Repeat
@@ -355,6 +379,32 @@ export function BackgroundFields({
             </select>
           </label>
         </>
+      )}
+
+      {showOverlay && image && onOverlayColor && onOverlayOpacity && (
+        <div className="space-y-2">
+          <span className={labelCls}>Overlay</span>
+          <div className="grid grid-cols-2 gap-2">
+            <GlobalColorPicker
+              label="Color"
+              value={overlayColor || "#000000"}
+              onChange={onOverlayColor}
+              paletteOverride={themeColors}
+            />
+            <div>
+              <label className={labelCls}>Opacity</label>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={overlayOpacity ?? 50}
+                onChange={(e) => onOverlayOpacity(Number(e.target.value))}
+                className="mt-1 w-full"
+              />
+              <span className="text-xs text-zinc-500">{overlayOpacity ?? 50}%</span>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

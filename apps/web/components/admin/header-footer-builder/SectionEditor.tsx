@@ -5,7 +5,7 @@ import type { SectionBlock } from "@/lib/page-builder/types";
 import type { SpacingValues } from "@/lib/header-footer/types";
 import { DEFAULT_SECTION_LAYOUT, DEFAULT_STYLE_SETTINGS, DEFAULT_ADVANCED_SETTINGS } from "@/lib/header-footer/types";
 import GlobalColorPicker from "./GlobalColorPicker";
-import BuilderImageUploader from "./BuilderImageUploader";
+import { BackgroundFields } from "../page-builder/settings";
 
 type Props = {
   block: SectionBlock;
@@ -279,44 +279,20 @@ function StyleTab({ block, onChange, themeColors }: { block: SectionBlock; onCha
             </>
           ) : (
             <>
-              <GlobalColorPicker label="Background Color" value={bgState === "hover" ? undefined : p.bgColor} onChange={(c) => set({ bgColor: c || undefined })} allowClear paletteOverride={themeColors} />
-              <BuilderImageUploader label="Background Image" value={p.bgImage || ""} onChange={(url) => set({ bgImage: url || undefined })} />
-
-              {p.bgImage && (
-                <>
-                  <div>
-                    <span className={labelCls}>Position</span>
-                    <select value={p.bgPosition || "center center"} onChange={(e) => set({ bgPosition: e.target.value })} className={inputCls}>
-                      <option value="left top">Left Top</option>
-                      <option value="center top">Center Top</option>
-                      <option value="right top">Right Top</option>
-                      <option value="left center">Left Center</option>
-                      <option value="center center">Center Center</option>
-                      <option value="right center">Right Center</option>
-                      <option value="left bottom">Left Bottom</option>
-                      <option value="center bottom">Center Bottom</option>
-                      <option value="right bottom">Right Bottom</option>
-                    </select>
-                  </div>
-                  <div>
-                    <span className={labelCls}>Size</span>
-                    <select value={p.bgSize || "cover"} onChange={(e) => set({ bgSize: e.target.value })} className={inputCls}>
-                      <option value="auto">Auto</option>
-                      <option value="cover">Cover</option>
-                      <option value="contain">Contain</option>
-                    </select>
-                  </div>
-                  <div>
-                    <span className={labelCls}>Repeat</span>
-                    <select value={p.bgRepeat || "no-repeat"} onChange={(e) => set({ bgRepeat: e.target.value })} className={inputCls}>
-                      <option value="repeat">Repeat</option>
-                      <option value="no-repeat">No Repeat</option>
-                      <option value="repeat-x">Repeat X</option>
-                      <option value="repeat-y">Repeat Y</option>
-                    </select>
-                  </div>
-                </>
-              )}
+              <BackgroundFields
+                label="Section"
+                color={bgState === "hover" ? undefined : p.bgColor}
+                image={p.bgImage}
+                bgPosition={p.bgPosition}
+                bgSize={p.bgSize}
+                bgRepeat={p.bgRepeat}
+                onColor={(c) => set({ bgColor: c || undefined })}
+                onImage={(url) => set({ bgImage: url || undefined })}
+                onBgPosition={(v) => set({ bgPosition: v })}
+                onBgSize={(v) => set({ bgSize: v })}
+                onBgRepeat={(v) => set({ bgRepeat: v })}
+                themeColors={themeColors}
+              />
             </>
           )}
         </div>

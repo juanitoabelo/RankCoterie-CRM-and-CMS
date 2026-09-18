@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { ContainerSettings } from "@/lib/header-footer/types";
 import { DEFAULT_CONTAINER_SETTINGS } from "@/lib/header-footer/types";
 import GlobalColorPicker from "./GlobalColorPicker";
-import BuilderImageUploader from "./BuilderImageUploader";
+import { BackgroundFields } from "../page-builder/settings";
 
 type Props = {
   settings: ContainerSettings;
@@ -275,44 +275,20 @@ function StyleTab({ settings, onChange, themeColors }: Props) {
             </>
           ) : (
             <>
-              <GlobalColorPicker label="Background Color" value={bgState === "hover" ? undefined : settings.bgColor} onChange={(c) => onChange({ ...settings, bgColor: c || undefined } as ContainerSettings)} allowClear paletteOverride={themeColors} />
-              <BuilderImageUploader label="Background Image" value={settings.bgImage || ""} onChange={(url) => onChange({ ...settings, bgImage: url || undefined } as ContainerSettings)} />
-
-              {settings.bgImage && (
-                <>
-                  <div>
-                    <span className={labelCls}>Position</span>
-                    <select value={settings.bgPosition || "center center"} onChange={(e) => onChange({ ...settings, bgPosition: e.target.value } as ContainerSettings)} className={inputCls}>
-                      <option value="left top">Left Top</option>
-                      <option value="center top">Center Top</option>
-                      <option value="right top">Right Top</option>
-                      <option value="left center">Left Center</option>
-                      <option value="center center">Center Center</option>
-                      <option value="right center">Right Center</option>
-                      <option value="left bottom">Left Bottom</option>
-                      <option value="center bottom">Center Bottom</option>
-                      <option value="right bottom">Right Bottom</option>
-                    </select>
-                  </div>
-                  <div>
-                    <span className={labelCls}>Size</span>
-                    <select value={settings.bgSize || "cover"} onChange={(e) => onChange({ ...settings, bgSize: e.target.value } as ContainerSettings)} className={inputCls}>
-                      <option value="auto">Auto</option>
-                      <option value="cover">Cover</option>
-                      <option value="contain">Contain</option>
-                    </select>
-                  </div>
-                  <div>
-                    <span className={labelCls}>Repeat</span>
-                    <select value={settings.bgRepeat || "no-repeat"} onChange={(e) => onChange({ ...settings, bgRepeat: e.target.value } as ContainerSettings)} className={inputCls}>
-                      <option value="repeat">Repeat</option>
-                      <option value="no-repeat">No Repeat</option>
-                      <option value="repeat-x">Repeat X</option>
-                      <option value="repeat-y">Repeat Y</option>
-                    </select>
-                  </div>
-                </>
-              )}
+              <BackgroundFields
+                label="Container"
+                color={bgState === "hover" ? undefined : settings.bgColor}
+                image={settings.bgImage}
+                bgPosition={settings.bgPosition}
+                bgSize={settings.bgSize}
+                bgRepeat={settings.bgRepeat}
+                onColor={(c) => onChange({ ...settings, bgColor: c || undefined } as ContainerSettings)}
+                onImage={(url) => onChange({ ...settings, bgImage: url || undefined } as ContainerSettings)}
+                onBgPosition={(v) => onChange({ ...settings, bgPosition: v } as ContainerSettings)}
+                onBgSize={(v) => onChange({ ...settings, bgSize: v } as ContainerSettings)}
+                onBgRepeat={(v) => onChange({ ...settings, bgRepeat: v } as ContainerSettings)}
+                themeColors={themeColors}
+              />
             </>
           )}
         </div>

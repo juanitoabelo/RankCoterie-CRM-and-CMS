@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { ContainerSettings } from "@/lib/page-layout/types";
 import { DEFAULT_CONTAINER_SETTINGS } from "@/lib/page-layout/types";
 import GlobalColorPicker from "../header-footer-builder/GlobalColorPicker";
-import BuilderImageUploader from "../header-footer-builder/BuilderImageUploader";
+import { BackgroundFields } from "../page-builder/settings";
 
 type Props = {
   settings: ContainerSettings;
@@ -256,83 +256,25 @@ export default function ContainerSettingsEditor({ settings, onChange, themeColor
           </button>
         </div>
 
-        <GlobalColorPicker
-          label="Color"
-          value={settings.bgColor}
-          onChange={(c) => onChange({ ...settings, bgColor: c })}
-          paletteOverride={themeColors}
+        <BackgroundFields
+          label="Container"
+          color={settings.bgColor}
+          image={settings.bgImage}
+          bgPosition={settings.bgPosition}
+          bgSize={settings.bgSize}
+          bgRepeat={settings.bgRepeat}
+          onColor={(c) => onChange({ ...settings, bgColor: c })}
+          onImage={(url) => onChange({ ...settings, bgImage: url })}
+          onBgPosition={(v) => onChange({ ...settings, bgPosition: v })}
+          onBgSize={(v) => onChange({ ...settings, bgSize: v })}
+          onBgRepeat={(v) => onChange({ ...settings, bgRepeat: v })}
+          themeColors={themeColors}
+          showOverlay
+          overlayColor={settings.overlayColor}
+          overlayOpacity={settings.overlayOpacity}
+          onOverlayColor={(c) => onChange({ ...settings, overlayColor: c })}
+          onOverlayOpacity={(v) => onChange({ ...settings, overlayOpacity: v })}
         />
-
-        <BuilderImageUploader
-          label="Image"
-          value={settings.bgImage || ""}
-          onChange={(url) => onChange({ ...settings, bgImage: url })}
-        />
-
-        {settings.bgImage && (
-          <>
-            <label className={labelCls}>Position
-              <select
-                value={settings.bgPosition || "center center"}
-                onChange={(e) => onChange({ ...settings, bgPosition: e.target.value })}
-                className={inputCls}
-              >
-                <option value="left top">Left Top</option>
-                <option value="center top">Center Top</option>
-                <option value="right top">Right Top</option>
-                <option value="left center">Left Center</option>
-                <option value="center center">Center Center</option>
-                <option value="right center">Right Center</option>
-                <option value="left bottom">Left Bottom</option>
-                <option value="center bottom">Center Bottom</option>
-                <option value="right bottom">Right Bottom</option>
-              </select>
-            </label>
-            <label className={labelCls}>Size
-              <select
-                value={settings.bgSize || "cover"}
-                onChange={(e) => onChange({ ...settings, bgSize: e.target.value })}
-                className={inputCls}
-              >
-                <option value="cover">Cover</option>
-                <option value="contain">Contain</option>
-                <option value="auto">Auto</option>
-                <option value="100% 100%">Stretch</option>
-              </select>
-            </label>
-            <label className={labelCls}>Repeat
-              <select
-                value={settings.bgRepeat || "no-repeat"}
-                onChange={(e) => onChange({ ...settings, bgRepeat: e.target.value })}
-                className={inputCls}
-              >
-                <option value="no-repeat">No Repeat</option>
-                <option value="repeat">Repeat</option>
-                <option value="repeat-x">Repeat X</option>
-                <option value="repeat-y">Repeat Y</option>
-              </select>
-            </label>
-            <div className="space-y-2">
-              <span className={labelCls}>Overlay</span>
-              <div className="grid grid-cols-2 gap-2">
-                <GlobalColorPicker
-                  label="Color"
-                  value={settings.overlayColor || "#000000"}
-                  onChange={(c) => onChange({ ...settings, overlayColor: c })}
-                  paletteOverride={themeColors}
-                />
-                <NumberSlider
-                  label="Opacity"
-                  value={settings.overlayOpacity ?? 50}
-                  onChange={(v) => onChange({ ...settings, overlayOpacity: v })}
-                  min={0}
-                  max={100}
-                  suffix="%"
-                />
-              </div>
-            </div>
-          </>
-        )}
       </div>
 
       {/* ── BORDER ──────────────────────────────────────────────── */}

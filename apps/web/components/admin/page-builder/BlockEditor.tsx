@@ -1792,44 +1792,15 @@ function SectionEditor({
                     label="Section background"
                     color={bgState === "hover" ? undefined : p.bgColor}
                     image={p.bgImage}
+                    bgPosition={p.bgPosition}
+                    bgSize={p.bgSize}
+                    bgRepeat={p.bgRepeat}
                     onColor={(value) => set({ bgColor: value || undefined })}
                     onImage={(value) => set({ bgImage: value })}
+                    onBgPosition={(value) => set({ bgPosition: value })}
+                    onBgSize={(value) => set({ bgSize: value })}
+                    onBgRepeat={(value) => set({ bgRepeat: value })}
                   />
-                  {p.bgImage && (
-                    <>
-                      <div>
-                        <label className={labelCls}>Position</label>
-                        <select className={inputCls} value={p.bgPosition || "center center"} onChange={(e) => set({ bgPosition: e.target.value })}>
-                          <option value="left top">Left Top</option>
-                          <option value="center top">Center Top</option>
-                          <option value="right top">Right Top</option>
-                          <option value="left center">Left Center</option>
-                          <option value="center center">Center Center</option>
-                          <option value="right center">Right Center</option>
-                          <option value="left bottom">Left Bottom</option>
-                          <option value="center bottom">Center Bottom</option>
-                          <option value="right bottom">Right Bottom</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className={labelCls}>Size</label>
-                        <select className={inputCls} value={p.bgSize || "cover"} onChange={(e) => set({ bgSize: e.target.value })}>
-                          <option value="auto">Auto</option>
-                          <option value="cover">Cover</option>
-                          <option value="contain">Contain</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className={labelCls}>Repeat</label>
-                        <select className={inputCls} value={p.bgRepeat || "no-repeat"} onChange={(e) => set({ bgRepeat: e.target.value })}>
-                          <option value="repeat">Repeat</option>
-                          <option value="no-repeat">No Repeat</option>
-                          <option value="repeat-x">Repeat X</option>
-                          <option value="repeat-y">Repeat Y</option>
-                        </select>
-                      </div>
-                    </>
-                  )}
                 </>
               )}
             </div>
@@ -2387,8 +2358,14 @@ function RowEditor({
                         label={`Column ${i + 1} background`}
                         color={c.bgColor}
                         image={c.bgImage}
+                        bgPosition={c.bgPosition}
+                        bgSize={c.bgSize}
+                        bgRepeat={c.bgRepeat}
                         onColor={(value) => setColumn(c.id, { bgColor: value || undefined })}
                         onImage={(value) => setColumn(c.id, { bgImage: value })}
+                        onBgPosition={(value) => setColumn(c.id, { bgPosition: value })}
+                        onBgSize={(value) => setColumn(c.id, { bgSize: value })}
+                        onBgRepeat={(value) => setColumn(c.id, { bgRepeat: value })}
                       />
                       <p className="text-[10px] text-zinc-400">
                         {c.blocks.length} block{c.blocks.length === 1 ? "" : "s"} inside
@@ -2469,44 +2446,15 @@ function RowEditor({
                     label="Row background"
                     color={bgState === "hover" ? undefined : p.bgColor}
                     image={p.bgImage}
+                    bgPosition={p.bgPosition}
+                    bgSize={p.bgSize}
+                    bgRepeat={p.bgRepeat}
                     onColor={(value) => set({ bgColor: value || undefined })}
                     onImage={(value) => set({ bgImage: value })}
+                    onBgPosition={(value) => set({ bgPosition: value })}
+                    onBgSize={(value) => set({ bgSize: value })}
+                    onBgRepeat={(value) => set({ bgRepeat: value })}
                   />
-                  {p.bgImage && (
-                    <>
-                      <div>
-                        <label className={labelCls}>Position</label>
-                        <select className={inputCls} value={p.bgPosition || "center center"} onChange={(e) => set({ bgPosition: e.target.value })}>
-                          <option value="left top">Left Top</option>
-                          <option value="center top">Center Top</option>
-                          <option value="right top">Right Top</option>
-                          <option value="left center">Left Center</option>
-                          <option value="center center">Center Center</option>
-                          <option value="right center">Right Center</option>
-                          <option value="left bottom">Left Bottom</option>
-                          <option value="center bottom">Center Bottom</option>
-                          <option value="right bottom">Right Bottom</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className={labelCls}>Size</label>
-                        <select className={inputCls} value={p.bgSize || "cover"} onChange={(e) => set({ bgSize: e.target.value })}>
-                          <option value="auto">Auto</option>
-                          <option value="cover">Cover</option>
-                          <option value="contain">Contain</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className={labelCls}>Repeat</label>
-                        <select className={inputCls} value={p.bgRepeat || "no-repeat"} onChange={(e) => set({ bgRepeat: e.target.value })}>
-                          <option value="repeat">Repeat</option>
-                          <option value="no-repeat">No Repeat</option>
-                          <option value="repeat-x">Repeat X</option>
-                          <option value="repeat-y">Repeat Y</option>
-                        </select>
-                      </div>
-                    </>
-                  )}
                 </>
               )}
             </div>
