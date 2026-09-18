@@ -246,22 +246,22 @@ textarea::placeholder {
 
 /* ── Page Builder: Reverse Columns ────────────────────────────────────── */
 
-/* Reverse columns on tablet (md breakpoint and below) */
-@media (max-width: 767px) {
-  .pb-reverse-tablet > *:nth-child(1) { order: 99; }
-  .pb-reverse-tablet > *:nth-child(2) { order: 98; }
-  .pb-reverse-tablet > *:nth-child(3) { order: 97; }
-  .pb-reverse-tablet > *:nth-child(4) { order: 96; }
-  .pb-reverse-tablet > *:nth-child(5) { order: 95; }
-  .pb-reverse-tablet > *:nth-child(6) { order: 94; }
+/* Reverse columns on tablet (below lg breakpoint, i.e. 1023px and under) */
+@media (max-width: 1023px) {
+  .pb-reverse-tablet > *:nth-child(1) { order: 99 !important; }
+  .pb-reverse-tablet > *:nth-child(2) { order: 98 !important; }
+  .pb-reverse-tablet > *:nth-child(3) { order: 97 !important; }
+  .pb-reverse-tablet > *:nth-child(4) { order: 96 !important; }
+  .pb-reverse-tablet > *:nth-child(5) { order: 95 !important; }
+  .pb-reverse-tablet > *:nth-child(6) { order: 94 !important; }
 }
 
-/* Reverse columns on mobile only */
+/* Reverse columns on mobile (below sm breakpoint, i.e. 639px and under) */
 @media (max-width: 639px) {
-  .pb-reverse-mobile > *:nth-child(1) { order: 99; }
-  .pb-reverse-mobile > *:nth-child(2) { order: 98; }
-  .pb-reverse-mobile > *:nth-child(3) { order: 97; }
-  .pb-reverse-mobile > *:nth-child(4) { order: 96; }
-  .pb-reverse-mobile > *:nth-child(5) { order: 95; }
-  .pb-reverse-mobile > *:nth-child(6) { order: 94; }
+  .pb-reverse-mobile > *:nth-child(1) { order: 99 !important; }
+  .pb-reverse-mobile > *:nth-child(2) { order: 98 !important; }
+  .pb-reverse-mobile > *:nth-child(3) { order: 97 !important; }
+  .pb-reverse-mobile > *:nth-child(4) { order: 96 !important; }
+  .pb-reverse-mobile > *:nth-child(5) { order: 95 !important; }
+  .pb-reverse-mobile > *:nth-child(6) { order: 94 !important; }
 }
