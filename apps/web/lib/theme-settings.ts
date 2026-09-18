@@ -126,9 +126,9 @@ export const DEFAULT_FONT_SIZES: Record<"mobile" | "tablet" | "desktop", FontSiz
 };
 
 export const DEFAULT_FONT_SETTINGS: FontSettings = {
-  heading: "'Inter', system-ui, sans-serif",
-  body: "'Inter', system-ui, sans-serif",
-  mono: "'JetBrains Mono', ui-monospace, monospace",
+  heading: "var(--font-inter), system-ui, sans-serif",
+  body: "var(--font-inter), system-ui, sans-serif",
+  mono: "var(--font-geist-mono), ui-monospace, monospace",
   sizes: DEFAULT_FONT_SIZES,
 };
 
@@ -182,9 +182,9 @@ export const THEME_PRESETS: ThemePreset[] = [
     description: "Clean, professional look with Inter font",
     colors: DEFAULT_COLOR_PALETTE,
     fonts: {
-      heading: "'Inter', system-ui, sans-serif",
-      body: "'Inter', system-ui, sans-serif",
-      mono: "'JetBrains Mono', ui-monospace, monospace",
+      heading: "var(--font-inter), system-ui, sans-serif",
+      body: "var(--font-inter), system-ui, sans-serif",
+      mono: "var(--font-geist-mono), ui-monospace, monospace",
     },
     layout: DEFAULT_LAYOUT_SETTINGS,
   },
@@ -202,9 +202,9 @@ export const THEME_PRESETS: ThemePreset[] = [
       border: "#f3f4f6",
     },
     fonts: {
-      heading: "'Inter', system-ui, sans-serif",
-      body: "'Inter', system-ui, sans-serif",
-      mono: "'JetBrains Mono', ui-monospace, monospace",
+      heading: "var(--font-inter), system-ui, sans-serif",
+      body: "var(--font-inter), system-ui, sans-serif",
+      mono: "var(--font-geist-mono), ui-monospace, monospace",
     },
     layout: { ...DEFAULT_LAYOUT_SETTINGS, maxWidth: "1024px" },
   },
@@ -379,9 +379,9 @@ export function renderThemeSettingsCSS(settings: ThemeSettings): string {
   --theme-success: "${esc(colors.success)}";
   --theme-warning: "${esc(colors.warning)}";
   --theme-error: "${esc(colors.error)}";
-  --theme-heading-font: "${esc(fonts.heading)}";
-  --theme-body-font: "${esc(fonts.body)}";
-  --theme-mono-font: "${esc(fonts.mono)}";
+  --theme-heading-font: ${esc(fonts.heading)};
+  --theme-body-font: ${esc(fonts.body)};
+  --theme-mono-font: ${esc(fonts.mono)};
   --theme-max-width: ${layout.maxWidth};
   --theme-container-padding: ${layout.containerPadding};
   --theme-bp-mobile: ${breakpoints.mobile}px;

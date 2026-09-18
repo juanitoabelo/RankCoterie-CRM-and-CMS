@@ -59,8 +59,8 @@ export const DEFAULT_STYLE_GUIDE: StyleGuide = {
   accent: "#2563eb",
   headingColor: "#111827",
   fonts: {
-    heading: "'Inter', system-ui, sans-serif",
-    body: "'Inter', system-ui, sans-serif",
+    heading: "var(--font-inter), system-ui, sans-serif",
+    body: "var(--font-inter), system-ui, sans-serif",
   },
   linkColor: "#2563eb",
   linkHoverColor: "#1d4ed8",
@@ -121,6 +121,9 @@ export function styleGuideVars(guide: StyleGuide): string {
   const push = (varName: string, value: string) => {
     if (value) lines.push(`  ${varName}: "${esc(value)}";`);
   };
+  const pushFont = (varName: string, value: string) => {
+    if (value) lines.push(`  ${varName}: ${esc(value)};`);
+  };
   push("--sg-background", guide.background);
   push("--sg-text", guide.text);
   push("--sg-accent", guide.accent);
@@ -129,8 +132,8 @@ export function styleGuideVars(guide: StyleGuide): string {
   push("--sg-link-hover", guide.linkHoverColor);
   push("--sg-btn-bg", guide.buttonBg);
   push("--sg-btn-text", guide.buttonText);
-  push("--sg-heading-font", guide.fonts.heading);
-  push("--sg-body-font", guide.fonts.body);
+  pushFont("--sg-heading-font", guide.fonts.heading);
+  pushFont("--sg-body-font", guide.fonts.body);
   return lines.join("\n");
 }
 
