@@ -26,7 +26,7 @@ describe("styleGuideVars", () => {
       ...DEFAULT_STYLE_GUIDE,
       fonts: { heading: "Georgia, serif", body: "Arial, sans-serif" },
     });
-    expect(vars).toContain('--sg-heading-font: "Georgia, serif";');
+    expect(vars).toContain("--sg-heading-font: Georgia, serif;");
   });
 
   it("maps background/text to the existing Tailwind theme vars", () => {

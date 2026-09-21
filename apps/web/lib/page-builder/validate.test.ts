@@ -60,10 +60,10 @@ describe("validateBlock", () => {
   });
 
   it("flags empty testimonial quote", () => {
-    const t = createBlock("testimonial") as Block & { props: { quote: string } };
-    t.props.quote = "";
-    expect(validateBlock(t)).toContain("Quote is required.");
-    t.props.quote = "Great!";
+    const t = createBlock("testimonial") as Block & { props: { items: Array<{ quote: string; author: string }> } };
+    t.props.items = [{ quote: "", author: "" }];
+    expect(validateBlock(t)).toContain("Testimonial 1 is missing a quote.");
+    t.props.items = [{ quote: "Great!", author: "Jane" }];
     expect(validateBlock(t)).toEqual([]);
   });
 

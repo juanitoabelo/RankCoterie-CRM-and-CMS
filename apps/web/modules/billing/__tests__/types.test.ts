@@ -6,7 +6,7 @@ import { INVOICE_STATUS_BADGE } from "../types";
 
 describe("INVOICE_STATUS_BADGE", () => {
   it("has badges for all statuses", () => {
-    expect(INVOICE_STATUS_BADGE.PENDING).toBeDefined();
+    expect(INVOICE_STATUS_BADGE.ATTEMPTED).toBeDefined();
     expect(INVOICE_STATUS_BADGE.APPROVED).toBeDefined();
     expect(INVOICE_STATUS_BADGE.DECLINED).toBeDefined();
     expect(INVOICE_STATUS_BADGE.ERROR).toBeDefined();
