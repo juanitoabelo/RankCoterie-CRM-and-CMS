@@ -28,6 +28,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { section: "pages", href: "/admin/pages", label: "Pages" },
       { section: "articles", href: "/admin/articles", label: "Articles/Posts" },
+      { section: "blogTemplate", href: "/admin/blog-template", label: "Blog Templates" },
       { section: "sections", href: "/admin/sections", label: "Sections" },
       { section: "sections", href: "/admin/sections/new", label: "Add New Section" },
       { section: "topics", href: "/admin/categories", label: "Topics" },

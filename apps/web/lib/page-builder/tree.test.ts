@@ -127,10 +127,10 @@ describe("moveBlock", () => {
     expect(col.column.blocks.map((b) => b.id)).toEqual([second.id, first.id]);
   });
 
-  it("does not move a row into a column", () => {
+  it("moves a row into a column", () => {
     const { blocks, rowB } = fixture();
     const next = moveBlock(blocks, rowB.id, "col-a");
-    expect(next.map((b) => b.id)).toEqual(blocks.map((b) => b.id));
+    expect(findColumnForBlock(next, rowB.id)?.columnId).toBe("col-a");
   });
 });
 
@@ -142,12 +142,11 @@ describe("addBlockFromPalette", () => {
     expect(next[next.length - 1].id).toBe(mb.id);
   });
 
-  it("drops a row block at top level even over a column", () => {
+  it("drops a row block into a column when dragged over it", () => {
     const { blocks } = fixture();
     const row = createBlock("row");
     const next = addBlockFromPalette(blocks, row, "col-a");
-    expect(findColumnForBlock(next, row.id)).toBeNull();
-    expect(next.some((b) => b.id === row.id)).toBe(true);
+    expect(findColumnForBlock(next, row.id)?.columnId).toBe("col-a");
   });
 
   it("inserts into a column after the hovered block", () => {

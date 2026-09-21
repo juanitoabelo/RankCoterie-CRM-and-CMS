@@ -391,6 +391,79 @@ export interface VideoBlock extends BlockBase {
   };
 }
 
+/* ── Blog-Specific Block Types ────────────────────────────────────────────── */
+
+export interface BlogPostGridBlock extends BlockBase {
+  type: "blogPostGrid";
+  props: {
+    heading?: string;
+    layout: "grid" | "list" | "masonry";
+    /** @deprecated Use columnsDesktop/tablet/mobile instead. Legacy fallback. */
+    columns: 1 | 2 | 3;
+    columnsDesktop: 1 | 2 | 3;
+    columnsTablet?: 1 | 2 | 3;
+    columnsMobile?: 1 | 2 | 3;
+    postsPerPage: number;
+    showExcerpt: boolean;
+    excerptLength: number;
+    showFeaturedImage: boolean;
+    showAuthor: boolean;
+    showDate: boolean;
+    showCategory: boolean;
+    showPagination: boolean;
+    orderBy: "date" | "title" | "popular";
+    cardStyle?: "bordered" | "shadow" | "minimal";
+    imageAspect?: "16:9" | "4:3" | "1:1";
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface BlogSidebarBlock extends BlockBase {
+  type: "blogSidebar";
+  props: {
+    widgets: Array<
+      | { type: "categories"; heading?: string; limit?: number }
+      | { type: "recentPosts"; heading?: string; limit?: number }
+      | { type: "search"; heading?: string }
+      | { type: "tags"; heading?: string }
+      | { type: "custom"; heading?: string; content?: string }
+    >;
+    width?: number;
+    position: "left" | "right";
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface ArticleContentBlock extends BlockBase {
+  type: "articleContent";
+  props: {
+    showTitle: boolean;
+    showMeta: boolean;
+    showAuthor: boolean;
+    showDate: boolean;
+    showCategory: boolean;
+    showFeaturedImage: boolean;
+    showSocialShare: boolean;
+    showNavigation: boolean;
+    maxWidth?: number;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface ArticleHeroBlock extends BlockBase {
+  type: "articleHero";
+  props: {
+    layout: "standard" | "full-width" | "centered";
+    showBreadcrumb: boolean;
+    showCategory: boolean;
+    showAuthor: boolean;
+    showDate: boolean;
+    bgColor?: string;
+    textColor?: string;
+    style?: StyleBreakpoints;
+  };
+}
+
 export interface SliderSlide {
   src: string;
   alt: string;
@@ -670,6 +743,10 @@ export type Block =
   | VideoBlock
   | SliderBlock
   | ContentGridBlock
+  | BlogPostGridBlock
+  | BlogSidebarBlock
+  | ArticleContentBlock
+  | ArticleHeroBlock
   | RowBlock
   | SectionBlock;
 
@@ -703,6 +780,10 @@ export const LEAF_BLOCK_TYPES: BlockType[] = [
   "video",
   "slider",
   "contentGrid",
+  "blogPostGrid",
+  "blogSidebar",
+  "articleContent",
+  "articleHero",
 ];
 
 /** Id prefix used by draggable palette items so drag events can be distinguished from real blocks. */
@@ -976,6 +1057,69 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       columns: 3,
       showExcerpt: true,
       order: "desc",
+    },
+  },
+  {
+    type: "blogPostGrid",
+    label: "Blog Post Grid",
+    icon: "📰",
+    defaults: {
+      heading: "Latest Posts",
+      layout: "grid",
+      columns: 3,
+      postsPerPage: 9,
+      showExcerpt: true,
+      excerptLength: 150,
+      showFeaturedImage: true,
+      showAuthor: true,
+      showDate: true,
+      showCategory: true,
+      showPagination: true,
+      orderBy: "date",
+      cardStyle: "shadow",
+      imageAspect: "16:9",
+    },
+  },
+  {
+    type: "blogSidebar",
+    label: "Blog Sidebar",
+    icon: "📑",
+    defaults: {
+      widgets: [
+        { type: "search", heading: "Search" },
+        { type: "categories", heading: "Categories", limit: 10 },
+        { type: "recentPosts", heading: "Recent Posts", limit: 5 },
+      ],
+      width: 300,
+      position: "right",
+    },
+  },
+  {
+    type: "articleContent",
+    label: "Article Content",
+    icon: "📄",
+    defaults: {
+      showTitle: true,
+      showMeta: true,
+      showAuthor: true,
+      showDate: true,
+      showCategory: true,
+      showFeaturedImage: true,
+      showSocialShare: true,
+      showNavigation: true,
+      maxWidth: 720,
+    },
+  },
+  {
+    type: "articleHero",
+    label: "Article Hero",
+    icon: "🎯",
+    defaults: {
+      layout: "standard",
+      showBreadcrumb: true,
+      showCategory: true,
+      showAuthor: true,
+      showDate: true,
     },
   },
 ];

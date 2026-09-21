@@ -77,6 +77,12 @@ export function findBlock(blocks: Block[], blockId: string): Block | null {
         for (const col of row.props.columns) {
           const found = col.blocks.find((c) => c.id === blockId);
           if (found) return found;
+          for (const child of col.blocks) {
+            if (isRowBlock(child)) {
+              const nested = findBlock([child], blockId);
+              if (nested) return nested;
+            }
+          }
         }
       }
     }
@@ -84,6 +90,12 @@ export function findBlock(blocks: Block[], blockId: string): Block | null {
       for (const col of b.props.columns) {
         const found = col.blocks.find((c) => c.id === blockId);
         if (found) return found;
+        for (const child of col.blocks) {
+          if (isRowBlock(child)) {
+            const nested = findBlock([child], blockId);
+            if (nested) return nested;
+          }
+        }
       }
     }
   }
@@ -96,11 +108,23 @@ export function columnById(blocks: Block[], columnId: string): ColumnData | null
       for (const row of b.props.rows) {
         const col = row.props.columns.find((c) => c.id === columnId);
         if (col) return col;
+        for (const child of row.props.columns.flatMap((c) => c.blocks)) {
+          if (isRowBlock(child)) {
+            const nested = columnById([child], columnId);
+            if (nested) return nested;
+          }
+        }
       }
     }
     if (isRowBlock(b)) {
       const col = b.props.columns.find((c) => c.id === columnId);
       if (col) return col;
+      for (const child of b.props.columns.flatMap((c) => c.blocks)) {
+        if (isRowBlock(child)) {
+          const nested = columnById([child], columnId);
+          if (nested) return nested;
+        }
+      }
     }
   }
   return null;
@@ -111,10 +135,22 @@ export function rowIdForColumn(blocks: Block[], columnId: string): string | null
     if (isSectionBlock(b)) {
       for (const row of b.props.rows) {
         if (row.props.columns.some((c) => c.id === columnId)) return row.id;
+        for (const child of row.props.columns.flatMap((c) => c.blocks)) {
+          if (isRowBlock(child)) {
+            const nested = rowIdForColumn([child], columnId);
+            if (nested) return nested;
+          }
+        }
       }
     }
     if (isRowBlock(b)) {
       if (b.props.columns.some((c) => c.id === columnId)) return b.id;
+      for (const child of b.props.columns.flatMap((c) => c.blocks)) {
+        if (isRowBlock(child)) {
+          const nested = rowIdForColumn([child], columnId);
+          if (nested) return nested;
+        }
+      }
     }
   }
   return null;
@@ -213,6 +249,12 @@ export function findColumnForBlock(
           if (col.blocks.some((c) => c.id === blockId)) {
             return { rowId: row.id, columnId: col.id, column: col };
           }
+          for (const child of col.blocks) {
+            if (isRowBlock(child)) {
+              const nested = findColumnForBlock([child], blockId);
+              if (nested) return nested;
+            }
+          }
         }
       }
     }
@@ -220,6 +262,12 @@ export function findColumnForBlock(
       for (const col of b.props.columns) {
         if (col.blocks.some((c) => c.id === blockId)) {
           return { rowId: b.id, columnId: col.id, column: col };
+        }
+        for (const child of col.blocks) {
+          if (isRowBlock(child)) {
+            const nested = findColumnForBlock([child], blockId);
+            if (nested) return nested;
+          }
         }
       }
     }
@@ -338,13 +386,27 @@ export function flattenIds(blocks: Block[]): string[] {
       for (const row of b.props.rows) {
         ids.push(row.id);
         for (const col of row.props.columns) {
-          for (const child of col.blocks) ids.push(child.id);
+          for (const child of col.blocks) {
+            ids.push(child.id);
+            if (isRowBlock(child)) {
+              for (const nestedCol of child.props.columns) {
+                for (const nc of nestedCol.blocks) ids.push(nc.id);
+              }
+            }
+          }
         }
       }
     }
     if (isRowBlock(b)) {
       for (const col of b.props.columns) {
-        for (const child of col.blocks) ids.push(child.id);
+        for (const child of col.blocks) {
+          ids.push(child.id);
+          if (isRowBlock(child)) {
+            for (const nestedCol of child.props.columns) {
+              for (const nc of nestedCol.blocks) ids.push(nc.id);
+            }
+          }
+        }
       }
     }
   }
@@ -364,7 +426,7 @@ export function removeBlock(blocks: Block[], id: string): Block[] {
             ...row.props,
             columns: row.props.columns.map((col) => ({
               ...col,
-              blocks: col.blocks.filter((c) => c.id !== id),
+              blocks: removeBlock(col.blocks, id),
             })),
           },
         })) as RowBlock[];
@@ -376,7 +438,7 @@ export function removeBlock(blocks: Block[], id: string): Block[] {
           ...b.props,
           columns: b.props.columns.map((col) => ({
             ...col,
-            blocks: col.blocks.filter((c) => c.id !== id),
+            blocks: removeBlock(col.blocks, id),
           })),
         },
       } as Block);
@@ -448,7 +510,8 @@ function reorderInColumn(blocks: Block[], columnId: string, activeId: string, ov
  * - top level -> a section (as a row)
  * - section row <-> section row (reorder)
  * - section row -> top level
- * Rows always stay at the top level or inside a section.
+ * - row -> column (nested rows supported)
+ * - column -> row (extract nested rows)
  */
 export function moveBlock(blocks: Block[], activeId: string, overId: string): Block[] {
   if (activeId === overId) return blocks;
@@ -506,7 +569,6 @@ export function moveBlock(blocks: Block[], activeId: string, overId: string): Bl
 
   // Over a block inside a column → insert into that column at that block's index.
   if (overCol) {
-    if (isRow) return blocks; // rows stay at top level or in sections
     const withoutActive = removeBlock(blocks, activeId);
     const idx = overCol.column.blocks.findIndex((b) => b.id === overId);
     return insertIntoColumn(withoutActive, overCol.columnId, active, idx);
@@ -514,7 +576,6 @@ export function moveBlock(blocks: Block[], activeId: string, overId: string): Bl
 
   // Over an empty column droppable → append to that column.
   if (overColData) {
-    if (isRow) return blocks;
     const withoutActive = removeBlock(blocks, activeId);
     return insertIntoColumn(withoutActive, overColData.id, active);
   }
@@ -524,10 +585,10 @@ export function moveBlock(blocks: Block[], activeId: string, overId: string): Bl
 
 /**
  * Drop a freshly created block (from the palette) at the location under `overId`.
- * Rows always go to the top level. Sections go to the top level.
+ * Sections always go to the top level. Rows can be placed in columns.
  */
 export function addBlockFromPalette(blocks: Block[], block: Block, overId?: string): Block[] {
-  if (isRowBlock(block) || isSectionBlock(block)) {
+  if (isSectionBlock(block)) {
     return insertTop(blocks, block, blocks.length);
   }
   if (!overId) {
@@ -558,14 +619,30 @@ export function allBlockIds(blocks: Block[]): string[] {
         ids.push(row.id);
         for (const col of row.props.columns) {
           ids.push(col.id);
-          for (const c of col.blocks) ids.push(c.id);
+          for (const c of col.blocks) {
+            ids.push(c.id);
+            if (isRowBlock(c)) {
+              for (const nestedCol of c.props.columns) {
+                ids.push(nestedCol.id);
+                for (const nc of nestedCol.blocks) ids.push(nc.id);
+              }
+            }
+          }
         }
       }
     }
     if (isRowBlock(b)) {
       for (const col of b.props.columns) {
         ids.push(col.id);
-        for (const c of col.blocks) ids.push(c.id);
+        for (const c of col.blocks) {
+          ids.push(c.id);
+          if (isRowBlock(c)) {
+            for (const nestedCol of c.props.columns) {
+              ids.push(nestedCol.id);
+              for (const nc of nestedCol.blocks) ids.push(nc.id);
+            }
+          }
+        }
       }
     }
   }

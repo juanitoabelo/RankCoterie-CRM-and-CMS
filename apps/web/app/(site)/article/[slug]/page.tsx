@@ -2,6 +2,8 @@ import { prisma } from "@/modules/shared";
 import { renderLocalizedContent } from "@/lib/localization/render";
 import type { RegionContext } from "@/lib/localization/render";
 import type { Metadata } from "next";
+import { resolveBlogTemplate, parseBlogTemplateData } from "@/modules/blog-template";
+import BlogTemplateRenderer from "@/components/admin/blog-template-builder/BlogTemplateRenderer";
 
 export const revalidate = 0;
 
@@ -122,6 +124,38 @@ export default async function ArticlePage({
     body = renderLocalizedContent(article.body, {});
   }
 
+  // Try to resolve blog single template
+  let blocks: import("@/lib/blog-template/types").BlogTemplateBlock[] = [];
+  let containerSettings: import("@/lib/blog-template/types").ContainerSettings | undefined;
+
+  try {
+    const template = await resolveBlogTemplate("single", {
+      pageId: article.id,
+      pageType: "article",
+      pathname: `/article/${slug}`,
+    });
+    if (template) {
+      const parsed = parseBlogTemplateData(template.data);
+      blocks = parsed.blocks;
+      containerSettings = parsed.containerSettings;
+    }
+  } catch {
+    // Blog template model may not exist yet
+  }
+
+  // If a template is assigned, use the template renderer
+  if (blocks.length > 0) {
+    return (
+      <BlogTemplateRenderer
+        blocks={blocks}
+        containerSettings={containerSettings}
+        article={{ ...article, body }}
+        templateType="single"
+      />
+    );
+  }
+
+  // Fallback: default article layout
   return (
     <article className="mx-auto max-w-3xl">
       {regionDisplayName && (

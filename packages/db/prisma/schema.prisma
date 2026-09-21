@@ -626,6 +626,43 @@ model PageLayoutAssignment {
   @@index([tenantId, pageLayoutId])
 }
 
+model BlogTemplate {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  type        String   @default("listing") // "listing" | "single"
+  data        String?  // builder blocks JSON (Block[] + containerSettings)
+  isDefault   Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  revisions   BlogTemplateRevision[]
+  assignments BlogTemplateAssignment[]
+  @@unique([tenantId, name, type])
+  @@index([tenantId, type])
+}
+
+model BlogTemplateRevision {
+  id              String       @id @default(cuid())
+  blogTemplateId  String
+  blogTemplate    BlogTemplate @relation(fields: [blogTemplateId], references: [id], onDelete: Cascade)
+  data            String       // builder blocks JSON snapshot
+  createdAt       DateTime     @default(now())
+  @@index([blogTemplateId, createdAt])
+}
+
+model BlogTemplateAssignment {
+  id              String       @id @default(cuid())
+  tenantId        String
+  blogTemplateId  String
+  blogTemplate    BlogTemplate @relation(fields: [blogTemplateId], references: [id], onDelete: Cascade)
+  priority        Int          @default(0) // higher = more specific
+  pageId          String?      // null = global or type-level
+  pageType        String?      // null = global or page-level ("blog", "article")
+  createdAt       DateTime     @default(now())
+  @@unique([tenantId, blogTemplateId, pageId, pageType])
+  @@index([tenantId, blogTemplateId])
+}
+
 model Asset {
   id        String   @id @default(cuid())
   tenantId  String
