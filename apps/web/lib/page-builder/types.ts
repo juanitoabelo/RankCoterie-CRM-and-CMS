@@ -361,6 +361,15 @@ export interface VideoBlock extends BlockBase {
     cssFilterContrast?: number;
     cssFilterSaturation?: number;
     cssFilterHue?: number;
+    // Border
+    borderStyle?: "none" | "solid" | "dashed" | "dotted";
+    borderWidth?: number;
+    borderColor?: string;
+    borderRadiusTop?: number;
+    borderRadiusRight?: number;
+    borderRadiusBottom?: number;
+    borderRadiusLeft?: number;
+    boxShadow?: string;
     // Advanced
     margin?: { top: string; right: string; bottom: string; left: string };
     padding?: { top: string; right: string; bottom: string; left: string };

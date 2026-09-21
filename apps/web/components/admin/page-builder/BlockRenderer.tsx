@@ -1025,6 +1025,14 @@ function VideoBlock({ block }: { block: Block; ctx: RegionContext }) {
     width: "100%",
     position: "relative",
     overflow: "hidden",
+    borderTopLeftRadius: p.borderRadiusTop ? `${p.borderRadiusTop}px` : undefined,
+    borderTopRightRadius: p.borderRadiusRight ? `${p.borderRadiusRight}px` : undefined,
+    borderBottomRightRadius: p.borderRadiusBottom ? `${p.borderRadiusBottom}px` : undefined,
+    borderBottomLeftRadius: p.borderRadiusLeft ? `${p.borderRadiusLeft}px` : undefined,
+    borderStyle: p.borderStyle !== "none" ? p.borderStyle : undefined,
+    borderWidth: p.borderWidth ? `${p.borderWidth}px` : undefined,
+    borderColor: p.borderColor,
+    boxShadow: p.boxShadow,
   };
 
   const aspectMap: Record<string, string> = {
