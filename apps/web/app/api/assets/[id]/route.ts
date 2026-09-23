@@ -10,23 +10,27 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
-  const asset = await prisma.asset.findFirst({ where: { id, tenantId: TENANT_ID } });
-  if (!asset) {
-    return new NextResponse("Not found", { status: 404 });
+  try {
+    const { id } = await params;
+    const asset = await prisma.asset.findFirst({ where: { id, tenantId: TENANT_ID } });
+    if (!asset) {
+      return new NextResponse("Not found", { status: 404 });
+    }
+
+    const safeFilename = (asset.filename ?? "image").replace(/"/g, "");
+
+    return new NextResponse(asset.bytes, {
+      status: 200,
+      headers: {
+        "Content-Type": asset.mimeType,
+        "Content-Length": String(asset.size),
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "Content-Disposition": `inline; filename="${safeFilename}"`,
+      },
+    });
+  } catch {
+    return new NextResponse("Internal error", { status: 500 });
   }
-
-  const safeFilename = (asset.filename ?? "image").replace(/"/g, "");
-
-  return new NextResponse(asset.bytes, {
-    status: 200,
-    headers: {
-      "Content-Type": asset.mimeType,
-      "Content-Length": String(asset.size),
-      "Cache-Control": "public, max-age=31536000, immutable",
-      "Content-Disposition": `inline; filename="${safeFilename}"`,
-    },
-  });
 }
 
 export async function DELETE(

@@ -13,6 +13,7 @@ import {
   findBlock,
   findColumnForBlock,
   flattenIds,
+  insertLayoutBlock,
   moveBlock,
   removeBlock,
   removeColumnFromRow,
@@ -166,6 +167,64 @@ describe("addBlockFromPalette", () => {
       ...(blocks[0] as RowBlock).props.columns[0].blocks.map((b) => b.id),
       mb.id,
     ]);
+  });
+});
+
+describe("insertLayoutBlock", () => {
+  it("creates a section (container) at the top level, ignoring column targets", () => {
+    const { blocks } = fixture();
+    const result = insertLayoutBlock(blocks, "container", { columnId: "col-a" });
+    expect(result.block.type).toBe("section");
+    expect(result.blocks[result.blocks.length - 1].id).toBe(result.block.id);
+    expect(result.blocks).toHaveLength(4);
+  });
+
+  it("drops a preset row into a column when targeted by column id", () => {
+    const { blocks } = fixture();
+    const result = insertLayoutBlock(blocks, "two-halves", { columnId: "col-a" });
+    expect(result.block.type).toBe("row");
+    expect(findColumnForBlock(result.blocks, result.block.id)?.columnId).toBe("col-a");
+  });
+
+  it("nests a preset row after the hovered block inside a column", () => {
+    const { blocks, textA } = fixture();
+    const result = insertLayoutBlock(blocks, "two-halves", { overId: textA.id });
+    const col = findColumnForBlock(result.blocks, textA.id)!;
+    expect(col.column.blocks.map((b) => b.id)).toEqual([textA.id, result.block.id]);
+  });
+
+  it("appends a preset row at the top level when no target is given", () => {
+    const { blocks } = fixture();
+    const result = insertLayoutBlock(blocks, "content-sidebar");
+    expect(result.block.type).toBe("row");
+    expect((result.block as RowBlock).props.columns.map((c) => c.span)).toEqual([8, 4]);
+    expect(result.blocks[result.blocks.length - 1].id).toBe(result.block.id);
+  });
+
+  it("creates a single-column row for the raw row layout item", () => {
+    const { blocks } = fixture();
+    const result = insertLayoutBlock(blocks, "row", { columnId: "col-a" });
+    expect((result.block as RowBlock).props.columns).toEqual([
+      expect.objectContaining({ span: 12, blocks: [] }),
+    ]);
+    expect(findColumnForBlock(result.blocks, result.block.id)?.columnId).toBe("col-a");
+  });
+
+  it("drops a row into a column nested inside a section", () => {
+    const section = createBlock("section") as Block & { props: { rows: RowBlock[] } };
+    const nestedRow = rowBlock();
+    const innerCol = "nested-col";
+    section.props.rows = [
+      {
+        ...nestedRow,
+        props: {
+          ...nestedRow.props,
+          columns: [{ id: innerCol, span: 6, blocks: [] }],
+        },
+      },
+    ];
+    const result = insertLayoutBlock([section], "three", { columnId: innerCol });
+    expect(findColumnForBlock(result.blocks, result.block.id)?.columnId).toBe(innerCol);
   });
 });
 

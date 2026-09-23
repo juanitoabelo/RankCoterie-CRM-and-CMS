@@ -7,6 +7,7 @@ import { syncFeed } from "@/lib/directory/feedSync";
 import { inngest } from "jobs";
 import { FEED_SYNC_ONE_EVENT } from "jobs/feedSync";
 import { TENANT_ID } from "@/modules/shared";
+import { requireSection } from "@/modules/auth";
 
 export interface ActionResult {
   ok: boolean;
@@ -20,6 +21,7 @@ export async function addFeed(
   type: string,
   status: string,
 ): Promise<ActionResult> {
+  await requireSection("feeds");
   const trimmedName = name.trim();
   const trimmedUrl = url.trim();
   if (!trimmedName || !trimmedUrl) return { ok: false, error: "Name and URL are required." };
@@ -44,6 +46,7 @@ export async function addFeed(
 }
 
 export async function toggleFeedStatus(feedId: string, activate: boolean): Promise<ActionResult> {
+  await requireSection("feeds");
   const feed = await prisma.feed.findUnique({ where: { id: feedId } });
   if (!feed) return { ok: false, error: "Feed not found." };
 
@@ -62,6 +65,7 @@ export async function toggleFeedStatus(feedId: string, activate: boolean): Promi
 }
 
 export async function syncFeedNow(feedId: string): Promise<ActionResult> {
+  await requireSection("feeds");
   const feed = await prisma.feed.findUnique({ where: { id: feedId } });
   if (!feed) return { ok: false, error: "Feed not found." };
 
@@ -74,6 +78,7 @@ export async function syncFeedNow(feedId: string): Promise<ActionResult> {
 }
 
 export async function approveFeedItem(itemId: string): Promise<ActionResult> {
+  await requireSection("feeds");
   const item = await prisma.feedItem.findUnique({ where: { id: itemId }, include: { feed: true } });
   if (!item) return { ok: false, error: "Feed item not found." };
   if (item.status === "APPROVED") return { ok: true, message: "Already approved." };
@@ -109,6 +114,7 @@ export async function approveFeedItem(itemId: string): Promise<ActionResult> {
 }
 
 export async function trashFeedItem(itemId: string): Promise<ActionResult> {
+  await requireSection("feeds");
   const item = await prisma.feedItem.findUnique({ where: { id: itemId }, include: { feed: true } });
   if (!item) return { ok: false, error: "Feed item not found." };
 

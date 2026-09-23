@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
+import { requireSection } from "@/modules/auth";
 
 export type ActionResult = { ok: boolean; error?: string; message?: string };
 
@@ -13,6 +14,7 @@ export async function changeLeadStatus(
   status: string,
   disposition: string | null,
 ): Promise<ActionResult> {
+  await requireSection("leads");
   if (!(LEAD_STATUSES as readonly string[]).includes(status)) {
     return { ok: false, error: `Unknown lead status "${status}".` };
   }
@@ -36,6 +38,7 @@ export async function changeLeadStatus(
 }
 
 export async function addLeadNote(leadId: string, note: string): Promise<ActionResult> {
+  await requireSection("leads");
   const trimmed = note.trim();
   if (!trimmed) return { ok: false, error: "Note cannot be empty." };
   const lead = await prisma.lead.findUnique({ where: { id: leadId } });
@@ -53,6 +56,7 @@ export async function addLeadNote(leadId: string, note: string): Promise<ActionR
 }
 
 export async function toggleTodo(todoId: string): Promise<ActionResult> {
+  await requireSection("leads");
   const todo = await prisma.toDo.findUnique({ where: { id: todoId } });
   if (!todo) return { ok: false, error: "Todo not found." };
   const nowFinished = todo.finishedAt === null;

@@ -31,6 +31,7 @@ export async function GET(request: Request) {
   const order: "asc" | "desc" = searchParams.get("order") === "asc" ? "asc" : "desc";
   const skip = (page - 1) * perPage;
 
+  try {
   if (source === "feeds") {
     const where = {
       tenantId: TENANT_ID,
@@ -96,4 +97,10 @@ export async function GET(request: Request) {
     total,
     totalPages: Math.max(1, Math.ceil(total / perPage)),
   });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Failed to load content." },
+      { status: 500 },
+    );
+  }
 }

@@ -108,6 +108,7 @@ model Region {
   zipCodes   String[]  @default([])
   createdAt  DateTime  @default(now())
   categoryImages CategoryImage[]
+  @@index([tenantId])
 }
 
 model Category {
@@ -366,6 +367,7 @@ model FeedItem {
   status      String   @default("NEW") // NEW | APPROVED | TRASHED
   curatedAt   DateTime?
   createdAt   DateTime @default(now())
+  @@index([feedId, feedDate])
 }
 
 model SearchArticle {
@@ -418,6 +420,7 @@ model Lead {
   createdAt     DateTime @default(now())
   notes         LeadNote[]
   todos         ToDo[]
+  @@index([tenantId, status])
 }
 
 model LeadNote {
@@ -460,6 +463,7 @@ model Client {
   isPartial Boolean  @default(false)
   createdAt DateTime @default(now())
   invoices  Invoice[]
+  @@index([tenantId])
 }
 
 model Invoice {
@@ -475,6 +479,7 @@ model Invoice {
   stripePaymentId String?
   responseMsg   String?
   createdAt     DateTime @default(now())
+  @@index([clientId])
 }
 
 // ---------------------------------------------------------------------------
@@ -694,6 +699,7 @@ model AuditLog {
   meta      Json?
   createdAt DateTime @default(now())
   @@index([tenantId, entity, entityId])
+  @@index([createdAt])
 }
 
 // ---------------------------------------------------------------------------

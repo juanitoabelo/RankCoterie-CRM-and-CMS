@@ -103,17 +103,44 @@ export function getBackgroundStyle(props: {
 /* ── Overlay Style ──────────────────────────────────────────────────────── */
 
 export function renderOverlay(props: {
+  overlayBgType?: string;
   overlayColor?: string;
+  overlayColor2?: string;
+  overlayGradientStart?: string;
+  overlayGradientEnd?: string;
+  overlayGradientAngle?: number;
   overlayOpacity?: number;
 }): ReactNode {
-  if (!props.overlayColor) return null;
+  const opacity = (props.overlayOpacity ?? 50) / 100;
+  const isGradient = props.overlayBgType === "gradient";
+  const hasGradientColors =
+    props.overlayGradientStart || props.overlayGradientEnd || props.overlayColor2;
+
+  if (isGradient || hasGradientColors) {
+    const start = props.overlayGradientStart || props.overlayColor || "#000000";
+    const end = props.overlayGradientEnd || props.overlayColor2 || start;
+    const angle = props.overlayGradientAngle ?? 180;
+    return (
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: `linear-gradient(${angle}deg, ${start}, ${end})`,
+          opacity,
+          pointerEvents: "none",
+        }}
+      />
+    );
+  }
+
+  if (!props.overlayColor && props.overlayOpacity === undefined) return null;
   return (
     <div
       style={{
         position: "absolute",
         inset: 0,
-        backgroundColor: props.overlayColor,
-        opacity: (props.overlayOpacity ?? 50) / 100,
+        backgroundColor: props.overlayColor || "#000000",
+        opacity,
         pointerEvents: "none",
       }}
     />

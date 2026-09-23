@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { TENANT_ID } from "@/modules/shared";
+import { requireSection } from "@/modules/auth";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
 export async function addExclusion(formData: FormData): Promise<ActionResult> {
+  await requireSection("exclusions");
   const companyName = String(formData.get("companyName") ?? "").trim();
   const domainKey = String(formData.get("domainKey") ?? "").trim() || null;
   const reason = String(formData.get("reason") ?? "").trim() || null;
@@ -39,6 +41,7 @@ export async function addExclusion(formData: FormData): Promise<ActionResult> {
 }
 
 export async function deactivateExclusion(id: string, reason?: string): Promise<ActionResult> {
+  await requireSection("exclusions");
   try {
     const row = await prisma.excludedCompany.update({
       where: { id },

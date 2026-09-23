@@ -11,8 +11,13 @@ export const SESSION_TTL_SECONDS = 60 * 60 * 12; // 12h
 
 function secretKey(): string {
   const secret = process.env.SESSION_SECRET;
-  if (!secret && process.env.NODE_ENV === "production") throw new Error("SESSION_SECRET is required in production.");
-  return secret || "canopy-dev-session-secret-change-me";
+  if (!secret) {
+    if (process.env.NODE_ENV === "production" || process.env.VERCEL || process.env.RAILWAY_STATIC_URL) {
+      throw new Error("SESSION_SECRET is required in production.");
+    }
+    return "canopy-dev-session-secret-change-me";
+  }
+  return secret;
 }
 
 async function importKey(): Promise<CryptoKey> {

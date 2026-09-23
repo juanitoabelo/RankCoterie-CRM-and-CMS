@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { TENANT_ID } from "@/modules/shared";
+import { requireSection } from "@/modules/auth";
 
 export type ActionResult = { ok: boolean; error?: string; message?: string };
 
@@ -18,6 +19,7 @@ export async function addMerchant(input: {
   payoutMethod?: string;
   feePercent?: string;
 }): Promise<ActionResult> {
+  await requireSection("merchants");
   const name = input.name.trim();
   if (!name) return { ok: false, error: "Merchant name is required." };
   if (input.stripeAccountId && !/^acct_/.test(input.stripeAccountId.trim())) {
@@ -54,6 +56,7 @@ export async function addMerchant(input: {
 }
 
 export async function toggleMerchantStatus(merchantId: string): Promise<ActionResult> {
+  await requireSection("merchants");
   const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
   if (!merchant) return { ok: false, error: "Merchant not found." };
 

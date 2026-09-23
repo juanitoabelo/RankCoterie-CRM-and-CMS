@@ -1067,6 +1067,9 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       heading: "Latest Posts",
       layout: "grid",
       columns: 3,
+      columnsDesktop: 3,
+      columnsTablet: 2,
+      columnsMobile: 1,
       postsPerPage: 9,
       showExcerpt: true,
       excerptLength: 150,
@@ -1136,17 +1139,25 @@ export const ROW_LAYOUTS: RowLayout[] = [
   { id: "two-halves", label: "2 columns (6+6)", icon: "▥", spans: [6, 6] },
   { id: "logo-nav", label: "Logo + Nav (3+9)", icon: "▤", spans: [3, 9] },
   { id: "nav-logo", label: "Nav + Logo (9+3)", icon: "▧", spans: [9, 3] },
+  { id: "content-sidebar", label: "Content + Sidebar (8+4)", icon: "▥", spans: [8, 4] },
+  { id: "sidebar-content", label: "Sidebar + Content (4+8)", icon: "▥", spans: [4, 8] },
   { id: "three", label: "3 columns (4+4+4)", icon: "▦", spans: [4, 4, 4] },
   { id: "logo-center-nav", label: "Logo Center + Nav (2+8+2)", icon: "▥", spans: [2, 8, 2] },
   { id: "footer-four", label: "4 columns (3+3+3+3)", icon: "▦", spans: [3, 3, 3, 3] },
 ];
 
+/** Pick a subset of ROW_LAYOUTS by id, preserving one shared definition. */
+export function pickRowLayouts(ids: readonly string[]): RowLayout[] {
+  return ROW_LAYOUTS.filter((l) => ids.includes(l.id));
+}
+
 function freshColumn(span: number): ColumnData {
   return { id: crypto.randomUUID(), span, blocks: [] };
 }
 
-/** Build a row block from a prebuilt layout preset. */
+/** Build a row block from a prebuilt layout preset. "row" yields a single column. */
 export function createRowLayout(layoutId: string): RowBlock {
+  if (layoutId === LAYOUT_ROW_ID) return createSingleColumnRow();
   const layout = ROW_LAYOUTS.find((l) => l.id === layoutId);
   const spans = layout?.spans ?? [6, 6];
   return {
@@ -1165,6 +1176,53 @@ export function createRowLayout(layoutId: string): RowBlock {
       fullWidth: true,
     },
   };
+}
+
+/** Layout palette item ids. */
+export const LAYOUT_CONTAINER_ID = "container";
+export const LAYOUT_ROW_ID = "row";
+
+/** Full-width section container used by the "container" layout palette item. */
+export function createSectionBlock(): SectionBlock {
+  return {
+    id: crypto.randomUUID(),
+    type: "section",
+    props: {
+      rows: [],
+      width: "full",
+      bgColor: undefined,
+      bgImage: "",
+      textColor: undefined,
+      paddingTop: 24,
+      paddingBottom: 24,
+    },
+  };
+}
+
+/** Single full-width column used by the "row" layout palette item. */
+export function createSingleColumnRow(): RowBlock {
+  return {
+    id: crypto.randomUUID(),
+    type: "row",
+    props: {
+      columns: [freshColumn(12)],
+      gap: 24,
+      align: "stretch",
+      stackOnMobile: true,
+      bgColor: undefined,
+      bgImage: "",
+      textColor: undefined,
+      paddingY: 24,
+      width: "full",
+      fullWidth: true,
+    },
+  };
+}
+
+/** Build the block backing a row/container layout palette item. */
+export function createLayoutBlock(layoutId: string): Block {
+  if (layoutId === LAYOUT_CONTAINER_ID) return createSectionBlock();
+  return createRowLayout(layoutId);
 }
 
 /** Deep-copy any non-row block props (arrays are cloned so trees never share state). */

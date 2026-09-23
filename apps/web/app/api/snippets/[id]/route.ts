@@ -15,6 +15,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
+  try {
   const { id } = await params;
   const result = await prisma.snippet.deleteMany({
     where: { id, tenantId: TENANT_ID },
@@ -23,4 +24,10 @@ export async function DELETE(
     return NextResponse.json({ error: "Snippet not found." }, { status: 404 });
   }
   return NextResponse.json({ ok: true });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Failed to delete snippet." },
+      { status: 500 },
+    );
+  }
 }

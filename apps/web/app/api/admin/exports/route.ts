@@ -23,6 +23,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
+  try {
   if (kind === "leads") {
     const [leads, total] = await Promise.all([
       prisma.lead.findMany({
@@ -127,6 +128,12 @@ export async function GET(request: Request) {
     { key: "responseMsg", label: "response" },
   ]);
   return csvResponse(csv, `canopy-invoices-${today()}.csv`, total, invoices.length);
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Export failed." },
+      { status: 500 },
+    );
+  }
 }
 
 function csvResponse(csv: string, filename: string, total: number, returned: number): Response {

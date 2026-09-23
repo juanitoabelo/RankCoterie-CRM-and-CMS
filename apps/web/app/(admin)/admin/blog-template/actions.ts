@@ -1,8 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/modules/shared";
-import { TENANT_ID } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/modules/auth";
 import {

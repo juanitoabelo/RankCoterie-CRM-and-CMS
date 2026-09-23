@@ -28,9 +28,9 @@ import type {
   SliderBlock,
   ContentGridBlock,
   StyleBreakpoints,
-  ColumnData,
   RowLayout,
 } from "../page-builder/types";
+import { pickRowLayouts } from "../page-builder/types";
 
 /* ──────────────────────────────────────────────────────────────────────────── */
 /*  Container Settings (wraps entire page layout)                              */
@@ -173,45 +173,24 @@ export const ALL_PAGE_LAYOUT_BLOCK_TYPES: PageLayoutBlockType[] = [
 /*  Row Layouts (page-specific presets)                                        */
 /* ──────────────────────────────────────────────────────────────────────────── */
 
-export const PAGE_LAYOUT_ROW_LAYOUTS: RowLayout[] = [
-  { id: "two-halves", label: "2 columns (6+6)", icon: "▥", spans: [6, 6] },
-  { id: "logo-nav", label: "Logo + Nav (3+9)", icon: "▤", spans: [3, 9] },
-  { id: "nav-logo", label: "Nav + Logo (9+3)", icon: "▧", spans: [9, 3] },
-  { id: "three", label: "3 columns (4+4+4)", icon: "▦", spans: [4, 4, 4] },
-  { id: "logo-center-nav", label: "Logo Center + Nav (2+8+2)", icon: "▥", spans: [2, 8, 2] },
-  { id: "footer-four", label: "4 columns (3+3+3+3)", icon: "▦", spans: [3, 3, 3, 3] },
-];
+export const PAGE_LAYOUT_ROW_LAYOUTS: RowLayout[] = pickRowLayouts([
+  "two-halves",
+  "logo-nav",
+  "nav-logo",
+  "three",
+  "logo-center-nav",
+  "footer-four",
+]);
 
 /* ──────────────────────────────────────────────────────────────────────────── */
 /*  Factory Functions                                                         */
 /* ──────────────────────────────────────────────────────────────────────────── */
 
-function freshColumn(span: number): ColumnData {
-  return { id: crypto.randomUUID(), span, blocks: [] };
-}
-
 export function createPageLayoutBlock(type: PageLayoutBlockType): PageLayoutBlock {
   // Delegate to page builder's createBlock for all types (no specialized blocks)
-  const { createBlock } = require("../page-builder/types");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { createBlock } = require("../page-builder/types") as typeof import("../page-builder/types");
   return createBlock(type) as PageLayoutBlock;
-}
-
-export function createPageLayoutRowLayout(layoutId: string): RowBlock {
-  const layout = PAGE_LAYOUT_ROW_LAYOUTS.find((l) => l.id === layoutId);
-  const spans = layout?.spans ?? [6, 6];
-  return {
-    id: crypto.randomUUID(),
-    type: "row",
-    props: {
-      columns: spans.map(freshColumn),
-      gap: 24,
-      align: "stretch",
-      stackOnMobile: true,
-      paddingY: 24,
-      width: "full",
-      fullWidth: true,
-    },
-  };
 }
 
 /* ──────────────────────────────────────────────────────────────────────────── */

@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { TENANT_ID } from "@/modules/shared";
 import { sanitizeHtml } from "@/lib/style-guide";
 import { AREA_PARTS, US_STATES } from "./constants";
+import { requireSection } from "@/modules/auth";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -29,6 +30,7 @@ const slugifyLegacy = (state: string, stateFull: string, city: string | null) =>
   city ? `${slugify(city)}-${slugify(stateFull)}-${state}` : `${slugify(stateFull)}-${state}`;
 
 export async function createRegion(formData: FormData): Promise<ActionResult> {
+  await requireSection("regions");
   const state = String(formData.get("state") ?? "").trim().toUpperCase();
   const city = String(formData.get("city") ?? "").trim() || null;
   const custom1 = String(formData.get("custom1") ?? "").trim() || null;
@@ -71,6 +73,7 @@ export async function createRegion(formData: FormData): Promise<ActionResult> {
 }
 
 export async function updateRegion(id: string, formData: FormData): Promise<ActionResult> {
+  await requireSection("regions");
   const state = String(formData.get("state") ?? "").trim().toUpperCase();
   const city = String(formData.get("city") ?? "").trim() || null;
   const areaPart = parseAreaPart(String(formData.get("areaPart") ?? "").trim() || null);
@@ -111,6 +114,7 @@ export async function updateRegion(id: string, formData: FormData): Promise<Acti
 }
 
 export async function deleteRegion(id: string, _formData: FormData): Promise<void> {
+  await requireSection("regions");
   try {
     await prisma.region.delete({ where: { id } });
     await logAudit({ action: "REGION_DELETE", entity: "Region", entityId: id });
@@ -121,5 +125,6 @@ export async function deleteRegion(id: string, _formData: FormData): Promise<voi
 }
 
 export async function getRegion(id: string) {
+  await requireSection("regions");
   return prisma.region.findUnique({ where: { id } });
 }

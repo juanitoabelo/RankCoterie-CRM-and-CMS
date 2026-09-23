@@ -18,6 +18,7 @@ import {
   type ColumnWidths,
 } from "@/lib/page-builder/spans";
 import { BlockPreview } from "./BlockPreview";
+import { renderOverlay } from "./renderHelpers";
 
 function ColumnCell({
   column,
@@ -168,11 +169,21 @@ function RowBody({
       }
     : { backgroundColor: block.props.bgColor, color: block.props.textColor };
   return (
-    <div
-      className="mb-2 grid grid-cols-12 rounded-md px-2"
-      style={{ gap: block.props.gap, alignItems: block.props.align, ...rowStyle }}
-    >
-      {block.props.columns.map((column) => (
+    <div className="relative mb-2 overflow-hidden rounded-md px-2" style={rowStyle}>
+      {renderOverlay({
+        overlayBgType: block.props.overlayBgType,
+        overlayColor: block.props.overlayColor,
+        overlayColor2: block.props.overlayColor2,
+        overlayGradientStart: block.props.overlayGradientStart,
+        overlayGradientEnd: block.props.overlayGradientEnd,
+        overlayGradientAngle: block.props.overlayGradientAngle,
+        overlayOpacity: block.props.overlayOpacity,
+      })}
+      <div
+        className="relative grid grid-cols-12"
+        style={{ gap: block.props.gap, alignItems: block.props.align, zIndex: 1 }}
+      >
+        {block.props.columns.map((column) => (
         <ColumnCell
           key={column.id}
           column={column}
@@ -189,6 +200,7 @@ function RowBody({
           onUpdateProps={onUpdateProps}
         />
       ))}
+      </div>
     </div>
   );
 }
@@ -237,7 +249,17 @@ function SectionBody({
       };
 
   return (
-    <div className="mb-2 rounded-md border border-zinc-200/60" style={sectionStyle}>
+    <div className="relative mb-2 overflow-hidden rounded-md border border-zinc-200/60" style={sectionStyle}>
+      {renderOverlay({
+        overlayBgType: block.props.overlayBgType,
+        overlayColor: block.props.overlayColor,
+        overlayColor2: block.props.overlayColor2,
+        overlayGradientStart: block.props.overlayGradientStart,
+        overlayGradientEnd: block.props.overlayGradientEnd,
+        overlayGradientAngle: block.props.overlayGradientAngle,
+        overlayOpacity: block.props.overlayOpacity,
+      })}
+      <div className="relative" style={{ zIndex: 1 }}>
       <div className="flex items-center gap-2 px-2 pt-1">
         <span className="rounded bg-white/80 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
           ▣ Section · {block.props.rows.length} row{block.props.rows.length !== 1 ? "s" : ""}
@@ -312,6 +334,7 @@ function SectionBody({
             </div>
           ))
         )}
+      </div>
       </div>
     </div>
   );

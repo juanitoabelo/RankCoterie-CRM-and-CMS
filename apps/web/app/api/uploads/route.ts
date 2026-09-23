@@ -35,16 +35,22 @@ export async function POST(request: Request) {
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
-  const asset = await prisma.asset.create({
-    data: {
-      tenantId: TENANT_ID,
-      kind: "image",
-      mimeType: file.type,
-      size: file.size,
-      filename: file.name,
-      bytes,
-    },
-  });
-
-  return NextResponse.json({ url: `/api/assets/${asset.id}` });
+  try {
+    const asset = await prisma.asset.create({
+      data: {
+        tenantId: TENANT_ID,
+        kind: "image",
+        mimeType: file.type,
+        size: file.size,
+        filename: file.name,
+        bytes,
+      },
+    });
+    return NextResponse.json({ url: `/api/assets/${asset.id}` });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Failed to save asset." },
+      { status: 500 },
+    );
+  }
 }

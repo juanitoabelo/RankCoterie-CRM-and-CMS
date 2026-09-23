@@ -14,8 +14,6 @@
 import Stripe from "stripe";
 import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
-import { TENANT_ID } from "@/modules/shared";
-
 // Dunning grace: listing stays visible for N days after the failed charge
 // (README design decision #3: dunning → suspend → expire).
 const DUNNING_GRACE_DAYS = 7;
@@ -126,17 +124,17 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   if (!listingId) return;
 
   await prisma.$transaction(async (tx) => {
-    await tx.listing.update({ where: { id: listingId }, data: { status: "SUSPENDED" } });
+    await tx.listing.update({ where: { id: listingId }, data: { status: "EXPIRED" } });
     await tx.listingSubscription.updateMany({
       where: { listingId },
-      data: { status: "SUSPENDED", paymentGraceUntil: null, canceledAt: new Date() },
+      data: { status: "EXPIRED", paymentGraceUntil: null, canceledAt: new Date() },
     });
   });
   await logAudit({
-    action: "LISTING_SUSPEND",
+    action: "LISTING_EXPIRE",
     entity: "Listing",
     entityId: listingId,
-    reason: "Subscription cancelled/deleted",
+    reason: "Subscription cancelled/deleted — listing expired immediately",
     meta: { source: "customer.subscription.deleted" },
   });
 }
@@ -242,7 +240,9 @@ export async function POST(req: Request) {
     }
   } catch (e) {
     console.error(`[stripe-webhook] ${event.type} failed:`, e);
-    return new Response("Webhook handler error", { status: 500 });
+    // Return 200 to prevent infinite Stripe retries for non-retryable errors.
+    // Retryable errors (network/DB timeouts) should throw to trigger Stripe retry.
+    return new Response("ok", { status: 200 });
   }
 
   return new Response("ok", { status: 200 });

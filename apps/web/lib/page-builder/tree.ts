@@ -1,4 +1,5 @@
 import {
+  createLayoutBlock,
   isRowBlock,
   isSectionBlock,
   type Block,
@@ -608,6 +609,21 @@ export function addBlockFromPalette(blocks: Block[], block: Block, overId?: stri
     return insertIntoColumn(blocks, col.id, block);
   }
   return insertTop(blocks, block, blocks.length);
+}
+
+/**
+ * Insert a block created from a container/row layout palette item at the
+ * location under `target`. Sections always go to the top level; rows are nested
+ * into a column when `target.overId`/`target.columnId` resolves to one.
+ */
+export function insertLayoutBlock(
+  blocks: Block[],
+  layoutId: string,
+  target?: { overId?: string; columnId?: string },
+): { blocks: Block[]; block: Block } {
+  const block = createLayoutBlock(layoutId);
+  const overId = target?.overId ?? target?.columnId;
+  return { blocks: addBlockFromPalette(blocks, block, overId), block };
 }
 
 export function allBlockIds(blocks: Block[]): string[] {

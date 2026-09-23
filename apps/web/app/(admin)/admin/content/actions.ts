@@ -9,6 +9,7 @@ import {
 } from "@/lib/localization/variants";
 import { inngest } from "jobs";
 import { VARIANT_PUBLISH_EVENT } from "jobs/variantPublish";
+import { requireSection } from "@/modules/auth";
 
 function toVariantRegion(r: {
   id: string;
@@ -32,6 +33,7 @@ export async function previewRegion(
   templateId: string,
   regionId: string,
 ): Promise<PreviewResult> {
+  await requireSection("content");
   const [template, region] = await Promise.all([
     prisma.contentTemplate.findUnique({ where: { id: templateId } }),
     prisma.region.findUnique({ where: { id: regionId } }),
@@ -49,6 +51,7 @@ export async function publishTemplate(
   templateId: string,
   regionIds: string[],
 ): Promise<PublishResult> {
+  await requireSection("content");
   if (regionIds.length === 0) return { ok: false, error: "Select at least one region" };
 
   try {

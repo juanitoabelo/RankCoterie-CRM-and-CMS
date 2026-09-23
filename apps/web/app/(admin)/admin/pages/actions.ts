@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { TENANT_ID } from "@/modules/shared";
+import { requireSection } from "@/modules/auth";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
 export async function createPage(formData: FormData): Promise<ActionResult> {
+  await requireSection("pages");
   const name = String(formData.get("name") ?? "").trim();
   const slug = String(formData.get("slug") ?? "").trim();
   const title = String(formData.get("title") ?? "").trim();
@@ -45,6 +47,7 @@ export async function updatePageBlocks(
   blocksJson: string,
   opts: { createRevision?: boolean } = {},
 ): Promise<ActionResult> {
+  await requireSection("pages");
   try {
     await prisma.page.update({
       where: { id: pageId },
@@ -127,6 +130,7 @@ export async function restorePageRevision(
 const PAGE_STATUSES = ["DRAFT", "LIVE", "DISABLED"];
 
 export async function setPageStatus(pageId: string, status: string): Promise<ActionResult> {
+  await requireSection("pages");
   if (!PAGE_STATUSES.includes(status)) {
     return { ok: false, error: "Invalid status." };
   }
@@ -150,6 +154,7 @@ export async function updatePageMeta(
   pageId: string,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireSection("pages");
   const name = String(formData.get("name") ?? "").trim();
   const slug = String(formData.get("slug") ?? "").trim();
   const title = String(formData.get("title") ?? "").trim();
@@ -201,6 +206,7 @@ export async function updatePageMeta(
 }
 
 export async function deletePage(id: string, _formData: FormData): Promise<void> {
+  await requireSection("pages");
   try {
     await prisma.page.delete({ where: { id } });
     await logAudit({

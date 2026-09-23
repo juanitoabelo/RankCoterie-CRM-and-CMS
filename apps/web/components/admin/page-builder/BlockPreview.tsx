@@ -400,6 +400,55 @@ export function BlockPreview({
         </div>
       );
       break;
+    case "iconList":
+      body = (
+        <div className="mx-2 mb-2 rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+          <div className="font-medium text-zinc-700">⊞ Icon List · {block.props.items?.length ?? 0} items</div>
+        </div>
+      );
+      break;
+    case "googleMap":
+      body = (
+        <div className="mx-2 mb-2 rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+          <div className="font-medium text-zinc-700">📍 Google Map · {block.props.location || "No location set"}</div>
+        </div>
+      );
+      break;
+    case "video":
+      body = (
+        <div className="mx-2 mb-2 rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+          <div className="font-medium text-zinc-700">▶ Video · {block.props.url || "No URL set"}</div>
+        </div>
+      );
+      break;
+    case "blogPostGrid":
+      body = (
+        <div className="mx-2 mb-2 rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+          <div className="font-medium text-zinc-700">📰 Blog Post Grid · {block.props.columns ?? 3} columns · {block.props.postsPerPage ?? 9} per page</div>
+        </div>
+      );
+      break;
+    case "blogSidebar":
+      body = (
+        <div className="mx-2 mb-2 rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+          <div className="font-medium text-zinc-700">📑 Blog Sidebar · {block.props.widgets?.length ?? 0} widgets</div>
+        </div>
+      );
+      break;
+    case "articleContent":
+      body = (
+        <div className="mx-2 mb-2 rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+          <div className="font-medium text-zinc-700">📄 Article Content</div>
+        </div>
+      );
+      break;
+    case "articleHero":
+      body = (
+        <div className="mx-2 mb-2 rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+          <div className="font-medium text-zinc-700">🎯 Article Hero</div>
+        </div>
+      );
+      break;
     default:
       body = null;
   }
@@ -423,7 +472,7 @@ export function BlockPreview({
 
 function ImagePreview({ block }: { block: Block & { type: "image" } }) {
   const [broken, setBroken] = useState(false);
-  const isFull = block.props.width !== "wide" && block.props.width !== "narrow";
+  const isFull = block.props.width === "full" || block.props.width === "default" || block.props.width === "custom";
   const frameCls = isFull
     ? "mb-2 flex min-h-[96px] items-center justify-center overflow-hidden rounded-md bg-zinc-100"
     : "mx-2 mb-2 flex min-h-[96px] items-center justify-center overflow-hidden rounded-md bg-zinc-100 px-3 py-4";

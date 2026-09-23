@@ -6,6 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  try {
   const { searchParams } = new URL(request.url);
   const limit = Math.min(Number(searchParams.get("limit") || "50"), 100);
   const offset = Number(searchParams.get("offset") || "0");
@@ -49,4 +50,10 @@ export async function GET(request: Request) {
     })),
     total,
   });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Failed to load assets." },
+      { status: 500 },
+    );
+  }
 }

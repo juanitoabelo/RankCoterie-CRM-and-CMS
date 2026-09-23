@@ -28,9 +28,9 @@ import type {
   ContentGridBlock,
   VideoBlock,
   StyleBreakpoints,
-  ColumnData,
   RowLayout,
 } from "../page-builder/types";
+import { pickRowLayouts } from "../page-builder/types";
 
 /* ──────────────────────────────────────────────────────────────────────────── */
 /*  Container Settings (wraps entire blog template)                             */
@@ -250,24 +250,21 @@ export const ALL_BLOG_TEMPLATE_BLOCK_TYPES: BlogTemplateBlockType[] = [
 /*  Row Layouts (blog-specific presets)                                         */
 /* ──────────────────────────────────────────────────────────────────────────── */
 
-export const BLOG_TEMPLATE_ROW_LAYOUTS: RowLayout[] = [
-  { id: "two-halves", label: "2 columns (6+6)", icon: "▥", spans: [6, 6] },
-  { id: "content-sidebar", label: "Content + Sidebar (8+4)", icon: "▧", spans: [8, 4] },
-  { id: "sidebar-content", label: "Sidebar + Content (4+8)", icon: "▧", spans: [4, 8] },
-  { id: "three", label: "3 columns (4+4+4)", icon: "▦", spans: [4, 4, 4] },
-  { id: "footer-four", label: "4 columns (3+3+3+3)", icon: "▦", spans: [3, 3, 3, 3] },
-];
+export const BLOG_TEMPLATE_ROW_LAYOUTS: RowLayout[] = pickRowLayouts([
+  "two-halves",
+  "content-sidebar",
+  "sidebar-content",
+  "three",
+  "footer-four",
+]);
 
 /* ──────────────────────────────────────────────────────────────────────────── */
 /*  Factory Functions                                                          */
 /* ──────────────────────────────────────────────────────────────────────────── */
 
-function freshColumn(span: number): ColumnData {
-  return { id: crypto.randomUUID(), span, blocks: [] };
-}
-
 export function createBlogTemplateBlock(type: BlogTemplateBlockType): BlogTemplateBlock {
-  const { createBlock } = require("../page-builder/types");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { createBlock } = require("../page-builder/types") as typeof import("../page-builder/types");
 
   // Blog-specific blocks
   switch (type) {
@@ -344,24 +341,6 @@ export function createBlogTemplateBlock(type: BlogTemplateBlockType): BlogTempla
     default:
       return createBlock(type) as BlogTemplateBlock;
   }
-}
-
-export function createBlogTemplateRowLayout(layoutId: string): RowBlock {
-  const layout = BLOG_TEMPLATE_ROW_LAYOUTS.find((l) => l.id === layoutId);
-  const spans = layout?.spans ?? [6, 6];
-  return {
-    id: crypto.randomUUID(),
-    type: "row",
-    props: {
-      columns: spans.map(freshColumn),
-      gap: 24,
-      align: "stretch",
-      stackOnMobile: true,
-      paddingY: 24,
-      width: "full",
-      fullWidth: true,
-    },
-  };
 }
 
 /* ──────────────────────────────────────────────────────────────────────────── */

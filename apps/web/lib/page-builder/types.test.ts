@@ -3,10 +3,18 @@ import {
   BLOCK_DEFINITIONS,
   COLUMN_SPANS,
   FULL_COLUMN_SPANS,
+  LAYOUT_CONTAINER_ID,
+  LAYOUT_ROW_ID,
   LEAF_BLOCK_TYPES,
+  ROW_LAYOUTS,
   createBlock,
+  createLayoutBlock,
   createRowLayout,
+  createSectionBlock,
+  createSingleColumnRow,
   isRowBlock,
+  isSectionBlock,
+  pickRowLayouts,
   type Block,
   type BlockType,
   type RowBlock,
@@ -51,6 +59,75 @@ describe("createRowLayout", () => {
   it("falls back to two 6-span columns for unknown layout", () => {
     const row = createRowLayout("nonexistent");
     expect(row.props.columns.map((c) => c.span)).toEqual([6, 6]);
+  });
+
+  it("builds the blog content-sidebar preset from shared layouts", () => {
+    const row = createRowLayout("content-sidebar");
+    expect(row.props.columns.map((c) => c.span)).toEqual([8, 4]);
+  });
+
+  it("builds a single column for the raw row layout id", () => {
+    const row = createRowLayout(LAYOUT_ROW_ID);
+    expect(row.props.columns.map((c) => c.span)).toEqual([12]);
+  });
+});
+
+describe("createSectionBlock", () => {
+  it("creates an empty full-width section", () => {
+    const section = createSectionBlock();
+    expect(section.type).toBe("section");
+    expect(section.props.rows).toEqual([]);
+    expect(section.props.width).toBe("full");
+    expect(section.props.bgColor).toBeUndefined();
+    expect(section.props.paddingTop).toBe(24);
+    expect(isSectionBlock(section)).toBe(true);
+  });
+});
+
+describe("createSingleColumnRow", () => {
+  it("creates a row with one 12-span column", () => {
+    const row = createSingleColumnRow();
+    expect(row.type).toBe("row");
+    expect(row.props.columns).toEqual([
+      expect.objectContaining({ span: 12, blocks: [] }),
+    ]);
+    expect(row.props.fullWidth).toBe(true);
+  });
+});
+
+describe("createLayoutBlock", () => {
+  it("maps the container id to a section", () => {
+    const block = createLayoutBlock(LAYOUT_CONTAINER_ID);
+    expect(isSectionBlock(block)).toBe(true);
+  });
+
+  it("maps the row id to a single-column row", () => {
+    const block = createLayoutBlock(LAYOUT_ROW_ID) as RowBlock;
+    expect(block.type).toBe("row");
+    expect(block.props.columns.map((c) => c.span)).toEqual([12]);
+  });
+
+  it("maps presets to rows with matching spans", () => {
+    const block = createLayoutBlock("content-sidebar") as RowBlock;
+    expect(block.props.columns.map((c) => c.span)).toEqual([8, 4]);
+  });
+});
+
+describe("ROW_LAYOUTS", () => {
+  it("is a single source of truth for every builder preset", () => {
+    const ids = ROW_LAYOUTS.map((l) => l.id);
+    expect(ids).toContain("content-sidebar");
+    expect(ids).toContain("sidebar-content");
+    expect(ids).toContain("logo-nav");
+    expect(ids).toContain("logo-center-nav");
+    expect(ids).toContain("footer-four");
+  });
+
+  it("pickRowLayouts picks from the shared list in canonical order", () => {
+    const picked = pickRowLayouts(["three", "two-halves"]);
+    expect(picked.map((l) => l.id)).toEqual(["two-halves", "three"]);
+    const all = pickRowLayouts(ROW_LAYOUTS.map((l) => l.id));
+    expect(all).toHaveLength(ROW_LAYOUTS.length);
   });
 });
 

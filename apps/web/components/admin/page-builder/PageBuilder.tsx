@@ -7,19 +7,20 @@ import {
   KeyboardSensor,
   MeasuringStrategy,
   PointerSensor,
-  closestCenter,
   useSensor,
   useSensors,
+  pointerWithin,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+
 import {
   BLOCK_DEFINITIONS,
   createBlock,
-  createRowLayout,
+  createLayoutBlock,
+  createSingleColumnRow,
   isRowBlock,
-  isSectionBlock,
   LAYOUT_PREFIX,
   LEAF_BLOCK_TYPES,
   PALETTE_PREFIX,
@@ -27,7 +28,6 @@ import {
   type Block,
   type BlockType,
   type ColumnData,
-  type RowBlock,
 } from "@/lib/page-builder/types";
 import {
   addBlockFromPalette,
@@ -38,6 +38,7 @@ import {
   findColumnForBlock,
   findBlock,
   flattenIds,
+  insertLayoutBlock,
   moveBlock,
   removeBlock as removeBlockFromTree,
   duplicateColumn,
@@ -233,11 +234,7 @@ export default function PageBuilder({
   const addBlock = useCallback(
     (type: BlockType) => {
       const newBlock = createBlock(type);
-      if (isRowBlock(newBlock) || isSectionBlock(newBlock) || !selectedColumnId) {
-        commit((prev) => [...prev, newBlock]);
-      } else {
-        commit((prev) => addBlockFromPalette(prev, newBlock, selectedColumnId));
-      }
+      commit((prev) => addBlockFromPalette(prev, newBlock, selectedColumnId ?? undefined));
       setSelectedId(newBlock.id);
     },
     [selectedColumnId, commit],
@@ -245,62 +242,16 @@ export default function PageBuilder({
 
   const addLayout = useCallback(
     (layoutId: string) => {
-      if (layoutId === "container") {
-        const section: Block = {
-          id: crypto.randomUUID(),
-          type: "section",
-          props: {
-            rows: [],
-            width: "full",
-            bgColor: undefined,
-            bgImage: "",
-            textColor: undefined,
-            paddingTop: 24,
-            paddingBottom: 24,
-          },
-        };
-        commit((prev) => [...prev, section]);
-        setSelectedId(section.id);
-      } else if (layoutId === "row") {
-        const row: RowBlock = {
-          id: crypto.randomUUID(),
-          type: "row",
-          props: {
-            columns: [{ id: crypto.randomUUID(), span: 12, blocks: [] }],
-            gap: 24,
-            align: "stretch",
-            stackOnMobile: true,
-            paddingY: 16,
-            width: "full",
-            fullWidth: true,
-          },
-        };
-        commit((prev) => [...prev, row]);
-        setSelectedId(row.id);
-      } else {
-        const row = createRowLayout(layoutId);
-        commit((prev) => [...prev, row]);
-        setSelectedId(row.id);
-      }
+      const block = createLayoutBlock(layoutId);
+      commit((prev) => addBlockFromPalette(prev, block, selectedColumnId ?? undefined));
+      setSelectedId(block.id);
     },
-    [commit],
+    [selectedColumnId, commit],
   );
 
   const addRowToSectionHandler = useCallback(
     (sectionId: string) => {
-      const row: RowBlock = {
-        id: crypto.randomUUID(),
-        type: "row",
-        props: {
-          columns: [{ id: crypto.randomUUID(), span: 12, blocks: [] }],
-          gap: 24,
-          align: "stretch",
-          stackOnMobile: true,
-          paddingY: 16,
-          width: "full",
-          fullWidth: true,
-        },
-      };
+      const row = createSingleColumnRow();
       commit((prev) => addRowToSectionInTree(prev, sectionId, row));
     },
     [commit],
@@ -311,15 +262,9 @@ export default function PageBuilder({
       const found = fullSnippets.find((s) => s.id === snippetId);
       if (!found) return;
       const copy = cloneBlock(found.block);
-      if (isRowBlock(copy) || isSectionBlock(copy)) {
-        commit((prev) => [...prev, copy]);
-      } else if (overId) {
-        commit((prev) => addBlockFromPalette(prev, copy, overId));
-      } else if (selectedColumnId) {
-        commit((prev) => addBlockFromPalette(prev, copy, selectedColumnId));
-      } else {
-        commit((prev) => [...prev, copy]);
-      }
+      commit((prev) =>
+        addBlockFromPalette(prev, copy, overId ?? selectedColumnId ?? undefined),
+      );
       setSelectedId(copy.id);
     },
     [fullSnippets, selectedColumnId, commit],
@@ -614,9 +559,14 @@ export default function PageBuilder({
         return;
       }
       if (activeId.startsWith(LAYOUT_PREFIX)) {
-        const row = createRowLayout(activeId.slice(LAYOUT_PREFIX.length));
-        commit((prev) => [...prev, row]);
-        setSelectedId(row.id);
+        const layoutId = activeId.slice(LAYOUT_PREFIX.length);
+        let blockId = "";
+        commit((prev) => {
+          const result = insertLayoutBlock(prev, layoutId, { overId });
+          blockId = result.block.id;
+          return result.blocks;
+        });
+        setSelectedId(blockId);
         return;
       }
       if (activeId.startsWith(SNIPPET_PREFIX)) {
@@ -777,7 +727,7 @@ export default function PageBuilder({
 
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={pointerWithin}
         measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}

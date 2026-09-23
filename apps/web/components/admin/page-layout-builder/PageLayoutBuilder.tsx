@@ -15,9 +15,7 @@ import {
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import type { Block, RowBlock } from "@/lib/page-builder/types";
-import {
-  createRowLayout,
-} from "@/lib/page-builder/types";
+import { createLayoutBlock, createSingleColumnRow } from "@/lib/page-builder/types";
 import {
   createPageLayoutBlock,
   type PageLayoutBlock,
@@ -30,6 +28,7 @@ import {
   findBlock,
   moveBlock,
   addBlockFromPalette,
+  insertLayoutBlock,
   removeBlock,
   duplicateBlock,
   updateBlockProps,
@@ -178,49 +177,21 @@ export default function PageLayoutBuilder({
   const addBlock = useCallback(
     (type: string) => {
       const block = createPageLayoutBlock(type as PageLayoutBlockType);
-      commit((present) => addBlockFromPalette(present, block as Block));
+      commit((present) =>
+        addBlockFromPalette(present, block as Block, selectedColumnId ?? undefined),
+      );
     },
-    [commit],
+    [selectedColumnId, commit],
   );
 
   const addLayout = useCallback(
     (layoutId: string) => {
-      if (layoutId === "container") {
-        const section: Block = {
-          id: crypto.randomUUID(),
-          type: "section",
-          props: {
-            rows: [],
-            width: "full",
-            bgColor: undefined,
-            bgImage: "",
-            textColor: undefined,
-            paddingTop: 24,
-            paddingBottom: 24,
-          },
-        };
-        commit((present) => [...present, section]);
-      } else if (layoutId === "row") {
-        const row: RowBlock = {
-          id: crypto.randomUUID(),
-          type: "row",
-          props: {
-            columns: [{ id: crypto.randomUUID(), span: 12, blocks: [] }],
-            gap: 24,
-            align: "stretch",
-            stackOnMobile: true,
-            paddingY: 16,
-            width: "full",
-            fullWidth: true,
-          },
-        };
-        commit((present) => [...present, row]);
-      } else {
-        const row = createRowLayout(layoutId);
-        commit((present) => [...present, row]);
-      }
+      const block = createLayoutBlock(layoutId);
+      commit((present) =>
+        addBlockFromPalette(present, block, selectedColumnId ?? undefined),
+      );
     },
-    [commit],
+    [selectedColumnId, commit],
   );
 
   const removeBlockById = useCallback(
@@ -276,19 +247,7 @@ export default function PageLayoutBuilder({
 
   const addRowToSectionHandler = useCallback(
     (sectionId: string) => {
-      const row: RowBlock = {
-        id: crypto.randomUUID(),
-        type: "row",
-        props: {
-          columns: [{ id: crypto.randomUUID(), span: 12, blocks: [] }],
-          gap: 24,
-          align: "stretch",
-          stackOnMobile: true,
-          paddingY: 16,
-          width: "full",
-          fullWidth: true,
-        },
-      };
+      const row = createSingleColumnRow();
       commit((present) => addRowToSection(present, sectionId, row));
     },
     [commit],
@@ -339,8 +298,7 @@ export default function PageLayoutBuilder({
         commit((present) => addBlockFromPalette(present, block as Block, overId));
       } else if (activeId.startsWith("layout:")) {
         const layoutId = activeId.replace("layout:", "");
-        const row = createRowLayout(layoutId);
-        commit((present) => [...present, row]);
+        commit((present) => insertLayoutBlock(present, layoutId, { overId }).blocks);
       } else {
         commit((present) => moveBlock(present, activeId, overId));
       }

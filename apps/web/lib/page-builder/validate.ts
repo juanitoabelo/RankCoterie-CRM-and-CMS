@@ -115,6 +115,26 @@ export function validateBlock(block: Block): string[] {
         errors.push("Items per page must be between 1 and 48.");
       }
       break;
+    case "iconList":
+      if (!block.props.items || block.props.items.length === 0) errors.push("Add at least one icon item.");
+      break;
+    case "googleMap":
+      if (!block.props.location?.trim()) errors.push("A map location is required.");
+      break;
+    case "video":
+      if (!block.props.url?.trim() && !block.props.embedCode?.trim()) errors.push("Provide a video URL or embed code.");
+      break;
+    case "blogPostGrid":
+      if (!(block.props.columns >= 1 && block.props.columns <= 6)) errors.push("Columns must be between 1 and 6.");
+      if (!(block.props.postsPerPage >= 1 && block.props.postsPerPage <= 48)) errors.push("Posts per page must be between 1 and 48.");
+      break;
+    case "blogSidebar":
+      if (!block.props.widgets || block.props.widgets.length === 0) errors.push("Add at least one widget.");
+      break;
+    case "articleContent":
+      break;
+    case "articleHero":
+      break;
     case "divider":
     case "spacer":
     case "row":

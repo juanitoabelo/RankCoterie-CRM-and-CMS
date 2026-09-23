@@ -685,6 +685,8 @@ function SectionBlock({ block, ctx }: { block: SectionBlock; ctx: RegionContext 
     paddingBottom: p.padding?.bottom ? `${p.padding.bottom}px` : p.paddingBottom ? `${p.paddingBottom}px` : undefined,
     paddingLeft: p.padding?.left ? `${p.padding.left}px` : undefined,
     ...getVerticalAlignStyle(p.verticalAlign),
+    zIndex: 1,
+    position: "relative" as const,
     ...getTypographyScopeStyle({
       headingColor: p.headingColor,
       textColor: p.textColor,
@@ -710,7 +712,15 @@ function SectionBlock({ block, ctx }: { block: SectionBlock; ctx: RegionContext 
       id={p.cssId || undefined}
       className={sectionClasses || undefined}
     >
-      {renderOverlay({ overlayColor: p.overlayColor, overlayOpacity: p.overlayOpacity })}
+      {renderOverlay({
+        overlayBgType: p.overlayBgType,
+        overlayColor: p.overlayColor,
+        overlayColor2: p.overlayColor2,
+        overlayGradientStart: p.overlayGradientStart,
+        overlayGradientEnd: p.overlayGradientEnd,
+        overlayGradientAngle: p.overlayGradientAngle,
+        overlayOpacity: p.overlayOpacity,
+      })}
       {renderShapeDivider("top", p.shapeDividerTop, p.shapeDividerTopColor, p.shapeDividerTopWidth, p.shapeDividerTopHeight)}
       {renderShapeDivider("bottom", p.shapeDividerBottom, p.shapeDividerBottomColor, p.shapeDividerBottomWidth, p.shapeDividerBottomHeight)}
       <div style={innerStyle}>
@@ -769,6 +779,8 @@ function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
     paddingRight: p.padding?.right ? `${p.padding.right}px` : undefined,
     paddingBottom: p.paddingY ? `${p.paddingY}px` : p.padding?.bottom ? `${p.padding.bottom}px` : undefined,
     paddingLeft: p.padding?.left ? `${p.padding.left}px` : undefined,
+    position: "relative" as const,
+    zIndex: 1,
   };
 
   const animClass = getEntranceAnimationClass(p.entranceAnimation);
@@ -785,7 +797,15 @@ function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
 
   return (
     <RowTag style={outerStyle} id={p.cssId || undefined} className={rowClasses || undefined}>
-      {renderOverlay({ overlayColor: p.overlayColor, overlayOpacity: p.overlayOpacity })}
+      {renderOverlay({
+        overlayBgType: p.overlayBgType,
+        overlayColor: p.overlayColor,
+        overlayColor2: p.overlayColor2,
+        overlayGradientStart: p.overlayGradientStart,
+        overlayGradientEnd: p.overlayGradientEnd,
+        overlayGradientAngle: p.overlayGradientAngle,
+        overlayOpacity: p.overlayOpacity,
+      })}
       {renderShapeDivider("top", p.shapeDividerTop, p.shapeDividerTopColor, p.shapeDividerTopWidth, p.shapeDividerTopHeight)}
       {renderShapeDivider("bottom", p.shapeDividerBottom, p.shapeDividerBottomColor, p.shapeDividerBottomWidth, p.shapeDividerBottomHeight)}
       <div style={innerStyle}>
@@ -948,7 +968,7 @@ function IconListBlock({ block }: { block: Block; ctx: RegionContext }) {
 }
 
 function GoogleMapBlock({ block }: { block: Block; ctx: RegionContext }) {
-  const p = block.props as GoogleMapBlock["props"];
+  const p = block.props as Extract<Block, { type: "googleMap" }>["props"];
   const location = p.location || "London Eye, London, United Kingdom";
   const zoom = p.zoom ?? 10;
   const height = p.height ?? 400;

@@ -3,12 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
+import { requireSection } from "@/modules/auth";
 
 export type ActionResult = { ok: boolean; error?: string; message?: string };
 
 const INVOICE_STATUSES = ["ATTEMPTED", "APPROVED", "DECLINED", "ERROR", "REFUNDED", "CHARGEDBACK"];
 
 export async function overrideInvoiceStatus(invoiceId: string, status: string): Promise<ActionResult> {
+  await requireSection("invoices");
   if (!INVOICE_STATUSES.includes(status)) {
     return { ok: false, error: `Unknown invoice status "${status}".` };
   }

@@ -202,12 +202,17 @@ export async function saveMenuItemsForm(formData: FormData): Promise<void> {
 
   const labels = formData.getAll("itemLabel").map((v) => String(v).trim());
   const hrefs = formData.getAll("itemHref").map((v) => String(v).trim());
+  const itemTypes = formData.getAll("itemType").map((v) => String(v).trim());
 
   // Delete existing items and re-create from form data
   await prisma.menuItem.deleteMany({ where: { menuId } });
 
   const items = labels
-    .map((label, i) => ({ label, href: hrefs[i] || "#" }))
+    .map((label, i) => ({
+      label,
+      href: hrefs[i] || "#",
+      itemType: (itemTypes[i] === "FEED" ? "FEED" : "LINK") as "LINK" | "FEED",
+    }))
     .filter((item) => item.label.length > 0);
 
   if (items.length > 0) {
@@ -216,6 +221,7 @@ export async function saveMenuItemsForm(formData: FormData): Promise<void> {
         menuId,
         label: item.label,
         href: item.href,
+        itemType: item.itemType,
         order: i,
       })),
     });
