@@ -24,7 +24,20 @@ import {
   getTypographyScopeStyle,
   getVerticalAlignStyle,
   resolveTag,
+  buildTransformCss,
+  getAdvancedPositionStyle,
+  getGridItemStyle,
+  getMaskStyle,
+  getAdvancedHoverTransition,
+  buildAdvancedHoverCss,
+  hasAdvancedHover,
+  parseCustomAttributes,
+  getCacheAttribute,
+  scopeCustomCss,
+  isDateConditionVisible,
+  needsClientGate,
 } from "../page-builder/renderHelpers";
+import { BlockAdvancedFrame, DisplayConditionGate } from "../page-builder/advanced-ui";
 
 /* ── Style Scope Helper ─────────────────────────────────────────────────── */
 
@@ -79,6 +92,11 @@ function RowRenderer({ block }: { block: Block }) {
     position: "relative",
     overflow: p.overflow && p.overflow !== "default" ? p.overflow : undefined,
     ...getStickyStyle(p.sticky),
+    ...getAdvancedPositionStyle(p.position as string),
+    ...getGridItemStyle(p.gridColumnSpan, p.gridRowSpan),
+    ...(buildTransformCss(p) ? { transform: buildTransformCss(p) } : {}),
+    ...getMaskStyle(p.mask as boolean),
+    ...(hasAdvancedHover(p) ? getAdvancedHoverTransition() : {}),
   };
 
   const heightStyle = getHeightStyle(p.height, p.minHeight);
@@ -92,7 +110,12 @@ function RowRenderer({ block }: { block: Block }) {
   });
   const reverseTablet = p.reverseColumnsTablet ? "pb-reverse-tablet" : "";
   const reverseMobile = p.reverseColumnsMobile ? "pb-reverse-mobile" : "";
-  const rowClasses = [animClass, visClass, p.cssClasses].filter(Boolean).join(" ");
+  const showOnClasses = [
+    p.showOnDesktop === false ? "pb-hide-desktop" : "",
+    p.showOnTablet === false ? "pb-hide-tablet" : "",
+    p.showOnMobile === false ? "pb-hide-mobile" : "",
+  ].filter(Boolean).join(" ");
+  const rowClasses = [animClass, visClass, showOnClasses, p.cssClasses].filter(Boolean).join(" ");
 
   // Content Width: apply boxed or full-width constraints
   const rowWidth = p.width ?? (p.fullWidth ? "full" : "boxed");
@@ -102,13 +125,23 @@ function RowRenderer({ block }: { block: Block }) {
     rowStyle.marginRight = "auto";
   }
 
+  const customCss = scopeCustomCss(p.customCss, block.id);
+  const hoverCss = hasAdvancedHover(p) ? buildAdvancedHoverCss(block.id, p) : "";
+  const rowAttrs = {
+    ...parseCustomAttributes(p.customAttributes),
+    ...getCacheAttribute(p.cacheSetting as string),
+  };
+  const dateVisible = isDateConditionVisible(p.displayCondition, p.displayConditionDate);
+  const gateNeeded = needsClientGate(p.displayCondition);
+
   const RowTag = resolveTag(p.htmlTag, "div");
 
-  return (
+  const rowElement = (
     <RowTag
       style={rowStyle}
       id={p.cssId || undefined}
       className={rowClasses || undefined}
+      {...rowAttrs}
     >
       {renderOverlay({ overlayColor: p.overlayColor, overlayOpacity: p.overlayOpacity })}
       {renderShapeDivider("top", p.shapeDividerTop, p.shapeDividerTopColor, p.shapeDividerTopWidth, p.shapeDividerTopHeight)}
@@ -145,15 +178,15 @@ function RowRenderer({ block }: { block: Block }) {
             borderColor: col.borderColor,
             borderRadius: col.borderRadius,
             boxShadow: col.boxShadow,
-            marginTop: col.margin?.top,
-            marginRight: col.margin?.right,
-            marginBottom: col.margin?.bottom,
-            marginLeft: col.margin?.left,
-            paddingTop: col.padding?.top,
-            paddingRight: col.padding?.right,
-            paddingBottom: col.padding?.bottom,
-            paddingLeft: col.padding?.left,
-            zIndex: col.zindex || undefined,
+            marginTop: col.margin?.top ? `${col.margin.top}px` : undefined,
+            marginRight: col.margin?.right ? `${col.margin.right}px` : undefined,
+            marginBottom: col.margin?.bottom ? `${col.margin.bottom}px` : undefined,
+            marginLeft: col.margin?.left ? `${col.margin.left}px` : undefined,
+            paddingTop: col.padding?.top ? `${col.padding.top}px` : undefined,
+            paddingRight: col.padding?.right ? `${col.padding.right}px` : undefined,
+            paddingBottom: col.padding?.bottom ? `${col.padding.bottom}px` : undefined,
+            paddingLeft: col.padding?.left ? `${col.padding.left}px` : undefined,
+            zIndex: col.zindex,
             position: "relative" as const,
             display: "flex",
             flexDirection: "column",
@@ -174,7 +207,7 @@ function RowRenderer({ block }: { block: Block }) {
           return (
             <div
               key={col.id}
-              className={spanClass}
+              className={[spanClass, col.cssClasses || ""].filter(Boolean).join(" ")}
               style={colStyle}
               id={col.cssId || undefined}
             >
@@ -184,9 +217,24 @@ function RowRenderer({ block }: { block: Block }) {
           );
         })}
       </div>
-      {p.customCss && <style dangerouslySetInnerHTML={{ __html: p.customCss }} />}
+      {customCss && <style dangerouslySetInnerHTML={{ __html: customCss }} />}
+      {hoverCss && <style dangerouslySetInnerHTML={{ __html: hoverCss }} />}
     </RowTag>
   );
+
+  if (dateVisible === false) return null;
+  if (gateNeeded) {
+    return (
+      <DisplayConditionGate
+        condition={p.displayCondition ?? "always"}
+        date={p.displayConditionDate}
+        urlFragment={p.displayConditionUrl}
+      >
+        {rowElement}
+      </DisplayConditionGate>
+    );
+  }
+  return rowElement;
 }
 
 /* ── Simple Leaf Renderers ─────────────────────────────────────────────── */
@@ -214,12 +262,6 @@ function HeadingRenderer({ block }: { block: Block }) {
           ? "text-justify"
           : "text-left";
 
-  const hideClasses = [
-    p.hideOnDesktop ? "hidden lg:block" : "",
-    p.hideOnTablet ? "hidden md:block" : "",
-    p.hideOnMobile ? "hidden sm:block" : "",
-  ].filter(Boolean).join(" ");
-
   const widthCls = p.width === "full" ? "w-full" : p.width === "boxed" ? "mx-auto max-w-3xl" : p.width === "inline" ? "inline-block" : "";
 
   const headingStyle: React.CSSProperties = {};
@@ -235,23 +277,7 @@ function HeadingRenderer({ block }: { block: Block }) {
   if (p.letterSpacing !== undefined) headingStyle.letterSpacing = p.letterSpacing as number;
   if (p.wordSpacing !== undefined) headingStyle.wordSpacing = p.wordSpacing as number;
   if (p.textShadow) headingStyle.textShadow = p.textShadow as string;
-  if (p.blendMode) headingStyle.mixBlendMode = p.blendMode as string;
-
-  if (p.margin) {
-    const m = p.margin as Record<string, string>;
-    headingStyle.marginTop = m.top || undefined;
-    headingStyle.marginRight = m.right || undefined;
-    headingStyle.marginBottom = m.bottom || undefined;
-    headingStyle.marginLeft = m.left || undefined;
-  }
-
-  if (p.padding) {
-    const pad = p.padding as Record<string, string>;
-    headingStyle.paddingTop = pad.top || undefined;
-    headingStyle.paddingRight = pad.right || undefined;
-    headingStyle.paddingBottom = pad.bottom || undefined;
-    headingStyle.paddingLeft = pad.left || undefined;
-  }
+  if (p.blendMode) headingStyle.mixBlendMode = p.blendMode as React.CSSProperties["mixBlendMode"];
 
   if (p.borderStyle && p.borderStyle !== "none") {
     headingStyle.borderStyle = p.borderStyle as string;
@@ -268,7 +294,6 @@ function HeadingRenderer({ block }: { block: Block }) {
 
   if (p.boxShadow) headingStyle.boxShadow = p.boxShadow as string;
   if (p.bgColor) headingStyle.backgroundColor = p.bgColor as string;
-  if (p.zIndex !== undefined) headingStyle.zIndex = p.zIndex as number;
 
   if (p.bgImage) {
     headingStyle.backgroundImage = `url(${p.bgImage})`;
@@ -277,25 +302,10 @@ function HeadingRenderer({ block }: { block: Block }) {
     headingStyle.backgroundRepeat = (p.bgRepeat as string) || "no-repeat";
   }
 
-  const transforms: string[] = [];
-  if (p.rotateZ) transforms.push(`rotate(${p.rotateZ}deg)`);
-  if (p.rotateX) transforms.push(`rotateX(${p.rotateX}deg)`);
-  if (p.rotateY) transforms.push(`rotateY(${p.rotateY}deg)`);
-  if (p.scaleX || p.scaleY) transforms.push(`scale(${p.scaleX || 1}, ${p.scaleY || 1})`);
-  if (p.skewX) transforms.push(`skewX(${p.skewX}deg)`);
-  if (p.skewY) transforms.push(`skewY(${p.skewY}deg)`);
-  if (p.offsetX || p.offsetY) transforms.push(`translate(${p.offsetX || 0}px, ${p.offsetY || 0}px)`);
-  if (p.flipH) transforms.push("scaleX(-1)");
-  if (p.flipV) transforms.push("scaleY(-1)");
-  if (transforms.length > 0) headingStyle.transform = transforms.join(" ");
-
-  const animStyle = p.entranceAnimation ? { animation: `${p.entranceAnimation} 0.6s ease-out` } : {};
-
   const headingContent = (
     <Tag
-      className={`${HEADING_SIZES[level as keyof typeof HEADING_SIZES] || HEADING_SIZES[2]} ${alignCls} ${widthCls} ${hideClasses}`}
+      className={`${HEADING_SIZES[level as keyof typeof HEADING_SIZES] || HEADING_SIZES[2]} ${alignCls} ${widthCls}`}
       style={headingStyle}
-      id={(p.cssId as string) || undefined}
     >
       {p.text as string}
     </Tag>
@@ -308,22 +318,26 @@ function HeadingRenderer({ block }: { block: Block }) {
   ) : headingContent;
 
   return (
-    <div className={(p.cssClasses as string) || ""} {...animStyle}>
-      {wrapped}
-    </div>
+    <BlockAdvancedFrame block={block}>
+      <div>
+        {wrapped}
+      </div>
+    </BlockAdvancedFrame>
   );
 }
 
 function TextRenderer({ block }: { block: Block }) {
   const p = block.props as Record<string, unknown>;
   return (
-    <div
-      style={{
-        textAlign: (p.align as React.CSSProperties["textAlign"]) || undefined,
-        color: (p.textColor as string) || undefined,
-      }}
-      dangerouslySetInnerHTML={{ __html: p.content as string }}
-    />
+    <BlockAdvancedFrame block={block}>
+      <div
+        style={{
+          textAlign: (p.align as React.CSSProperties["textAlign"]) || undefined,
+          color: (p.textColor as string) || undefined,
+        }}
+        dangerouslySetInnerHTML={{ __html: p.content as string }}
+      />
+    </BlockAdvancedFrame>
   );
 }
 
@@ -341,26 +355,8 @@ function ImageRenderer({ block }: { block: Block }) {
     return fallback;
   };
 
-  const marginToCss = (v: unknown): string | undefined => {
-    if (v === undefined || v === null) return undefined;
-    if (typeof v === "number") return v === 0 ? undefined : `${v}px`;
-    if (typeof v === "string") return v || undefined;
-    return undefined;
-  };
-
   const alignment = (p.alignment as string) ?? "left";
   const alignClass = alignment === "center" ? "mx-auto" : alignment === "right" ? "ml-auto" : "";
-
-  const containerStyle: React.CSSProperties = {
-    marginTop: marginToCss(p.margin?.top),
-    marginRight: marginToCss(p.margin?.right),
-    marginBottom: marginToCss(p.margin?.bottom),
-    marginLeft: marginToCss(p.margin?.left),
-    paddingTop: marginToCss(p.padding?.top),
-    paddingRight: marginToCss(p.padding?.right),
-    paddingBottom: marginToCss(p.padding?.bottom),
-    paddingLeft: marginToCss(p.padding?.left),
-  };
 
   const imgStyle: React.CSSProperties = {
     width: sizeToCss(p.imageWidth, "100%"),
@@ -381,7 +377,7 @@ function ImageRenderer({ block }: { block: Block }) {
   };
 
   return (
-    <div style={containerStyle}>
+    <BlockAdvancedFrame block={block}>
       <figure className={alignClass}>
         <img src={p.src as string} alt={(p.alt as string) || ""} style={imgStyle} className="hover:opacity-75" />
         {(p.caption as string) && (
@@ -390,40 +386,54 @@ function ImageRenderer({ block }: { block: Block }) {
           </figcaption>
         )}
       </figure>
-    </div>
+    </BlockAdvancedFrame>
   );
 }
 
 function ButtonRenderer({ block }: { block: Block }) {
   const p = block.props as { text: string; url: string; align: string; variant: string };
   return (
-    <div style={{ textAlign: p.align as React.CSSProperties["textAlign"] }}>
-      <a
-        href={p.url}
-        className={`inline-block px-6 py-3 text-sm font-medium ${
-          p.variant === "outline"
-            ? "border-2 border-current"
-            : "btn"
-        }`}
-      >
-        {p.text}
-      </a>
-    </div>
+    <BlockAdvancedFrame block={block}>
+      <div style={{ textAlign: p.align as React.CSSProperties["textAlign"] }}>
+        <a
+          href={p.url}
+          className={`inline-block px-6 py-3 text-sm font-medium ${
+            p.variant === "outline"
+              ? "border-2 border-current"
+              : "btn"
+          }`}
+        >
+          {p.text}
+        </a>
+      </div>
+    </BlockAdvancedFrame>
   );
 }
 
 function SpacerRenderer({ block }: { block: Block }) {
   const p = block.props as { height: number };
-  return <div style={{ height: p.height }} />;
+  return (
+    <BlockAdvancedFrame block={block}>
+      <div style={{ height: p.height }} />
+    </BlockAdvancedFrame>
+  );
 }
 
-function DividerRenderer() {
-  return <hr className="border-zinc-200" />;
+function DividerRenderer({ block }: { block: Block }) {
+  return (
+    <BlockAdvancedFrame block={block}>
+      <hr className="border-zinc-200" />
+    </BlockAdvancedFrame>
+  );
 }
 
 function EmbedRenderer({ block }: { block: Block }) {
   const p = block.props as { html: string };
-  return <div dangerouslySetInnerHTML={{ __html: p.html }} />;
+  return (
+    <BlockAdvancedFrame block={block}>
+      <div dangerouslySetInnerHTML={{ __html: p.html }} />
+    </BlockAdvancedFrame>
+  );
 }
 
 function TestimonialRenderer({ block }: { block: Block }) {
@@ -446,14 +456,53 @@ function TestimonialRenderer({ block }: { block: Block }) {
 
   if (p.display === "slider") {
     return (
-      <div className="overflow-x-auto py-4">
-        <div className="flex gap-6" style={{ minWidth: "min-content" }}>
+      <BlockAdvancedFrame block={block}>
+        <div className="overflow-x-auto py-4">
+          <div className="flex gap-6" style={{ minWidth: "min-content" }}>
+            {items.map((item, i) => (
+              <figure
+                key={i}
+                className="flex-shrink-0 rounded-2xl bg-zinc-50 px-8 py-10 text-center"
+                style={{ width: `${100 / (p.itemsPerView ?? 2)}%`, minWidth: "300px" }}
+              >
+                {item.rating > 0 && (
+                  <div className="text-amber-400">
+                    {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
+                  </div>
+                )}
+                <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800">
+                  {item.quote}
+                </blockquote>
+                <figcaption className="mt-4 text-sm text-zinc-500">
+                  {item.avatar && (
+                    <img
+                      src={item.avatar}
+                      alt={item.author}
+                      className="mx-auto mb-2 h-10 w-10 rounded-full object-cover"
+                    />
+                  )}
+                  — {item.author}
+                  {item.role ? `, ${item.role}` : ""}
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      </BlockAdvancedFrame>
+    );
+  }
+
+  return (
+    <BlockAdvancedFrame block={block}>
+      <div className="py-4">
+        {p.heading && (
+          <h2 className="mb-6 text-center text-2xl font-bold text-zinc-900">
+            {p.heading}
+          </h2>
+        )}
+        <div className={`mx-auto grid max-w-6xl gap-6 ${colClass}`}>
           {items.map((item, i) => (
-            <figure
-              key={i}
-              className="flex-shrink-0 rounded-2xl bg-zinc-50 px-8 py-10 text-center"
-              style={{ width: `${100 / (p.itemsPerView ?? 2)}%`, minWidth: "300px" }}
-            >
+            <figure key={i} className="rounded-2xl bg-zinc-50 px-8 py-10 text-center">
               {item.rating > 0 && (
                 <div className="text-amber-400">
                   {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
@@ -477,68 +526,37 @@ function TestimonialRenderer({ block }: { block: Block }) {
           ))}
         </div>
       </div>
-    );
-  }
-
-  return (
-    <div className="py-4">
-      {p.heading && (
-        <h2 className="mb-6 text-center text-2xl font-bold text-zinc-900">
-          {p.heading}
-        </h2>
-      )}
-      <div className={`mx-auto grid max-w-6xl gap-6 ${colClass}`}>
-        {items.map((item, i) => (
-          <figure key={i} className="rounded-2xl bg-zinc-50 px-8 py-10 text-center">
-            {item.rating > 0 && (
-              <div className="text-amber-400">
-                {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
-              </div>
-            )}
-            <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800">
-              {item.quote}
-            </blockquote>
-            <figcaption className="mt-4 text-sm text-zinc-500">
-              {item.avatar && (
-                <img
-                  src={item.avatar}
-                  alt={item.author}
-                  className="mx-auto mb-2 h-10 w-10 rounded-full object-cover"
-                />
-              )}
-              — {item.author}
-              {item.role ? `, ${item.role}` : ""}
-            </figcaption>
-          </figure>
-        ))}
-      </div>
-    </div>
+    </BlockAdvancedFrame>
   );
 }
 
 function HeroRenderer({ block }: { block: Block }) {
   const p = block.props as { heading: string; subheading: string; bgColor: string; textColor: string };
   return (
-    <div
-      className="py-16 text-center"
-      style={{ backgroundColor: p.bgColor, color: p.textColor }}
-    >
-      <h1 className="text-4xl font-bold">{p.heading}</h1>
-      <p className="mt-4 text-lg opacity-80" dangerouslySetInnerHTML={{ __html: p.subheading }} />
-    </div>
+    <BlockAdvancedFrame block={block}>
+      <div
+        className="py-16 text-center"
+        style={{ backgroundColor: p.bgColor, color: p.textColor }}
+      >
+        <h1 className="text-4xl font-bold">{p.heading}</h1>
+        <p className="mt-4 text-lg opacity-80" dangerouslySetInnerHTML={{ __html: p.subheading }} />
+      </div>
+    </BlockAdvancedFrame>
   );
 }
 
 function CtaRenderer({ block }: { block: Block }) {
   const p = block.props as { heading: string; body: string; buttonText: string; buttonUrl: string; bgColor: string };
   return (
-    <div className="py-12 text-center" style={{ backgroundColor: p.bgColor }}>
-      <h2 className="text-2xl font-bold">{p.heading}</h2>
-      <p className="mt-2 text-zinc-600">{p.body}</p>
-      <a href={p.buttonUrl} className="mt-4 inline-block btn px-6 py-3 text-sm font-medium">
-        {p.buttonText}
-      </a>
-    </div>
+    <BlockAdvancedFrame block={block}>
+      <div className="py-12 text-center" style={{ backgroundColor: p.bgColor }}>
+        <h2 className="text-2xl font-bold">{p.heading}</h2>
+        <p className="mt-2 text-zinc-600">{p.body}</p>
+        <a href={p.buttonUrl} className="mt-4 inline-block btn px-6 py-3 text-sm font-medium">
+          {p.buttonText}
+        </a>
+      </div>
+    </BlockAdvancedFrame>
   );
 }
 
@@ -546,35 +564,39 @@ function FeaturesRenderer({ block }: { block: Block }) {
   const p = block.props as { heading: string; items: Array<{ icon: string; title: string; description: string }>; columns: number };
   const colClass = p.columns === 2 ? "sm:grid-cols-2" : p.columns === 4 ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-2 lg:grid-cols-3";
   return (
-    <div className="py-8">
-      {p.heading && <h2 className="mb-6 text-center text-2xl font-bold">{p.heading}</h2>}
-      <div className={`grid gap-6 ${colClass}`}>
-        {p.items.map((item, i) => (
-          <div key={i} className="text-center">
-            <div className="text-3xl">{item.icon}</div>
-            <h3 className="mt-2 font-semibold">{item.title}</h3>
-            <p className="mt-1 text-sm text-zinc-600">{item.description}</p>
-          </div>
-        ))}
+    <BlockAdvancedFrame block={block}>
+      <div className="py-8">
+        {p.heading && <h2 className="mb-6 text-center text-2xl font-bold">{p.heading}</h2>}
+        <div className={`grid gap-6 ${colClass}`}>
+          {p.items.map((item, i) => (
+            <div key={i} className="text-center">
+              <div className="text-3xl">{item.icon}</div>
+              <h3 className="mt-2 font-semibold">{item.title}</h3>
+              <p className="mt-1 text-sm text-zinc-600">{item.description}</p>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </BlockAdvancedFrame>
   );
 }
 
 function FaqRenderer({ block }: { block: Block }) {
   const p = block.props as { heading: string; items: Array<{ question: string; answer: string }> };
   return (
-    <div className="py-8">
-      {p.heading && <h2 className="mb-6 text-2xl font-bold">{p.heading}</h2>}
-      <div className="space-y-4">
-        {p.items.map((item, i) => (
-          <div key={i} className="border-b border-zinc-200 pb-4">
-            <h3 className="font-medium">{item.question}</h3>
-            <p className="mt-1 text-sm text-zinc-600">{item.answer}</p>
-          </div>
-        ))}
+    <BlockAdvancedFrame block={block}>
+      <div className="py-8">
+        {p.heading && <h2 className="mb-6 text-2xl font-bold">{p.heading}</h2>}
+        <div className="space-y-4">
+          {p.items.map((item, i) => (
+            <div key={i} className="border-b border-zinc-200 pb-4">
+              <h3 className="font-medium">{item.question}</h3>
+              <p className="mt-1 text-sm text-zinc-600">{item.answer}</p>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </BlockAdvancedFrame>
   );
 }
 
@@ -582,37 +604,43 @@ function ListRenderer({ block }: { block: Block }) {
   const p = block.props as { ordered: boolean; items: string[] };
   const Tag = p.ordered ? "ol" : "ul";
   return (
-    <Tag className="list-inside list-disc space-y-1">
-      {p.items.map((item, i) => (
-        <li key={i}>{item}</li>
-      ))}
-    </Tag>
+    <BlockAdvancedFrame block={block}>
+      <Tag className="list-inside list-disc space-y-1">
+        {p.items.map((item, i) => (
+          <li key={i}>{item}</li>
+        ))}
+      </Tag>
+    </BlockAdvancedFrame>
   );
 }
 
 function ContentGridRenderer({ block }: { block: Block }) {
   const p = block.props as { heading: string; columns: number };
   return (
-    <div className="py-8">
-      {p.heading && <h2 className="mb-6 text-2xl font-bold">{p.heading}</h2>}
-      <p className="text-sm text-zinc-500">Content grid placeholder</p>
-    </div>
+    <BlockAdvancedFrame block={block}>
+      <div className="py-8">
+        {p.heading && <h2 className="mb-6 text-2xl font-bold">{p.heading}</h2>}
+        <p className="text-sm text-zinc-500">Content grid placeholder</p>
+      </div>
+    </BlockAdvancedFrame>
   );
 }
 
 function SliderRenderer({ block }: { block: Block }) {
   const p = block.props as { slides: Array<{ src: string; alt: string; title: string }> };
   return (
-    <div className="overflow-x-auto">
-      <div className="flex gap-4">
-        {p.slides.map((slide, i) => (
-          <div key={i} className="flex-shrink-0">
-            {slide.src && <img src={slide.src} alt={slide.alt} className="h-64 w-auto" />}
-            {slide.title && <p className="mt-2 text-sm font-medium">{slide.title}</p>}
-          </div>
-        ))}
+    <BlockAdvancedFrame block={block}>
+      <div className="overflow-x-auto">
+        <div className="flex gap-4">
+          {p.slides.map((slide, i) => (
+            <div key={i} className="flex-shrink-0">
+              {slide.src && <img src={slide.src} alt={slide.alt} className="h-64 w-auto" />}
+              {slide.title && <p className="mt-2 text-sm font-medium">{slide.title}</p>}
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </BlockAdvancedFrame>
   );
 }
 
@@ -714,7 +742,7 @@ export function PageLayoutBlockRenderer({ block }: { block: Block }) {
       shapeDividerBottomWidth?: number;
       shapeDividerBottomHeight?: number;
       customCss?: string;
-    };
+    } & Record<string, unknown>;
 
     const bgStyle = getBackgroundStyle({
       bgType: p.bgType,
@@ -749,6 +777,11 @@ export function PageLayoutBlockRenderer({ block }: { block: Block }) {
       position: "relative",
       overflow: p.overflow && p.overflow !== "default" ? p.overflow : undefined,
       ...getStickyStyle(p.sticky),
+      ...getAdvancedPositionStyle(p.position as string),
+      ...getGridItemStyle(p.gridColumnSpan, p.gridRowSpan),
+      ...(buildTransformCss(p as Record<string, unknown>) ? { transform: buildTransformCss(p as Record<string, unknown>) } : {}),
+      ...getMaskStyle(p.mask as boolean),
+      ...(hasAdvancedHover(p as Record<string, unknown>) ? getAdvancedHoverTransition() : {}),
     };
 
     const heightStyle = getHeightStyle(p.height, p.minHeight);
@@ -760,7 +793,21 @@ export function PageLayoutBlockRenderer({ block }: { block: Block }) {
       hideOnTablet: p.hideOnTablet,
       hideOnMobile: p.hideOnMobile,
     });
-    const sectionClasses = ["pb-section", animClass, visClass, p.cssClasses].filter(Boolean).join(" ");
+    const showOnClasses = [
+      p.showOnDesktop === false ? "pb-hide-desktop" : "",
+      p.showOnTablet === false ? "pb-hide-tablet" : "",
+      p.showOnMobile === false ? "pb-hide-mobile" : "",
+    ].filter(Boolean).join(" ");
+    const sectionClasses = ["pb-section", animClass, visClass, showOnClasses, p.cssClasses].filter(Boolean).join(" ");
+
+    const customCss = scopeCustomCss(p.customCss, block.id);
+    const hoverCss = hasAdvancedHover(p as Record<string, unknown>) ? buildAdvancedHoverCss(block.id, p as Record<string, unknown>) : "";
+    const sectionAttrs = {
+      ...parseCustomAttributes(p.customAttributes as string),
+      ...getCacheAttribute(p.cacheSetting as string),
+    };
+    const dateVisible = isDateConditionVisible(p.displayCondition as string, p.displayConditionDate as string);
+    const gateNeeded = needsClientGate(p.displayCondition as string);
 
     const SectionTag = resolveTag(p.htmlTag, "div");
 
@@ -774,7 +821,7 @@ export function PageLayoutBlockRenderer({ block }: { block: Block }) {
       columnGap: p.gapCol,
       rowGap: p.gapRow,
       flexWrap: p.wrap === "wrap" ? "wrap" : undefined,
-      ...getVerticalAlignStyle(p.verticalAlign),
+      ...getVerticalAlignStyle(p.verticalAlign, p.direction === "column" ? "column" : "row"),
       ...getTypographyScopeStyle({
         headingColor: p.headingColor,
         textColor: p.textColor,
@@ -784,11 +831,12 @@ export function PageLayoutBlockRenderer({ block }: { block: Block }) {
       }),
     };
 
-    return (
+    const sectionElement = (
       <SectionTag
         style={outerStyle}
         id={p.cssId || undefined}
         className={sectionClasses || undefined}
+        {...sectionAttrs}
       >
         {renderOverlay({ overlayColor: p.overlayColor, overlayOpacity: p.overlayOpacity })}
         {renderShapeDivider("top", p.shapeDividerTop, p.shapeDividerTopColor, p.shapeDividerTopWidth, p.shapeDividerTopHeight)}
@@ -796,9 +844,24 @@ export function PageLayoutBlockRenderer({ block }: { block: Block }) {
         <div style={innerStyle}>
           <RenderBlocks blocks={p.rows as PageLayoutBlock[]} />
         </div>
-        {p.customCss && <style dangerouslySetInnerHTML={{ __html: p.customCss }} />}
+        {customCss && <style dangerouslySetInnerHTML={{ __html: customCss }} />}
+        {hoverCss && <style dangerouslySetInnerHTML={{ __html: hoverCss }} />}
       </SectionTag>
     );
+
+    if (dateVisible === false) return null;
+    if (gateNeeded) {
+      return (
+        <DisplayConditionGate
+          condition={(p.displayCondition as string) ?? "always"}
+          date={p.displayConditionDate as string}
+          urlFragment={p.displayConditionUrl as string}
+        >
+          {sectionElement}
+        </DisplayConditionGate>
+      );
+    }
+    return sectionElement;
   }
 
   const Renderer = BLOCK_RENDERERS[block.type];

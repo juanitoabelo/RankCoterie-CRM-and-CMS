@@ -25,7 +25,20 @@ import {
   getTypographyScopeStyle,
   getVerticalAlignStyle,
   resolveTag,
+  buildTransformCss,
+  getAdvancedPositionStyle,
+  getGridItemStyle,
+  getMaskStyle,
+  getAdvancedHoverTransition,
+  buildAdvancedHoverCss,
+  hasAdvancedHover,
+  parseCustomAttributes,
+  getCacheAttribute,
+  scopeCustomCss,
+  isDateConditionVisible,
+  needsClientGate,
 } from "../page-builder/renderHelpers";
+import { BlockAdvancedFrame, DisplayConditionGate } from "../page-builder/advanced-ui";
 
 /* ── Blog Data Context ──────────────────────────────────────────────────── */
 
@@ -102,6 +115,11 @@ function RowRenderer({ block }: { block: Block }) {
     position: "relative",
     overflow: p.overflow && p.overflow !== "default" ? p.overflow : undefined,
     ...getStickyStyle(p.sticky),
+    ...getAdvancedPositionStyle(p.position as string),
+    ...getGridItemStyle(p.gridColumnSpan, p.gridRowSpan),
+    ...(buildTransformCss(p) ? { transform: buildTransformCss(p) } : {}),
+    ...getMaskStyle(p.mask as boolean),
+    ...(hasAdvancedHover(p) ? getAdvancedHoverTransition() : {}),
   };
 
   const heightStyle = getHeightStyle(p.height, p.minHeight);
@@ -113,9 +131,14 @@ function RowRenderer({ block }: { block: Block }) {
     hideOnTablet: p.hideOnTablet,
     hideOnMobile: p.hideOnMobile,
   });
+  const showOnClasses = [
+    p.showOnDesktop === false ? "pb-hide-desktop" : "",
+    p.showOnTablet === false ? "pb-hide-tablet" : "",
+    p.showOnMobile === false ? "pb-hide-mobile" : "",
+  ].filter(Boolean).join(" ");
   const reverseTablet = p.reverseColumnsTablet ? "pb-reverse-tablet" : "";
   const reverseMobile = p.reverseColumnsMobile ? "pb-reverse-mobile" : "";
-  const rowClasses = [animClass, visClass, p.cssClasses].filter(Boolean).join(" ");
+  const rowClasses = [animClass, visClass, showOnClasses, p.cssClasses].filter(Boolean).join(" ");
 
   const rowWidth = p.width ?? (p.fullWidth ? "full" : "boxed");
   if (rowWidth === "boxed") {
@@ -126,11 +149,21 @@ function RowRenderer({ block }: { block: Block }) {
 
   const RowTag = resolveTag(p.htmlTag, "div");
 
-  return (
+  const customCss = scopeCustomCss(p.customCss, block.id);
+  const hoverCss = hasAdvancedHover(p) ? buildAdvancedHoverCss(block.id, p) : "";
+  const rowAttrs = {
+    ...parseCustomAttributes(p.customAttributes),
+    ...getCacheAttribute(p.cacheSetting as string),
+  };
+  const dateVisible = isDateConditionVisible(p.displayCondition, p.displayConditionDate);
+  const gateNeeded = needsClientGate(p.displayCondition);
+
+  const rowElement = (
     <RowTag
       style={rowStyle}
       id={p.cssId || undefined}
       className={rowClasses || undefined}
+      {...rowAttrs}
     >
       {renderOverlay({ overlayColor: p.overlayColor, overlayOpacity: p.overlayOpacity })}
       {renderShapeDivider("top", p.shapeDividerTop, p.shapeDividerTopColor, p.shapeDividerTopWidth, p.shapeDividerTopHeight)}
@@ -167,15 +200,15 @@ function RowRenderer({ block }: { block: Block }) {
             borderColor: col.borderColor,
             borderRadius: col.borderRadius,
             boxShadow: col.boxShadow,
-            marginTop: col.margin?.top,
-            marginRight: col.margin?.right,
-            marginBottom: col.margin?.bottom,
-            marginLeft: col.margin?.left,
-            paddingTop: col.padding?.top,
-            paddingRight: col.padding?.right,
-            paddingBottom: col.padding?.bottom,
-            paddingLeft: col.padding?.left,
-            zIndex: col.zindex || undefined,
+            marginTop: col.margin?.top ? `${col.margin.top}px` : undefined,
+            marginRight: col.margin?.right ? `${col.margin.right}px` : undefined,
+            marginBottom: col.margin?.bottom ? `${col.margin.bottom}px` : undefined,
+            marginLeft: col.margin?.left ? `${col.margin.left}px` : undefined,
+            paddingTop: col.padding?.top ? `${col.padding.top}px` : undefined,
+            paddingRight: col.padding?.right ? `${col.padding.right}px` : undefined,
+            paddingBottom: col.padding?.bottom ? `${col.padding.bottom}px` : undefined,
+            paddingLeft: col.padding?.left ? `${col.padding.left}px` : undefined,
+            zIndex: col.zindex,
             position: "relative" as const,
             display: "flex",
             flexDirection: "column",
@@ -196,7 +229,7 @@ function RowRenderer({ block }: { block: Block }) {
           return (
             <div
               key={col.id}
-              className={spanClass}
+              className={[spanClass, col.cssClasses || ""].filter(Boolean).join(" ")}
               style={colStyle}
               id={col.cssId || undefined}
             >
@@ -206,9 +239,24 @@ function RowRenderer({ block }: { block: Block }) {
           );
         })}
       </div>
-      {p.customCss && <style dangerouslySetInnerHTML={{ __html: p.customCss }} />}
+      {customCss && <style dangerouslySetInnerHTML={{ __html: customCss }} />}
+      {hoverCss && <style dangerouslySetInnerHTML={{ __html: hoverCss }} />}
     </RowTag>
   );
+
+  if (dateVisible === false) return null;
+  if (gateNeeded) {
+    return (
+      <DisplayConditionGate
+        condition={p.displayCondition ?? "always"}
+        date={p.displayConditionDate}
+        urlFragment={p.displayConditionUrl}
+      >
+        {rowElement}
+      </DisplayConditionGate>
+    );
+  }
+  return rowElement;
 }
 
 /* ── Standard Leaf Renderers ────────────────────────────────────────────── */
@@ -236,12 +284,6 @@ function HeadingRenderer({ block }: { block: Block }) {
           ? "text-justify"
           : "text-left";
 
-  const hideClasses = [
-    p.hideOnDesktop ? "hidden lg:block" : "",
-    p.hideOnTablet ? "hidden md:block" : "",
-    p.hideOnMobile ? "hidden sm:block" : "",
-  ].filter(Boolean).join(" ");
-
   const widthCls = p.width === "full" ? "w-full" : p.width === "boxed" ? "mx-auto max-w-3xl" : p.width === "inline" ? "inline-block" : "";
 
   const headingStyle: React.CSSProperties = {};
@@ -257,23 +299,7 @@ function HeadingRenderer({ block }: { block: Block }) {
   if (p.letterSpacing !== undefined) headingStyle.letterSpacing = p.letterSpacing as number;
   if (p.wordSpacing !== undefined) headingStyle.wordSpacing = p.wordSpacing as number;
   if (p.textShadow) headingStyle.textShadow = p.textShadow as string;
-  if (p.blendMode) headingStyle.mixBlendMode = p.blendMode as string;
-
-  if (p.margin) {
-    const m = p.margin as Record<string, string>;
-    headingStyle.marginTop = m.top || undefined;
-    headingStyle.marginRight = m.right || undefined;
-    headingStyle.marginBottom = m.bottom || undefined;
-    headingStyle.marginLeft = m.left || undefined;
-  }
-
-  if (p.padding) {
-    const pad = p.padding as Record<string, string>;
-    headingStyle.paddingTop = pad.top || undefined;
-    headingStyle.paddingRight = pad.right || undefined;
-    headingStyle.paddingBottom = pad.bottom || undefined;
-    headingStyle.paddingLeft = pad.left || undefined;
-  }
+  if (p.blendMode) headingStyle.mixBlendMode = p.blendMode as React.CSSProperties["mixBlendMode"];
 
   if (p.borderStyle && p.borderStyle !== "none") {
     headingStyle.borderStyle = p.borderStyle as string;
@@ -290,7 +316,6 @@ function HeadingRenderer({ block }: { block: Block }) {
 
   if (p.boxShadow) headingStyle.boxShadow = p.boxShadow as string;
   if (p.bgColor) headingStyle.backgroundColor = p.bgColor as string;
-  if (p.zIndex !== undefined) headingStyle.zIndex = p.zIndex as number;
 
   if (p.bgImage) {
     headingStyle.backgroundImage = `url(${p.bgImage})`;
@@ -299,25 +324,10 @@ function HeadingRenderer({ block }: { block: Block }) {
     headingStyle.backgroundRepeat = (p.bgRepeat as string) || "no-repeat";
   }
 
-  const transforms: string[] = [];
-  if (p.rotateZ) transforms.push(`rotate(${p.rotateZ}deg)`);
-  if (p.rotateX) transforms.push(`rotateX(${p.rotateX}deg)`);
-  if (p.rotateY) transforms.push(`rotateY(${p.rotateY}deg)`);
-  if (p.scaleX || p.scaleY) transforms.push(`scale(${p.scaleX || 1}, ${p.scaleY || 1})`);
-  if (p.skewX) transforms.push(`skewX(${p.skewX}deg)`);
-  if (p.skewY) transforms.push(`skewY(${p.skewY}deg)`);
-  if (p.offsetX || p.offsetY) transforms.push(`translate(${p.offsetX || 0}px, ${p.offsetY || 0}px)`);
-  if (p.flipH) transforms.push("scaleX(-1)");
-  if (p.flipV) transforms.push("scaleY(-1)");
-  if (transforms.length > 0) headingStyle.transform = transforms.join(" ");
-
-  const animStyle = p.entranceAnimation ? { animation: `${p.entranceAnimation} 0.6s ease-out` } : {};
-
   const headingContent = (
     <Tag
-      className={`${HEADING_SIZES[level as keyof typeof HEADING_SIZES] || HEADING_SIZES[2]} ${alignCls} ${widthCls} ${hideClasses}`}
+      className={`${HEADING_SIZES[level as keyof typeof HEADING_SIZES] || HEADING_SIZES[2]} ${alignCls} ${widthCls}`}
       style={headingStyle}
-      id={(p.cssId as string) || undefined}
     >
       {p.text as string}
     </Tag>
@@ -330,22 +340,26 @@ function HeadingRenderer({ block }: { block: Block }) {
   ) : headingContent;
 
   return (
-    <div className={(p.cssClasses as string) || ""} {...animStyle}>
-      {wrapped}
-    </div>
+    <BlockAdvancedFrame block={block}>
+      <div>
+        {wrapped}
+      </div>
+    </BlockAdvancedFrame>
   );
 }
 
 function TextRenderer({ block }: { block: Block }) {
   const p = block.props as Record<string, unknown>;
   return (
-    <div
-      style={{
-        textAlign: (p.align as React.CSSProperties["textAlign"]) || undefined,
-        color: (p.textColor as string) || undefined,
-      }}
-      dangerouslySetInnerHTML={{ __html: p.content as string }}
-    />
+    <BlockAdvancedFrame block={block}>
+      <div
+        style={{
+          textAlign: (p.align as React.CSSProperties["textAlign"]) || undefined,
+          color: (p.textColor as string) || undefined,
+        }}
+        dangerouslySetInnerHTML={{ __html: p.content as string }}
+      />
+    </BlockAdvancedFrame>
   );
 }
 
@@ -357,7 +371,7 @@ function ImageRenderer({ block }: { block: Block }) {
   const alignClass = alignment === "center" ? "mx-auto" : alignment === "right" ? "ml-auto" : "";
 
   return (
-    <div>
+    <BlockAdvancedFrame block={block}>
       <figure className={alignClass}>
         <img src={p.src as string} alt={(p.alt as string) || ""} className="w-full" />
         {(p.caption as string) && (
@@ -366,40 +380,54 @@ function ImageRenderer({ block }: { block: Block }) {
           </figcaption>
         )}
       </figure>
-    </div>
+    </BlockAdvancedFrame>
   );
 }
 
 function ButtonRenderer({ block }: { block: Block }) {
   const p = block.props as { text: string; url: string; align: string; variant: string };
   return (
-    <div style={{ textAlign: p.align as React.CSSProperties["textAlign"] }}>
-      <a
-        href={p.url}
-        className={`inline-block px-6 py-3 text-sm font-medium ${
-          p.variant === "outline"
-            ? "border-2 border-current"
-            : "btn"
-        }`}
-      >
-        {p.text}
-      </a>
-    </div>
+    <BlockAdvancedFrame block={block}>
+      <div style={{ textAlign: p.align as React.CSSProperties["textAlign"] }}>
+        <a
+          href={p.url}
+          className={`inline-block px-6 py-3 text-sm font-medium ${
+            p.variant === "outline"
+              ? "border-2 border-current"
+              : "btn"
+          }`}
+        >
+          {p.text}
+        </a>
+      </div>
+    </BlockAdvancedFrame>
   );
 }
 
 function SpacerRenderer({ block }: { block: Block }) {
   const p = block.props as { height: number };
-  return <div style={{ height: p.height }} />;
+  return (
+    <BlockAdvancedFrame block={block}>
+      <div style={{ height: p.height }} />
+    </BlockAdvancedFrame>
+  );
 }
 
-function DividerRenderer() {
-  return <hr className="border-zinc-200" />;
+function DividerRenderer({ block }: { block: Block }) {
+  return (
+    <BlockAdvancedFrame block={block}>
+      <hr className="border-zinc-200" />
+    </BlockAdvancedFrame>
+  );
 }
 
 function EmbedRenderer({ block }: { block: Block }) {
   const p = block.props as { html: string };
-  return <div dangerouslySetInnerHTML={{ __html: p.html }} />;
+  return (
+    <BlockAdvancedFrame block={block}>
+      <div dangerouslySetInnerHTML={{ __html: p.html }} />
+    </BlockAdvancedFrame>
+  );
 }
 
 function TestimonialRenderer({ block }: { block: Block }) {
@@ -421,64 +449,70 @@ function TestimonialRenderer({ block }: { block: Block }) {
         : "grid-cols-1 sm:grid-cols-2";
 
   return (
-    <div className="py-4">
-      {p.heading && (
-        <h2 className="mb-6 text-center text-2xl font-bold text-zinc-900">
-          {p.heading}
-        </h2>
-      )}
-      <div className={`mx-auto grid max-w-6xl gap-6 ${colClass}`}>
-        {items.map((item, i) => (
-          <figure key={i} className="rounded-2xl bg-zinc-50 px-8 py-10 text-center">
-            {item.rating > 0 && (
-              <div className="text-amber-400">
-                {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
-              </div>
-            )}
-            <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800">
-              {item.quote}
-            </blockquote>
-            <figcaption className="mt-4 text-sm text-zinc-500">
-              {item.avatar && (
-                <img
-                  src={item.avatar}
-                  alt={item.author}
-                  className="mx-auto mb-2 h-10 w-10 rounded-full object-cover"
-                />
+    <BlockAdvancedFrame block={block}>
+      <div className="py-4">
+        {p.heading && (
+          <h2 className="mb-6 text-center text-2xl font-bold text-zinc-900">
+            {p.heading}
+          </h2>
+        )}
+        <div className={`mx-auto grid max-w-6xl gap-6 ${colClass}`}>
+          {items.map((item, i) => (
+            <figure key={i} className="rounded-2xl bg-zinc-50 px-8 py-10 text-center">
+              {item.rating > 0 && (
+                <div className="text-amber-400">
+                  {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
+                </div>
               )}
-              — {item.author}
-              {item.role ? `, ${item.role}` : ""}
-            </figcaption>
-          </figure>
-        ))}
+              <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800">
+                {item.quote}
+              </blockquote>
+              <figcaption className="mt-4 text-sm text-zinc-500">
+                {item.avatar && (
+                  <img
+                    src={item.avatar}
+                    alt={item.author}
+                    className="mx-auto mb-2 h-10 w-10 rounded-full object-cover"
+                  />
+                )}
+                — {item.author}
+                {item.role ? `, ${item.role}` : ""}
+              </figcaption>
+            </figure>
+          ))}
+        </div>
       </div>
-    </div>
+    </BlockAdvancedFrame>
   );
 }
 
 function HeroRenderer({ block }: { block: Block }) {
   const p = block.props as { heading: string; subheading: string; bgColor: string; textColor: string };
   return (
-    <div
-      className="py-16 text-center"
-      style={{ backgroundColor: p.bgColor, color: p.textColor }}
-    >
-      <h1 className="text-4xl font-bold">{p.heading}</h1>
-      <p className="mt-4 text-lg opacity-80" dangerouslySetInnerHTML={{ __html: p.subheading }} />
-    </div>
+    <BlockAdvancedFrame block={block}>
+      <div
+        className="py-16 text-center"
+        style={{ backgroundColor: p.bgColor, color: p.textColor }}
+      >
+        <h1 className="text-4xl font-bold">{p.heading}</h1>
+        <p className="mt-4 text-lg opacity-80" dangerouslySetInnerHTML={{ __html: p.subheading }} />
+      </div>
+    </BlockAdvancedFrame>
   );
 }
 
 function CtaRenderer({ block }: { block: Block }) {
   const p = block.props as { heading: string; body: string; buttonText: string; buttonUrl: string; bgColor: string };
   return (
-    <div className="py-12 text-center" style={{ backgroundColor: p.bgColor }}>
-      <h2 className="text-2xl font-bold">{p.heading}</h2>
-      <p className="mt-2 text-zinc-600">{p.body}</p>
-      <a href={p.buttonUrl} className="mt-4 inline-block btn px-6 py-3 text-sm font-medium">
-        {p.buttonText}
-      </a>
-    </div>
+    <BlockAdvancedFrame block={block}>
+      <div className="py-12 text-center" style={{ backgroundColor: p.bgColor }}>
+        <h2 className="text-2xl font-bold">{p.heading}</h2>
+        <p className="mt-2 text-zinc-600">{p.body}</p>
+        <a href={p.buttonUrl} className="mt-4 inline-block btn px-6 py-3 text-sm font-medium">
+          {p.buttonText}
+        </a>
+      </div>
+    </BlockAdvancedFrame>
   );
 }
 
@@ -486,35 +520,39 @@ function FeaturesRenderer({ block }: { block: Block }) {
   const p = block.props as { heading: string; items: Array<{ icon: string; title: string; description: string }>; columns: number };
   const colClass = p.columns === 2 ? "sm:grid-cols-2" : p.columns === 4 ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-2 lg:grid-cols-3";
   return (
-    <div className="py-8">
-      {p.heading && <h2 className="mb-6 text-center text-2xl font-bold">{p.heading}</h2>}
-      <div className={`grid gap-6 ${colClass}`}>
-        {p.items.map((item, i) => (
-          <div key={i} className="text-center">
-            <div className="text-3xl">{item.icon}</div>
-            <h3 className="mt-2 font-semibold">{item.title}</h3>
-            <p className="mt-1 text-sm text-zinc-600">{item.description}</p>
-          </div>
-        ))}
+    <BlockAdvancedFrame block={block}>
+      <div className="py-8">
+        {p.heading && <h2 className="mb-6 text-center text-2xl font-bold">{p.heading}</h2>}
+        <div className={`grid gap-6 ${colClass}`}>
+          {p.items.map((item, i) => (
+            <div key={i} className="text-center">
+              <div className="text-3xl">{item.icon}</div>
+              <h3 className="mt-2 font-semibold">{item.title}</h3>
+              <p className="mt-1 text-sm text-zinc-600">{item.description}</p>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </BlockAdvancedFrame>
   );
 }
 
 function FaqRenderer({ block }: { block: Block }) {
   const p = block.props as { heading: string; items: Array<{ question: string; answer: string }> };
   return (
-    <div className="py-8">
-      {p.heading && <h2 className="mb-6 text-2xl font-bold">{p.heading}</h2>}
-      <div className="space-y-4">
-        {p.items.map((item, i) => (
-          <div key={i} className="border-b border-zinc-200 pb-4">
-            <h3 className="font-medium">{item.question}</h3>
-            <p className="mt-1 text-sm text-zinc-600">{item.answer}</p>
-          </div>
-        ))}
+    <BlockAdvancedFrame block={block}>
+      <div className="py-8">
+        {p.heading && <h2 className="mb-6 text-2xl font-bold">{p.heading}</h2>}
+        <div className="space-y-4">
+          {p.items.map((item, i) => (
+            <div key={i} className="border-b border-zinc-200 pb-4">
+              <h3 className="font-medium">{item.question}</h3>
+              <p className="mt-1 text-sm text-zinc-600">{item.answer}</p>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </BlockAdvancedFrame>
   );
 }
 
@@ -522,46 +560,54 @@ function ListRenderer({ block }: { block: Block }) {
   const p = block.props as { ordered: boolean; items: string[] };
   const Tag = p.ordered ? "ol" : "ul";
   return (
-    <Tag className="list-inside list-disc space-y-1">
-      {p.items.map((item, i) => (
-        <li key={i}>{item}</li>
-      ))}
-    </Tag>
+    <BlockAdvancedFrame block={block}>
+      <Tag className="list-inside list-disc space-y-1">
+        {p.items.map((item, i) => (
+          <li key={i}>{item}</li>
+        ))}
+      </Tag>
+    </BlockAdvancedFrame>
   );
 }
 
 function ContentGridRenderer({ block }: { block: Block }) {
   const p = block.props as { heading: string; columns: number };
   return (
-    <div className="py-8">
-      {p.heading && <h2 className="mb-6 text-2xl font-bold">{p.heading}</h2>}
-      <p className="text-sm text-zinc-500">Content grid placeholder</p>
-    </div>
+    <BlockAdvancedFrame block={block}>
+      <div className="py-8">
+        {p.heading && <h2 className="mb-6 text-2xl font-bold">{p.heading}</h2>}
+        <p className="text-sm text-zinc-500">Content grid placeholder</p>
+      </div>
+    </BlockAdvancedFrame>
   );
 }
 
 function SliderRenderer({ block }: { block: Block }) {
   const p = block.props as { slides: Array<{ src: string; alt: string; title: string }> };
   return (
-    <div className="overflow-x-auto">
-      <div className="flex gap-4">
-        {p.slides.map((slide, i) => (
-          <div key={i} className="flex-shrink-0">
-            {slide.src && <img src={slide.src} alt={slide.alt} className="h-64 w-auto" />}
-            {slide.title && <p className="mt-2 text-sm font-medium">{slide.title}</p>}
-          </div>
-        ))}
+    <BlockAdvancedFrame block={block}>
+      <div className="overflow-x-auto">
+        <div className="flex gap-4">
+          {p.slides.map((slide, i) => (
+            <div key={i} className="flex-shrink-0">
+              {slide.src && <img src={slide.src} alt={slide.alt} className="h-64 w-auto" />}
+              {slide.title && <p className="mt-2 text-sm font-medium">{slide.title}</p>}
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </BlockAdvancedFrame>
   );
 }
 
 function VideoRenderer({ block }: { block: Block }) {
   const p = block.props as { source: string; link: string; aspectRatio?: string };
   return (
-    <div className="py-4">
-      <p className="text-sm text-zinc-500">Video placeholder ({p.source})</p>
-    </div>
+    <BlockAdvancedFrame block={block}>
+      <div className="py-4">
+        <p className="text-sm text-zinc-500">Video placeholder ({p.source})</p>
+      </div>
+    </BlockAdvancedFrame>
   );
 }
 
@@ -630,40 +676,42 @@ function BlogPostGridRenderer({ block }: { block: Block }) {
       }));
 
   return (
-    <div className="py-8">
-      {heading && <h2 className="mb-6 text-2xl font-bold text-zinc-900">{heading}</h2>}
-      <div className={layout === "list" ? "space-y-6" : `grid gap-6 ${colClass}`}>
-        {posts.map((post) => (
-          <article key={post.id} className="group rounded-lg border border-zinc-200 bg-white overflow-hidden hover:shadow-md transition-shadow">
-            {showFeaturedImage && post.image && (
-              <Link href={`/article/${post.slug}`}>
-                <img src={post.image} alt={post.title} className="aspect-video w-full object-cover" />
-              </Link>
-            )}
-            {showFeaturedImage && !post.image && (
-              <div className="aspect-video bg-zinc-100" />
-            )}
-            <div className="p-4">
-              {showCategory && post.category && (
-                <span className="text-xs font-medium text-amber-600">{post.category}</span>
+    <BlockAdvancedFrame block={block}>
+      <div className="py-8">
+        {heading && <h2 className="mb-6 text-2xl font-bold text-zinc-900">{heading}</h2>}
+        <div className={layout === "list" ? "space-y-6" : `grid gap-6 ${colClass}`}>
+          {posts.map((post) => (
+            <article key={post.id} className="group rounded-lg border border-zinc-200 bg-white overflow-hidden hover:shadow-md transition-shadow">
+              {showFeaturedImage && post.image && (
+                <Link href={`/article/${post.slug}`}>
+                  <img src={post.image} alt={post.title} className="aspect-video w-full object-cover" />
+                </Link>
               )}
-              <h3 className="mt-1 text-lg font-semibold text-zinc-900 group-hover:text-amber-600 transition-colors">
-                <Link href={`/article/${post.slug}`}>{post.title}</Link>
-              </h3>
-              {showExcerpt && post.excerpt && (
-                <p className="mt-2 text-sm text-zinc-600 line-clamp-2">{post.excerpt}</p>
+              {showFeaturedImage && !post.image && (
+                <div className="aspect-video bg-zinc-100" />
               )}
-              {(showAuthor || showDate) && (
-                <div className="mt-3 flex items-center gap-3 text-xs text-zinc-500">
-                  {showAuthor && <span>{post.author}</span>}
-                  {showDate && <span>{post.date}</span>}
-                </div>
-              )}
-            </div>
-          </article>
-        ))}
+              <div className="p-4">
+                {showCategory && post.category && (
+                  <span className="text-xs font-medium text-amber-600">{post.category}</span>
+                )}
+                <h3 className="mt-1 text-lg font-semibold text-zinc-900 group-hover:text-amber-600 transition-colors">
+                  <Link href={`/article/${post.slug}`}>{post.title}</Link>
+                </h3>
+                {showExcerpt && post.excerpt && (
+                  <p className="mt-2 text-sm text-zinc-600 line-clamp-2">{post.excerpt}</p>
+                )}
+                {(showAuthor || showDate) && (
+                  <div className="mt-3 flex items-center gap-3 text-xs text-zinc-500">
+                    {showAuthor && <span>{post.author}</span>}
+                    {showDate && <span>{post.date}</span>}
+                  </div>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
       </div>
-    </div>
+    </BlockAdvancedFrame>
   );
 }
 
@@ -672,68 +720,70 @@ function BlogSidebarRenderer({ block }: { block: Block }) {
   const widgets = p.widgets ?? [];
 
   return (
-    <aside className="space-y-6">
-      {widgets.map((widget, i) => (
-        <div key={i} className="rounded-lg border border-zinc-200 bg-white p-4">
-          {widget.heading && (
-            <h3 className="mb-3 text-sm font-bold text-zinc-900">{widget.heading}</h3>
-          )}
-          {widget.type === "search" && (
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Search..."
-                className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-              />
-              <button className="rounded-lg bg-zinc-900 px-4 py-2 text-sm text-white">
-                Search
-              </button>
-            </div>
-          )}
-          {widget.type === "categories" && (
-            <ul className="space-y-2 text-sm">
-              {["Technology", "Design", "Business", "Marketing", "Development"].map((cat) => (
-                <li key={cat}>
-                  <a href="#" className="text-zinc-600 hover:text-amber-600 transition-colors">
-                    {cat}
+    <BlockAdvancedFrame block={block}>
+      <aside className="space-y-6">
+        {widgets.map((widget, i) => (
+          <div key={i} className="rounded-lg border border-zinc-200 bg-white p-4">
+            {widget.heading && (
+              <h3 className="mb-3 text-sm font-bold text-zinc-900">{widget.heading}</h3>
+            )}
+            {widget.type === "search" && (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                />
+                <button className="rounded-lg bg-zinc-900 px-4 py-2 text-sm text-white">
+                  Search
+                </button>
+              </div>
+            )}
+            {widget.type === "categories" && (
+              <ul className="space-y-2 text-sm">
+                {["Technology", "Design", "Business", "Marketing", "Development"].map((cat) => (
+                  <li key={cat}>
+                    <a href="#" className="text-zinc-600 hover:text-amber-600 transition-colors">
+                      {cat}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {widget.type === "recentPosts" && (
+              <ul className="space-y-3 text-sm">
+                {["Recent Post One", "Recent Post Two", "Recent Post Three"].map((title) => (
+                  <li key={title}>
+                    <a href="#" className="font-medium text-zinc-900 hover:text-amber-600 transition-colors">
+                      {title}
+                    </a>
+                    <p className="text-xs text-zinc-500">Jan 1, 2025</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {widget.type === "tags" && (
+              <div className="flex flex-wrap gap-2">
+                {["React", "Next.js", "TypeScript", "Tailwind", "Design"].map((tag) => (
+                  <a
+                    key={tag}
+                    href="#"
+                    className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-600 hover:bg-zinc-200 transition-colors"
+                  >
+                    {tag}
                   </a>
-                </li>
-              ))}
-            </ul>
-          )}
-          {widget.type === "recentPosts" && (
-            <ul className="space-y-3 text-sm">
-              {["Recent Post One", "Recent Post Two", "Recent Post Three"].map((title) => (
-                <li key={title}>
-                  <a href="#" className="font-medium text-zinc-900 hover:text-amber-600 transition-colors">
-                    {title}
-                  </a>
-                  <p className="text-xs text-zinc-500">Jan 1, 2025</p>
-                </li>
-              ))}
-            </ul>
-          )}
-          {widget.type === "tags" && (
-            <div className="flex flex-wrap gap-2">
-              {["React", "Next.js", "TypeScript", "Tailwind", "Design"].map((tag) => (
-                <a
-                  key={tag}
-                  href="#"
-                  className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-600 hover:bg-zinc-200 transition-colors"
-                >
-                  {tag}
-                </a>
-              ))}
-            </div>
-          )}
-          {widget.type === "custom" && (
-            <div className="text-sm text-zinc-500">
-              Custom HTML content
-            </div>
-          )}
-        </div>
-      ))}
-    </aside>
+                ))}
+              </div>
+            )}
+            {widget.type === "custom" && (
+              <div className="text-sm text-zinc-500">
+                Custom HTML content
+              </div>
+            )}
+          </div>
+        ))}
+      </aside>
+    </BlockAdvancedFrame>
   );
 }
 
@@ -757,65 +807,67 @@ function ArticleContentRenderer({ block }: { block: Block }) {
   const image = article?.ogImage;
 
   return (
-    <article style={{ maxWidth }} className="mx-auto">
-      {showCategory && category && (
-        <span className="inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
-          {category}
-        </span>
-      )}
-      {showTitle && (
-        <h1 className="mt-4 text-4xl font-bold tracking-tight text-zinc-900">
-          {title}
-        </h1>
-      )}
-      {showMeta && (
-        <div className="mt-4 flex items-center gap-4 text-sm text-zinc-500">
-          {showAuthor && (
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-zinc-200" />
-              <span>Author</span>
-            </div>
-          )}
-          {showDate && <span>{date}</span>}
-        </div>
-      )}
-      {showFeaturedImage && image && (
-        <img src={image} alt={title} className="mt-6 w-full rounded-lg object-cover" style={{ maxHeight: 400 }} />
-      )}
-      {showFeaturedImage && !image && (
-        <div className="mt-6 aspect-video rounded-lg bg-zinc-100" />
-      )}
-      <div
-        className="prose prose-zinc mt-6 max-w-none"
-        dangerouslySetInnerHTML={{ __html: body ?? "" }}
-      />
-      {showSocialShare && (
-        <div className="mt-8 flex items-center gap-4 border-t border-zinc-200 pt-6">
-          <span className="text-sm font-medium text-zinc-700">Share:</span>
-          <div className="flex gap-2">
-            {["Twitter", "Facebook", "LinkedIn"].map((platform) => (
-              <a
-                key={platform}
-                href="#"
-                className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-600 hover:bg-zinc-200 transition-colors"
-              >
-                {platform}
-              </a>
-            ))}
+    <BlockAdvancedFrame block={block}>
+      <article style={{ maxWidth }} className="mx-auto">
+        {showCategory && category && (
+          <span className="inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
+            {category}
+          </span>
+        )}
+        {showTitle && (
+          <h1 className="mt-4 text-4xl font-bold tracking-tight text-zinc-900">
+            {title}
+          </h1>
+        )}
+        {showMeta && (
+          <div className="mt-4 flex items-center gap-4 text-sm text-zinc-500">
+            {showAuthor && (
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-zinc-200" />
+                <span>Author</span>
+              </div>
+            )}
+            {showDate && <span>{date}</span>}
           </div>
-        </div>
-      )}
-      {showNavigation && (
-        <div className="mt-8 flex items-center justify-between border-t border-zinc-200 pt-6">
-          <a href="#" className="text-sm text-zinc-600 hover:text-amber-600 transition-colors">
-            ← Previous Article
-          </a>
-          <a href="#" className="text-sm text-zinc-600 hover:text-amber-600 transition-colors">
-            Next Article →
-          </a>
-        </div>
-      )}
-    </article>
+        )}
+        {showFeaturedImage && image && (
+          <img src={image} alt={title} className="mt-6 w-full rounded-lg object-cover" style={{ maxHeight: 400 }} />
+        )}
+        {showFeaturedImage && !image && (
+          <div className="mt-6 aspect-video rounded-lg bg-zinc-100" />
+        )}
+        <div
+          className="prose prose-zinc mt-6 max-w-none"
+          dangerouslySetInnerHTML={{ __html: body ?? "" }}
+        />
+        {showSocialShare && (
+          <div className="mt-8 flex items-center gap-4 border-t border-zinc-200 pt-6">
+            <span className="text-sm font-medium text-zinc-700">Share:</span>
+            <div className="flex gap-2">
+              {["Twitter", "Facebook", "LinkedIn"].map((platform) => (
+                <a
+                  key={platform}
+                  href="#"
+                  className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-600 hover:bg-zinc-200 transition-colors"
+                >
+                  {platform}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+        {showNavigation && (
+          <div className="mt-8 flex items-center justify-between border-t border-zinc-200 pt-6">
+            <a href="#" className="text-sm text-zinc-600 hover:text-amber-600 transition-colors">
+              ← Previous Article
+            </a>
+            <a href="#" className="text-sm text-zinc-600 hover:text-amber-600 transition-colors">
+              Next Article →
+            </a>
+          </div>
+        )}
+      </article>
+    </BlockAdvancedFrame>
   );
 }
 
@@ -833,42 +885,44 @@ function ArticleHeroRenderer({ block }: { block: Block }) {
   const date = article?.createdAt ? new Date(article.createdAt).toLocaleDateString() : "January 1, 2025";
 
   return (
-    <div
-      className={`py-12 ${layout === "centered" ? "text-center" : ""}`}
-      style={{
-        backgroundColor: (p.bgColor as string) || undefined,
-        color: (p.textColor as string) || undefined,
-      }}
-    >
-      {showBreadcrumb && (
-        <nav className="mb-4 text-sm text-zinc-500">
-          <a href="/" className="hover:text-amber-600 transition-colors">Home</a>
-          <span className="mx-2">/</span>
-          <a href="/blog" className="hover:text-amber-600 transition-colors">Blog</a>
-          <span className="mx-2">/</span>
-          <span className="text-zinc-700">{title}</span>
-        </nav>
-      )}
-      {showCategory && category && (
-        <span className="inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
-          {category}
-        </span>
-      )}
-      <h1 className="mt-4 text-4xl font-bold tracking-tight text-zinc-900">
-        {title}
-      </h1>
-      {(showAuthor || showDate) && (
-        <div className={`mt-4 flex items-center gap-4 text-sm text-zinc-500 ${layout === "centered" ? "justify-center" : ""}`}>
-          {showAuthor && (
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-zinc-200" />
-              <span>Author</span>
-            </div>
-          )}
-          {showDate && <span>{date}</span>}
-        </div>
-      )}
-    </div>
+    <BlockAdvancedFrame block={block}>
+      <div
+        className={`py-12 ${layout === "centered" ? "text-center" : ""}`}
+        style={{
+          backgroundColor: (p.bgColor as string) || undefined,
+          color: (p.textColor as string) || undefined,
+        }}
+      >
+        {showBreadcrumb && (
+          <nav className="mb-4 text-sm text-zinc-500">
+            <a href="/" className="hover:text-amber-600 transition-colors">Home</a>
+            <span className="mx-2">/</span>
+            <a href="/blog" className="hover:text-amber-600 transition-colors">Blog</a>
+            <span className="mx-2">/</span>
+            <span className="text-zinc-700">{title}</span>
+          </nav>
+        )}
+        {showCategory && category && (
+          <span className="inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
+            {category}
+          </span>
+        )}
+        <h1 className="mt-4 text-4xl font-bold tracking-tight text-zinc-900">
+          {title}
+        </h1>
+        {(showAuthor || showDate) && (
+          <div className={`mt-4 flex items-center gap-4 text-sm text-zinc-500 ${layout === "centered" ? "justify-center" : ""}`}>
+            {showAuthor && (
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-zinc-200" />
+                <span>Author</span>
+              </div>
+            )}
+            {showDate && <span>{date}</span>}
+          </div>
+        )}
+      </div>
+    </BlockAdvancedFrame>
   );
 }
 
@@ -975,7 +1029,19 @@ export function BlogTemplateBlockRenderer({ block }: { block: Block }) {
       shapeDividerBottomWidth?: number;
       shapeDividerBottomHeight?: number;
       customCss?: string;
-    };
+      position?: string;
+      gridColumnSpan?: number;
+      gridRowSpan?: number;
+      mask?: boolean;
+      showOnDesktop?: boolean;
+      showOnTablet?: boolean;
+      showOnMobile?: boolean;
+      customAttributes?: string;
+      displayCondition?: string;
+      displayConditionDate?: string;
+      displayConditionUrl?: string;
+      cacheSetting?: string;
+    } & Record<string, unknown>;
 
     const bgStyle = getBackgroundStyle({
       bgType: p.bgType,
@@ -1010,6 +1076,11 @@ export function BlogTemplateBlockRenderer({ block }: { block: Block }) {
       position: "relative",
       overflow: p.overflow && p.overflow !== "default" ? p.overflow : undefined,
       ...getStickyStyle(p.sticky),
+      ...getAdvancedPositionStyle(p.position as string),
+      ...getGridItemStyle(p.gridColumnSpan, p.gridRowSpan),
+      ...(buildTransformCss(p) ? { transform: buildTransformCss(p) } : {}),
+      ...getMaskStyle(p.mask as boolean),
+      ...(hasAdvancedHover(p) ? getAdvancedHoverTransition() : {}),
     };
 
     const heightStyle = getHeightStyle(p.height, p.minHeight);
@@ -1021,7 +1092,12 @@ export function BlogTemplateBlockRenderer({ block }: { block: Block }) {
       hideOnTablet: p.hideOnTablet,
       hideOnMobile: p.hideOnMobile,
     });
-    const sectionClasses = ["pb-section", animClass, visClass, p.cssClasses].filter(Boolean).join(" ");
+    const showOnClasses = [
+      p.showOnDesktop === false ? "pb-hide-desktop" : "",
+      p.showOnTablet === false ? "pb-hide-tablet" : "",
+      p.showOnMobile === false ? "pb-hide-mobile" : "",
+    ].filter(Boolean).join(" ");
+    const sectionClasses = ["pb-section", animClass, visClass, showOnClasses, p.cssClasses].filter(Boolean).join(" ");
 
     const SectionTag = resolveTag(p.htmlTag, "div");
 
@@ -1035,7 +1111,7 @@ export function BlogTemplateBlockRenderer({ block }: { block: Block }) {
       columnGap: p.gapCol,
       rowGap: p.gapRow,
       flexWrap: p.wrap === "wrap" ? "wrap" : undefined,
-      ...getVerticalAlignStyle(p.verticalAlign),
+      ...getVerticalAlignStyle(p.verticalAlign, p.direction === "column" ? "column" : "row"),
       ...getTypographyScopeStyle({
         headingColor: p.headingColor,
         textColor: p.textColor,
@@ -1045,11 +1121,21 @@ export function BlogTemplateBlockRenderer({ block }: { block: Block }) {
       }),
     };
 
-    return (
+    const customCss = scopeCustomCss(p.customCss, block.id);
+    const hoverCss = hasAdvancedHover(p) ? buildAdvancedHoverCss(block.id, p) : "";
+    const sectionAttrs = {
+      ...parseCustomAttributes(p.customAttributes),
+      ...getCacheAttribute(p.cacheSetting),
+    };
+    const dateVisible = isDateConditionVisible(p.displayCondition, p.displayConditionDate);
+    const gateNeeded = needsClientGate(p.displayCondition);
+
+    const sectionElement = (
       <SectionTag
         style={outerStyle}
         id={p.cssId || undefined}
         className={sectionClasses || undefined}
+        {...sectionAttrs}
       >
         {renderOverlay({ overlayColor: p.overlayColor, overlayOpacity: p.overlayOpacity })}
         {renderShapeDivider("top", p.shapeDividerTop, p.shapeDividerTopColor, p.shapeDividerTopWidth, p.shapeDividerTopHeight)}
@@ -1057,9 +1143,24 @@ export function BlogTemplateBlockRenderer({ block }: { block: Block }) {
         <div style={innerStyle}>
           <RenderBlocks blocks={p.rows as Block[]} />
         </div>
-        {p.customCss && <style dangerouslySetInnerHTML={{ __html: p.customCss }} />}
+        {customCss && <style dangerouslySetInnerHTML={{ __html: customCss }} />}
+        {hoverCss && <style dangerouslySetInnerHTML={{ __html: hoverCss }} />}
       </SectionTag>
     );
+
+    if (dateVisible === false) return null;
+    if (gateNeeded) {
+      return (
+        <DisplayConditionGate
+          condition={p.displayCondition ?? "always"}
+          date={p.displayConditionDate}
+          urlFragment={p.displayConditionUrl}
+        >
+          {sectionElement}
+        </DisplayConditionGate>
+      );
+    }
+    return sectionElement;
   }
 
   const Renderer = BLOCK_RENDERERS[block.type];

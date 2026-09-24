@@ -19,7 +19,22 @@ import {
   getTypographyScopeStyle,
   getVerticalAlignStyle,
   resolveTag,
+  buildTransformCss,
+  getAdvancedPositionStyle,
+  getGridItemStyle,
+  getMaskStyle,
+  getAdvancedSpacingStyle,
+  getAdvancedPaddingStyle,
+  buildAdvancedHoverCss,
+  hasAdvancedHover,
+  getAdvancedHoverTransition,
+  parseCustomAttributes,
+  getCacheAttribute,
+  scopeCustomCss,
+  isDateConditionVisible,
+  needsClientGate,
 } from "./renderHelpers";
+import { BlockAdvancedFrame, DisplayConditionGate } from "./advanced-ui";
 
 /** Wrap a block's markup so per-breakpoint style-guide CSS applies to it. */
 function styleScope(block: Block, inner: React.ReactNode): React.ReactNode {
@@ -34,42 +49,51 @@ function styleScope(block: Block, inner: React.ReactNode): React.ReactNode {
 }
 
 function HeroBlock({ block, ctx }: { block: Block & { type: "hero" }; ctx: RegionContext }) {
-  return styleScope(
-    block,
-    <section
-      className="px-6 py-20 text-center"
-      style={{ backgroundColor: block.props.bgColor, color: block.props.textColor }}
-    >
-      <div className="mx-auto max-w-4xl">
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-          {renderLocalizedContent(block.props.heading, ctx)}
-        </h1>
-        {block.props.subheading && (
-          <p className="mt-4 text-lg opacity-80">
-            {renderLocalizedContent(block.props.subheading, ctx)}
-          </p>
-        )}
-      </div>
-    </section>,
+  return (
+    <BlockAdvancedFrame block={block}>
+      {styleScope(
+        block,
+        <section
+          className="px-6 py-20 text-center"
+          style={{ backgroundColor: block.props.bgColor, color: block.props.textColor }}
+        >
+          <div className="mx-auto max-w-4xl">
+            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
+              {renderLocalizedContent(block.props.heading, ctx)}
+            </h1>
+            {block.props.subheading && (
+              <p className="mt-4 text-lg opacity-80">
+                {renderLocalizedContent(block.props.subheading, ctx)}
+              </p>
+            )}
+          </div>
+        </section>,
+      )}
+    </BlockAdvancedFrame>
   );
 }
 
 function TextBlock({ block, ctx }: { block: Block & { type: "text" }; ctx: RegionContext }) {
+  const p = block.props as typeof block.props & { textColor?: string };
   const alignCls =
-    block.props.align === "center"
+    p.align === "center"
       ? "text-center"
-      : block.props.align === "right"
+      : p.align === "right"
         ? "text-right"
         : "text-left";
-  return styleScope(
-    block,
-    <section className="px-6 py-10">
-      <div
-        className={`mx-auto max-w-3xl leading-relaxed rte-content ${alignCls} ${block.props.textColor ? "" : "text-zinc-700"}`}
-        style={block.props.textColor ? { color: block.props.textColor } : undefined}
-        dangerouslySetInnerHTML={{ __html: renderLocalizedContent(block.props.content, ctx) }}
-      />
-    </section>,
+  return (
+    <BlockAdvancedFrame block={block}>
+      {styleScope(
+        block,
+        <section className="px-6 py-10">
+          <div
+            className={`mx-auto max-w-3xl leading-relaxed rte-content ${alignCls} ${p.textColor ? "" : "text-zinc-700"}`}
+            style={p.textColor ? { color: p.textColor } : undefined}
+            dangerouslySetInnerHTML={{ __html: renderLocalizedContent(p.content, ctx) }}
+          />
+        </section>,
+      )}
+    </BlockAdvancedFrame>
   );
 }
 
@@ -86,24 +110,8 @@ function ImageBlock({ block }: { block: Block & { type: "image" } }) {
     return fallback;
   };
 
-  const marginToCss = (v: unknown): string | undefined => {
-    if (v === undefined || v === null) return undefined;
-    if (typeof v === "number") return v === 0 ? undefined : `${v}px`;
-    if (typeof v === "string") return v || undefined;
-    return undefined;
-  };
-  
   const containerStyle: React.CSSProperties = {
-    marginTop: marginToCss(p.margin?.top),
-    marginRight: marginToCss(p.margin?.right),
-    marginBottom: marginToCss(p.margin?.bottom),
-    marginLeft: marginToCss(p.margin?.left),
-    paddingTop: marginToCss(p.padding?.top),
-    paddingRight: marginToCss(p.padding?.right),
-    paddingBottom: marginToCss(p.padding?.bottom),
-    paddingLeft: marginToCss(p.padding?.left),
     alignSelf: p.alignSelf,
-    zIndex: p.zIndex,
   };
 
   const imgStyle: React.CSSProperties = {
@@ -127,64 +135,66 @@ function ImageBlock({ block }: { block: Block & { type: "image" } }) {
   const alignmentClass = p.alignment === "center" ? "mx-auto" : p.alignment === "right" ? "ml-auto" : "";
 
   return (
-    <div
-      style={containerStyle}
-      id={p.cssId || undefined}
-      className={p.cssClasses || undefined}
-    >
-      <figure className={alignmentClass} style={{ maxWidth: "100%" }}>
-        {p.src ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={p.src}
-            alt={p.alt}
-            loading="lazy"
-            referrerPolicy="no-referrer"
-            style={imgStyle}
-            className="hover:opacity-75"
-          />
-        ) : (
-          <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-zinc-300 text-sm text-zinc-400">
-            Image placeholder
-          </div>
-        )}
-        {p.caption && (
-          <figcaption className="mt-2 text-center text-sm text-zinc-500">
-            {p.caption}
-          </figcaption>
-        )}
-      </figure>
-    </div>
+    <BlockAdvancedFrame block={block}>
+      <div style={containerStyle}>
+        <figure className={alignmentClass} style={{ maxWidth: "100%" }}>
+          {p.src ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={p.src}
+              alt={p.alt}
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              style={imgStyle}
+              className="hover:opacity-75"
+            />
+          ) : (
+            <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-zinc-300 text-sm text-zinc-400">
+              Image placeholder
+            </div>
+          )}
+          {p.caption && (
+            <figcaption className="mt-2 text-center text-sm text-zinc-500">
+              {p.caption}
+            </figcaption>
+          )}
+        </figure>
+      </div>
+    </BlockAdvancedFrame>
   );
 }
 
 function CtaBlock({ block, ctx }: { block: Block & { type: "cta" }; ctx: RegionContext }) {
-  return styleScope(
-    block,
-    <section
-      className="px-6 py-16 text-center"
-      style={{ backgroundColor: block.props.bgColor }}
-    >
-      <div className="mx-auto max-w-2xl">
-        <h2 className="text-3xl font-bold text-zinc-900">
-          {renderLocalizedContent(block.props.heading, ctx)}
-        </h2>
-        {block.props.body && (
-          <div
-            className="mt-3 text-zinc-600 rte-content"
-            dangerouslySetInnerHTML={{ __html: renderLocalizedContent(block.props.body, ctx) }}
-          />
-        )}
-        {block.props.buttonText && (
-          <a
-            href={block.props.buttonUrl}
-            className="mt-6 inline-block rounded-lg bg-zinc-900 px-6 py-3 text-sm font-medium text-white hover:bg-zinc-700"
-          >
-            {renderLocalizedContent(block.props.buttonText, ctx)}
-          </a>
-        )}
-      </div>
-    </section>,
+  return (
+    <BlockAdvancedFrame block={block}>
+      {styleScope(
+        block,
+        <section
+          className="px-6 py-16 text-center"
+          style={{ backgroundColor: block.props.bgColor }}
+        >
+          <div className="mx-auto max-w-2xl">
+            <h2 className="text-3xl font-bold text-zinc-900">
+              {renderLocalizedContent(block.props.heading, ctx)}
+            </h2>
+            {block.props.body && (
+              <div
+                className="mt-3 text-zinc-600 rte-content"
+                dangerouslySetInnerHTML={{ __html: renderLocalizedContent(block.props.body, ctx) }}
+              />
+            )}
+            {block.props.buttonText && (
+              <a
+                href={block.props.buttonUrl}
+                className="mt-6 inline-block rounded-lg bg-zinc-900 px-6 py-3 text-sm font-medium text-white hover:bg-zinc-700"
+              >
+                {renderLocalizedContent(block.props.buttonText, ctx)}
+              </a>
+            )}
+          </div>
+        </section>,
+      )}
+    </BlockAdvancedFrame>
   );
 }
 
@@ -196,37 +206,41 @@ function FeaturesBlock({ block, ctx }: { block: Block & { type: "features" }; ct
         ? "sm:grid-cols-2 lg:grid-cols-4"
         : "sm:grid-cols-2 lg:grid-cols-3";
 
-  return styleScope(
-    block,
-    <section className="px-6 py-16">
-      <div className="mx-auto max-w-5xl">
-        {block.props.heading && (
-          <h2 className="text-center text-2xl font-bold text-zinc-900">
-            {renderLocalizedContent(block.props.heading, ctx)}
-          </h2>
-        )}
-        <div className={`mt-10 grid gap-8 ${cols}`}>
-          {block.props.items.map((item, i) => (
-            <div key={i} className="text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-xl text-zinc-700">
-                {item.icon}
-              </div>
-              <h3 className="mt-4 font-semibold text-zinc-900">
-                {renderLocalizedContent(item.title, ctx)}
-              </h3>
-              {item.description && (
-                <p
-                  className="mt-2 text-sm text-zinc-600 rte-content"
-                  dangerouslySetInnerHTML={{
-                    __html: renderLocalizedContent(item.description, ctx),
-                  }}
-                />
-              )}
+  return (
+    <BlockAdvancedFrame block={block}>
+      {styleScope(
+        block,
+        <section className="px-6 py-16">
+          <div className="mx-auto max-w-5xl">
+            {block.props.heading && (
+              <h2 className="text-center text-2xl font-bold text-zinc-900">
+                {renderLocalizedContent(block.props.heading, ctx)}
+              </h2>
+            )}
+            <div className={`mt-10 grid gap-8 ${cols}`}>
+              {block.props.items.map((item, i) => (
+                <div key={i} className="text-center">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-xl text-zinc-700">
+                    {item.icon}
+                  </div>
+                  <h3 className="mt-4 font-semibold text-zinc-900">
+                    {renderLocalizedContent(item.title, ctx)}
+                  </h3>
+                  {item.description && (
+                    <p
+                      className="mt-2 text-sm text-zinc-600 rte-content"
+                      dangerouslySetInnerHTML={{
+                        __html: renderLocalizedContent(item.description, ctx),
+                      }}
+                    />
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
-    </section>,
+          </div>
+        </section>,
+      )}
+    </BlockAdvancedFrame>
   );
 }
 
@@ -237,68 +251,78 @@ function ButtonBlock({ block, ctx }: { block: Block & { type: "button" }; ctx: R
       : block.props.align === "right"
         ? "flex justify-end"
         : "flex justify-start";
-  return styleScope(
-    block,
-    <section className="px-6 py-4">
-      <div className={`mx-auto max-w-6xl ${alignCls}`}>
-        <a
-          href={block.props.url}
-          className={`inline-block rounded-lg px-6 py-3 text-sm font-medium transition-colors ${
-            block.props.variant === "outline"
-              ? "border border-zinc-900 text-zinc-900 hover:bg-zinc-100"
-              : "bg-zinc-900 text-white hover:bg-zinc-700"
-          }`}
-        >
-          {renderLocalizedContent(block.props.text, ctx)}
-        </a>
-      </div>
-    </section>,
+  return (
+    <BlockAdvancedFrame block={block}>
+      {styleScope(
+        block,
+        <section className="px-6 py-4">
+          <div className={`mx-auto max-w-6xl ${alignCls}`}>
+            <a
+              href={block.props.url}
+              className={`inline-block rounded-lg px-6 py-3 text-sm font-medium transition-colors ${
+                block.props.variant === "outline"
+                  ? "border border-zinc-900 text-zinc-900 hover:bg-zinc-100"
+                  : "bg-zinc-900 text-white hover:bg-zinc-700"
+              }`}
+            >
+              {renderLocalizedContent(block.props.text, ctx)}
+            </a>
+          </div>
+        </section>,
+      )}
+    </BlockAdvancedFrame>
   );
 }
 
 function EmbedBlock({ block }: { block: Block & { type: "embed" } }) {
   return (
-    <section className="px-6 py-6">
-      <div
-        className="mx-auto max-w-6xl"
-        dangerouslySetInnerHTML={{ __html: block.props.html }}
-      />
-    </section>
+    <BlockAdvancedFrame block={block}>
+      <section className="px-6 py-6">
+        <div
+          className="mx-auto max-w-6xl"
+          dangerouslySetInnerHTML={{ __html: block.props.html }}
+        />
+      </section>
+    </BlockAdvancedFrame>
   );
 }
 
 function FaqBlock({ block, ctx }: { block: Block & { type: "faq" }; ctx: RegionContext }) {
-  return styleScope(
-    block,
-    <section className="px-6 py-16">
-      <div className="mx-auto max-w-3xl">
-        {block.props.heading && (
-          <h2 className="text-center text-2xl font-bold text-zinc-900">
-            {renderLocalizedContent(block.props.heading, ctx)}
-          </h2>
-        )}
-        <div className="mt-8 space-y-3">
-          {block.props.items.map((item, i) => (
-            <details
-              key={i}
-              className="group rounded-lg border border-zinc-200 bg-white open:shadow-sm"
-            >
-              <summary className="flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-medium text-zinc-900">
-                {renderLocalizedContent(item.question, ctx)}
-                <span className="text-zinc-400 transition-transform group-open:rotate-45">＋</span>
-              </summary>
-              <div className="border-t border-zinc-100 px-4 py-3 text-sm leading-relaxed text-zinc-600 rte-content">
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html: renderLocalizedContent(item.answer, ctx),
-                  }}
-                />
-              </div>
-            </details>
-          ))}
-        </div>
-      </div>
-    </section>,
+  return (
+    <BlockAdvancedFrame block={block}>
+      {styleScope(
+        block,
+        <section className="px-6 py-16">
+          <div className="mx-auto max-w-3xl">
+            {block.props.heading && (
+              <h2 className="text-center text-2xl font-bold text-zinc-900">
+                {renderLocalizedContent(block.props.heading, ctx)}
+              </h2>
+            )}
+            <div className="mt-8 space-y-3">
+              {block.props.items.map((item, i) => (
+                <details
+                  key={i}
+                  className="group rounded-lg border border-zinc-200 bg-white open:shadow-sm"
+                >
+                  <summary className="flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-medium text-zinc-900">
+                    {renderLocalizedContent(item.question, ctx)}
+                    <span className="text-zinc-400 transition-transform group-open:rotate-45">＋</span>
+                  </summary>
+                  <div className="border-t border-zinc-100 px-4 py-3 text-sm leading-relaxed text-zinc-600 rte-content">
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html: renderLocalizedContent(item.answer, ctx),
+                      }}
+                    />
+                  </div>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>,
+      )}
+    </BlockAdvancedFrame>
   );
 }
 
@@ -315,22 +339,71 @@ function TestimonialBlock({ block, ctx }: { block: Block & { type: "testimonial"
         : "grid-cols-1 sm:grid-cols-2";
 
   if (display === "slider") {
-    return styleScope(
-      block,
-      <section className="px-6 py-12">
-        {block.props.heading && (
-          <h2 className="mb-8 text-center text-3xl font-bold text-zinc-900">
-            {renderLocalizedContent(block.props.heading, ctx)}
-          </h2>
+    return (
+      <BlockAdvancedFrame block={block}>
+        {styleScope(
+          block,
+          <section className="px-6 py-12">
+            {block.props.heading && (
+              <h2 className="mb-8 text-center text-3xl font-bold text-zinc-900">
+                {renderLocalizedContent(block.props.heading, ctx)}
+              </h2>
+            )}
+            <div className="overflow-x-auto">
+              <div className="flex gap-6" style={{ minWidth: "min-content" }}>
+                {items.map((item: { quote: string; author: string; role: string; rating: number; avatar?: string }, i: number) => (
+                  <figure
+                    key={i}
+                    className="flex-shrink-0 rounded-2xl bg-zinc-50 px-8 py-10 text-center"
+                    style={{ width: `${100 / (block.props.itemsPerView ?? 2)}%`, minWidth: "300px" }}
+                  >
+                    {item.rating > 0 && (
+                      <div className="text-amber-400">
+                        {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
+                      </div>
+                    )}
+                    <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800">
+                      <div
+                        className="rte-content"
+                        dangerouslySetInnerHTML={{
+                          __html: renderLocalizedContent(item.quote, ctx),
+                        }}
+                      />
+                    </blockquote>
+                    <figcaption className="mt-4 text-sm text-zinc-500">
+                      {item.avatar && (
+                        <img
+                          src={item.avatar}
+                          alt={item.author}
+                          className="mx-auto mb-2 h-10 w-10 rounded-full object-cover"
+                        />
+                      )}
+                      — {item.author}
+                      {item.role ? `, ${item.role}` : ""}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            </div>
+          </section>,
         )}
-        <div className="overflow-x-auto">
-          <div className="flex gap-6" style={{ minWidth: "min-content" }}>
+      </BlockAdvancedFrame>
+    );
+  }
+
+  return (
+    <BlockAdvancedFrame block={block}>
+      {styleScope(
+        block,
+        <section className="px-6 py-12">
+          {block.props.heading && (
+            <h2 className="mb-8 text-center text-3xl font-bold text-zinc-900">
+              {renderLocalizedContent(block.props.heading, ctx)}
+            </h2>
+          )}
+          <div className={`mx-auto grid max-w-6xl gap-6 ${colClass}`}>
             {items.map((item: { quote: string; author: string; role: string; rating: number; avatar?: string }, i: number) => (
-              <figure
-                key={i}
-                className="flex-shrink-0 rounded-2xl bg-zinc-50 px-8 py-10 text-center"
-                style={{ width: `${100 / (block.props.itemsPerView ?? 2)}%`, minWidth: "300px" }}
-              >
+              <figure key={i} className="rounded-2xl bg-zinc-50 px-8 py-10 text-center">
                 {item.rating > 0 && (
                   <div className="text-amber-400">
                     {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
@@ -358,62 +431,27 @@ function TestimonialBlock({ block, ctx }: { block: Block & { type: "testimonial"
               </figure>
             ))}
           </div>
-        </div>
-      </section>,
-    );
-  }
-
-  return styleScope(
-    block,
-    <section className="px-6 py-12">
-      {block.props.heading && (
-        <h2 className="mb-8 text-center text-3xl font-bold text-zinc-900">
-          {renderLocalizedContent(block.props.heading, ctx)}
-        </h2>
+        </section>,
       )}
-      <div className={`mx-auto grid max-w-6xl gap-6 ${colClass}`}>
-        {items.map((item: { quote: string; author: string; role: string; rating: number; avatar?: string }, i: number) => (
-          <figure key={i} className="rounded-2xl bg-zinc-50 px-8 py-10 text-center">
-            {item.rating > 0 && (
-              <div className="text-amber-400">
-                {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
-              </div>
-            )}
-            <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800">
-              <div
-                className="rte-content"
-                dangerouslySetInnerHTML={{
-                  __html: renderLocalizedContent(item.quote, ctx),
-                }}
-              />
-            </blockquote>
-            <figcaption className="mt-4 text-sm text-zinc-500">
-              {item.avatar && (
-                <img
-                  src={item.avatar}
-                  alt={item.author}
-                  className="mx-auto mb-2 h-10 w-10 rounded-full object-cover"
-                />
-              )}
-              — {item.author}
-              {item.role ? `, ${item.role}` : ""}
-            </figcaption>
-          </figure>
-        ))}
-      </div>
-    </section>,
+    </BlockAdvancedFrame>
   );
 }
 
 function SpacerBlock({ block }: { block: Block & { type: "spacer" } }) {
-  return <div style={{ height: block.props.height }} />;
+  return (
+    <BlockAdvancedFrame block={block}>
+      <div style={{ height: block.props.height }} />
+    </BlockAdvancedFrame>
+  );
 }
 
-function DividerBlock() {
+function DividerBlock({ block }: { block: Block & { type: "divider" } }) {
   return (
-    <div className="px-6 py-4">
-      <hr className="mx-auto max-w-3xl border-zinc-200" />
-    </div>
+    <BlockAdvancedFrame block={block}>
+      <div className="px-6 py-4">
+        <hr className="mx-auto max-w-3xl border-zinc-200" />
+      </div>
+    </BlockAdvancedFrame>
   );
 }
 
@@ -439,16 +477,6 @@ function HeadingBlock({ block, ctx }: { block: Block & { type: "heading" }; ctx:
           ? "text-justify"
           : "text-left";
 
-  // Responsive hide classes
-  const hideClasses = [
-    p.hideOnDesktop ? "hidden lg:block" : "",
-    p.hideOnTablet ? "hidden md:block" : "",
-    p.hideOnMobile ? "hidden sm:block" : "",
-  ].filter(Boolean).join(" ");
-
-  // Width classes
-  const widthCls = p.width === "full" ? "w-full" : p.width === "boxed" ? "mx-auto max-w-3xl" : p.width === "inline" ? "inline-block" : "";
-
   // Build inline styles
   const headingStyle: React.CSSProperties = {};
 
@@ -472,23 +500,7 @@ function HeadingBlock({ block, ctx }: { block: Block & { type: "heading" }; ctx:
   if (p.textShadow) headingStyle.textShadow = p.textShadow;
 
   // Blend mode
-  if (p.blendMode) headingStyle.mixBlendMode = p.blendMode;
-
-  // Margin
-  if (p.margin) {
-    headingStyle.marginTop = p.margin.top || undefined;
-    headingStyle.marginRight = p.margin.right || undefined;
-    headingStyle.marginBottom = p.margin.bottom || undefined;
-    headingStyle.marginLeft = p.margin.left || undefined;
-  }
-
-  // Padding
-  if (p.padding) {
-    headingStyle.paddingTop = p.padding.top || undefined;
-    headingStyle.paddingRight = p.padding.right || undefined;
-    headingStyle.paddingBottom = p.padding.bottom || undefined;
-    headingStyle.paddingLeft = p.padding.left || undefined;
-  }
+  if (p.blendMode) headingStyle.mixBlendMode = p.blendMode as React.CSSProperties["mixBlendMode"];
 
   // Border
   if (p.borderStyle && p.borderStyle !== "none") {
@@ -518,33 +530,10 @@ function HeadingBlock({ block, ctx }: { block: Block & { type: "heading" }; ctx:
     headingStyle.backgroundRepeat = p.bgRepeat || "no-repeat";
   }
 
-  // Z-Index
-  if (p.zIndex !== undefined) headingStyle.zIndex = p.zIndex;
-
-  // Transform
-  const transforms: string[] = [];
-  if (p.rotateZ) transforms.push(`rotate(${p.rotateZ}deg)`);
-  if (p.rotateX) transforms.push(`rotateX(${p.rotateX}deg)`);
-  if (p.rotateY) transforms.push(`rotateY(${p.rotateY}deg)`);
-  if (p.scaleX || p.scaleY) transforms.push(`scale(${p.scaleX || 1}, ${p.scaleY || 1})`);
-  if (p.skewX) transforms.push(`skewX(${p.skewX}deg)`);
-  if (p.skewY) transforms.push(`skewY(${p.skewY}deg)`);
-  if (p.offsetX || p.offsetY) transforms.push(`translate(${p.offsetX || 0}px, ${p.offsetY || 0}px)`);
-  if (p.flipH) transforms.push("scaleX(-1)");
-  if (p.flipV) transforms.push("scaleY(-1)");
-  if (transforms.length > 0) headingStyle.transform = transforms.join(" ");
-
-  // Entrance animation
-  const animStyle = p.entranceAnimation ? { animation: `${p.entranceAnimation} 0.6s ease-out` } : {};
-
-  // Custom CSS scope ID
-  const scopeClass = `pb-${block.id}`;
-
   const headingContent = (
     <Tag
-      className={`${HEADING_SIZES[p.level]} ${alignCls} ${widthCls} ${hideClasses}`}
+      className={`${HEADING_SIZES[p.level]} ${alignCls}`}
       style={headingStyle}
-      id={p.cssId || undefined}
     >
       {renderLocalizedContent(p.text, ctx)}
     </Tag>
@@ -557,14 +546,10 @@ function HeadingBlock({ block, ctx }: { block: Block & { type: "heading" }; ctx:
     </a>
   ) : headingContent;
 
-  return styleScope(
-    block,
-    <section className={`px-6 py-6 ${p.cssClasses || ""}`} style={animStyle}>
-      {wrapped}
-      {p.customCss && (
-        <style dangerouslySetInnerHTML={{ __html: `.${scopeClass} { ${p.customCss.replace(/selector/g, `.${scopeClass}`)} }` }} />
-      )}
-    </section>,
+  return (
+    <BlockAdvancedFrame block={block}>
+      {styleScope(block, <section className="px-6 py-6">{wrapped}</section>)}
+    </BlockAdvancedFrame>
   );
 }
 
@@ -574,66 +559,78 @@ function ListBlock({ block, ctx }: { block: Block & { type: "list" }; ctx: Regio
     .filter((item) => item.trim());
   if (items.length === 0) return null;
 
-  return styleScope(
-    block,
-    <section className="px-6 py-6">
-      <div className="mx-auto max-w-3xl text-zinc-700">
-        {block.props.ordered ? (
-          <ol className="list-decimal space-y-1.5 pl-5 marker:font-medium marker:text-zinc-900">
-            {items.map((item, i) => (
-              <li key={i} className="leading-relaxed">
-                {item}
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <ul className="list-disc space-y-1.5 pl-5 marker:text-zinc-400">
-            {items.map((item, i) => (
-              <li key={i} className="leading-relaxed">
-                {item}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </section>,
+  return (
+    <BlockAdvancedFrame block={block}>
+      {styleScope(
+        block,
+        <section className="px-6 py-6">
+          <div className="mx-auto max-w-3xl text-zinc-700">
+            {block.props.ordered ? (
+              <ol className="list-decimal space-y-1.5 pl-5 marker:font-medium marker:text-zinc-900">
+                {items.map((item, i) => (
+                  <li key={i} className="leading-relaxed">
+                    {item}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <ul className="list-disc space-y-1.5 pl-5 marker:text-zinc-400">
+                {items.map((item, i) => (
+                  <li key={i} className="leading-relaxed">
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>,
+      )}
+    </BlockAdvancedFrame>
   );
 }
 
 function SliderBlock({ block }: { block: Block & { type: "slider" } }) {
-  return styleScope(
-    block,
-    <section className="px-6 py-6">
-      <div className="mx-auto max-w-6xl">
-        <SliderCarousel
-          slides={block.props.slides}
-          height={block.props.height ?? "md"}
-          itemsPerView={block.props.itemsPerView ?? 1}
-          imageFit={block.props.imageFit ?? "cover"}
-          captionLayout={block.props.captionLayout ?? "bottom"}
-        />
-      </div>
-    </section>,
+  return (
+    <BlockAdvancedFrame block={block}>
+      {styleScope(
+        block,
+        <section className="px-6 py-6">
+          <div className="mx-auto max-w-6xl">
+            <SliderCarousel
+              slides={block.props.slides}
+              height={block.props.height ?? "md"}
+              itemsPerView={block.props.itemsPerView ?? 1}
+              imageFit={block.props.imageFit ?? "cover"}
+              captionLayout={block.props.captionLayout ?? "bottom"}
+            />
+          </div>
+        </section>,
+      )}
+    </BlockAdvancedFrame>
   );
 }
 
 function ContentGridBlock({ block }: { block: Block & { type: "contentGrid" } }) {
-  return styleScope(
-    block,
-    <ContentGridFrontend
-      heading={block.props.heading}
-      source={block.props.source}
-      categoryId={block.props.categoryId}
-      perPage={block.props.perPage}
-      columns={block.props.columns}
-      showExcerpt={block.props.showExcerpt}
-      order={block.props.order}
-    />,
+  return (
+    <BlockAdvancedFrame block={block}>
+      {styleScope(
+        block,
+        <ContentGridFrontend
+          heading={block.props.heading}
+          source={block.props.source}
+          categoryId={block.props.categoryId}
+          perPage={block.props.perPage}
+          columns={block.props.columns}
+          showExcerpt={block.props.showExcerpt}
+          order={block.props.order}
+        />,
+      )}
+    </BlockAdvancedFrame>
   );
 }
 
 function SectionBlock({ block, ctx }: { block: SectionBlock; ctx: RegionContext }) {
-  const p = block.props;
+  const p = block.props as SectionBlock["props"] & Record<string, unknown>;
   const isBoxed = (p.width ?? "full") === "boxed";
 
   const bgStyle = getBackgroundStyle({
@@ -665,6 +662,11 @@ function SectionBlock({ block, ctx }: { block: SectionBlock; ctx: RegionContext 
     marginLeft: p.margin?.left ? `${p.margin.left}px` : undefined,
     overflow: p.overflow && p.overflow !== "default" ? p.overflow : undefined,
     ...getStickyStyle(p.sticky),
+    ...getAdvancedPositionStyle(p.position as string),
+    ...getGridItemStyle(p.gridColumnSpan, p.gridRowSpan),
+    ...(buildTransformCss(p) ? { transform: buildTransformCss(p) } : {}),
+    ...getMaskStyle(p.mask as boolean),
+    ...(hasAdvancedHover(p) ? getAdvancedHoverTransition() : {}),
   };
 
   const heightStyle = getHeightStyle(p.height, p.minHeight);
@@ -684,7 +686,7 @@ function SectionBlock({ block, ctx }: { block: SectionBlock; ctx: RegionContext 
     paddingRight: p.padding?.right ? `${p.padding.right}px` : undefined,
     paddingBottom: p.padding?.bottom ? `${p.padding.bottom}px` : p.paddingBottom ? `${p.paddingBottom}px` : undefined,
     paddingLeft: p.padding?.left ? `${p.padding.left}px` : undefined,
-    ...getVerticalAlignStyle(p.verticalAlign),
+    ...getVerticalAlignStyle(p.verticalAlign, p.direction === "row" ? "row" : "column"),
     zIndex: 1,
     position: "relative" as const,
     ...getTypographyScopeStyle({
@@ -702,15 +704,30 @@ function SectionBlock({ block, ctx }: { block: SectionBlock; ctx: RegionContext 
     hideOnTablet: p.hideOnTablet,
     hideOnMobile: p.hideOnMobile,
   });
-  const sectionClasses = ["pb-section", animClass, visClass, p.cssClasses].filter(Boolean).join(" ");
+  const showOnClasses = [
+    p.showOnDesktop === false ? "pb-hide-desktop" : "",
+    p.showOnTablet === false ? "pb-hide-tablet" : "",
+    p.showOnMobile === false ? "pb-hide-mobile" : "",
+  ].filter(Boolean).join(" ");
+  const sectionClasses = ["pb-section", animClass, visClass, showOnClasses, p.cssClasses].filter(Boolean).join(" ");
+
+  const customCss = scopeCustomCss(p.customCss, block.id);
+  const hoverCss = hasAdvancedHover(p) ? buildAdvancedHoverCss(block.id, p) : "";
+  const sectionAttrs = {
+    ...parseCustomAttributes(p.customAttributes),
+    ...getCacheAttribute(p.cacheSetting as string),
+  };
+  const dateVisible = isDateConditionVisible(p.displayCondition, p.displayConditionDate);
+  const gateNeeded = needsClientGate(p.displayCondition);
 
   const SectionTag = resolveTag(p.htmlTag, "section");
 
-  return (
+  const sectionElement = (
     <SectionTag
       style={outerStyle}
       id={p.cssId || undefined}
       className={sectionClasses || undefined}
+      {...sectionAttrs}
     >
       {renderOverlay({
         overlayBgType: p.overlayBgType,
@@ -728,13 +745,28 @@ function SectionBlock({ block, ctx }: { block: SectionBlock; ctx: RegionContext 
           <RowBlock key={row.id} block={row} ctx={ctx} />
         ))}
       </div>
-      {p.customCss && <style dangerouslySetInnerHTML={{ __html: p.customCss }} />}
+      {customCss && <style dangerouslySetInnerHTML={{ __html: customCss }} />}
+      {hoverCss && <style dangerouslySetInnerHTML={{ __html: hoverCss }} />}
     </SectionTag>
   );
+
+  if (dateVisible === false) return null;
+  if (gateNeeded) {
+    return (
+      <DisplayConditionGate
+        condition={p.displayCondition ?? "always"}
+        date={p.displayConditionDate}
+        urlFragment={p.displayConditionUrl}
+      >
+        {sectionElement}
+      </DisplayConditionGate>
+    );
+  }
+  return sectionElement;
 }
 
 function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
-  const p = block.props;
+  const p = block.props as RowBlock["props"] & Record<string, unknown>;
   const rowWidth = p.width ?? (p.fullWidth ? "full" : "boxed");
   const isBoxed = rowWidth === "boxed";
 
@@ -767,6 +799,11 @@ function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
     boxShadow: p.boxShadow,
     overflow: p.overflow && p.overflow !== "default" ? p.overflow : undefined,
     ...getStickyStyle(p.sticky),
+    ...getAdvancedPositionStyle(p.position as string),
+    ...getGridItemStyle(p.gridColumnSpan, p.gridRowSpan),
+    ...(buildTransformCss(p) ? { transform: buildTransformCss(p) } : {}),
+    ...getMaskStyle(p.mask as boolean),
+    ...(hasAdvancedHover(p) ? getAdvancedHoverTransition() : {}),
   };
 
   const heightStyle = getHeightStyle(p.height, p.minHeight);
@@ -789,14 +826,33 @@ function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
     hideOnTablet: p.hideOnTablet,
     hideOnMobile: p.hideOnMobile,
   });
+  const showOnClasses = [
+    p.showOnDesktop === false ? "pb-hide-desktop" : "",
+    p.showOnTablet === false ? "pb-hide-tablet" : "",
+    p.showOnMobile === false ? "pb-hide-mobile" : "",
+  ].filter(Boolean).join(" ");
   const reverseTablet = p.reverseColumnsTablet ? "pb-reverse-tablet" : "";
   const reverseMobile = p.reverseColumnsMobile ? "pb-reverse-mobile" : "";
-  const rowClasses = [animClass, visClass, p.cssClasses].filter(Boolean).join(" ");
+  const rowClasses = [animClass, visClass, showOnClasses, p.cssClasses].filter(Boolean).join(" ");
+
+  const customCss = scopeCustomCss(p.customCss, block.id);
+  const hoverCss = hasAdvancedHover(p) ? buildAdvancedHoverCss(block.id, p) : "";
+  const rowAttrs = {
+    ...parseCustomAttributes(p.customAttributes),
+    ...getCacheAttribute(p.cacheSetting as string),
+  };
+  const dateVisible = isDateConditionVisible(p.displayCondition, p.displayConditionDate);
+  const gateNeeded = needsClientGate(p.displayCondition);
 
   const RowTag = resolveTag(p.htmlTag, "section");
 
-  return (
-    <RowTag style={outerStyle} id={p.cssId || undefined} className={rowClasses || undefined}>
+  const rowElement = (
+    <RowTag
+      style={outerStyle}
+      id={p.cssId || undefined}
+      className={rowClasses || undefined}
+      {...rowAttrs}
+    >
       {renderOverlay({
         overlayBgType: p.overlayBgType,
         overlayColor: p.overlayColor,
@@ -814,6 +870,7 @@ function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
           style={{
             gap: p.gap,
             alignItems: p.align,
+            ...getVerticalAlignStyle(p.verticalAlign, "row"),
           }}
         >
           {p.columns.map((column, idx) => {
@@ -831,9 +888,13 @@ function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
             return (
               <div
                 key={column.id}
-                className={renderColumnSpanClass(
-                  resolveColumnWidths(column, p.stackOnMobile !== false),
-                )}
+                id={column.cssId || undefined}
+                className={[
+                  renderColumnSpanClass(
+                    resolveColumnWidths(column, p.stackOnMobile !== false),
+                  ),
+                  column.cssClasses || "",
+                ].filter(Boolean).join(" ")}
                 style={{
                   minWidth: 0,
                   display: "flex",
@@ -848,6 +909,15 @@ function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
                   boxShadow: column.boxShadow,
                   order: idx,
                   ...colBg,
+                  zIndex: column.zindex,
+                  marginTop: column.margin?.top ? `${column.margin.top}px` : undefined,
+                  marginRight: column.margin?.right ? `${column.margin.right}px` : undefined,
+                  marginBottom: column.margin?.bottom ? `${column.margin.bottom}px` : undefined,
+                  marginLeft: column.margin?.left ? `${column.margin.left}px` : undefined,
+                  paddingTop: column.padding?.top ? `${column.padding.top}px` : undefined,
+                  paddingRight: column.padding?.right ? `${column.padding.right}px` : undefined,
+                  paddingBottom: column.padding?.bottom ? `${column.padding.bottom}px` : undefined,
+                  paddingLeft: column.padding?.left ? `${column.padding.left}px` : undefined,
                 }}
               >
                 <RenderBlocks blocks={column.blocks} ctx={ctx} />
@@ -856,9 +926,24 @@ function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
           })}
         </div>
       </div>
-      {p.customCss && <style dangerouslySetInnerHTML={{ __html: p.customCss }} />}
+      {customCss && <style dangerouslySetInnerHTML={{ __html: customCss }} />}
+      {hoverCss && <style dangerouslySetInnerHTML={{ __html: hoverCss }} />}
     </RowTag>
   );
+
+  if (dateVisible === false) return null;
+  if (gateNeeded) {
+    return (
+      <DisplayConditionGate
+        condition={p.displayCondition ?? "always"}
+        date={p.displayConditionDate}
+        urlFragment={p.displayConditionUrl}
+      >
+        {rowElement}
+      </DisplayConditionGate>
+    );
+  }
+  return rowElement;
 }
 
 function IconListBlock({ block }: { block: Block; ctx: RegionContext }) {
@@ -894,29 +979,9 @@ function IconListBlock({ block }: { block: Block; ctx: RegionContext }) {
     gap: `${gap}px`,
   };
 
-  if (p.margin) {
-    Object.assign(listStyle, {
-      marginTop: p.margin.top || undefined,
-      marginRight: p.margin.right || undefined,
-      marginBottom: p.margin.bottom || undefined,
-      marginLeft: p.margin.left || undefined,
-    });
-  }
-  if (p.padding) {
-    Object.assign(listStyle, {
-      paddingTop: p.padding.top || undefined,
-      paddingRight: p.padding.right || undefined,
-      paddingBottom: p.padding.bottom || undefined,
-      paddingLeft: p.padding.left || undefined,
-    });
-  }
-
   return (
-    <ul
-      id={p.cssId || undefined}
-      className={p.cssClasses || undefined}
-      style={listStyle}
-    >
+    <BlockAdvancedFrame block={block}>
+      <ul style={listStyle}>
       {p.items.map((item, i) => {
         const iconStyle: React.CSSProperties = {
           color: p.iconColor || "#1e40af",
@@ -964,6 +1029,7 @@ function IconListBlock({ block }: { block: Block; ctx: RegionContext }) {
         return content;
       })}
     </ul>
+    </BlockAdvancedFrame>
   );
 }
 
@@ -986,18 +1052,6 @@ function GoogleMapBlock({ block }: { block: Block; ctx: RegionContext }) {
     position: "relative",
     overflow: "hidden",
   };
-  if (p.margin) {
-    if (p.margin.top) containerStyle.marginTop = p.margin.top;
-    if (p.margin.right) containerStyle.marginRight = p.margin.right;
-    if (p.margin.bottom) containerStyle.marginBottom = p.margin.bottom;
-    if (p.margin.left) containerStyle.marginLeft = p.margin.left;
-  }
-  if (p.padding) {
-    if (p.padding.top) containerStyle.paddingTop = p.padding.top;
-    if (p.padding.right) containerStyle.paddingRight = p.padding.right;
-    if (p.padding.bottom) containerStyle.paddingBottom = p.padding.bottom;
-    if (p.padding.left) containerStyle.paddingLeft = p.padding.left;
-  }
 
   const iframeStyle: React.CSSProperties = {
     width: "100%",
@@ -1011,20 +1065,18 @@ function GoogleMapBlock({ block }: { block: Block; ctx: RegionContext }) {
   const mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(location)}&t=&z=${zoom}&ie=UTF8&iwloc=&output=embed`;
 
   return (
-    <div
-      id={p.cssId || undefined}
-      className={p.cssClasses || undefined}
-      style={containerStyle}
-    >
-      <iframe
-        src={mapUrl}
-        style={iframeStyle}
-        allowFullScreen
-        loading="lazy"
-        referrerPolicy="no-referrer-when-downgrade"
-        title={`Map: ${location}`}
-      />
-    </div>
+    <BlockAdvancedFrame block={block}>
+      <div style={containerStyle}>
+        <iframe
+          src={mapUrl}
+          style={iframeStyle}
+          allowFullScreen
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          title={`Map: ${location}`}
+        />
+      </div>
+    </BlockAdvancedFrame>
   );
 }
 
@@ -1062,19 +1114,6 @@ function VideoBlock({ block }: { block: Block; ctx: RegionContext }) {
     "21:9": "42.86%",
   };
   containerStyle.paddingBottom = aspectMap[aspectRatio] || "56.25%";
-
-  if (p.margin) {
-    if (p.margin.top) containerStyle.marginTop = p.margin.top;
-    if (p.margin.right) containerStyle.marginRight = p.margin.right;
-    if (p.margin.bottom) containerStyle.marginBottom = p.margin.bottom;
-    if (p.margin.left) containerStyle.marginLeft = p.margin.left;
-  }
-  if (p.padding) {
-    if (p.padding.top) containerStyle.paddingTop = p.padding.top;
-    if (p.padding.right) containerStyle.paddingRight = p.padding.right;
-    if (p.padding.bottom) containerStyle.paddingBottom = p.padding.bottom;
-    if (p.padding.left) containerStyle.paddingLeft = p.padding.left;
-  }
 
   const iframeStyle: React.CSSProperties = {
     position: "absolute",
@@ -1133,12 +1172,9 @@ function VideoBlock({ block }: { block: Block; ctx: RegionContext }) {
   const playIconSymbol = p.playIconType === "upArrow" ? "▲" : p.playIconType === "star" ? "★" : "▶";
 
   return (
-    <div
-      id={p.cssId || undefined}
-      className={p.cssClasses || undefined}
-      style={containerStyle}
-    >
-      {p.imageOverlay && p.overlayImage ? (
+    <BlockAdvancedFrame block={block}>
+      <div style={containerStyle}>
+        {p.imageOverlay && p.overlayImage ? (
         <div className="relative h-full w-full">
           <img
             src={p.overlayImage}
@@ -1169,7 +1205,8 @@ function VideoBlock({ block }: { block: Block; ctx: RegionContext }) {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </BlockAdvancedFrame>
   );
 }
 
