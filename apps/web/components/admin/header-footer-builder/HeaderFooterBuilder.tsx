@@ -438,7 +438,7 @@ export default function HeaderFooterBuilder({
       ? "mx-auto max-w-[390px]"
       : viewport === "tablet"
         ? "mx-auto max-w-[768px]"
-        : "mx-auto max-w-[1200px]";
+        : "mx-auto w-full";
 
   return (
     <div className="mt-4">
@@ -527,7 +527,7 @@ export default function HeaderFooterBuilder({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-6">
+        <div className="flex gap-8">
           {/* Canvas */}
           <div className="min-w-0 flex-1">
             <div className={viewportCls}>

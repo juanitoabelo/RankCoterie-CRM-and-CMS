@@ -649,7 +649,7 @@ export default function PageBuilder({
   const canConvert = selectedBlock && !isRowBlock(selectedBlock);
 
   const viewportCls =
-    viewport === "mobile" ? "mx-auto max-w-[390px]" : viewport === "tablet" ? "mx-auto max-w-[768px]" : "mx-auto max-w-[1200px]";
+    viewport === "mobile" ? "mx-auto max-w-[390px]" : viewport === "tablet" ? "mx-auto max-w-[768px]" : "mx-auto w-full";
 
   const saveLabel =
     saveState === "saving"
@@ -765,7 +765,7 @@ export default function PageBuilder({
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveDrag(null)}
       >
-        <div className="flex gap-6">
+        <div className="flex gap-8">
           <div className="min-w-0 flex-1">
             <div className={viewportCls}>
               {viewMode === "visual" ? (
