@@ -38,7 +38,7 @@ describe("createBlock — row", () => {
     const row = createBlock("row") as RowBlock;
     expect(row.props.bgImage).toBe("");
     expect(row.props.textColor).toBeUndefined();
-    expect(row.props.paddingY).toBe(24);
+    expect(row.props.paddingY).toBe(10);
     expect(row.props.fullWidth).toBe(false);
   });
 });
@@ -48,7 +48,7 @@ describe("createRowLayout", () => {
     const row = createRowLayout("two-halves");
     expect(row.props.stackOnMobile).toBe(true);
     expect(row.props.bgImage).toBe("");
-    expect(row.props.paddingY).toBe(24);
+    expect(row.props.paddingY).toBe(10);
   });
 
   it("creates columns matching the layout spans", () => {
@@ -79,7 +79,7 @@ describe("createSectionBlock", () => {
     expect(section.props.rows).toEqual([]);
     expect(section.props.width).toBe("full");
     expect(section.props.bgColor).toBeUndefined();
-    expect(section.props.paddingTop).toBe(24);
+    expect(section.props.paddingTop).toBe(10);
     expect(isSectionBlock(section)).toBe(true);
   });
 });

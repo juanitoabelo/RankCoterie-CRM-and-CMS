@@ -813,7 +813,7 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       bgColor: undefined,
       bgImage: "",
       textColor: undefined,
-      paddingY: 24,
+      paddingY: 10,
       fullWidth: false,
     },
   },
@@ -826,8 +826,8 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       bgColor: "#f4f4f5",
       bgImage: "",
       textColor: "#18181b",
-      paddingTop: 48,
-      paddingBottom: 48,
+      paddingTop: 10,
+      paddingBottom: 10,
     },
   },
   {
@@ -1171,7 +1171,7 @@ export function createRowLayout(layoutId: string): RowBlock {
       bgColor: undefined,
       bgImage: "",
       textColor: undefined,
-      paddingY: 24,
+      paddingY: 10,
       width: "full",
       fullWidth: true,
     },
@@ -1193,8 +1193,8 @@ export function createSectionBlock(): SectionBlock {
       bgColor: undefined,
       bgImage: "",
       textColor: undefined,
-      paddingTop: 24,
-      paddingBottom: 24,
+      paddingTop: 10,
+      paddingBottom: 10,
     },
   };
 }
@@ -1212,7 +1212,7 @@ export function createSingleColumnRow(): RowBlock {
       bgColor: undefined,
       bgImage: "",
       textColor: undefined,
-      paddingY: 24,
+      paddingY: 10,
       width: "full",
       fullWidth: true,
     },
@@ -1258,7 +1258,7 @@ export function createBlock(type: BlockType): Block {
         bgColor: undefined,
         bgImage: "",
         textColor: undefined,
-        paddingY: 24,
+        paddingY: 10,
         fullWidth: false,
       },
     } as Block;
@@ -1273,8 +1273,8 @@ export function createBlock(type: BlockType): Block {
         bgColor: undefined,
         bgImage: "",
         textColor: undefined,
-        paddingTop: 48,
-        paddingBottom: 48,
+        paddingTop: 10,
+        paddingBottom: 10,
       },
     } as Block;
   }
