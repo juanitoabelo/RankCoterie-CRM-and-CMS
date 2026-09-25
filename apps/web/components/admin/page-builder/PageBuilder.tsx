@@ -53,6 +53,8 @@ import BlockPalette, { type PaletteSnippet } from "./BlockPalette";
 import BuilderCanvas from "./BuilderCanvas";
 import BlockEditor from "./BlockEditor";
 import ColumnEditor from "./ColumnEditor";
+import BlockRenderer from "./BlockRenderer";
+import VisualEditorCanvas from "@/components/admin/visual-editor/VisualEditorCanvas";
 import { BlockPreview } from "./BlockPreview";
 
 export interface PageRevision {
@@ -142,6 +144,7 @@ export default function PageBuilder({
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
   const [viewport, setViewport] = useState<"desktop" | "tablet" | "mobile">("desktop");
+  const [viewMode, setViewMode] = useState<"visual" | "structure">("visual");
   const [inlineEditing, setInlineEditing] = useState(false);
   const [activeDrag, setActiveDrag] = useState<{
     source: "palette" | "layout" | "snippet" | "canvas";
@@ -284,6 +287,18 @@ export default function PageBuilder({
       commit((prev) => duplicateBlock(prev, id));
     },
     [commit],
+  );
+
+  const moveAdjacent = useCallback(
+    (id: string, dir: -1 | 1) => {
+      const ids = flattenIds(blocksRef.current);
+      const idx = ids.indexOf(id);
+      const next = ids[idx + dir];
+      if (!next) return;
+      commit((prev) => moveBlock(prev, id, next));
+      onSelectBlock(next);
+    },
+    [commit, onSelectBlock],
   );
 
   const updateBlockProps = useCallback(
@@ -674,6 +689,23 @@ export default function PageBuilder({
         <div className="mx-1 h-5 w-px bg-zinc-200" />
 
         <div className="flex overflow-hidden rounded-lg border border-zinc-200">
+          {(["visual", "structure"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setViewMode(v)}
+              aria-pressed={viewMode === v}
+              title={v === "visual" ? "Visual editor (like the public site)" : "Structural outline"}
+              className={`px-3 py-1.5 text-xs font-medium capitalize ${
+                viewMode === v ? "bg-amber-600 text-white" : "bg-white text-zinc-600 hover:bg-zinc-50"
+              }`}
+            >
+              {v === "visual" ? "🌐 Visual" : "◇ Structure"}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex overflow-hidden rounded-lg border border-zinc-200">
           {(["desktop", "tablet", "mobile"] as const).map((v) => (
             <button
               key={v}
@@ -736,19 +768,42 @@ export default function PageBuilder({
         <div className="flex gap-6">
           <div className="min-w-0 flex-1">
             <div className={viewportCls}>
-              <BuilderCanvas
-                blocks={blocks}
-                viewport={viewport}
-                selectedId={selectedId}
-                selectedColumnId={selectedColumnId}
-                onSelect={onSelectBlock}
-                onSelectColumn={onSelectColumn}
-                onRemove={removeBlock}
-                onDuplicate={duplicate}
-                onAddRowToSection={addRowToSectionHandler}
-                inlineEditing={inlineEditing}
-                onUpdateProps={updateBlockProps}
-              />
+              {viewMode === "visual" ? (
+                <VisualEditorCanvas
+                  blocks={blocks}
+                  renderLive={<BlockRenderer blocks={blocks} />}
+                  emptyHint="Drag blocks from the palette on the right to build your page"
+                  selectedId={selectedId}
+                  selectedColumnId={selectedColumnId}
+                  onSelect={(id) =>
+                    id === null
+                      ? (setSelectedId(null), setSelectedColumnId(null))
+                      : onSelectBlock(id)
+                  }
+                  onSelectColumn={(columnId) =>
+                    columnId === null ? setSelectedColumnId(null) : onSelectColumn(columnId)
+                  }
+                  onRemove={removeBlock}
+                  onDuplicate={duplicate}
+                  onMove={moveAdjacent}
+                  onAddRowToSection={addRowToSectionHandler}
+                  onEditText={(id, props) => updateBlockProps(id, props as Block["props"])}
+                />
+              ) : (
+                <BuilderCanvas
+                  blocks={blocks}
+                  viewport={viewport}
+                  selectedId={selectedId}
+                  selectedColumnId={selectedColumnId}
+                  onSelect={onSelectBlock}
+                  onSelectColumn={onSelectColumn}
+                  onRemove={removeBlock}
+                  onDuplicate={duplicate}
+                  onAddRowToSection={addRowToSectionHandler}
+                  inlineEditing={inlineEditing}
+                  onUpdateProps={updateBlockProps}
+                />
+              )}
             </div>
           </div>
 

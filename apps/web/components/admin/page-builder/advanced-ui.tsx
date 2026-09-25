@@ -207,6 +207,8 @@ export function BlockAdvancedFrame({
   let content = (
     <div
       id={(p.cssId as string) || undefined}
+      data-pb-el={block.id}
+      data-pb-kind="block"
       className={mergedClass || undefined}
       style={mergedStyle}
       {...mergedAttrs}

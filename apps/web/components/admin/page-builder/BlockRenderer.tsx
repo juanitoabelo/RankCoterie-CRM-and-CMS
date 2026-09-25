@@ -25,6 +25,7 @@ import {
   getMaskStyle,
   getAdvancedSpacingStyle,
   getAdvancedPaddingStyle,
+  getSectionPaddingStyle,
   buildAdvancedHoverCss,
   hasAdvancedHover,
   getAdvancedHoverTransition,
@@ -48,6 +49,17 @@ function styleScope(block: Block, inner: React.ReactNode): React.ReactNode {
   );
 }
 
+/**
+ * Inline padding from the Advanced → Padding setting, applied to the block's
+ * inner content section so it overrides the hard-coded Tailwind `py-*` default.
+ * Explicit zeros are preserved, letting users shrink the default vertical gap.
+ */
+function sectionPadding(block: Block): React.CSSProperties {
+  return getSectionPaddingStyle(
+    (block.props as { padding?: { top?: number | string; right?: number | string; bottom?: number | string; left?: number | string } }).padding,
+  );
+}
+
 function HeroBlock({ block, ctx }: { block: Block & { type: "hero" }; ctx: RegionContext }) {
   return (
     <BlockAdvancedFrame block={block}>
@@ -55,7 +67,7 @@ function HeroBlock({ block, ctx }: { block: Block & { type: "hero" }; ctx: Regio
         block,
         <section
           className="px-6 py-20 text-center"
-          style={{ backgroundColor: block.props.bgColor, color: block.props.textColor }}
+          style={{ ...sectionPadding(block), backgroundColor: block.props.bgColor, color: block.props.textColor }}
         >
           <div className="mx-auto max-w-4xl">
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
@@ -85,7 +97,7 @@ function TextBlock({ block, ctx }: { block: Block & { type: "text" }; ctx: Regio
     <BlockAdvancedFrame block={block}>
       {styleScope(
         block,
-        <section className="px-6 py-10">
+        <section className="px-6 py-10" style={sectionPadding(block)}>
           <div
             className={`mx-auto max-w-3xl leading-relaxed rte-content ${alignCls} ${p.textColor ? "" : "text-zinc-700"}`}
             style={p.textColor ? { color: p.textColor } : undefined}
@@ -171,7 +183,7 @@ function CtaBlock({ block, ctx }: { block: Block & { type: "cta" }; ctx: RegionC
         block,
         <section
           className="px-6 py-16 text-center"
-          style={{ backgroundColor: block.props.bgColor }}
+          style={{ ...sectionPadding(block), backgroundColor: block.props.bgColor }}
         >
           <div className="mx-auto max-w-2xl">
             <h2 className="text-3xl font-bold text-zinc-900">
@@ -210,7 +222,7 @@ function FeaturesBlock({ block, ctx }: { block: Block & { type: "features" }; ct
     <BlockAdvancedFrame block={block}>
       {styleScope(
         block,
-        <section className="px-6 py-16">
+        <section className="px-6 py-16" style={sectionPadding(block)}>
           <div className="mx-auto max-w-5xl">
             {block.props.heading && (
               <h2 className="text-center text-2xl font-bold text-zinc-900">
@@ -255,7 +267,7 @@ function ButtonBlock({ block, ctx }: { block: Block & { type: "button" }; ctx: R
     <BlockAdvancedFrame block={block}>
       {styleScope(
         block,
-        <section className="px-6 py-4">
+        <section className="px-6 py-4" style={sectionPadding(block)}>
           <div className={`mx-auto max-w-6xl ${alignCls}`}>
             <a
               href={block.props.url}
@@ -277,7 +289,7 @@ function ButtonBlock({ block, ctx }: { block: Block & { type: "button" }; ctx: R
 function EmbedBlock({ block }: { block: Block & { type: "embed" } }) {
   return (
     <BlockAdvancedFrame block={block}>
-      <section className="px-6 py-6">
+      <section className="px-6 py-6" style={sectionPadding(block)}>
         <div
           className="mx-auto max-w-6xl"
           dangerouslySetInnerHTML={{ __html: block.props.html }}
@@ -292,7 +304,7 @@ function FaqBlock({ block, ctx }: { block: Block & { type: "faq" }; ctx: RegionC
     <BlockAdvancedFrame block={block}>
       {styleScope(
         block,
-        <section className="px-6 py-16">
+        <section className="px-6 py-16" style={sectionPadding(block)}>
           <div className="mx-auto max-w-3xl">
             {block.props.heading && (
               <h2 className="text-center text-2xl font-bold text-zinc-900">
@@ -343,7 +355,7 @@ function TestimonialBlock({ block, ctx }: { block: Block & { type: "testimonial"
       <BlockAdvancedFrame block={block}>
         {styleScope(
           block,
-          <section className="px-6 py-12">
+          <section className="px-6 py-12" style={sectionPadding(block)}>
             {block.props.heading && (
               <h2 className="mb-8 text-center text-3xl font-bold text-zinc-900">
                 {renderLocalizedContent(block.props.heading, ctx)}
@@ -395,7 +407,7 @@ function TestimonialBlock({ block, ctx }: { block: Block & { type: "testimonial"
     <BlockAdvancedFrame block={block}>
       {styleScope(
         block,
-        <section className="px-6 py-12">
+        <section className="px-6 py-12" style={sectionPadding(block)}>
           {block.props.heading && (
             <h2 className="mb-8 text-center text-3xl font-bold text-zinc-900">
               {renderLocalizedContent(block.props.heading, ctx)}
@@ -448,7 +460,7 @@ function SpacerBlock({ block }: { block: Block & { type: "spacer" } }) {
 function DividerBlock({ block }: { block: Block & { type: "divider" } }) {
   return (
     <BlockAdvancedFrame block={block}>
-      <div className="px-6 py-4">
+      <div className="px-6 py-4" style={sectionPadding(block)}>
         <hr className="mx-auto max-w-3xl border-zinc-200" />
       </div>
     </BlockAdvancedFrame>
@@ -548,7 +560,7 @@ function HeadingBlock({ block, ctx }: { block: Block & { type: "heading" }; ctx:
 
   return (
     <BlockAdvancedFrame block={block}>
-      {styleScope(block, <section className="px-6 py-6">{wrapped}</section>)}
+      {styleScope(block, <section className="px-6 py-6" style={sectionPadding(block)}>{wrapped}</section>)}
     </BlockAdvancedFrame>
   );
 }
@@ -563,7 +575,7 @@ function ListBlock({ block, ctx }: { block: Block & { type: "list" }; ctx: Regio
     <BlockAdvancedFrame block={block}>
       {styleScope(
         block,
-        <section className="px-6 py-6">
+        <section className="px-6 py-6" style={sectionPadding(block)}>
           <div className="mx-auto max-w-3xl text-zinc-700">
             {block.props.ordered ? (
               <ol className="list-decimal space-y-1.5 pl-5 marker:font-medium marker:text-zinc-900">
@@ -594,7 +606,7 @@ function SliderBlock({ block }: { block: Block & { type: "slider" } }) {
     <BlockAdvancedFrame block={block}>
       {styleScope(
         block,
-        <section className="px-6 py-6">
+        <section className="px-6 py-6" style={sectionPadding(block)}>
           <div className="mx-auto max-w-6xl">
             <SliderCarousel
               slides={block.props.slides}
@@ -726,6 +738,9 @@ function SectionBlock({ block, ctx }: { block: SectionBlock; ctx: RegionContext 
     <SectionTag
       style={outerStyle}
       id={p.cssId || undefined}
+      data-pb-el={block.id}
+      data-pb-kind="section"
+      data-pb-type={block.type}
       className={sectionClasses || undefined}
       {...sectionAttrs}
     >
@@ -850,6 +865,9 @@ function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
     <RowTag
       style={outerStyle}
       id={p.cssId || undefined}
+      data-pb-el={block.id}
+      data-pb-kind="row"
+      data-pb-type={block.type}
       className={rowClasses || undefined}
       {...rowAttrs}
     >
@@ -889,6 +907,8 @@ function RowBlock({ block, ctx }: { block: RowBlock; ctx: RegionContext }) {
               <div
                 key={column.id}
                 id={column.cssId || undefined}
+                data-pb-el={column.id}
+                data-pb-kind="column"
                 className={[
                   renderColumnSpanClass(
                     resolveColumnWidths(column, p.stackOnMobile !== false),

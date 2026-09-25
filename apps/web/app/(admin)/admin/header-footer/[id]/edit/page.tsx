@@ -9,6 +9,7 @@ import {
   saveAssignmentsAction,
 } from "../../actions";
 import { getThemeSettings } from "../../../theme-settings/actions";
+import { getMenus } from "@/modules/menus";
 import HeaderFooterBuilder from "@/components/admin/header-footer-builder/HeaderFooterBuilder";
 import { parseHeaderFooterData } from "@/modules/header-footer";
 
@@ -26,6 +27,14 @@ export default async function HeaderFooterEditPage({
   const { blocks, containerSettings } = parseHeaderFooterData(template.data);
   const assignments = await getAssignments(id);
   const themeSettings = await getThemeSettings();
+
+  const allMenus = await getMenus();
+  const headerMenu = allMenus.find((m) => m.location === "HEADER");
+  const footerMenu = allMenus.find((m) => m.location === "FOOTER");
+  const menus = {
+    header: headerMenu?.items ?? [],
+    footer: footerMenu?.items ?? [],
+  };
 
   const themeColors = [
     { key: "background", label: "Background", color: themeSettings.colors.background },
@@ -79,6 +88,7 @@ export default async function HeaderFooterEditPage({
         isDefault={template.isDefault}
         initialAssignments={assignments}
         themeColors={themeColors}
+        menus={menus}
         onSave={saveBlocks}
         onListRevisions={loadRevisions}
         onRestoreRevision={restore}

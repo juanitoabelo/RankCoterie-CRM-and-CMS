@@ -390,6 +390,30 @@ export function getAdvancedPaddingStyle(spacing?: SpacingValue): CSSProperties {
   return style;
 }
 
+/**
+ * Content-area padding for a block's inner section. Unlike
+ * `getAdvancedPaddingStyle` (which collapses `0` to `undefined` via
+ * `spacingToCss`), this keeps explicit zeros so the inline style genuinely
+ * overrides hard-coded Tailwind `px-*`/`py-*` defaults on the section.
+ */
+export function getSectionPaddingStyle(spacing?: SpacingValue): CSSProperties {
+  if (!spacing) return {};
+  const style: CSSProperties = {};
+  if (spacing.top !== undefined && spacing.top !== null && spacing.top !== "") {
+    style.paddingTop = typeof spacing.top === "number" ? `${spacing.top}px` : spacing.top;
+  }
+  if (spacing.right !== undefined && spacing.right !== null && spacing.right !== "") {
+    style.paddingRight = typeof spacing.right === "number" ? `${spacing.right}px` : spacing.right;
+  }
+  if (spacing.bottom !== undefined && spacing.bottom !== null && spacing.bottom !== "") {
+    style.paddingBottom = typeof spacing.bottom === "number" ? `${spacing.bottom}px` : spacing.bottom;
+  }
+  if (spacing.left !== undefined && spacing.left !== null && spacing.left !== "") {
+    style.paddingLeft = typeof spacing.left === "number" ? `${spacing.left}px` : spacing.left;
+  }
+  return style;
+}
+
 /* ── Advanced: Mask ─────────────────────────────────────────────────────── */
 
 export function getMaskStyle(mask?: boolean): CSSProperties {

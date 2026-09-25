@@ -40,6 +40,10 @@ import {
 } from "@/lib/page-builder/tree";
 import type { HeaderFooterRevisionRow } from "@/modules/header-footer";
 import HeaderFooterCanvas from "./HeaderFooterCanvas";
+import HeaderFooterRenderer, {
+  type MenuData,
+} from "./HeaderFooterRenderer";
+import VisualEditorCanvas from "@/components/admin/visual-editor/VisualEditorCanvas";
 import HeaderFooterPalette from "./HeaderFooterPalette";
 import HeaderFooterEditor from "./HeaderFooterEditor";
 import ContainerSettingsEditor from "./ContainerSettingsEditor";
@@ -61,6 +65,7 @@ interface Props {
     priority: number;
   }>;
   themeColors?: Array<{ key: string; label: string; color: string }>;
+  menus?: MenuData;
   onSave: (
     id: string,
     data: string,
@@ -90,6 +95,7 @@ export default function HeaderFooterBuilder({
   isDefault,
   initialAssignments,
   themeColors,
+  menus = {},
   onSave,
   onListRevisions,
   onRestoreRevision,
@@ -106,6 +112,7 @@ export default function HeaderFooterBuilder({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedColumnId, setSelectedColumnId] = useState<string | null>(null);
   const [viewport, setViewport] = useState<"desktop" | "tablet" | "mobile">("desktop");
+  const [viewMode, setViewMode] = useState<"visual" | "structure">("visual");
   const [dirty, setDirty] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -251,6 +258,19 @@ export default function HeaderFooterBuilder({
     (sectionId: string) => {
       const row = createSingleColumnRow();
       commit((present) => addRowToSection(present, sectionId, row));
+    },
+    [commit],
+  );
+
+  const moveAdjacent = useCallback(
+    (id: string, dir: -1 | 1) => {
+      const ids = flattenIds(blocksRef.current);
+      const idx = ids.indexOf(id);
+      const next = ids[idx + dir];
+      if (!next) return;
+      commit((present) => moveBlock(present, id, next));
+      setSelectedId(next);
+      setSelectedColumnId(null);
     },
     [commit],
   );
@@ -445,6 +465,24 @@ export default function HeaderFooterBuilder({
           ))}
         </div>
 
+        <div className="ml-4 flex items-center gap-1 rounded-lg border border-zinc-200 p-0.5">
+          {(["visual", "structure"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setViewMode(v)}
+              aria-pressed={viewMode === v}
+              title={v === "visual" ? "Visual editor (like the public site)" : "Structural outline"}
+              className={`rounded px-3 py-1 text-xs font-medium ${
+                viewMode === v
+                  ? "bg-amber-600 text-white"
+                  : "text-zinc-600 hover:bg-zinc-100"
+              }`}
+            >
+              {v === "visual" ? "🌐 Visual" : "◇ Structure"}
+            </button>
+          ))}
+        </div>
+
         <div className="ml-4 text-xs text-zinc-500">
           {containerSettings.width === "boxed" ? `Boxed ${containerSettings.maxWidth}px` : "Full Width"}
         </div>
@@ -493,18 +531,43 @@ export default function HeaderFooterBuilder({
           {/* Canvas */}
           <div className="min-w-0 flex-1">
             <div className={viewportCls}>
-              <HeaderFooterCanvas
-                blocks={blocks}
-                viewport={viewport}
-                containerSettings={containerSettings}
-                selectedId={selectedId}
-                selectedColumnId={selectedColumnId}
-                onSelect={onSelect}
-                onSelectColumn={onSelectColumn}
-                onRemove={removeBlockById}
-                onDuplicate={duplicateBlockById}
-                onAddRowToSection={addRowToSectionHandler}
-              />
+              {viewMode === "visual" ? (
+                <VisualEditorCanvas
+                  blocks={blocks}
+                  renderLive={
+                    <HeaderFooterRenderer
+                      blocks={blocks as HeaderFooterBlock[]}
+                      containerSettings={containerSettings}
+                      menus={menus}
+                    />
+                  }
+                  emptyHint={`Drag blocks from the palette to build your ${templateType === "HEADER" ? "header" : "footer"}`}
+                  selectedId={selectedId}
+                  selectedColumnId={selectedColumnId}
+                  onSelect={onSelect}
+                  onSelectColumn={onSelectColumn}
+                  onRemove={removeBlockById}
+                  onDuplicate={duplicateBlockById}
+                  onMove={moveAdjacent}
+                  onAddRowToSection={addRowToSectionHandler}
+                  onEditText={(id, props) =>
+                    updateProps(id, props as HeaderFooterBlock["props"])
+                  }
+                />
+              ) : (
+                <HeaderFooterCanvas
+                  blocks={blocks}
+                  viewport={viewport}
+                  containerSettings={containerSettings}
+                  selectedId={selectedId}
+                  selectedColumnId={selectedColumnId}
+                  onSelect={onSelect}
+                  onSelectColumn={onSelectColumn}
+                  onRemove={removeBlockById}
+                  onDuplicate={duplicateBlockById}
+                  onAddRowToSection={addRowToSectionHandler}
+                />
+              )}
             </div>
           </div>
 

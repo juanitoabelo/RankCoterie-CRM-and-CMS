@@ -40,6 +40,8 @@ import {
 } from "@/lib/page-builder/tree";
 import type { PageLayoutRevisionRow } from "@/modules/page-layout";
 import PageLayoutCanvas from "./PageLayoutCanvas";
+import PageLayoutRenderer from "./PageLayoutRenderer";
+import VisualEditorCanvas from "@/components/admin/visual-editor/VisualEditorCanvas";
 import PageLayoutPalette from "./PageLayoutPalette";
 import PageLayoutEditor from "./PageLayoutEditor";
 import ContainerSettingsEditor from "./ContainerSettingsEditor";
@@ -104,6 +106,7 @@ export default function PageLayoutBuilder({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedColumnId, setSelectedColumnId] = useState<string | null>(null);
   const [viewport, setViewport] = useState<"desktop" | "tablet" | "mobile">("desktop");
+  const [viewMode, setViewMode] = useState<"visual" | "structure">("visual");
   const [dirty, setDirty] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -249,6 +252,19 @@ export default function PageLayoutBuilder({
     (sectionId: string) => {
       const row = createSingleColumnRow();
       commit((present) => addRowToSection(present, sectionId, row));
+    },
+    [commit],
+  );
+
+  const moveAdjacent = useCallback(
+    (id: string, dir: -1 | 1) => {
+      const ids = flattenIds(blocksRef.current);
+      const idx = ids.indexOf(id);
+      const next = ids[idx + dir];
+      if (!next) return;
+      commit((present) => moveBlock(present, id, next));
+      setSelectedId(next);
+      setSelectedColumnId(null);
     },
     [commit],
   );
@@ -443,6 +459,24 @@ export default function PageLayoutBuilder({
           ))}
         </div>
 
+        <div className="ml-4 flex items-center gap-1 rounded-lg border border-zinc-200 p-0.5">
+          {(["visual", "structure"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setViewMode(v)}
+              aria-pressed={viewMode === v}
+              title={v === "visual" ? "Visual editor (like the public site)" : "Structural outline"}
+              className={`rounded px-3 py-1 text-xs font-medium ${
+                viewMode === v
+                  ? "bg-amber-600 text-white"
+                  : "text-zinc-600 hover:bg-zinc-100"
+              }`}
+            >
+              {v === "visual" ? "🌐 Visual" : "◇ Structure"}
+            </button>
+          ))}
+        </div>
+
         <div className="ml-4 text-xs text-zinc-500">
           {containerSettings.width === "boxed" ? `Boxed ${containerSettings.maxWidth}px` : "Full Width"}
         </div>
@@ -491,18 +525,42 @@ export default function PageLayoutBuilder({
           {/* Canvas */}
           <div className="min-w-0 flex-1">
             <div className={viewportCls}>
-              <PageLayoutCanvas
-                blocks={blocks}
-                viewport={viewport}
-                containerSettings={containerSettings}
-                selectedId={selectedId}
-                selectedColumnId={selectedColumnId}
-                onSelect={onSelect}
-                onSelectColumn={onSelectColumn}
-                onRemove={removeBlockById}
-                onDuplicate={duplicateBlockById}
-                onAddRowToSection={addRowToSectionHandler}
-              />
+              {viewMode === "visual" ? (
+                <VisualEditorCanvas
+                  blocks={blocks}
+                  renderLive={
+                    <PageLayoutRenderer
+                      blocks={blocks as PageLayoutBlock[]}
+                      containerSettings={containerSettings}
+                    />
+                  }
+                  emptyHint="Drag blocks from the palette to build your page layout"
+                  selectedId={selectedId}
+                  selectedColumnId={selectedColumnId}
+                  onSelect={onSelect}
+                  onSelectColumn={onSelectColumn}
+                  onRemove={removeBlockById}
+                  onDuplicate={duplicateBlockById}
+                  onMove={moveAdjacent}
+                  onAddRowToSection={addRowToSectionHandler}
+                  onEditText={(id, props) =>
+                    updateProps(id, props as PageLayoutBlock["props"])
+                  }
+                />
+              ) : (
+                <PageLayoutCanvas
+                  blocks={blocks}
+                  viewport={viewport}
+                  containerSettings={containerSettings}
+                  selectedId={selectedId}
+                  selectedColumnId={selectedColumnId}
+                  onSelect={onSelect}
+                  onSelectColumn={onSelectColumn}
+                  onRemove={removeBlockById}
+                  onDuplicate={duplicateBlockById}
+                  onAddRowToSection={addRowToSectionHandler}
+                />
+              )}
             </div>
           </div>
 

@@ -10,6 +10,7 @@
 import { createContext, useContext, useState, useRef } from "react";
 import Link from "next/link";
 import type { Block } from "@/lib/page-builder/types";
+import { PB_CONTAINER } from "@/components/admin/visual-editor/constants";
 import type { HeaderFooterBlock, ContainerSettings } from "@/lib/header-footer/types";
 import { DEFAULT_CONTAINER_SETTINGS } from "@/lib/header-footer/types";
 import { isRowBlock, isSectionBlock } from "@/lib/page-builder/types";
@@ -822,6 +823,9 @@ function RowRenderer({ block }: { block: Block }) {
     <RowTag
       style={rowStyle}
       id={p.cssId || undefined}
+      data-pb-el={block.id}
+      data-pb-kind="row"
+      data-pb-type={block.type}
       className={rowClasses || undefined}
       {...rowAttrs}
     >
@@ -892,6 +896,8 @@ function RowRenderer({ block }: { block: Block }) {
               className={[spanClass, col.cssClasses || ""].filter(Boolean).join(" ")}
               style={colStyle}
               id={col.cssId || undefined}
+              data-pb-el={col.id}
+              data-pb-kind="column"
             >
               {colOverlayStyle && <div style={colOverlayStyle} />}
               <RenderBlocks blocks={col.blocks as HeaderFooterBlock[]} />
@@ -1654,6 +1660,9 @@ function SectionRenderer({ block }: { block: Block }) {
     <SectionTag
       style={outerStyle}
       id={p.cssId || undefined}
+      data-pb-el={block.id}
+      data-pb-kind="section"
+      data-pb-type={block.type}
       className={sectionClasses || undefined}
       {...sectionAttrs}
     >
@@ -1772,6 +1781,8 @@ export default function HeaderFooterRenderer({
         style={outerStyle}
         id={containerSettings.cssId || undefined}
         className={containerSettings.cssClasses || undefined}
+        data-pb-el={PB_CONTAINER}
+        data-pb-kind="container"
       >
         {overlayStyle && <div style={overlayStyle} />}
         <div style={innerStyle}>

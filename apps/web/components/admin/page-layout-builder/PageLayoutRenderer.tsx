@@ -8,6 +8,7 @@
  */
 import Link from "next/link";
 import type { Block } from "@/lib/page-builder/types";
+import { PB_CONTAINER } from "@/components/admin/visual-editor/constants";
 import type { PageLayoutBlock, ContainerSettings } from "@/lib/page-layout/types";
 import { isRowBlock, isSectionBlock } from "@/lib/page-builder/types";
 import { resolveColumnWidths, renderColumnSpanClass } from "@/lib/page-builder/spans";
@@ -140,6 +141,9 @@ function RowRenderer({ block }: { block: Block }) {
     <RowTag
       style={rowStyle}
       id={p.cssId || undefined}
+      data-pb-el={block.id}
+      data-pb-kind="row"
+      data-pb-type={block.type}
       className={rowClasses || undefined}
       {...rowAttrs}
     >
@@ -210,6 +214,8 @@ function RowRenderer({ block }: { block: Block }) {
               className={[spanClass, col.cssClasses || ""].filter(Boolean).join(" ")}
               style={colStyle}
               id={col.cssId || undefined}
+              data-pb-el={col.id}
+              data-pb-kind="column"
             >
               {colOverlayStyle && <div style={colOverlayStyle} />}
               <RenderBlocks blocks={col.blocks as PageLayoutBlock[]} />
@@ -835,6 +841,9 @@ export function PageLayoutBlockRenderer({ block }: { block: Block }) {
       <SectionTag
         style={outerStyle}
         id={p.cssId || undefined}
+        data-pb-el={block.id}
+        data-pb-kind="section"
+        data-pb-type={block.type}
         className={sectionClasses || undefined}
         {...sectionAttrs}
       >
@@ -916,7 +925,7 @@ export default function PageLayoutRenderer({
   }
 
   return (
-    <div style={outerStyle}>
+    <div style={outerStyle} data-pb-el={PB_CONTAINER} data-pb-kind="container">
       {containerSettings?.bgImage && containerSettings.overlayOpacity ? (
         <div
           style={{
