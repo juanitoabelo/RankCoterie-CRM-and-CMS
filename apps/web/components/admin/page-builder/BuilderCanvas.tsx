@@ -5,6 +5,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import {
   BLOCK_DEFINITIONS,
+  CANVAS_ROOT_ID,
   isRowBlock,
   isSectionBlock,
   type Block,
@@ -507,7 +508,7 @@ export default function BuilderCanvas({
   inlineEditing?: boolean;
   onUpdateProps?: (id: string, props: Block["props"]) => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: "canvas" });
+  const { setNodeRef, isOver } = useDroppable({ id: CANVAS_ROOT_ID });
 
   return (
     <SortableContext

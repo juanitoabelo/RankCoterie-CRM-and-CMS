@@ -4,7 +4,8 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import {
   DndContext,
   closestCenter,
-  pointerWithin,
+  DragOverlay,
+  MeasuringStrategy,
   PointerSensor,
   KeyboardSensor,
   useSensor,
@@ -26,6 +27,7 @@ import {
 import {
   mapBlocks,
   findBlock,
+  findColumnForBlock,
   moveBlock,
   addBlockFromPalette,
   insertLayoutBlock,
@@ -37,13 +39,16 @@ import {
   duplicateColumn,
   flattenIds,
   addRowToSection,
+  normalizeDropTarget,
 } from "@/lib/page-builder/tree";
 import type { HeaderFooterRevisionRow } from "@/modules/header-footer";
+import { innermostPointerWithin } from "@/lib/page-builder/collision";
 import HeaderFooterCanvas from "./HeaderFooterCanvas";
 import HeaderFooterRenderer, {
   type MenuData,
 } from "./HeaderFooterRenderer";
 import VisualEditorCanvas from "@/components/admin/visual-editor/VisualEditorCanvas";
+import { blockLabel } from "@/components/admin/visual-editor/labels";
 import HeaderFooterPalette from "./HeaderFooterPalette";
 import HeaderFooterEditor from "./HeaderFooterEditor";
 import ContainerSettingsEditor from "./ContainerSettingsEditor";
@@ -294,12 +299,18 @@ export default function HeaderFooterBuilder({
       const id = String(active.id);
       if (id.startsWith("palette:")) {
         const type = id.replace("palette:", "");
-        setActiveDrag({ source: "palette", label: type });
+        setActiveDrag({ source: "palette", label: blockLabel(type, type) });
       } else if (id.startsWith("layout:")) {
-        const layoutId = id.replace("layout:", "");
-        setActiveDrag({ source: "layout", label: layoutId });
+        setActiveDrag({ source: "layout", label: "▦ Row layout" });
       } else {
-        setActiveDrag({ source: "canvas", label: id });
+        setActiveDrag({
+          source: "canvas",
+          label: blockLabel(findBlock(blocksRef.current, id)?.type ?? "", "Block"),
+        });
+        /* Keep the live canvas in sync with what is being dragged. */
+        setSelectedId(id);
+        const col = findColumnForBlock(blocksRef.current, id);
+        setSelectedColumnId(col?.columnId ?? null);
       }
     },
     [],
@@ -312,7 +323,7 @@ export default function HeaderFooterBuilder({
       if (!over) return;
 
       const activeId = String(active.id);
-      const overId = String(over.id);
+      const overId = normalizeDropTarget(String(over.id));
 
       if (activeId.startsWith("palette:")) {
         const type = activeId.replace("palette:", "");
@@ -332,7 +343,7 @@ export default function HeaderFooterBuilder({
   const collisionDetection: CollisionDetection = useCallback(
     (args) => {
       if (activeDrag?.source === "palette" || activeDrag?.source === "layout") {
-        return pointerWithin(args);
+        return innermostPointerWithin(args);
       }
       return closestCenter(args);
     },
@@ -524,8 +535,10 @@ export default function HeaderFooterBuilder({
       <DndContext
         sensors={sensors}
         collisionDetection={collisionDetection}
+        measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onDragCancel={() => setActiveDrag(null)}
       >
         <div className="flex gap-8">
           {/* Canvas */}
@@ -681,6 +694,14 @@ export default function HeaderFooterBuilder({
             )}
           </div>
         </div>
+
+        <DragOverlay dropAnimation={null}>
+          {activeDrag && (
+            <div className="pointer-events-none rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 shadow-lg">
+              {activeDrag.label}
+            </div>
+          )}
+        </DragOverlay>
       </DndContext>
     </div>
   );

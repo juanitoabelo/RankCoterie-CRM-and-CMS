@@ -2,6 +2,7 @@ import {
   createLayoutBlock,
   isRowBlock,
   isSectionBlock,
+  CANVAS_ROOT_ID,
   type Block,
   type ColumnData,
   type RowBlock,
@@ -9,6 +10,17 @@ import {
 } from "./types";
 
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
+
+/**
+ * Translate a droppable id into the `overId` the tree helpers expect. A drop on
+ * the visual canvas as a whole resolves to `undefined`, which every helper reads
+ * as "the top level of the tree" — so dropping on empty canvas space appends a
+ * palette block instead of silently doing nothing.
+ */
+export function normalizeDropTarget(overId: string | undefined | null): string | undefined {
+  if (!overId || overId === CANVAS_ROOT_ID) return undefined;
+  return overId;
+}
 
 function moveArray<T>(arr: T[], from: number, to: number): T[] {
   const next = [...arr];
@@ -514,7 +526,7 @@ function reorderInColumn(blocks: Block[], columnId: string, activeId: string, ov
  * - row -> column (nested rows supported)
  * - column -> row (extract nested rows)
  */
-export function moveBlock(blocks: Block[], activeId: string, overId: string): Block[] {
+export function moveBlock(blocks: Block[], activeId: string, overId?: string): Block[] {
   if (activeId === overId) return blocks;
 
   const active = findBlock(blocks, activeId);
@@ -526,6 +538,13 @@ export function moveBlock(blocks: Block[], activeId: string, overId: string): Bl
     (b) => isSectionBlock(b) && b.props.rows.some((r) => r.id === activeId),
   );
   const isRow = isRowBlock(active);
+
+  // Dropped on the canvas as a whole → lift the block out to the top level.
+  if (overId === undefined) {
+    if (activeTopIndex !== -1) return blocks;
+    const withoutActive = removeBlock(blocks, activeId);
+    return insertTop(withoutActive, active, withoutActive.length);
+  }
 
   const overTopIndex = blocks.findIndex((b) => b.id === overId);
   const overCol = findColumnForBlock(blocks, overId);

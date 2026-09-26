@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createBlock,
+  CANVAS_ROOT_ID,
   type Block,
   type RowBlock,
   type TextBlock,
@@ -15,6 +16,7 @@ import {
   flattenIds,
   insertLayoutBlock,
   moveBlock,
+  normalizeDropTarget,
   removeBlock,
   removeColumnFromRow,
   replaceBlock,
@@ -479,5 +481,59 @@ describe("flattenIds", () => {
   it("returns rows and nested leaves in visual order", () => {
     const { blocks, rowA, textA, textTop, rowB, textB } = fixture();
     expect(flattenIds(blocks)).toEqual([rowA.id, textA.id, textTop.id, rowB.id, textB.id]);
+  });
+});
+
+describe("normalizeDropTarget", () => {
+  it("maps the canvas root and empty ids to undefined (top level)", () => {
+    expect(normalizeDropTarget(CANVAS_ROOT_ID)).toBeUndefined();
+    expect(normalizeDropTarget(undefined)).toBeUndefined();
+    expect(normalizeDropTarget(null)).toBeUndefined();
+  });
+
+  it("passes real element ids through unchanged", () => {
+    expect(normalizeDropTarget("col-a")).toBe("col-a");
+    expect(normalizeDropTarget("some-block-id")).toBe("some-block-id");
+  });
+});
+
+describe("dropping on the canvas root", () => {
+  it("appends a palette block to the top level of an empty tree", () => {
+    const added = textBlock();
+    const next = addBlockFromPalette([], added, normalizeDropTarget(CANVAS_ROOT_ID));
+    expect(next).toHaveLength(1);
+    expect(next[0].id).toBe(added.id);
+  });
+
+  it("appends a palette block to the top level of a non-empty tree", () => {
+    const { blocks, textTop } = fixture();
+    const added = textBlock();
+    const next = addBlockFromPalette(blocks, added, normalizeDropTarget(CANVAS_ROOT_ID));
+    expect(next).toHaveLength(4);
+    expect(next[3].id).toBe(added.id);
+    expect(findBlock(next, textTop.id)).not.toBeNull();
+  });
+
+  it("lifts a nested block out to the top level when dropped on the canvas", () => {
+    const { blocks, rowA, rowB, textA, textB, textTop } = fixture();
+    const next = moveBlock(blocks, textA.id, normalizeDropTarget(CANVAS_ROOT_ID));
+    // rowA keeps its (now empty) column, and textA moves to the end.
+    expect(flattenIds(next)).toEqual([rowA.id, textTop.id, rowB.id, textB.id, textA.id]);
+    expect(findColumnForBlock(next, textA.id)).toBeNull();
+    expect(findBlock(next, textA.id)).not.toBeNull();
+  });
+
+  it("no-ops for a block that is already at the top level", () => {
+    const { blocks, textTop } = fixture();
+    const next = moveBlock(blocks, textTop.id, normalizeDropTarget(CANVAS_ROOT_ID));
+    expect(next).toBe(blocks);
+  });
+
+  it("inserts a layout block at the top level", () => {
+    const { blocks } = fixture();
+    const { blocks: next } = insertLayoutBlock(blocks, "two-halves", {
+      overId: normalizeDropTarget(CANVAS_ROOT_ID),
+    });
+    expect(next).toHaveLength(4);
   });
 });

@@ -10,6 +10,7 @@ import {
   useSensor,
   useSensors,
   pointerWithin,
+  type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
@@ -40,6 +41,7 @@ import {
   flattenIds,
   insertLayoutBlock,
   moveBlock,
+  normalizeDropTarget,
   removeBlock as removeBlockFromTree,
   duplicateColumn,
   removeColumnFromRow,
@@ -48,6 +50,7 @@ import {
   updateBlockProps as updatePropsInTree,
   updateColumnProps,
 } from "@/lib/page-builder/tree";
+import { innermostPointerWithin } from "@/lib/page-builder/collision";
 import { stripHtml, validateBlock } from "@/lib/page-builder/validate";
 import BlockPalette, { type PaletteSnippet } from "./BlockPalette";
 import BuilderCanvas from "./BuilderCanvas";
@@ -529,6 +532,18 @@ export default function PageBuilder({
     [onSetStatus, pageId],
   );
 
+  /* ---- Collision detection ----
+     Palette/snippet drags resolve to the innermost element under the pointer so a
+     drop lands where the user aimed; the canvas root is the fallback. Reordering
+     existing blocks keeps the stock pointerWithin/closestCenter behaviour. */
+  const collisionDetection: CollisionDetection = useCallback(
+    (args) => {
+      if (activeDrag?.source === "canvas") return pointerWithin(args);
+      return innermostPointerWithin(args);
+    },
+    [activeDrag],
+  );
+
   // ---- Drag & drop ----
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const id = String(event.active.id);
@@ -560,16 +575,12 @@ export default function PageBuilder({
       setActiveDrag(null);
       if (!over) return;
       const activeId = String(active.id);
-      const overId = String(over.id);
+      const overId = normalizeDropTarget(String(over.id));
 
       if (activeId.startsWith(PALETTE_PREFIX)) {
         const type = activeId.slice(PALETTE_PREFIX.length) as BlockType;
         const newBlock = createBlock(type);
-        if (isRowBlock(newBlock)) {
-          commit((prev) => addBlockFromPalette(prev, newBlock, overId));
-        } else {
-          commit((prev) => addBlockFromPalette(prev, newBlock, overId));
-        }
+        commit((prev) => addBlockFromPalette(prev, newBlock, overId));
         setSelectedId(newBlock.id);
         return;
       }
@@ -759,7 +770,7 @@ export default function PageBuilder({
 
       <DndContext
         sensors={sensors}
-        collisionDetection={pointerWithin}
+        collisionDetection={collisionDetection}
         measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}

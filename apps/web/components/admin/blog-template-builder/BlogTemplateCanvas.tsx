@@ -8,7 +8,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Block, RowBlock, ColumnData } from "@/lib/page-builder/types";
-import { isRowBlock, isSectionBlock } from "@/lib/page-builder/types";
+import { isRowBlock, isSectionBlock, CANVAS_ROOT_ID } from "@/lib/page-builder/types";
 import { resolveColumnWidths, canvasColumnSpanClass } from "@/lib/page-builder/spans";
 import { validateBlock } from "@/lib/page-builder/validate";
 import type { ContainerSettings } from "@/lib/blog-template/types";
@@ -415,7 +415,7 @@ export default function BlogTemplateCanvas({
   onDuplicate: (id: string) => void;
   onAddRowToSection: (sectionId: string) => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: "canvas-root" });
+  const { setNodeRef, isOver } = useDroppable({ id: CANVAS_ROOT_ID });
 
   const outerStyle: React.CSSProperties = {
     backgroundColor: containerSettings.bgColor,
@@ -489,36 +489,40 @@ export default function BlogTemplateCanvas({
       )}
 
       <div style={{ ...innerStyle, position: "relative", zIndex: 1 }}>
-        <SortableContext
-          items={blocks.map((b) => b.id)}
-          strategy={verticalListSortingStrategy}
-        >
-          <div className="space-y-3" style={{ flex: 1 }}>
-            {blocks.map((b) => (
-              <SortableBlock
-                key={b.id}
-                block={b}
-                viewport={viewport}
-                selectedId={selectedId}
-                selectedColumnId={selectedColumnId}
-                onSelect={onSelect}
-                onSelectColumn={onSelectColumn}
-                onRemove={onRemove}
-                onDuplicate={onDuplicate}
-                onAddRowToSection={onAddRowToSection}
-              />
-            ))}
-          </div>
-        </SortableContext>
-        {blocks.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
+        {blocks.length === 0 ? (
+          /* The container above is a flex row, so the hint must replace the block
+             list rather than sit beside it — otherwise the `flex: 1` list claims
+             the full width and shoves the hint off the right edge. */
+          <div className="flex w-full min-w-0 flex-1 flex-col items-center justify-center py-16 text-center">
             <p className="text-sm text-zinc-400">
-              Drag blocks from the left panel to build your blog template
+              Drag blocks from the block palette to build your blog template
             </p>
             <p className="mt-1 text-xs text-zinc-300">
               Start with a Row or Section container
             </p>
           </div>
+        ) : (
+          <SortableContext
+            items={blocks.map((b) => b.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-3" style={{ flex: 1, minWidth: 0 }}>
+              {blocks.map((b) => (
+                <SortableBlock
+                  key={b.id}
+                  block={b}
+                  viewport={viewport}
+                  selectedId={selectedId}
+                  selectedColumnId={selectedColumnId}
+                  onSelect={onSelect}
+                  onSelectColumn={onSelectColumn}
+                  onRemove={onRemove}
+                  onDuplicate={onDuplicate}
+                  onAddRowToSection={onAddRowToSection}
+                />
+              ))}
+            </div>
+          </SortableContext>
         )}
       </div>
     </div>

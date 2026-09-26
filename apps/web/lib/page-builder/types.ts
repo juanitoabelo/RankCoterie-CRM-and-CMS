@@ -793,6 +793,14 @@ export const LAYOUT_PREFIX = "layout:";
 /** Id prefix used by draggable snippet items. */
 export const SNIPPET_PREFIX = "snippet:";
 
+/**
+ * Droppable id standing for the visual canvas as a whole, as opposed to a
+ * specific block/row/column. Registering it means a drag from the palette always
+ * has a target — including on an empty canvas, where no element anchors exist.
+ * `normalizeDropTarget` maps it to "top level" for the tree helpers.
+ */
+export const CANVAS_ROOT_ID = "__canvas__";
+
 export interface BlockDefinition {
   type: BlockType;
   label: string;

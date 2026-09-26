@@ -5,7 +5,7 @@ import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import type { Block } from "@/lib/page-builder/types";
 import { findBlock } from "@/lib/page-builder/tree";
-import { PB_CONTAINER, PB_EL_ATTR, PB_KIND_ATTR } from "./constants";
+import { PB_CANVAS_ROOT, PB_CONTAINER, PB_EL_ATTR, PB_KIND_ATTR } from "./constants";
 import { blockIcon, blockLabel, kindLabel } from "./labels";
 import { enableInlineTextEdit, resolveEditableFields } from "./InlineTextEditing";
 import { useElementGeometry, type PbRect } from "./useElementGeometry";
@@ -261,6 +261,21 @@ export default function VisualEditorCanvas({
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ id: string; field: string } | null>(null);
 
+  /* The whole canvas is always a drop target, so a palette drag has somewhere to
+     land even when the canvas is empty (no `data-pb-el` anchors exist yet) or the
+     pointer is over container padding rather than over a specific element. */
+  const { setNodeRef: setRootDropRef, isOver: isOverRoot } = useDroppable({
+    id: PB_CANVAS_ROOT,
+  });
+
+  const setCanvasRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      canvasRef.current = node;
+      setRootDropRef(node);
+    },
+    [canvasRef, setRootDropRef],
+  );
+
   const metaById = useMemo(() => {
     const m = new Map<string, PbMeta>();
     for (const meta of collectElementMeta(blocks)) m.set(meta.id, meta);
@@ -406,30 +421,32 @@ export default function VisualEditorCanvas({
 
   /* ── Render ──────────────────────────────────────────────────────── */
 
-  if (blocks.length === 0) {
-    return (
-      <div
-        className="flex min-h-[280px] items-center justify-center rounded-xl border-2 border-dashed border-zinc-300 bg-white"
-        onClick={() => onSelect(null)}
-      >
-        <p className="text-sm text-zinc-400">{emptyHint}</p>
-      </div>
-    );
-  }
+  const isEmpty = blocks.length === 0;
 
   return (
     <div
-      ref={canvasRef}
+      ref={setCanvasRef}
       className="ve-canvas relative"
-      onMouseOver={handleHover}
-      onMouseLeave={() => setHoverId(null)}
+      onMouseOver={isEmpty ? undefined : handleHover}
+      onMouseLeave={isEmpty ? undefined : () => setHoverId(null)}
       onClick={handleCanvasClick}
       onDoubleClick={handleDoubleClick}
     >
       <style>{VeCss}</style>
 
       {/* True front-end render */}
-      <div className="ve-live">{renderLive}</div>
+      {isEmpty ? (
+        <div
+          className={`flex min-h-[280px] items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
+            isOverRoot ? "border-blue-400 bg-blue-50/60" : "border-zinc-300 bg-white"
+          }`}
+          onClick={() => onSelect(null)}
+        >
+          <p className="text-sm text-zinc-400">{emptyHint}</p>
+        </div>
+      ) : (
+        <div className="ve-live">{renderLive}</div>
+      )}
 
       {/* Empty-column hint */}
       {Array.from(rects.entries()).map(([id, rect]) => {
@@ -452,7 +469,7 @@ export default function VisualEditorCanvas({
       {/* Droppable anchors for every element */}
       {Array.from(rects.entries()).map(([id, rect]) => {
         if (id === PB_CONTAINER) return null;
-        if (id === "__canvas__") return null;
+        if (id === PB_CANVAS_ROOT) return null;
         if (!metaById.has(id)) return null;
         return <Anchor key={id} id={id} rect={rect} />;
       })}
@@ -490,12 +507,14 @@ export default function VisualEditorCanvas({
       )}
 
       {/* Hint bar */}
-      <div
-        data-pb-canvas-ui
-        className="pointer-events-none absolute bottom-1 left-1/2 z-20 hidden -translate-x-1/2 rounded-full bg-zinc-900/70 px-3 py-1 text-[10px] text-zinc-200 lg:block"
-      >
-        Click to select · Double-click text to edit · Drag ⠿ to move · ⌫ to delete
-      </div>
+      {!isEmpty && (
+        <div
+          data-pb-canvas-ui
+          className="pointer-events-none absolute bottom-1 left-1/2 z-20 hidden -translate-x-1/2 rounded-full bg-zinc-900/70 px-3 py-1 text-[10px] text-zinc-200 lg:block"
+        >
+          Click to select · Double-click text to edit · Drag ⠿ to move · ⌫ to delete
+        </div>
+      )}
     </div>
   );
 }
