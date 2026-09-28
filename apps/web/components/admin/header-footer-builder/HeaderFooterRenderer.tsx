@@ -42,6 +42,7 @@ import {
   needsClientGate,
 } from "../page-builder/renderHelpers";
 import { BlockAdvancedFrame, DisplayConditionGate } from "../page-builder/advanced-ui";
+import { spacingSideWithFallback, spacingToCssParts, type PartialSpacing } from "@/lib/spacing";
 
 /* ── Menu Context ──────────────────────────────────────────────────────── */
 
@@ -752,18 +753,21 @@ function RowRenderer({ block }: { block: Block }) {
     bgGradientAngle: p.bgGradientAngle,
   });
 
+  const rowSpacing = spacingToCssParts(p.padding);
+  const rowMargin = spacingToCssParts(p.margin);
+
   const rowStyle: React.CSSProperties = {
     width: "100%",
     ...bgStyle,
     color: p.textColor,
-    paddingTop: p.padding?.top ?? p.paddingY,
-    paddingRight: p.padding?.right,
-    paddingBottom: p.padding?.bottom ?? p.paddingY,
-    paddingLeft: p.padding?.left,
-    marginTop: p.margin?.top,
-    marginRight: p.margin?.right,
-    marginBottom: p.margin?.bottom,
-    marginLeft: p.margin?.left,
+    paddingTop: spacingSideWithFallback(p.padding?.top, p.paddingY),
+    paddingRight: rowSpacing.right,
+    paddingBottom: spacingSideWithFallback(p.padding?.bottom, p.paddingY),
+    paddingLeft: rowSpacing.left,
+    marginTop: rowMargin.top,
+    marginRight: rowMargin.right,
+    marginBottom: rowMargin.bottom,
+    marginLeft: rowMargin.left,
     borderStyle: p.borderStyle !== "none" ? p.borderStyle : undefined,
     borderWidth: p.borderWidth,
     borderColor: p.borderColor,
@@ -853,6 +857,8 @@ function RowRenderer({ block }: { block: Block }) {
         {p.columns.map((col: any, idx: number) => {
           const widths = resolveColumnWidths(col, p.stackOnMobile);
           const spanClass = renderColumnSpanClass(widths);
+          const colMargin = spacingToCssParts(col.margin);
+          const colPad = spacingToCssParts(col.padding);
           const colStyle: React.CSSProperties = {
             backgroundColor: col.bgColor,
             backgroundImage: col.bgImage ? `url(${col.bgImage})` : undefined,
@@ -864,14 +870,14 @@ function RowRenderer({ block }: { block: Block }) {
             borderColor: col.borderColor,
             borderRadius: col.borderRadius,
             boxShadow: col.boxShadow,
-            marginTop: col.margin?.top ? `${col.margin.top}px` : undefined,
-            marginRight: col.margin?.right ? `${col.margin.right}px` : undefined,
-            marginBottom: col.margin?.bottom ? `${col.margin.bottom}px` : undefined,
-            marginLeft: col.margin?.left ? `${col.margin.left}px` : undefined,
-            paddingTop: col.padding?.top ? `${col.padding.top}px` : undefined,
-            paddingRight: col.padding?.right ? `${col.padding.right}px` : undefined,
-            paddingBottom: col.padding?.bottom ? `${col.padding.bottom}px` : undefined,
-            paddingLeft: col.padding?.left ? `${col.padding.left}px` : undefined,
+            marginTop: colMargin.top,
+            marginRight: colMargin.right,
+            marginBottom: colMargin.bottom,
+            marginLeft: colMargin.left,
+            paddingTop: colPad.top,
+            paddingRight: colPad.right,
+            paddingBottom: colPad.bottom,
+            paddingLeft: colPad.left,
             zIndex: col.zindex,
             position: "relative" as const,
             display: "flex",
@@ -1539,8 +1545,8 @@ function SectionRenderer({ block }: { block: Block }) {
     boxShadow?: string;
     paddingTop?: number;
     paddingBottom?: number;
-    margin?: { top: number; right: number; bottom: number; left: number };
-    padding?: { top: number; right: number; bottom: number; left: number };
+    margin?: PartialSpacing;
+    padding?: PartialSpacing;
     zindex?: number;
     cssId?: string;
     cssClasses?: string;
@@ -1581,6 +1587,9 @@ function SectionRenderer({ block }: { block: Block }) {
     bgGradientAngle: p.bgGradientAngle,
   });
 
+  const sectionMargin = spacingToCssParts(p.margin);
+  const sectionPad = spacingToCssParts(p.padding);
+
   const outerStyle: React.CSSProperties = {
     width: "100%",
     ...bgStyle,
@@ -1590,14 +1599,14 @@ function SectionRenderer({ block }: { block: Block }) {
     borderColor: p.borderColor,
     borderRadius: p.borderRadius,
     boxShadow: p.boxShadow,
-    marginTop: p.margin?.top,
-    marginRight: p.margin?.right,
-    marginBottom: p.margin?.bottom,
-    marginLeft: p.margin?.left,
-    paddingTop: p.padding?.top ?? p.paddingTop,
-    paddingRight: p.padding?.right,
-    paddingBottom: p.padding?.bottom ?? p.paddingBottom,
-    paddingLeft: p.padding?.left,
+    marginTop: sectionMargin.top,
+    marginRight: sectionMargin.right,
+    marginBottom: sectionMargin.bottom,
+    marginLeft: sectionMargin.left,
+    paddingTop: spacingSideWithFallback(p.padding?.top, p.paddingTop),
+    paddingRight: sectionPad.right,
+    paddingBottom: spacingSideWithFallback(p.padding?.bottom, p.paddingBottom),
+    paddingLeft: sectionPad.left,
     zIndex: p.zindex || undefined,
     position: "relative",
     overflow: p.overflow && p.overflow !== "default" ? p.overflow : undefined,
@@ -1727,6 +1736,8 @@ export default function HeaderFooterRenderer({
   containerSettings?: ContainerSettings;
   menus?: MenuData;
 }) {
+  const containerMargin = spacingToCssParts(containerSettings.margin);
+  const containerPad = spacingToCssParts(containerSettings.padding);
   const outerStyle: React.CSSProperties = {
     width: "100%",
     backgroundColor: containerSettings.bgColor,
@@ -1738,14 +1749,14 @@ export default function HeaderFooterRenderer({
     borderWidth: containerSettings.borderWidth,
     borderColor: containerSettings.borderColor,
     borderRadius: containerSettings.borderRadius,
-    marginTop: containerSettings.margin.top,
-    marginRight: containerSettings.margin.right,
-    marginBottom: containerSettings.margin.bottom,
-    marginLeft: containerSettings.margin.left,
-    paddingTop: containerSettings.padding.top,
-    paddingRight: containerSettings.padding.right,
-    paddingBottom: containerSettings.padding.bottom,
-    paddingLeft: containerSettings.padding.left,
+    marginTop: containerMargin.top,
+    marginRight: containerMargin.right,
+    marginBottom: containerMargin.bottom,
+    marginLeft: containerMargin.left,
+    paddingTop: containerPad.top,
+    paddingRight: containerPad.right,
+    paddingBottom: containerPad.bottom,
+    paddingLeft: containerPad.left,
     position: "relative",
     overflow: "hidden",
   };

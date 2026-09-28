@@ -1,3 +1,5 @@
+import type { PartialSpacing } from "../spacing";
+
 export interface BlockBase {
   id: string;
   type: string;
@@ -69,8 +71,8 @@ export interface ImageBlock extends BlockBase {
     borderRadiusLeft?: number;
     boxShadow?: string;
     // Advanced
-    margin?: { top: number; right: number; bottom: number; left: number };
-    padding?: { top: number; right: number; bottom: number; left: number };
+    margin?: PartialSpacing;
+    padding?: PartialSpacing;
     width?: "default" | "full" | "boxed" | "custom";
     alignSelf?: "auto" | "flex-start" | "center" | "flex-end" | "stretch";
     zIndex?: number;
@@ -540,8 +542,8 @@ export interface ColumnData {
   borderRadius?: number;
   boxShadow?: string;
   // Advanced
-  margin?: { top: number; right: number; bottom: number; left: number };
-  padding?: { top: number; right: number; bottom: number; left: number };
+  margin?: PartialSpacing;
+  padding?: PartialSpacing;
   zindex?: number;
   cssId?: string;
   cssClasses?: string;
@@ -579,8 +581,8 @@ export interface RowBlock extends BlockBase {
     linkColor?: string;
     linkHoverColor?: string;
     paddingY?: number; // vertical padding in px (legacy)
-    padding?: { top: number; right: number; bottom: number; left: number }; // per-side padding
-    margin?: { top: number; right: number; bottom: number; left: number };
+    padding?: PartialSpacing; // per-side padding
+    margin?: PartialSpacing;
     fullWidth?: boolean; // stretch the row edge-to-edge (no horizontal padding)
     borderStyle?: "none" | "solid" | "dashed" | "dotted";
     borderWidth?: number;
@@ -700,8 +702,8 @@ export interface SectionBlock extends BlockBase {
     // Advanced
     paddingTop?: number;
     paddingBottom?: number;
-    margin?: { top: number; right: number; bottom: number; left: number };
-    padding?: { top: number; right: number; bottom: number; left: number };
+    margin?: PartialSpacing;
+    padding?: PartialSpacing;
     zindex?: number;
     cssId?: string;
     cssClasses?: string;

@@ -114,7 +114,9 @@ export function parseSizeValue(s: string | undefined, defaultUnit: SizeUnit = "p
   };
 }
 
-export type SpacingValues = { top: number; right: number; bottom: number; left: number };
+export type { SpacingValues } from "@/lib/spacing";
+import type { SpacingValues, PartialSpacing } from "@/lib/spacing";
+import { setSpacingSide, spacingSideNumber, detectSpacingUnit, SPACING_UNITS, type SpacingUnit } from "@/lib/spacing";
 
 /**
  * Spacing input with T/R/B/L fields and optional link toggle.
@@ -127,14 +129,13 @@ export function SpacingInput({
   onToggleLinked,
 }: {
   label: string;
-  value: SpacingValues;
+  value: PartialSpacing;
   onChange: (v: SpacingValues) => void;
   linked: boolean;
   onToggleLinked: () => void;
 }) {
   const set = (key: keyof SpacingValues, val: number) => {
-    if (linked) onChange({ top: val, right: val, bottom: val, left: val });
-    else onChange({ ...value, [key]: val });
+    onChange(setSpacingSide(value, key, val, linked));
   };
 
   return (
@@ -147,7 +148,7 @@ export function SpacingInput({
       </div>
       <div className="mt-1 grid grid-cols-4 gap-1">
         {(["top", "right", "bottom", "left"] as const).map((side) => (
-          <input key={side} type="number" value={value[side]} onChange={(e) => set(side, Number(e.target.value) || 0)} className="w-full rounded border border-zinc-300 px-2 py-1.5 text-center text-xs" placeholder={side[0].toUpperCase()} />
+          <input key={side} type="number" value={spacingSideNumber(value?.[side])} onChange={(e) => set(side, Number(e.target.value) || 0)} className="w-full rounded border border-zinc-300 px-2 py-1.5 text-center text-xs" placeholder={side[0].toUpperCase()} />
         ))}
       </div>
       <div className="mt-0.5 flex justify-between px-1">
@@ -156,6 +157,35 @@ export function SpacingInput({
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * Unit dropdown for a spacing group. Changing it rewrites all four sides in the
+ * new unit, preserving each side's numeric part, so a single dropdown can still
+ * drive a shape that permits per-side mixed units.
+ */
+export function SpacingUnitSelect({
+  value,
+  onChange,
+  className = "rounded border border-zinc-300 px-1 py-0.5 text-[10px]",
+}: {
+  value: PartialSpacing;
+  onChange: (unit: SizeUnit & SpacingUnit) => void;
+  className?: string;
+}) {
+  const unit = detectSpacingUnit(value);
+  return (
+    <select
+      value={unit}
+      onChange={(e) => onChange(e.target.value as SpacingUnit)}
+      className={className}
+      aria-label="Spacing unit"
+    >
+      {SPACING_UNITS.map((u) => (
+        <option key={u} value={u}>{u}</option>
+      ))}
+    </select>
   );
 }
 

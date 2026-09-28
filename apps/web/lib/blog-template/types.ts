@@ -36,12 +36,12 @@ import { pickRowLayouts } from "../page-builder/types";
 /*  Container Settings (wraps entire blog template)                             */
 /* ──────────────────────────────────────────────────────────────────────────── */
 
-export interface SpacingValues {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
-}
+/**
+ * Re-exported so every builder shares one unit-aware spacing shape. Each side
+ * is a bare number (legacy, `px`) or a string carrying its own unit.
+ */
+export type { SpacingValues } from "../spacing";
+import type { SpacingValues } from "../spacing";
 
 export interface ContainerSettings {
   width: "full" | "boxed";

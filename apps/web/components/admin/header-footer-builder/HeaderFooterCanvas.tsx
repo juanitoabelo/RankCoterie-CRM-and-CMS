@@ -12,6 +12,7 @@ import { isRowBlock, isSectionBlock, CANVAS_ROOT_ID } from "@/lib/page-builder/t
 import { resolveColumnWidths, canvasColumnSpanClass } from "@/lib/page-builder/spans";
 import { validateBlock } from "@/lib/page-builder/validate";
 import type { ContainerSettings } from "@/lib/header-footer/types";
+import { spacingToCssParts } from "@/lib/spacing";
 import { HeaderFooterBlockRenderer } from "./HeaderFooterRenderer";
 
 /* ── Sortable Block Wrapper ─────────────────────────────────────────────── */
@@ -417,6 +418,9 @@ export default function HeaderFooterCanvas({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: CANVAS_ROOT_ID });
 
+  const containerMargin = spacingToCssParts(containerSettings.margin);
+  const containerPad = spacingToCssParts(containerSettings.padding);
+
   const outerStyle: React.CSSProperties = {
     backgroundColor: containerSettings.bgColor,
     backgroundImage: containerSettings.bgImage ? `url(${containerSettings.bgImage})` : undefined,
@@ -427,14 +431,14 @@ export default function HeaderFooterCanvas({
     borderWidth: containerSettings.borderWidth,
     borderColor: containerSettings.borderColor,
     borderRadius: containerSettings.borderRadius,
-    marginTop: containerSettings.margin.top,
-    marginRight: containerSettings.margin.right,
-    marginBottom: containerSettings.margin.bottom,
-    marginLeft: containerSettings.margin.left,
-    paddingTop: containerSettings.padding.top,
-    paddingRight: containerSettings.padding.right,
-    paddingBottom: containerSettings.padding.bottom,
-    paddingLeft: containerSettings.padding.left,
+    marginTop: containerMargin.top,
+    marginRight: containerMargin.right,
+    marginBottom: containerMargin.bottom,
+    marginLeft: containerMargin.left,
+    paddingTop: containerPad.top,
+    paddingRight: containerPad.right,
+    paddingBottom: containerPad.bottom,
+    paddingLeft: containerPad.left,
     position: "relative" as const,
     overflow: "hidden",
   };

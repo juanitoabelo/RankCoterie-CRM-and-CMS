@@ -1,6 +1,7 @@
 import React from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { styleScopeClass } from "@/lib/page-builder/style";
+import { spacingSideToCss } from "@/lib/spacing";
 
 /* ── Dynamic HTML Tag ──────────────────────────────────────────────────── */
 
@@ -349,10 +350,7 @@ export function buildTransformCss(
 /* ── Advanced: Spacing ──────────────────────────────────────────────────── */
 
 export function spacingToCss(v: number | string | undefined): string | undefined {
-  if (v === undefined || v === null) return undefined;
-  if (typeof v === "number") return v === 0 ? undefined : `${v}px`;
-  if (typeof v === "string") return v || undefined;
-  return undefined;
+  return spacingSideToCss(v);
 }
 
 export interface SpacingValue {

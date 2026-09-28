@@ -3,9 +3,11 @@
 import { useState } from "react";
 import type { SectionBlock } from "@/lib/page-builder/types";
 import type { SpacingValues } from "@/lib/header-footer/types";
+import type { PartialSpacing } from "@/lib/spacing";
+import { retuneSpacing, setSpacingSide, spacingSideNumber } from "@/lib/spacing";
 import { DEFAULT_SECTION_LAYOUT, DEFAULT_STYLE_SETTINGS, DEFAULT_ADVANCED_SETTINGS } from "@/lib/header-footer/types";
 import GlobalColorPicker from "./GlobalColorPicker";
-import { BackgroundFields } from "../page-builder/settings";
+import { BackgroundFields, SpacingUnitSelect } from "../page-builder/settings";
 
 type Props = {
   block: SectionBlock;
@@ -64,14 +66,13 @@ function SpacingInput({
   onToggleLinked,
 }: {
   label: string;
-  value: SpacingValues;
+  value: PartialSpacing;
   onChange: (v: SpacingValues) => void;
   linked: boolean;
   onToggleLinked: () => void;
 }) {
   const set = (key: keyof SpacingValues, val: number) => {
-    if (linked) onChange({ top: val, right: val, bottom: val, left: val });
-    else onChange({ ...value, [key]: val });
+    onChange(setSpacingSide(value, key, val, linked));
   };
 
   return (
@@ -84,7 +85,7 @@ function SpacingInput({
       </div>
       <div className="mt-1 grid grid-cols-4 gap-1">
         {(["top", "right", "bottom", "left"] as const).map((side) => (
-          <input key={side} type="number" value={value[side]} onChange={(e) => set(side, Number(e.target.value) || 0)} className="w-full rounded border border-zinc-300 px-2 py-1.5 text-center text-xs" placeholder={side[0].toUpperCase()} />
+          <input key={side} type="number" value={spacingSideNumber(value?.[side])} onChange={(e) => set(side, Number(e.target.value) || 0)} className="w-full rounded border border-zinc-300 px-2 py-1.5 text-center text-xs" placeholder={side[0].toUpperCase()} />
         ))}
       </div>
       <div className="mt-0.5 flex justify-between px-1">
@@ -443,8 +444,8 @@ function AdvancedTab({ block, onChange }: { block: SectionBlock; onChange: (p: S
   const [openSection, setOpenSection] = useState<string | null>("advanced");
   const p = block.props;
 
-  const margin: SpacingValues = p.margin ?? { top: 0, right: 0, bottom: 0, left: 0 };
-  const padding: SpacingValues = p.padding ?? {
+  const margin: PartialSpacing = p.margin ?? { top: 0, right: 0, bottom: 0, left: 0 };
+  const padding: PartialSpacing = p.padding ?? {
     top: p.paddingTop ?? 0,
     right: 0,
     bottom: p.paddingBottom ?? 0,
@@ -465,11 +466,10 @@ function AdvancedTab({ block, onChange }: { block: SectionBlock; onChange: (p: S
           <div className="flex items-center justify-between">
             <span className={labelCls}>Margin</span>
             <div className="flex items-center gap-1">
-              <select value="px" className="rounded border border-zinc-300 px-1 py-0.5 text-[10px]">
-                <option value="px">px</option>
-                <option value="%">%</option>
-                <option value="em">em</option>
-              </select>
+              <SpacingUnitSelect
+                value={margin}
+                onChange={(unit) => onChange({ ...p, margin: retuneSpacing(margin, unit) })}
+              />
             </div>
           </div>
           <SpacingInput label="" value={margin} onChange={(v) => onChange({ ...p, margin: v })} linked={marginLinked} onToggleLinked={() => setMarginLinked(!marginLinked)} />
@@ -477,14 +477,13 @@ function AdvancedTab({ block, onChange }: { block: SectionBlock; onChange: (p: S
           <div className="flex items-center justify-between">
             <span className={labelCls}>Padding</span>
             <div className="flex items-center gap-1">
-              <select value="px" className="rounded border border-zinc-300 px-1 py-0.5 text-[10px]">
-                <option value="px">px</option>
-                <option value="%">%</option>
-                <option value="em">em</option>
-              </select>
+              <SpacingUnitSelect
+                value={padding}
+                onChange={(unit) => onChange({ ...p, padding: retuneSpacing(padding, unit) })}
+              />
             </div>
           </div>
-          <SpacingInput label="" value={padding} onChange={(v) => onChange({ ...p, padding: v, paddingTop: v.top, paddingBottom: v.bottom })} linked={paddingLinked} onToggleLinked={() => setPaddingLinked(!paddingLinked)} />
+          <SpacingInput label="" value={padding} onChange={(v) => onChange({ ...p, padding: v, paddingTop: spacingSideNumber(v.top), paddingBottom: spacingSideNumber(v.bottom) })} linked={paddingLinked} onToggleLinked={() => setPaddingLinked(!paddingLinked)} />
 
           <div>
             <div className="flex items-center justify-between">

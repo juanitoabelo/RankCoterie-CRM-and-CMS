@@ -3,6 +3,8 @@
 import { useState } from "react";
 import type { ContainerSettings } from "@/lib/page-layout/types";
 import { DEFAULT_CONTAINER_SETTINGS } from "@/lib/page-layout/types";
+import type { SpacingValues, PartialSpacing } from "@/lib/spacing";
+import { setSpacingSide, spacingSideNumber } from "@/lib/spacing";
 import GlobalColorPicker from "../header-footer-builder/GlobalColorPicker";
 import { BackgroundFields } from "../page-builder/settings";
 
@@ -29,17 +31,13 @@ function SpacingInput({
   onToggleLinked,
 }: {
   label: string;
-  value: { top: number; right: number; bottom: number; left: number };
-  onChange: (v: { top: number; right: number; bottom: number; left: number }) => void;
+  value: PartialSpacing;
+  onChange: (v: SpacingValues) => void;
   linked: boolean;
   onToggleLinked: () => void;
 }) {
-  const set = (key: keyof typeof value, val: number) => {
-    if (linked) {
-      onChange({ top: val, right: val, bottom: val, left: val });
-    } else {
-      onChange({ ...value, [key]: val });
-    }
+  const set = (key: keyof SpacingValues, val: number) => {
+    onChange(setSpacingSide(value, key, val, linked));
   };
 
   return (
@@ -60,7 +58,7 @@ function SpacingInput({
           <input
             key={side}
             type="number"
-            value={value[side]}
+            value={spacingSideNumber(value?.[side])}
             onChange={(e) => set(side, Number(e.target.value) || 0)}
             className="w-full rounded border border-zinc-300 px-2 py-1.5 text-center text-xs"
             placeholder={side[0].toUpperCase()}
