@@ -46,7 +46,7 @@ export default function AdminSidebar({
           href="/admin"
           className={`mb-3 block rounded-md px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 ${
             pathname === "/admin"
-              ? "bg-zinc-900 text-white hover:bg-zinc-800"
+              ? "bg-zinc-900 text-white !text-white hover:bg-zinc-800"
               : "text-zinc-900"
           }`}
         >
@@ -73,7 +73,7 @@ export default function AdminSidebar({
                       href={n.href ?? "#"}
                       className={`mb-0.5 block rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                         active
-                          ? "bg-zinc-900 text-white hover:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+                          ? "bg-zinc-900 text-white !text-white hover:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
                           : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
                       }`}
                     >
