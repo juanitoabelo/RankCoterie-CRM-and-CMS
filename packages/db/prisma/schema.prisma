@@ -688,6 +688,28 @@ model Asset {
   subTopicFeaturedImage ContentTemplate?
 }
 
+/// A user-uploaded font file, grouped into a CSS family by `family`.
+/// Each row is one weight/style variant of that family; every row emits its own
+/// `@font-face` rule, so a family needs one row per weight it ships.
+model CustomFont {
+  id        String   @id @default(cuid())
+  tenantId  String
+  family    String // CSS family name, e.g. "Canopy Display"
+  weight    String   @default("400") // "100".."900" or "variable"
+  style     String   @default("normal") // normal | italic
+  mono      Boolean  @default(false) // use a monospace fallback in generated stacks
+  mimeType  String
+  size      Int
+  bytes     Bytes
+  filename  String?
+  createdAt DateTime @default(now())
+  createdBy String?
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, family, weight, style])
+  @@index([tenantId])
+}
+
 model AuditLog {
   id        String   @id @default(cuid())
   tenantId  String

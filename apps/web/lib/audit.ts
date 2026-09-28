@@ -75,7 +75,9 @@ export type AuditAction =
   | "HEADER_FOOTER_DELETE"
   | "HEADER_FOOTER_RESTORE"
   | "HEADER_FOOTER_ASSIGNMENTS_SAVE"
-  | "THEME_SETTINGS_UPDATE";
+  | "THEME_SETTINGS_UPDATE"
+  | "CUSTOM_FONT_UPLOAD"
+  | "CUSTOM_FONT_DELETE";
 
 export interface AuditInput {
   action: AuditAction;

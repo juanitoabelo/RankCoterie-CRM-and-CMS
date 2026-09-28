@@ -2,6 +2,8 @@ import Link from "next/link";
 import { getCurrentUser, isSuperAdmin, canAccessSection } from "@/modules/auth";
 import { adminLogout } from "./login/actions";
 import AdminSidebar from "./AdminSidebar";
+import { CustomFontProvider } from "@/components/admin/CustomFontProvider";
+import { loadCustomFontsSafe } from "@/lib/custom-fonts.server";
 
 type NavItem = {
   section: string;
@@ -116,15 +118,21 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     .map((g) => ({ ...g, items: visibleItems(g.items, can) }))
     .filter((g) => g.items.length > 0);
 
+  // Uploaded fonts feed every font-family dropdown in the admin, so they load
+  // once here and reach the builders through context.
+  const customFonts = user ? await loadCustomFontsSafe() : [];
+
   return (
-    <div className="flex min-h-screen bg-zinc-50 text-zinc-900">
-      <AdminSidebar
-        groups={visibleGroups}
-        userName={name ?? ""}
-        isSuperAdmin={user !== null && isSuperAdmin(user)}
-        logoutAction={adminLogout}
-      />
-      <main className="ml-60 flex-1 px-6 py-8">{children}</main>
-    </div>
+    <CustomFontProvider fonts={customFonts}>
+      <div className="flex min-h-screen bg-zinc-50 text-zinc-900">
+        <AdminSidebar
+          groups={visibleGroups}
+          userName={name ?? ""}
+          isSuperAdmin={user !== null && isSuperAdmin(user)}
+          logoutAction={adminLogout}
+        />
+        <main className="ml-60 flex-1 px-6 py-8">{children}</main>
+      </div>
+    </CustomFontProvider>
   );
 }

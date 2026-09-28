@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { inputCls, labelCls } from "./settings";
+import { useFontFamilyOptions } from "../CustomFontProvider";
+import type { FontFamilyOption } from "@/lib/custom-fonts";
 
 /* ── Types ───────────────────────────────────────────────────────────────── */
 
@@ -33,7 +35,7 @@ const ALIGN_OPTIONS = [
   { value: "justify", icon: "☰", label: "Justify" },
 ] as const;
 
-const FONT_FAMILIES = [
+const FONT_FAMILIES: FontFamilyOption[] = [
   { value: "", label: "Default" },
   { value: "inherit", label: "Inherit" },
   { value: "Arial, Helvetica, sans-serif", label: "Arial" },
@@ -53,6 +55,7 @@ const TEXT_DECORATIONS = ["none", "underline", "overline", "line-through"];
 export default function BlockStyleTab({ props: p, set, show, themeColors }: StyleTabProps) {
   const [activeColorTab, setActiveColorTab] = useState<"normal" | "hover">("normal");
   const sections = show ?? (["alignment", "typography", "textShadow", "paragraphSpacing", "textColor", "linkColor"] as StyleSection[]);
+  const fontFamilies = useFontFamilyOptions(FONT_FAMILIES);
 
   return (
     <div className="space-y-4">
@@ -90,8 +93,8 @@ export default function BlockStyleTab({ props: p, set, show, themeColors }: Styl
 
           <label className={labelCls}>Font Family
             <select className={inputCls} value={(p.fontFamily as string) || ""} onChange={(e) => set({ fontFamily: e.target.value || undefined })}>
-              {FONT_FAMILIES.map((f) => (
-                <option key={f.value} value={f.value}>{f.label}</option>
+              {fontFamilies.map((f) => (
+                <option key={f.value} value={f.value} style={f.custom ? { fontFamily: f.value } : undefined}>{f.label}</option>
               ))}
             </select>
           </label>

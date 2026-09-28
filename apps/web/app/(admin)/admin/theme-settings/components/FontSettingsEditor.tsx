@@ -2,6 +2,7 @@
 
 import type { FontSettings } from "@/lib/theme-settings";
 import { FONT_FAMILY_OPTIONS } from "@/lib/theme-settings";
+import { useFontFamilyOptions } from "@/components/admin/CustomFontProvider";
 
 const FONT_SIZE_FIELDS = [
   { key: "h1" as const, label: "H1" },
@@ -18,7 +19,19 @@ const DEVICES = [
   { key: "desktop" as const, label: "Desktop", icon: "🖥" },
 ];
 
+/**
+ * Monospace detection for the mono select. Uploaded families carry an explicit
+ * `mono` flag rather than relying on the stack sniffing below, so a custom
+ * monospace font still shows up here.
+ */
+function isMonospace(label: string, value: string, option: { custom?: boolean; mono?: boolean }): boolean {
+  if (option.custom) return option.mono === true;
+  return value.includes("monospace") || value.includes("Mono") || label === "Custom...";
+}
+
 export default function FontSettingsEditor({ fonts }: { fonts: FontSettings }) {
+  const fontOptions = useFontFamilyOptions(FONT_FAMILY_OPTIONS);
+
   return (
     <div className="space-y-5">
       {/* Font Families */}
@@ -34,7 +47,7 @@ export default function FontSettingsEditor({ fonts }: { fonts: FontSettings }) {
               defaultValue={fonts.heading}
               className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
             >
-              {FONT_FAMILY_OPTIONS.map((f) => (
+              {fontOptions.map((f) => (
                 <option key={f.value} value={f.value} style={{ fontFamily: f.value || undefined }}>
                   {f.label}
                 </option>
@@ -48,7 +61,7 @@ export default function FontSettingsEditor({ fonts }: { fonts: FontSettings }) {
               defaultValue={fonts.body}
               className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
             >
-              {FONT_FAMILY_OPTIONS.map((f) => (
+              {fontOptions.map((f) => (
                 <option key={f.value} value={f.value} style={{ fontFamily: f.value || undefined }}>
                   {f.label}
                 </option>
@@ -62,13 +75,13 @@ export default function FontSettingsEditor({ fonts }: { fonts: FontSettings }) {
               defaultValue={fonts.mono}
               className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
             >
-              {FONT_FAMILY_OPTIONS.filter((f) =>
-                f.value.includes("monospace") || f.value.includes("Mono") || f.label === "Custom..."
-              ).map((f) => (
-                <option key={f.value} value={f.value} style={{ fontFamily: f.value || undefined }}>
-                  {f.label}
-                </option>
-              ))}
+              {fontOptions
+                .filter((f) => isMonospace(f.label, f.value, f))
+                .map((f) => (
+                  <option key={f.value} value={f.value} style={{ fontFamily: f.value || undefined }}>
+                    {f.label}
+                  </option>
+                ))}
             </select>
           </label>
         </div>

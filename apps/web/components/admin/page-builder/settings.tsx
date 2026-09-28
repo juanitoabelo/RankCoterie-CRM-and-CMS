@@ -4,6 +4,7 @@ import { useState } from "react";
 import { FULL_COLUMN_SPANS } from "@/lib/page-builder/types";
 import type { StyleBreakpoints, TypographyStyle } from "@/lib/page-builder/types";
 import { FONT_FAMILY_PRESETS, STYLE_BREAKPOINTS } from "@/lib/page-builder/style";
+import { useFontFamilyOptions } from "../CustomFontProvider";
 import MediaLibraryPicker from "./MediaLibraryPicker";
 import GlobalColorPicker from "../header-footer-builder/GlobalColorPicker";
 
@@ -423,6 +424,7 @@ export function StyleGuideEditor({
   onChange: (style: StyleBreakpoints) => void;
 }) {
   const current: StyleBreakpoints = style ?? {};
+  const fontOptions = useFontFamilyOptions(FONT_FAMILY_PRESETS);
 
   const setBreakpoint = (key: keyof StyleBreakpoints, patch: Partial<TypographyStyle>) => {
     const merged = { ...current[key], ...patch } as TypographyStyle;
@@ -475,8 +477,8 @@ export function StyleGuideEditor({
                   onChange={(e) => setBreakpoint(bp.key, { fontFamily: e.target.value })}
                 >
                   <option value="">Inherit</option>
-                  {FONT_FAMILY_PRESETS.filter((p) => p.value).map((p) => (
-                    <option key={p.key} value={p.value}>
+                  {fontOptions.filter((p) => p.value).map((p) => (
+                    <option key={p.value} value={p.value} style={p.custom ? { fontFamily: p.value } : undefined}>
                       {p.label}
                     </option>
                   ))}

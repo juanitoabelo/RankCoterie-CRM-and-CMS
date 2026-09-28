@@ -3,6 +3,8 @@ import { Geist, Geist_Mono, Inter } from "next/font/google";
 import { prisma, TENANT_ID } from "@/modules/shared";
 import { DEFAULT_STYLE_GUIDE, renderGlobalStyleGuide, type StyleGuide } from "@/lib/style-guide";
 import { DEFAULT_THEME_SETTINGS, renderThemeSettingsCSS, type ThemeSettings } from "@/lib/theme-settings";
+import { renderCustomFontFaces } from "@/lib/custom-fonts";
+import { loadCustomFontsSafe } from "@/lib/custom-fonts.server";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -53,11 +55,13 @@ async function getThemeStyles() {
     },
   };
   const noindex = theme.readingSettings?.searchEngineVisibility === "hidden";
-  return { guide, themeSettings, noindex };
+  const customFonts = await loadCustomFontsSafe();
+  return { guide, themeSettings, noindex, customFonts };
 }
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const { guide, themeSettings, noindex } = await getThemeStyles();
+  const { guide, themeSettings, noindex, customFonts } = await getThemeStyles();
+  const fontFaceCSS = renderCustomFontFaces(customFonts);
 
   return (
     <html
@@ -65,8 +69,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} h-full antialiased`}
     >
       <head>
+        {fontFaceCSS && (
+          <style dangerouslySetInnerHTML={{ __html: fontFaceCSS }} />
+        )}
         <style dangerouslySetInnerHTML={{ __html: renderGlobalStyleGuide(guide) }} />
-        <style dangerouslySetInnerHTML={{ __html: renderThemeSettingsCSS(themeSettings) }} />
+        <style dangerouslySetInnerHTML={{ __html: renderThemeSettingsCSS(themeSettings, customFonts) }} />
         {noindex && <meta name="robots" content="noindex, nofollow" />}
       </head>
       <body className="min-h-full flex flex-col">{children}</body>

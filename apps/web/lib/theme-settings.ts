@@ -6,6 +6,8 @@
  * Unlike the per-block style guide, these are global defaults that blocks inherit.
  */
 
+import type { CustomFontFile } from "./custom-fonts";
+
 /* ──────────────────────────────────────────────────────────────────────────── */
 /*  Color Palette                                                             */
 /* ──────────────────────────────────────────────────────────────────────────── */
@@ -347,8 +349,15 @@ function esc(s: string): string {
 /**
  * Generate CSS variables and rules from theme settings.
  * Injected into the site layout <style> tag.
+ *
+ * `customFonts` are the tenant's uploaded families: they are self-hosted, so
+ * they must not be requested from Google, and the browser needs their
+ * `@font-face` rules (emitted separately by `renderCustomFontFaces`).
  */
-export function renderThemeSettingsCSS(settings: ThemeSettings): string {
+export function renderThemeSettingsCSS(
+  settings: ThemeSettings,
+  customFonts: CustomFontFile[] = [],
+): string {
   const { colors, fonts, layout, responsive } = settings;
   const { breakpoints, containerPadding } = responsive;
 
@@ -359,9 +368,10 @@ export function renderThemeSettingsCSS(settings: ThemeSettings): string {
         ? "gap-8"
         : "gap-6";
 
-  const googleFonts = collectGoogleFonts(fonts);
+  const googleFonts = collectGoogleFonts(fonts, customFonts);
+  // Params are already `+`-separated, so they must not be re-encoded.
   const fontLink = googleFonts.length
-    ? `@import url('https://fonts.googleapis.com/css2?${googleFonts.map((f) => `family=${encodeURIComponent(f)}`).join("&")}&display=swap');\n`
+    ? `@import url('https://fonts.googleapis.com/css2?${googleFonts.map((f) => `family=${f}`).join("&")}&display=swap');\n`
     : "";
 
   return `${fontLink}:root {
@@ -470,7 +480,7 @@ a:hover { color: var(--theme-link-hover, #1d4ed8); }
 }
 
 /** Extract unique Google Font family names from font settings. */
-function collectGoogleFonts(fonts: FontSettings): string[] {
+function collectGoogleFonts(fonts: FontSettings, customFonts: CustomFontFile[] = []): string[] {
   const families = new Set<string>();
   const googleKeywords: Record<string, string> = {
     Inter: "Inter",
@@ -497,8 +507,13 @@ function collectGoogleFonts(fonts: FontSettings): string[] {
     Pacifico: "Pacifico",
   };
 
+  // An uploaded family is served from our own origin, so never ask Google for
+  // it — even when its name happens to collide with a Google family.
+  const selfHosted = new Set(customFonts.map((f) => f.family));
+
   for (const stack of [fonts.heading, fonts.body, fonts.mono]) {
     for (const [name, param] of Object.entries(googleKeywords)) {
+      if (selfHosted.has(name)) continue;
       if (stack.includes(name)) families.add(param);
     }
   }

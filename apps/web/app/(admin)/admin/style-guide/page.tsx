@@ -1,5 +1,7 @@
 import { getStyleGuide, saveStyleGuideForm } from "./actions";
 import { FONT_STACKS } from "@/lib/style-guide";
+import { customFontOptions } from "@/lib/custom-fonts";
+import { loadCustomFonts } from "@/lib/custom-fonts.server";
 
 export const revalidate = 0;
 
@@ -16,6 +18,7 @@ const COLORS: { key: "background" | "text" | "accent" | "headingColor" | "linkCo
 
 export default async function StyleGuideAdminPage() {
   const guide = await getStyleGuide();
+  const fontStacks = [...FONT_STACKS, ...customFontOptions(await loadCustomFonts())];
 
   return (
     <div>
@@ -61,7 +64,7 @@ export default async function StyleGuideAdminPage() {
                 defaultValue={guide.fonts.heading}
                 className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
               >
-                {FONT_STACKS.map((f) => (
+                {fontStacks.map((f) => (
                   <option key={f.value} value={f.value} style={{ fontFamily: f.value }}>
                     {f.label}
                   </option>
@@ -75,7 +78,7 @@ export default async function StyleGuideAdminPage() {
                 defaultValue={guide.fonts.body}
                 className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
               >
-                {FONT_STACKS.map((f) => (
+                {fontStacks.map((f) => (
                   <option key={f.value} value={f.value} style={{ fontFamily: f.value }}>
                     {f.label}
                   </option>

@@ -10,6 +10,8 @@ import { SizeInput, SpacingInput } from "../page-builder/settings";
 import type { SizeValue, SpacingValues } from "../page-builder/settings";
 import BlockStyleTab from "../page-builder/BlockStyleTab";
 import BlockAdvancedTab from "../page-builder/BlockAdvancedTab";
+import { useFontFamilyOptions } from "../CustomFontProvider";
+import type { FontFamilyOption } from "@/lib/custom-fonts";
 import MediaLibraryPicker from "../page-builder/MediaLibraryPicker";
 import RowEditor from "./RowEditor";
 import SectionEditor from "./SectionEditor";
@@ -26,6 +28,17 @@ type EditorProps = {
 };
 
 const inputCls = "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm";
+
+/** Built-ins for the menu block's own font select. "Default"/"Inherit" are
+ *  rendered inline above it; uploaded families are appended by
+ *  `useFontFamilyOptions`. */
+const HEADER_FOOTER_FONT_FAMILIES: FontFamilyOption[] = [
+  { value: "Arial, sans-serif", label: "Arial" },
+  { value: "Georgia, serif", label: "Georgia" },
+  { value: "Times New Roman, serif", label: "Times" },
+  { value: "Courier New, monospace", label: "Courier" },
+  { value: "Verdana, sans-serif", label: "Verdana" },
+];
 const labelCls = "block text-xs font-medium text-zinc-600";
 
 /** Helper to create a setter that merges props and calls onChange with proper typing */
@@ -262,6 +275,7 @@ function MenuEditor({ block, onChange, themeColors }: EditorProps) {
   const p = block.props as Record<string, unknown>;
   const set = createSetter(block, onChange);
   const [activeTab, setActiveTab] = useState<"content" | "style" | "advanced">("content");
+  const headerFooterFonts = useFontFamilyOptions(HEADER_FOOTER_FONT_FAMILIES);
 
   return (
     <div className="space-y-3">
@@ -410,11 +424,11 @@ function MenuEditor({ block, onChange, themeColors }: EditorProps) {
               <select value={(p.fontFamily as string) || ""} onChange={(e) => set({ fontFamily: e.target.value })} className={inputCls}>
                 <option value="">Default</option>
                 <option value="inherit">Inherit</option>
-                <option value="Arial, sans-serif">Arial</option>
-                <option value="Georgia, serif">Georgia</option>
-                <option value="Times New Roman, serif">Times</option>
-                <option value="Courier New, monospace">Courier</option>
-                <option value="Verdana, sans-serif">Verdana</option>
+                {headerFooterFonts.map((f) => (
+                  <option key={f.value} value={f.value} style={f.custom ? { fontFamily: f.value } : undefined}>
+                    {f.label}
+                  </option>
+                ))}
               </select>
               <select value={(p.fontWeight as string) || ""} onChange={(e) => set({ fontWeight: e.target.value })} className={inputCls}>
                 <option value="">Default</option>
