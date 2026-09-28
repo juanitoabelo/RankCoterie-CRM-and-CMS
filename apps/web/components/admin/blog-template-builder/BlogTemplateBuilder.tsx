@@ -560,7 +560,7 @@ export default function BlogTemplateBuilder({
 
             {selectedBlock && (
               <BlogTemplateEditor
-                block={selectedBlock}
+                block={selectedBlock as BlogTemplateBlock}
                 onChange={(props) => updateProps(selectedBlock.id, props)}
                 onRemove={() => removeBlockById(selectedBlock.id)}
                 onDuplicate={() => duplicateBlockById(selectedBlock.id)}

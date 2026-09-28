@@ -7,7 +7,7 @@ import type { ContainerSettings } from "@/lib/blog-template/types";
 import { DEFAULT_CONTAINER_SETTINGS } from "@/lib/blog-template/types";
 
 export interface BlogTemplateData {
-  blocks: import("@/lib/page-builder/types").Block[];
+  blocks: import("@/lib/blog-template/types").BlogTemplateBlock[];
   containerSettings: ContainerSettings;
 }
 

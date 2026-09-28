@@ -255,9 +255,9 @@ export async function bulkCreateGeoCategoryImagesForm(formData: FormData): Promi
   await bulkCreateGeoCategoryImages(formData);
 }
 
-export async function deleteGeoCategoryImageForm(formData: FormData): Promise<void> {
+export async function deleteGeoCategoryImageForm(imageId: string): Promise<void> {
   const actor = await requireSection("categories");
-  const id = String(formData.get("id") ?? "");
+  const id = imageId;
   try {
     await prisma.categoryImage.deleteMany({ where: { id, tenantId: TENANT_ID } });
     await logAudit({ action: "CATEGORY_IMAGE_DELETE", entity: "CategoryImage", entityId: id, actorId: actor.id });

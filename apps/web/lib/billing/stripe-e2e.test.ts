@@ -173,10 +173,9 @@ describe("Phase 2 — Stripe E2E verification", () => {
         },
         success_url: `${SITE_URL}/checkout/success`,
         cancel_url: `${SITE_URL}/checkout/cancel`,
-        payment_intent_data: {
-          payment_method_options: {
-            card: { request_three_d_secure: "any" },
-          },
+        // 3DS is configured on the session, not inside payment_intent_data.
+        payment_method_options: {
+          card: { request_three_d_secure: "any" },
         },
       });
 

@@ -615,7 +615,7 @@ export default function PageLayoutBuilder({
 
             {selectedBlock && (
               <PageLayoutEditor
-                block={selectedBlock}
+                block={selectedBlock as PageLayoutBlock}
                 onChange={(props) => updateProps(selectedBlock.id, props)}
                 onRemove={() => removeBlockById(selectedBlock.id)}
                 onDuplicate={() => duplicateBlockById(selectedBlock.id)}

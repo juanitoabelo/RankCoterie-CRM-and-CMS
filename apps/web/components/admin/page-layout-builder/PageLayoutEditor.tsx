@@ -672,7 +672,11 @@ export default function PageLayoutEditor({
           onChange={(props) => onChange(props as PageLayoutBlock["props"])}
           onRemove={onRemove}
           onDuplicate={onDuplicate}
-          onUpdateColumn={onUpdateColumn}
+          onAddColumn={() => {
+            const row = block as import("@/lib/page-builder/types").RowBlock;
+            const newCol: import("@/lib/page-builder/types").ColumnData = { id: crypto.randomUUID(), span: 6, blocks: [] };
+            onChange({ ...row.props, columns: [...row.props.columns, newCol] } as PageLayoutBlock["props"]);
+          }}
           themeColors={themeColors}
         />
       );
@@ -684,6 +688,15 @@ export default function PageLayoutEditor({
           onChange={(props) => onChange(props as PageLayoutBlock["props"])}
           onRemove={onRemove}
           onDuplicate={onDuplicate}
+          onAddRow={() => {
+            const section = block as import("@/lib/page-builder/types").SectionBlock;
+            const newRow: import("@/lib/page-builder/types").RowBlock = {
+              id: crypto.randomUUID(),
+              type: "row",
+              props: { columns: [{ id: crypto.randomUUID(), span: 12, blocks: [] }], gap: 24, align: "stretch", stackOnMobile: true, paddingY: 16, fullWidth: false },
+            };
+            onChange({ ...section.props, rows: [...(section.props.rows ?? []), newRow] } as PageLayoutBlock["props"]);
+          }}
           themeColors={themeColors}
         />
       );

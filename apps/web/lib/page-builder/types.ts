@@ -41,6 +41,12 @@ export interface TextBlock extends BlockBase {
     content: string;
     align: "left" | "center" | "right";
     style?: StyleBreakpoints;
+    textColor?: string;
+    // Persisted by the Content tab. No renderer currently reads these three;
+    // they are kept so existing documents round-trip without data loss.
+    dropCap?: boolean;
+    columns?: number;
+    columnsGap?: "default" | "no-gap" | "narrow" | "extended" | "custom";
   };
 }
 

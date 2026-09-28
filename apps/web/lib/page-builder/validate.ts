@@ -122,7 +122,7 @@ export function validateBlock(block: Block): string[] {
       if (!block.props.location?.trim()) errors.push("A map location is required.");
       break;
     case "video":
-      if (!block.props.url?.trim() && !block.props.embedCode?.trim()) errors.push("Provide a video URL or embed code.");
+      if (!block.props.link?.trim()) errors.push("Provide a video URL.");
       break;
     case "blogPostGrid":
       if (!(block.props.columns >= 1 && block.props.columns <= 6)) errors.push("Columns must be between 1 and 6.");

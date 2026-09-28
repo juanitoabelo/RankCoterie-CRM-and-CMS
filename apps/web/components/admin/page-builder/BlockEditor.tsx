@@ -12,6 +12,7 @@ import {
   type SectionBlock,
   type SliderSlide,
   type StyleBreakpoints,
+  type IconListItem,
 } from "@/lib/page-builder/types";
 import { cloneBlock } from "@/lib/page-builder/tree";
 import {
@@ -866,7 +867,7 @@ function TestimonialEditor({
           <select
             className={inputCls}
             value={block.props.display}
-            onChange={(e) => onChange({ ...block.props, display: e.target.value })}
+            onChange={(e) => onChange({ ...block.props, display: e.target.value as typeof block.props.display })}
           >
             <option value="grid">Grid</option>
             <option value="slider">Slider</option>
@@ -2879,7 +2880,7 @@ function IconListEditor({
             <select
               className={inputCls}
               value={p.applyLinkOn}
-              onChange={(e) => onChange({ ...p, applyLinkOn: e.target.value })}
+              onChange={(e) => onChange({ ...p, applyLinkOn: e.target.value as typeof p.applyLinkOn })}
             >
               <option value="full_width">Full Width</option>
               <option value="icon_only">Icon Only</option>
@@ -3312,7 +3313,7 @@ function VideoEditor({
                   <select
                     className={inputCls}
                     value={p.source}
-                    onChange={(e) => onChange({ ...p, source: e.target.value })}
+                    onChange={(e) => onChange({ ...p, source: e.target.value as typeof p.source })}
                   >
                     <option value="youtube">YouTube</option>
                     <option value="vimeo">Vimeo</option>
@@ -3366,7 +3367,7 @@ function VideoEditor({
                     <select
                       className={inputCls}
                       value={p.suggestedVideos || "current"}
-                      onChange={(e) => onChange({ ...p, suggestedVideos: e.target.value })}
+                      onChange={(e) => onChange({ ...p, suggestedVideos: e.target.value as typeof p.suggestedVideos })}
                     >
                       <option value="current">Current Video Channel</option>
                       <option value="any">Any</option>
@@ -3408,7 +3409,7 @@ function VideoEditor({
                       <select
                         className={inputCls}
                         value={p.overlayImageResolution || "full"}
-                        onChange={(e) => onChange({ ...p, overlayImageResolution: e.target.value })}
+                        onChange={(e) => onChange({ ...p, overlayImageResolution: e.target.value as typeof p.overlayImageResolution })}
                       >
                         <option value="thumbnail">Thumbnail</option>
                         <option value="medium">Medium</option>
@@ -3458,7 +3459,7 @@ function VideoEditor({
             <select
               className={inputCls}
               value={p.aspectRatio || "16:9"}
-              onChange={(e) => onChange({ ...p, aspectRatio: e.target.value })}
+              onChange={(e) => onChange({ ...p, aspectRatio: e.target.value as typeof p.aspectRatio })}
             >
               <option value="16:9">16:9</option>
               <option value="4:3">4:3</option>

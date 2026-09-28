@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/modules/shared";
 import { TENANT_ID } from "@/modules/shared";
-import { US_STATES } from "../constants";
+import { US_STATES } from "./constants";
 
 export const revalidate = 0;
 

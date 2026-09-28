@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { Block, RowBlock } from "@/lib/page-builder/types";
+import type { RowBlock } from "@/lib/page-builder/types";
+import type { BlogTemplateBlock } from "@/lib/blog-template/types";
 import type { ColumnData } from "@/lib/page-builder/types";
 import GlobalColorPicker from "../header-footer-builder/GlobalColorPicker";
 import BuilderImageUploader from "../header-footer-builder/BuilderImageUploader";
@@ -15,16 +16,16 @@ import SectionEditor from "../header-footer-builder/SectionEditor";
 type ThemeColor = { key: string; label: string; color: string };
 
 type EditorProps = {
-  block: Block;
-  onChange: (props: Block["props"]) => void;
+  block: BlogTemplateBlock;
+  onChange: (props: BlogTemplateBlock["props"]) => void;
   onRemove: () => void;
   onDuplicate: () => void;
   onUpdateColumn: (columnId: string, patch: Record<string, unknown>) => void;
   themeColors?: ThemeColor[];
 };
 
-function createSetter(block: Block, onChange: EditorProps["onChange"]) {
-  return (patch: Record<string, unknown>) => onChange({ ...block.props, ...patch } as Block["props"]);
+function createSetter(block: BlogTemplateBlock, onChange: EditorProps["onChange"]) {
+  return (patch: Record<string, unknown>) => onChange({ ...block.props, ...patch } as BlogTemplateBlock["props"]);
 }
 
 /* ── Blog Post Grid Editor ────────────────────────────────────────────── */
@@ -360,10 +361,14 @@ export default function BlogTemplateEditor({
       return (
         <RowEditor
           block={block as RowBlock}
-          onChange={(props) => onChange(props as Block["props"])}
+          onChange={(props) => onChange(props as BlogTemplateBlock["props"])}
           onRemove={onRemove}
           onDuplicate={onDuplicate}
-          onUpdateColumn={onUpdateColumn}
+          onAddColumn={() => {
+            const row = block as import("@/lib/page-builder/types").RowBlock;
+            const newCol: import("@/lib/page-builder/types").ColumnData = { id: crypto.randomUUID(), span: 6, blocks: [] };
+            onChange({ ...row.props, columns: [...row.props.columns, newCol] } as BlogTemplateBlock["props"]);
+          }}
           themeColors={themeColors}
         />
       );
@@ -372,9 +377,18 @@ export default function BlogTemplateEditor({
       return (
         <SectionEditor
           block={block as import("@/lib/page-builder/types").SectionBlock}
-          onChange={(props) => onChange(props as Block["props"])}
+          onChange={(props) => onChange(props as BlogTemplateBlock["props"])}
           onRemove={onRemove}
           onDuplicate={onDuplicate}
+          onAddRow={() => {
+            const section = block as import("@/lib/page-builder/types").SectionBlock;
+            const newRow: import("@/lib/page-builder/types").RowBlock = {
+              id: crypto.randomUUID(),
+              type: "row",
+              props: { columns: [{ id: crypto.randomUUID(), span: 12, blocks: [] }], gap: 24, align: "stretch", stackOnMobile: true, paddingY: 16, fullWidth: false },
+            };
+            onChange({ ...section.props, rows: [...(section.props.rows ?? []), newRow] } as BlogTemplateBlock["props"]);
+          }}
           themeColors={themeColors}
         />
       );

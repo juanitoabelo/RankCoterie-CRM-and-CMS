@@ -153,6 +153,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   const theme = (layoutData.tenant?.theme ?? {}) as {
     styleGuide?: Partial<StyleGuide>;
     themeSettings?: Partial<ThemeSettings>;
+    readingSettings?: { searchEngineVisibility?: string };
   };
   const guide: StyleGuide = { ...DEFAULT_STYLE_GUIDE, ...theme.styleGuide };
   const themeSettings: ThemeSettings = {
@@ -174,7 +175,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       containerPadding: { ...DEFAULT_THEME_SETTINGS.responsive.containerPadding, ...theme.themeSettings?.responsive?.containerPadding },
     },
   };
-  const readingSettings = (theme.readingSettings ?? {}) as { searchEngineVisibility?: string };
+  const readingSettings = theme.readingSettings ?? {};
   const noindex = readingSettings.searchEngineVisibility === "hidden";
   const company = layoutData.company;
   const headerMenu = layoutData.headerMenu;

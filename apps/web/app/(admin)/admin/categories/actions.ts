@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/modules/auth";
@@ -149,7 +150,7 @@ export async function updateCategorySections(id: string, sections: unknown[]): P
   try {
     await prisma.category.update({
       where: { id },
-      data: { sections },
+      data: { sections: sections as unknown as Prisma.InputJsonValue },
     });
     await logAudit({ action: "CATEGORY_UPDATE", entity: "Category", entityId: id, meta: { field: "sections" }, actorId: actor.id });
     revalidatePath(`/admin/categories/${id}/edit`);

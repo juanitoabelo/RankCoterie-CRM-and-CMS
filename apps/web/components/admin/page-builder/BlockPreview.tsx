@@ -417,7 +417,7 @@ export function BlockPreview({
     case "video":
       body = (
         <div className="mx-2 mb-2 rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
-          <div className="font-medium text-zinc-700">▶ Video · {block.props.url || "No URL set"}</div>
+          <div className="font-medium text-zinc-700">▶ Video · {block.props.link || "No URL set"}</div>
         </div>
       );
       break;

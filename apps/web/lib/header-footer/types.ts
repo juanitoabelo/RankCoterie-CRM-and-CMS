@@ -9,7 +9,6 @@ import type {
   BlockBase,
   Block,
   BlockType,
-  BlockDefinition,
   RowBlock,
   SectionBlock,
   HeroBlock,
@@ -304,7 +303,7 @@ export interface MenuBlock extends BlockBase {
     textColor?: string;
     hoverColor?: string;
     fontSize?: number;
-    mobileMenuStyle: "slide" | "overlay" | "dropdown";
+    mobileMenuStyle: "slide" | "overlay" | "dropdown" | "hamburger";
     // Elementor-style props
     pointer?: "none" | "underline" | "framed" | "background" | "double";
     pointerWidth?: number;
@@ -421,9 +420,23 @@ export function isHeaderFooterBlock(block: { type: string }): block is HeaderFoo
 /*  Block Definitions (Header/Footer Specialized Blocks)                      */
 /* ──────────────────────────────────────────────────────────────────────────── */
 
-export const HEADER_FOOTER_SPECIALIZED_DEFINITIONS: Array<
-  BlockDefinition & { category: string }
-> = [
+/**
+ * Palette entry for a header/footer block.
+ *
+ * Deliberately NOT the page builder's `BlockDefinition`: that one is
+ * parameterised by the page-builder `Block` union, so the five header/footer
+ * only types (logo, menu, socialIcons, contactInfo, search) can never satisfy
+ * it. `defaults` must therefore be the header/footer props union.
+ */
+export interface HeaderFooterBlockDefinition {
+  type: HeaderFooterBlockType;
+  label: string;
+  icon: string;
+  category: string;
+  defaults: HeaderFooterBlock["props"];
+}
+
+export const HEADER_FOOTER_SPECIALIZED_DEFINITIONS: HeaderFooterBlockDefinition[] = [
   {
     type: "logo",
     label: "Logo",
@@ -561,17 +574,28 @@ export function createHeaderFooterBlock(type: HeaderFooterBlockType): HeaderFoot
     } as HeaderFooterBlock;
   }
 
-  // Delegate to page builder's createBlock for standard types
+  // Delegate to page builder's createBlock for standard types. The five
+  // specialized types already returned above, so `type` is a page-builder
+  // type by this point.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { createBlock } = require("../page-builder/types") as typeof import("../page-builder/types");
-  return createBlock(type) as HeaderFooterBlock;
+  return createBlock(type as Block["type"]) as HeaderFooterBlock;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────── */
 /*  Default Blocks (Fallback when no template is assigned)                    */
 /* ──────────────────────────────────────────────────────────────────────────── */
 
-export const DEFAULT_HEADER_BLOCKS: HeaderFooterBlock[] = [
+/**
+ * Fallback blocks used when no header/footer template is assigned.
+ *
+ * A header/footer column legitimately holds the specialized blocks (logo,
+ * menu, ...), but the page-builder `ColumnData.blocks` field is typed as the
+ * page-builder `Block` union and cannot express that. The renderer reads
+ * columns untyped, so these literals are sound; the cast keeps the modelling
+ * gap contained to this file instead of widening every consumer.
+ */
+export const DEFAULT_HEADER_BLOCKS = [
   {
     id: "default-header-row",
     type: "row",
@@ -630,9 +654,9 @@ export const DEFAULT_HEADER_BLOCKS: HeaderFooterBlock[] = [
       fullWidth: true,
     },
   },
-];
+] as unknown as HeaderFooterBlock[];
 
-export const DEFAULT_FOOTER_BLOCKS: HeaderFooterBlock[] = [
+export const DEFAULT_FOOTER_BLOCKS = [
   {
     id: "default-footer-row",
     type: "row",
@@ -743,4 +767,4 @@ export const DEFAULT_FOOTER_BLOCKS: HeaderFooterBlock[] = [
       textColor: "#f9fafb",
     },
   },
-];
+] as unknown as HeaderFooterBlock[];

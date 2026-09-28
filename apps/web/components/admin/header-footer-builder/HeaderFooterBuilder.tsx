@@ -622,7 +622,7 @@ export default function HeaderFooterBuilder({
 
             {selectedBlock && (
               <HeaderFooterEditor
-                block={selectedBlock}
+                block={selectedBlock as HeaderFooterBlock}
                 onChange={(props) => updateProps(selectedBlock.id, props)}
                 onRemove={() => removeBlockById(selectedBlock.id)}
                 onDuplicate={() => duplicateBlockById(selectedBlock.id)}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { HeaderFooterBlock } from "@/lib/header-footer/types";
-import type { ColumnData } from "@/lib/page-builder/types";
+import type { ColumnData, Block } from "@/lib/page-builder/types";
 import GlobalColorPicker from "./GlobalColorPicker";
 import BuilderImageUploader from "./BuilderImageUploader";
 import RichTextEditor from "../page-builder/RichTextEditor";
@@ -825,7 +825,7 @@ function TextEditor({ block, onChange }: EditorProps) {
           </div>
 
           <label className={labelCls}>Columns
-            <select className={inputCls} value={(p as Record<string, unknown>).columns || 1} onChange={(e) => set({ columns: Number(e.target.value) })}>
+            <select className={inputCls} value={((p as Record<string, unknown>).columns as number) || 1} onChange={(e) => set({ columns: Number(e.target.value) })}>
               {[1, 2, 3, 4, 5, 6].map((n) => (
                 <option key={n} value={n}>{n}</option>
               ))}
@@ -1377,7 +1377,7 @@ function HeadingEditor({ block, onChange }: EditorProps) {
             />
           </div>
 
-          {p.link && (
+          {(p.link as string) && (
             <label className={labelCls}>Link Target
               <select className={inputCls} value={(p.linkTarget as string) || ""} onChange={(e) => set({ linkTarget: e.target.value })}>
                 <option value="">Same Window</option>
@@ -1598,7 +1598,7 @@ function IconListEditor({ block, onChange }: EditorProps) {
   const items = (p.items || []) as Array<{ text: string; icon: string; link?: string }>;
   const [activeTab, setActiveTab] = useState<"content" | "style" | "advanced">("content");
 
-  const set = (patch: Record<string, unknown>) => onChange({ ...p, ...patch } as Block["props"]);
+  const set = (patch: Record<string, unknown>) => onChange({ ...p, ...patch } as HeaderFooterBlock["props"]);
 
   const updateItem = (index: number, patch: Record<string, unknown>) => {
     const updated = [...items];
@@ -1829,7 +1829,7 @@ function GoogleMapEditor({ block, onChange }: EditorProps) {
   const [activeTab, setActiveTab] = useState<"content" | "style" | "advanced">("content");
   const [cssFilterOpen, setCssFilterOpen] = useState(false);
 
-  const set = (patch: Record<string, unknown>) => onChange({ ...p, ...patch } as Block["props"]);
+  const set = (patch: Record<string, unknown>) => onChange({ ...p, ...patch } as HeaderFooterBlock["props"]);
 
   return (
     <div className="space-y-3">
@@ -1948,7 +1948,7 @@ function VideoEditor({ block, onChange }: EditorProps) {
   const [imageOverlayOpen, setImageOverlayOpen] = useState(false);
   const [cssFilterOpen, setCssFilterOpen] = useState(false);
 
-  const set = (patch: Record<string, unknown>) => onChange({ ...p, ...patch } as Block["props"]);
+  const set = (patch: Record<string, unknown>) => onChange({ ...p, ...patch } as HeaderFooterBlock["props"]);
 
   const Toggle = ({ label, value, onChange: toggleOnChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) => (
     <div className="flex items-center justify-between">
@@ -2029,10 +2029,10 @@ function VideoEditor({ block, onChange }: EditorProps) {
               <span>▸ Image Overlay</span>
               <span>{imageOverlayOpen ? "▼" : "▶"}</span>
             </button>
-            {imageOverlayOpen && (
+            {!!imageOverlayOpen && (
               <div className="space-y-3 border-t border-zinc-200 p-3">
                 <Toggle label="Image Overlay" value={!!p.imageOverlay} onChange={(v) => set({ imageOverlay: v })} />
-                {p.imageOverlay && (
+                {!!p.imageOverlay && (
                   <>
                     <div>
                       <label className={labelCls}>Choose Image</label>

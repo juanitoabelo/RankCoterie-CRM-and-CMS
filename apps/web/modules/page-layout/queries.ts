@@ -7,7 +7,7 @@ import type { ContainerSettings } from "@/lib/page-layout/types";
 import { DEFAULT_CONTAINER_SETTINGS } from "@/lib/page-layout/types";
 
 export interface PageLayoutData {
-  blocks: import("@/lib/page-builder/types").Block[];
+  blocks: import("@/lib/page-layout/types").PageLayoutBlock[];
   containerSettings: ContainerSettings;
 }
 
