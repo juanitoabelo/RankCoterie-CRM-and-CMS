@@ -71,10 +71,10 @@ export default function AdminSidebar({
                   ) : (
                     <Link
                       href={n.href ?? "#"}
-                      className={`mb-0.5 block rounded-md px-3 py-1.5 text-sm ${
+                      className={`mb-0.5 block rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                         active
-                          ? "bg-zinc-900 font-medium text-white"
-                          : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                          ? "bg-zinc-900 text-white hover:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
+                          : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2"
                       }`}
                     >
                       {n.label}
