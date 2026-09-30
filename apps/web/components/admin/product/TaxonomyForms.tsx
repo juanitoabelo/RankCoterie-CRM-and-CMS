@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import ImageUploader from "@/components/admin/ImageUploader";
 import type { ActionResult } from "@/app/(admin)/admin/products/actions";
 
 const inputCls = "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm";
@@ -96,13 +97,17 @@ export function CategoryCreateForm({
 }) {
   const { message, isPending, submit } = useFormAction(action);
   const formRef = useRef<HTMLFormElement>(null);
+  const [formKey, setFormKey] = useState(0);
 
   return (
     <form
       ref={formRef}
       className="space-y-4 rounded-xl border border-zinc-200 bg-white p-5"
       action={(formData) => {
-        submit(formData, () => formRef.current?.reset());
+        submit(formData, () => {
+          formRef.current?.reset();
+          setFormKey((key) => key + 1);
+        });
       }}
     >
       <h2 className="text-sm font-semibold text-zinc-800">New category</h2>
@@ -144,6 +149,9 @@ export function CategoryCreateForm({
             Description
           </label>
           <textarea id="cat-description" name="description" rows={2} className={inputCls} />
+        </div>
+        <div className="sm:col-span-2">
+          <ImageUploader key={formKey} name="imageAssetId" label="Category image" />
         </div>
       </div>
       <div className="flex items-center gap-6">

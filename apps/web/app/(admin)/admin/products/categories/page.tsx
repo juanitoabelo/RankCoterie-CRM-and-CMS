@@ -3,8 +3,9 @@
  */
 import Link from "next/link";
 import { listProductCategories } from "@/modules/ecommerce/queries";
-import { createProductCategory, deleteProductCategory } from "../actions";
+import { createProductCategory, deleteProductCategory, setProductCategoryImage } from "../actions";
 import { CategoryCreateForm, EntityDeleteButton } from "@/components/admin/product/TaxonomyForms";
+import CategoryImageCell from "@/components/admin/product/CategoryImageCell";
 
 export const revalidate = 0;
 
@@ -69,6 +70,7 @@ export default async function ProductCategoriesAdminPage() {
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Slug</th>
+                <th className="px-4 py-3 font-medium">Image</th>
                 <th className="px-4 py-3 text-right font-medium">Products</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 text-right font-medium">Actions</th>
@@ -81,6 +83,13 @@ export default async function ProductCategoriesAdminPage() {
                     {row.name}
                   </td>
                   <td className="px-4 py-3 text-zinc-600">{row.slug}</td>
+                  <td className="px-4 py-3">
+                    <CategoryImageCell
+                      id={row.id}
+                      imageAssetId={row.imageAssetId}
+                      setImageAction={setProductCategoryImage}
+                    />
+                  </td>
                   <td className="px-4 py-3 text-right tabular-nums text-zinc-700">{row._count.products}</td>
                   <td className="px-4 py-3">
                     <span
@@ -98,7 +107,7 @@ export default async function ProductCategoriesAdminPage() {
               ))}
               {flat.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center text-sm text-zinc-500">
+                  <td colSpan={6} className="px-4 py-12 text-center text-sm text-zinc-500">
                     No categories yet — add your first one on the right.
                   </td>
                 </tr>

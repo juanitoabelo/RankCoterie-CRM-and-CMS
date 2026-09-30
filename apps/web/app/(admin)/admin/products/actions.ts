@@ -65,7 +65,6 @@ async function syncProductRelations(
   tx: Prisma.TransactionClient,
   productId: string,
   relations: ParsedRelations,
-  currentMainAssetId: string | null,
 ): Promise<void> {
   const categoryIds = await validCategoryIds(relations.categoryIds);
   const tagIds = await validTagIds(relations.tagIds);
@@ -98,29 +97,43 @@ async function syncProductRelations(
     });
   }
 
-  if (relations.imageAssetId && relations.imageAssetId !== currentMainAssetId) {
-    const asset = await tx.asset.findFirst({
-      where: { id: relations.imageAssetId, tenantId: TENANT_ID },
-      select: { id: true },
-    });
-    if (asset) {
-      await tx.productImage.updateMany({
-        where: { productId, isMain: true },
-        data: { isMain: false },
-      });
-      await tx.productImage.create({
-        data: { productId, assetId: asset.id, isMain: true, position: 0 },
-      });
-    }
+  // Images: posted order is authoritative — featured first, then gallery.
+  const desired: string[] = [];
+  if (relations.imageAssetId) desired.push(relations.imageAssetId);
+  for (const id of relations.galleryAssetIds) {
+    if (!desired.includes(id)) desired.push(id);
   }
-}
 
-async function mainImageAssetId(productId: string): Promise<string | null> {
-  const image = await prisma.productImage.findFirst({
-    where: { productId, isMain: true },
-    select: { assetId: true },
+  const validAssetIds =
+    desired.length === 0
+      ? []
+      : (
+          await tx.asset.findMany({
+            where: { id: { in: desired }, tenantId: TENANT_ID },
+            select: { id: true },
+          })
+        ).map((a) => a.id);
+  const validSet = new Set(validAssetIds);
+  const ordered = desired.filter((id) => validSet.has(id));
+
+  const existing = await tx.productImage.findMany({
+    where: { productId },
+    select: { assetId: true, alt: true },
   });
-  return image?.assetId ?? null;
+  const altByAsset = new Map(existing.map((row) => [row.assetId, row.alt]));
+
+  await tx.productImage.deleteMany({ where: { productId } });
+  if (ordered.length > 0) {
+    await tx.productImage.createMany({
+      data: ordered.map((assetId, index) => ({
+        productId,
+        assetId,
+        alt: altByAsset.get(assetId) ?? null,
+        isMain: index === 0,
+        position: index,
+      })),
+    });
+  }
 }
 
 export async function createProduct(formData: FormData): Promise<ActionResult> {
@@ -144,7 +157,7 @@ export async function createProduct(formData: FormData): Promise<ActionResult> {
           publishedAt: data.status === "PUBLISHED" ? now : null,
         },
       });
-      await syncProductRelations(tx, created.id, relations, null);
+      await syncProductRelations(tx, created.id, relations);
       return created;
     });
 
@@ -179,8 +192,6 @@ export async function updateProduct(id: string, formData: FormData): Promise<Act
       if (duplicate) return fail(`Slug "${data.slug}" is already taken.`);
     }
 
-    const currentMain = await mainImageAssetId(existing.id);
-
     await prisma.$transaction(async (tx) => {
       await tx.product.update({
         where: { id: existing.id },
@@ -189,7 +200,7 @@ export async function updateProduct(id: string, formData: FormData): Promise<Act
           publishedAt: existing.publishedAt ?? (data.status === "PUBLISHED" ? new Date() : null),
         },
       });
-      await syncProductRelations(tx, existing.id, relations, currentMain);
+      await syncProductRelations(tx, existing.id, relations);
     });
 
     await logAudit({
@@ -260,6 +271,13 @@ export async function createProductCategory(formData: FormData): Promise<ActionR
           .then((row) => row?.id ?? null)
       : null;
 
+    const imageAssetRaw = String(formData.get("imageAssetId") ?? "").trim();
+    const imageAssetId = imageAssetRaw
+      ? await prisma.asset
+          .findFirst({ where: { id: imageAssetRaw, tenantId: TENANT_ID }, select: { id: true } })
+          .then((row) => row?.id ?? null)
+      : null;
+
     await prisma.productCategory.create({
       data: {
         tenantId: TENANT_ID,
@@ -270,6 +288,7 @@ export async function createProductCategory(formData: FormData): Promise<ActionR
         menuOrder: Number.parseInt(String(formData.get("menuOrder") ?? "0"), 10) || 0,
         isActive: formData.get("isActive") === "on",
         showInMenu: formData.get("showInMenu") === "on",
+        imageAssetId,
       },
     });
 
@@ -300,6 +319,39 @@ export async function deleteProductCategory(id: string): Promise<ActionResult> {
     return { ok: true };
   } catch (e) {
     return fail(errorMessage(e, "Failed to delete category."));
+  }
+}
+
+/** Set (or clear, with `assetId: null`) the image representing a category. */
+export async function setProductCategoryImage(id: string, assetId: string | null): Promise<ActionResult> {
+  try {
+    const existing = await prisma.productCategory.findFirst({
+      where: { id, tenantId: TENANT_ID },
+      select: { id: true, name: true },
+    });
+    if (!existing) return fail("Category not found.");
+
+    if (assetId) {
+      const asset = await prisma.asset.findFirst({
+        where: { id: assetId, tenantId: TENANT_ID },
+        select: { id: true },
+      });
+      if (!asset) return fail("Image not found.");
+    }
+
+    await prisma.productCategory.update({ where: { id: existing.id }, data: { imageAssetId: assetId } });
+
+    await logAudit({
+      action: assetId ? "CATEGORY_IMAGE_CREATE" : "CATEGORY_IMAGE_DELETE",
+      entity: "ProductCategory",
+      entityId: existing.id,
+      meta: { name: existing.name, imageAssetId: assetId },
+    });
+
+    revalidatePath("/admin/products/categories");
+    return { ok: true };
+  } catch (e) {
+    return fail(errorMessage(e, "Failed to update category image."));
   }
 }
 

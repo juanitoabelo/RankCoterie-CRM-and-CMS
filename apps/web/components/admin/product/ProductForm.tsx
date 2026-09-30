@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import RichTextarea from "@/components/admin/RichTextarea";
 import ImageUploader from "@/components/admin/ImageUploader";
+import ProductGalleryUploader from "@/components/admin/product/ProductGalleryUploader";
 import type { ActionResult } from "@/app/(admin)/admin/products/actions";
 import type {
   PaymentGatewayWithRelations,
@@ -208,12 +209,34 @@ export default function ProductForm({
   const router = useRouter();
 
   const categoryOptions = flattenCategories(categories);
-  const mainImageAssetId = product?.images.find((img) => img.isMain)?.assetId ?? null;
+  const [featuredAssetId, setFeaturedAssetId] = useState<string | null>(
+    () => product?.images.find((img) => img.isMain)?.assetId ?? null,
+  );
+  const [galleryAssetIds, setGalleryAssetIds] = useState<string[]>(() =>
+    (product?.images ?? [])
+      .filter((img) => !img.isMain)
+      .sort((a, b) => a.position - b.position)
+      .map((img) => img.assetId),
+  );
   const selectedCategories = new Set(initial.categoryIds);
   const selectedTags = new Set(initial.tagIds);
   const selectedAttributes = new Map(
     initial.attributeValues.map((value) => [value.attributeId, value]),
   );
+
+  const onFeaturedChange = (assetId: string) => {
+    setFeaturedAssetId(assetId);
+    setGalleryAssetIds((prev) => prev.filter((id) => id !== assetId));
+  };
+
+  const onMakeFeatured = (assetId: string) => {
+    const previous = featuredAssetId;
+    setFeaturedAssetId(assetId);
+    setGalleryAssetIds((prev) => [
+      ...(previous ? [previous] : []),
+      ...prev.filter((id) => id !== assetId),
+    ]);
+  };
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -871,18 +894,31 @@ export default function ProductForm({
         </div>
       </details>
 
-      {/* Featured image */}
+      {/* Featured image + gallery */}
       <section className={cardCls}>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Featured image</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Images</h2>
         <div className="mt-4">
           <ImageUploader
+            key={featuredAssetId ?? "no-featured-image"}
             name="imageAssetId"
-            label="Product image"
-            currentAssetId={mainImageAssetId}
+            label="Featured image"
+            currentAssetId={featuredAssetId}
+            onUpload={onFeaturedChange}
           />
           <p className="mt-2 text-xs text-zinc-500">
-            Uploading replaces the current featured image. Additional gallery images are kept.
+            Shown as the product&apos;s primary image across lists and grids.
           </p>
+        </div>
+        <div className="mt-6 border-t border-zinc-100 pt-4">
+          <p className="text-xs font-medium text-zinc-600">Gallery</p>
+          <div className="mt-2">
+            <ProductGalleryUploader
+              value={galleryAssetIds}
+              featuredAssetId={featuredAssetId}
+              onChange={setGalleryAssetIds}
+              onMakeFeatured={onMakeFeatured}
+            />
+          </div>
         </div>
       </section>
 

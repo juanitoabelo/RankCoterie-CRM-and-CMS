@@ -21,6 +21,8 @@ export interface ParsedRelations {
     position: number;
   }>;
   imageAssetId: string | null;
+  /** Additional gallery images, in display order (featured image excluded). */
+  galleryAssetIds: string[];
 }
 
 export type ParsedProductData = Omit<
@@ -294,6 +296,10 @@ export function parseProductFormData(formData: FormData, now: Date = new Date())
 
   const imageAssetId = readString(formData, "imageAssetId");
 
+  const galleryAssetIds = formData
+    .getAll("galleryAssetIds")
+    .filter((v): v is string => typeof v === "string" && v !== "");
+
   return {
     data,
     relations: {
@@ -302,6 +308,7 @@ export function parseProductFormData(formData: FormData, now: Date = new Date())
       tagIds,
       attributeValues: parseAttributeValues(formData),
       imageAssetId,
+      galleryAssetIds,
     },
   };
 }
