@@ -37,6 +37,11 @@ const NAV_GROUPS: NavGroup[] = [
       { section: "topics", href: "/admin/categories/new", label: "Add New Topic" },
       { section: "templates", href: "/admin/templates", label: "SubTopics" },
       { section: "templates", href: "/admin/templates/new", label: "Add New SubTopic" },
+      { section: "products", href: "/admin/products", label: "Products" },
+      { section: "products", href: "/admin/products/add", label: "Add New Product" },
+      { section: "products", href: "/admin/products/categories", label: "Product Categories" },
+      { section: "products", href: "/admin/products/tags", label: "Product Tags" },
+      { section: "products", href: "/admin/products/attributes", label: "Product Attributes" },
     ],
   },
   {

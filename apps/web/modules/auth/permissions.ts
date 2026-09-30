@@ -34,6 +34,7 @@ const SECTION_ROLES: SectionRoles = {
   merchants: ["SUPER_ADMIN", "ADMIN", "SALES_REP"],
   listings: ["SUPER_ADMIN", "ADMIN", "REVIEWER"],
   reviewQueue: ["SUPER_ADMIN", "ADMIN", "REVIEWER"],
+  products: ["SUPER_ADMIN", "ADMIN", "EDITOR"],
 };
 
 /** Check if user is a Super Admin */
