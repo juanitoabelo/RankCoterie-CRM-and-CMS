@@ -426,6 +426,38 @@ export interface BlogPostGridBlock extends BlockBase {
   };
 }
 
+export interface ProductGridBlock extends BlockBase {
+  type: "productGrid";
+  props: {
+    heading?: string;
+    columnsDesktop: 1 | 2 | 3 | 4 | 5 | 6;
+    columnsTablet?: 1 | 2 | 3 | 4 | 5 | 6;
+    columnsMobile?: 1 | 2 | 3 | 4 | 5 | 6;
+    productsPerPage: number;
+    showExcerpt: boolean;
+    excerptLength: number;
+    showFeaturedImage: boolean;
+    showPrice: boolean;
+    showRating: boolean;
+    showAddToCart: boolean;
+    showWishlist: boolean;
+    showCategory: boolean;
+    showPagination: boolean;
+    orderBy: "price" | "date" | "popular" | "name" | "menuOrder";
+    sortOrder: "asc" | "desc";
+    filterCategories: string[];
+    filterAttributes: Record<string, string[]>;
+    minPrice: number;
+    maxPrice: number;
+    inStockOnly: boolean;
+    showSearch: boolean;
+    searchPlaceholder: string;
+    cardStyle?: "bordered" | "shadow" | "minimal";
+    imageAspect?: "16:9" | "4:3" | "1:1";
+    style?: StyleBreakpoints;
+  };
+}
+
 export interface BlogSidebarBlock extends BlockBase {
   type: "blogSidebar";
   props: {
@@ -752,6 +784,7 @@ export type Block =
   | SliderBlock
   | ContentGridBlock
   | BlogPostGridBlock
+  | ProductGridBlock
   | BlogSidebarBlock
   | ArticleContentBlock
   | ArticleHeroBlock
@@ -789,6 +822,7 @@ export const LEAF_BLOCK_TYPES: BlockType[] = [
   "slider",
   "contentGrid",
   "blogPostGrid",
+  "productGrid",
   "blogSidebar",
   "articleContent",
   "articleHero",
@@ -1095,6 +1129,38 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       showCategory: true,
       showPagination: true,
       orderBy: "date",
+      cardStyle: "shadow",
+      imageAspect: "16:9",
+    },
+  },
+  {
+    type: "productGrid",
+    label: "Product Grid",
+    icon: "🛒",
+    defaults: {
+      heading: "Products",
+      columnsDesktop: 3,
+      columnsTablet: 2,
+      columnsMobile: 1,
+      productsPerPage: 9,
+      showExcerpt: true,
+      excerptLength: 150,
+      showFeaturedImage: true,
+      showPrice: true,
+      showRating: true,
+      showAddToCart: true,
+      showWishlist: true,
+      showCategory: true,
+      showPagination: true,
+      orderBy: "date",
+      sortOrder: "desc",
+      filterCategories: [],
+      filterAttributes: {},
+      minPrice: 0,
+      maxPrice: 0,
+      inStockOnly: false,
+      showSearch: true,
+      searchPlaceholder: "Search products...",
       cardStyle: "shadow",
       imageAspect: "16:9",
     },
