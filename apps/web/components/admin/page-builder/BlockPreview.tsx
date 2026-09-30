@@ -390,6 +390,25 @@ export function BlockPreview({
         </div>
       );
       break;
+    case "productGrid":
+      body = (
+        <div className="mx-2 mb-2 rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+          <div className="font-medium text-zinc-700">
+            ▦ {block.props.heading || "Product grid"}
+          </div>
+          <p className="mt-1 text-zinc-500">
+            {block.props.layout === "isotope" ? "Masonry (Isotope)" : "Grid"} ·{" "}
+            {block.props.categoryId ? "One category" : "All categories"} ·{" "}
+            {block.props.productsPerPage} per page ·{" "}
+            {block.props.columnsDesktop} columns
+            {block.props.showCategoryFilter ? " · category filter" : ""}
+          </p>
+          <p className="mt-1 text-[10px] text-zinc-400">
+            Products load live on the published page with pagination and animations.
+          </p>
+        </div>
+      );
+      break;
     case "row":
       body = <div className="px-2 pb-2 text-xs text-zinc-400">Row layout</div>;
       break;

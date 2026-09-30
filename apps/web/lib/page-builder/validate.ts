@@ -115,6 +115,23 @@ export function validateBlock(block: Block): string[] {
         errors.push("Items per page must be between 1 and 48.");
       }
       break;
+    case "productGrid":
+      if (!(block.props.productsPerPage >= 1 && block.props.productsPerPage <= 48)) {
+        errors.push("Products per page must be between 1 and 48.");
+      }
+      if (!(block.props.columnsDesktop >= 1 && block.props.columnsDesktop <= 6)) {
+        errors.push("Columns must be between 1 and 6.");
+      }
+      if (block.props.minPrice < 0 || block.props.maxPrice < 0) {
+        errors.push("Price range cannot be negative.");
+      }
+      if (block.props.minPrice > 0 && block.props.maxPrice > 0 && block.props.minPrice > block.props.maxPrice) {
+        errors.push("Minimum price cannot exceed maximum price.");
+      }
+      if (block.props.excerptLength < 0 || block.props.excerptLength > 500) {
+        errors.push("Excerpt length must be between 0 and 500 characters.");
+      }
+      break;
     case "iconList":
       if (!block.props.items || block.props.items.length === 0) errors.push("Add at least one icon item.");
       break;

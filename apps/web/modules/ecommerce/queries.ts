@@ -1168,5 +1168,201 @@ export async function listProductTags(): Promise<ProductTagAdminRow[]> {
   });
 }
 
+// ============================================================================
+// Product grid (page-builder storefront block)
+// ============================================================================
+
+export type ProductGridCategory = { id: string; name: string; slug: string; parentId: string | null };
+
+export type ProductGridItem = {
+  id: string;
+  name: string;
+  slug: string;
+  excerpt: string | null;
+  price: number;
+  regularPrice: number;
+  onSale: boolean;
+  imageAssetId: string | null;
+  rating: number;
+  reviewCount: number;
+  stockStatus: string;
+  featured: boolean;
+  categories: { id: string; name: string; slug: string }[];
+};
+
+export type ProductGridPage = {
+  items: ProductGridItem[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+  categories: ProductGridCategory[];
+};
+
+export type ProductGridParams = {
+  /** Restrict to one category ("" = all). */
+  categoryId?: string;
+  /** Extra restriction — only these categories may appear in the filter bar. */
+  filterCategoryIds?: string[];
+  page?: number;
+  perPage?: number;
+  orderBy?: "price" | "date" | "popular" | "name" | "menuOrder";
+  sortOrder?: "asc" | "desc";
+  search?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  inStockOnly?: boolean;
+};
+
+function plainExcerpt(shortDescription: string | null, description: string | null): string | null {
+  const source = (shortDescription ?? description ?? "").trim();
+  if (!source) return null;
+  const text = source
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([.,;:!?)\]])/g, "$1")
+    .trim();
+  return text.length > 320 ? `${text.slice(0, 320).trimEnd()}…` : text || null;
+}
+
+/** One page of published products for the storefront Product Grid block. */
+export async function getProductGridPage(params: ProductGridParams = {}): Promise<ProductGridPage> {
+  const {
+    categoryId = "",
+    filterCategoryIds = [],
+    page = 1,
+    perPage = 9,
+    orderBy: orderByKey = "date",
+    sortOrder = "desc",
+    search = "",
+    minPrice = 0,
+    maxPrice = 0,
+    inStockOnly = false,
+  } = params;
+
+  const size = Math.min(48, Math.max(1, Math.round(perPage)));
+  const current = Math.max(1, Math.round(page));
+  const order: "asc" | "desc" = sortOrder === "asc" ? "asc" : "desc";
+
+  const where: Prisma.ProductWhereInput = {
+    tenantId: TENANT_ID,
+    status: "PUBLISHED",
+    visibility: "PUBLIC",
+  };
+
+  if (categoryId) {
+    where.categories = { some: { categoryId } };
+  } else if (filterCategoryIds.length > 0) {
+    where.categories = { some: { categoryId: { in: filterCategoryIds } } };
+  }
+
+  const term = search.trim();
+  if (term) {
+    where.OR = [
+      { name: { contains: term, mode: "insensitive" } },
+      { shortDescription: { contains: term, mode: "insensitive" } },
+      { sku: { contains: term, mode: "insensitive" } },
+    ];
+  }
+
+  if (minPrice > 0 || maxPrice > 0) {
+    where.price = {
+      ...(minPrice > 0 ? { gte: minPrice } : {}),
+      ...(maxPrice > 0 ? { lte: maxPrice } : {}),
+    };
+  }
+
+  if (inStockOnly) where.stockStatus = { not: "OUT_OF_STOCK" };
+
+  const orderBy: Prisma.ProductOrderByWithRelationInput =
+    orderByKey === "price"
+      ? { price: order }
+      : orderByKey === "name"
+        ? { name: order }
+        : orderByKey === "menuOrder"
+          ? { menuOrder: order }
+          : orderByKey === "popular"
+            ? { reviewCount: order }
+            : { createdAt: order };
+
+  const skip = (current - 1) * size;
+
+  const [rows, total, categoryRows] = await Promise.all([
+    prisma.product.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        shortDescription: true,
+        description: true,
+        price: true,
+        regularPrice: true,
+        salePrice: true,
+        salePriceStart: true,
+        salePriceEnd: true,
+        averageRating: true,
+        reviewCount: true,
+        stockStatus: true,
+        featured: true,
+        createdAt: true,
+        images: {
+          where: { isMain: true },
+          take: 1,
+          select: { asset: { select: { id: true } } },
+        },
+        categories: { select: { category: { select: { id: true, name: true, slug: true } } } },
+      },
+      orderBy,
+      skip,
+      take: size,
+    }),
+    prisma.product.count({ where }),
+    prisma.productCategory.findMany({
+      where: {
+        tenantId: TENANT_ID,
+        isActive: true,
+        ...(filterCategoryIds.length > 0 ? { id: { in: filterCategoryIds } } : {}),
+      },
+      select: { id: true, name: true, slug: true, parentId: true },
+      orderBy: [{ menuOrder: "asc" }, { name: "asc" }],
+    }),
+  ]);
+
+  const now = Date.now();
+
+  return {
+    items: rows.map((row) => {
+      const saleActive =
+        row.salePrice != null &&
+        row.salePrice < row.regularPrice &&
+        (!row.salePriceStart || row.salePriceStart.getTime() <= now) &&
+        (!row.salePriceEnd || row.salePriceEnd.getTime() >= now);
+
+      return {
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        excerpt: plainExcerpt(row.shortDescription, row.description),
+        price: row.price,
+        regularPrice: row.regularPrice,
+        onSale: saleActive,
+        imageAssetId: row.images[0]?.asset.id ?? null,
+        rating: row.averageRating ?? 0,
+        reviewCount: row.reviewCount,
+        stockStatus: row.stockStatus,
+        featured: row.featured,
+        categories: row.categories.map((link) => link.category),
+      };
+    }),
+    page: current,
+    perPage: size,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / size)),
+    categories: categoryRows,
+  };
+}
+
 // Export TENANT_ID for use in other modules
 export { TENANT_ID };

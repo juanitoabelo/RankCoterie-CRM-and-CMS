@@ -8,6 +8,7 @@ import { renderStyleGuide, styleScopeClass } from "@/lib/page-builder/style";
 import { renderLocalizedContent, type RegionContext } from "@/lib/localization/render";
 import SliderCarousel from "./SliderCarousel";
 import ContentGridFrontend from "./ContentGridFrontend";
+import ProductGridFrontend from "./ProductGridFrontend";
 import {
   getEntranceAnimationClass,
   getVisibilityClasses,
@@ -641,6 +642,14 @@ function ContentGridBlock({ block }: { block: Block & { type: "contentGrid" } })
   );
 }
 
+function ProductGridBlock({ block }: { block: Block & { type: "productGrid" } }) {
+  return (
+    <BlockAdvancedFrame block={block}>
+      {styleScope(block, <ProductGridFrontend props={block.props} />)}
+    </BlockAdvancedFrame>
+  );
+}
+
 function SectionBlock({ block, ctx }: { block: SectionBlock; ctx: RegionContext }) {
   const p = block.props as SectionBlock["props"] & Record<string, unknown>;
   const isBoxed = (p.width ?? "full") === "boxed";
@@ -1249,6 +1258,7 @@ const RENDERERS: Record<string, React.ComponentType<{ block: Block; ctx: RegionC
   video: VideoBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   slider: SliderBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   contentGrid: ContentGridBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  productGrid: ProductGridBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   row: RowBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   section: SectionBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
 };

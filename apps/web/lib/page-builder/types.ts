@@ -434,6 +434,14 @@ export interface ProductGridBlock extends BlockBase {
     columnsTablet?: 1 | 2 | 3 | 4 | 5 | 6;
     columnsMobile?: 1 | 2 | 3 | 4 | 5 | 6;
     productsPerPage: number;
+    /** Restrict the block to a single category ("" = every category). */
+    categoryId: string;
+    /** Visual layout: even grid or animated masonry (Isotope-style). */
+    layout: "grid" | "isotope";
+    /** Show the category filter bar above the grid. */
+    showCategoryFilter: boolean;
+    /** Categories offered in the filter bar (empty = all categories). */
+    filterCategories: string[];
     showExcerpt: boolean;
     excerptLength: number;
     showFeaturedImage: boolean;
@@ -445,7 +453,10 @@ export interface ProductGridBlock extends BlockBase {
     showPagination: boolean;
     orderBy: "price" | "date" | "popular" | "name" | "menuOrder";
     sortOrder: "asc" | "desc";
-    filterCategories: string[];
+    /** Entrance animation played for each product card as it scrolls in. */
+    cardAnimation: "fadeUp" | "zoomIn" | "flip" | "slideIn" | "none";
+    /** Hover treatment applied to each product card. */
+    hoverEffect: "lift" | "zoom" | "glow" | "overlay" | "none";
     filterAttributes: Record<string, string[]>;
     minPrice: number;
     maxPrice: number;
@@ -1143,6 +1154,9 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       columnsTablet: 2,
       columnsMobile: 1,
       productsPerPage: 9,
+      categoryId: "",
+      layout: "grid",
+      showCategoryFilter: false,
       showExcerpt: true,
       excerptLength: 150,
       showFeaturedImage: true,
@@ -1154,6 +1168,8 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       showPagination: true,
       orderBy: "date",
       sortOrder: "desc",
+      cardAnimation: "fadeUp",
+      hoverEffect: "lift",
       filterCategories: [],
       filterAttributes: {},
       minPrice: 0,

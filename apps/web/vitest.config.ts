@@ -10,7 +10,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["lib/**/*.test.ts", "modules/**/*.test.ts"],
+    include: ["lib/**/*.test.ts", "modules/**/*.test.ts", "components/**/*.dom.test.tsx"],
     exclude: [
       "**/*.integration.test.ts",
       "**/*.verify.test.ts",
