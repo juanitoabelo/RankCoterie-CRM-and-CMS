@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { purchaseProduct } from "@/app/(site)/checkout/actions";
 import { notifyCartUpdated } from "@/lib/cart-event";
+import AddressFields from "./AddressFields";
 
 export type PurchaseGateway = {
   id: string;
@@ -29,6 +30,8 @@ export default function ProductPurchase({
   const [isPending, startTransition] = useTransition();
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
+  const [country, setCountry] = useState("");
+  const [state, setState] = useState("");
   // One token per buy-now attempt — the server dedupes double-submits with it.
   const [checkoutToken] = useState(() => crypto.randomUUID());
   const router = useRouter();
@@ -156,6 +159,14 @@ export default function ProductPurchase({
             />
           </div>
         </div>
+
+        <AddressFields
+          idPrefix="buy"
+          country={country}
+          state={state}
+          onCountryChange={setCountry}
+          onStateChange={setState}
+        />
 
         <button
           type="submit"

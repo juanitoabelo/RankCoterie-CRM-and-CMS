@@ -32,13 +32,15 @@ export async function reserveStock(
   for (const item of items) {
     const product = await prisma.product.findFirst({
       where: { id: item.productId, tenantId: TENANT_ID },
-      select: { id: true, name: true, manageStock: true, stockQuantity: true },
+      select: { id: true, name: true, manageStock: true, stockQuantity: true, backorders: true },
     });
     if (!product) {
       await restoreItems(reserved);
       return { ok: false, error: "One or more products in your order are no longer available." };
     }
     if (!product.manageStock || product.stockQuantity === null) continue;
+    // Backorders allowed ("yes"/"notify") — deliberately oversell.
+    if (product.backorders === "yes" || product.backorders === "notify") continue;
 
     const result = await prisma.product.updateMany({
       where: {

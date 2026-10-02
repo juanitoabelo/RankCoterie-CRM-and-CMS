@@ -17,11 +17,16 @@ type CartItem = {
   quantity: number;
   lineTotal: number;
   stockStatus: string;
+  manageStock: boolean;
+  stockQuantity: number | null;
+  backorders: string;
+  lowStockAmount: number | null;
 };
 
 type CartResponse = {
   ok: boolean;
   error?: string;
+  warning?: string;
   itemCount?: number;
   total?: number;
   items?: CartItem[];
@@ -41,6 +46,7 @@ export default function CartView({
   const [items, setItems] = useState(initialItems);
   const [totals, setTotals] = useState<QuoteTotals>(initialTotals);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const [, startQuote] = useTransition();
@@ -64,9 +70,11 @@ export default function CartView({
   const applyResponse = (json: CartResponse) => {
     if (!json.ok) {
       setError(json.error ?? "Cart update failed.");
+      setWarning(json.warning ?? null);
       return;
     }
     setError(null);
+    setWarning(json.warning ?? null);
     setItems(json.items ?? []);
     notifyCartUpdated(json.itemCount);
     requote();
@@ -117,6 +125,11 @@ export default function CartView({
         {error && (
           <p className="border-b border-red-100 bg-red-50 px-4 py-2 text-sm text-red-600">{error}</p>
         )}
+        {warning && (
+          <p className="border-b border-amber-100 bg-amber-50 px-4 py-2 text-sm text-amber-700">
+            {warning}
+          </p>
+        )}
         {items.length === 0 && (
           <div className="px-4 py-12 text-center">
             <p className="text-sm font-medium text-zinc-700">Your cart is empty</p>
@@ -153,9 +166,32 @@ export default function CartView({
                   {item.name}
                 </Link>
                 <p className="mt-0.5 text-sm text-zinc-500">${item.price.toFixed(2)} each</p>
-                {item.stockStatus === "OUT_OF_STOCK" && (
-                  <p className="mt-0.5 text-xs font-medium text-red-600">Out of stock</p>
-                )}
+                {(() => {
+                  const backorderOk = item.backorders === "yes" || item.backorders === "notify";
+                  const left =
+                    item.manageStock && !backorderOk && item.stockQuantity !== null
+                      ? item.stockQuantity
+                      : null;
+                  if (left !== null && left <= 0) {
+                    return (
+                      <p className="mt-0.5 text-xs font-medium text-red-600">Out of stock</p>
+                    );
+                  }
+                  if (item.stockStatus === "OUT_OF_STOCK") {
+                    return (
+                      <p className="mt-0.5 text-xs font-medium text-red-600">Out of stock</p>
+                    );
+                  }
+                  const threshold = item.lowStockAmount ?? 5;
+                  if (left !== null && left <= threshold) {
+                    return (
+                      <p className="mt-0.5 text-xs font-medium text-amber-600">
+                        Only {left} left in stock
+                      </p>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
 
               <div className="flex items-center gap-1">

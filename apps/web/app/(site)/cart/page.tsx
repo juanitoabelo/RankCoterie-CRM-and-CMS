@@ -22,6 +22,10 @@ export default async function CartPage() {
     quantity: item.quantity,
     lineTotal: item.lineTotal,
     stockStatus: item.product.stockStatus,
+    manageStock: item.product.manageStock,
+    stockQuantity: item.product.stockQuantity,
+    backorders: item.product.backorders,
+    lowStockAmount: item.product.lowStockAmount,
   }));
 
   const lines: QuoteLine[] = (cart?.items ?? []).map((item) => ({

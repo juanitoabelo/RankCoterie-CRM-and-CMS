@@ -5,7 +5,7 @@ import { prisma, TENANT_ID } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/modules/auth";
 import { restoreStockForOrder } from "@/lib/billing/stock";
-import { refundOrderPayment } from "@/lib/billing/refunds";
+import { refundOrderPayment, computeRefund } from "@/lib/billing/refunds";
 import { sendOrderRefundEmail, sendOrderStatusEmail, toOrderEmailData } from "@/lib/email/orders";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -96,16 +96,24 @@ export async function updatePaymentStatus(orderId: string, paymentStatus: string
 }
 
 /**
- * Refund a paid order at its gateway, then mark it REFUNDED and release stock.
- * Idempotent: refunding an already-refunded order succeeds without side effects.
+ * Refund an order at its gateway (full amount, or `amount` for a partial
+ * refund), record a Refund row, and update the order's refunded amount.
+ * Stock returns to inventory only when the order is fully refunded.
+ * Guarded by computeRefund so double refunds cannot exceed what was paid.
  */
-export async function refundOrder(orderId: string): Promise<ActionResult> {
+export async function refundOrder(
+  orderId: string,
+  amount?: number | null,
+  reason?: string | null,
+): Promise<ActionResult> {
   const actor = await requireSection("products");
   try {
     const order = await loadOrder(orderId);
     if (!order) return { ok: false, error: "Order not found." };
-    if (order.paymentStatus === "REFUNDED" || order.status === "REFUNDED") return { ok: true };
-    if (order.paymentStatus !== "PAID") {
+    if (order.paymentStatus === "REFUNDED" || order.status === "REFUNDED") {
+      return { ok: false, error: "This order is already fully refunded." };
+    }
+    if (order.paymentStatus !== "PAID" && order.paymentStatus !== "PARTIALLY_REFUNDED") {
       return {
         ok: false,
         error:
@@ -113,33 +121,53 @@ export async function refundOrder(orderId: string): Promise<ActionResult> {
       };
     }
 
-    const refund = await refundOrderPayment(order);
+    const computed = computeRefund(order, amount);
+    if ("error" in computed) return { ok: false, error: computed.error };
+
+    const refund = await refundOrderPayment(order, computed.amount);
     if (!refund.ok) return { ok: false, error: refund.error };
+
+    const now = new Date();
+    await prisma.refund.create({
+      data: {
+        orderId,
+        amount: computed.amount,
+        reason: reason?.trim() ? reason.trim().slice(0, 500) : null,
+        status: "completed",
+        gatewayRefundId: refund.gatewayRefundId ?? null,
+        refundedById: actor.id,
+        completedAt: now,
+      },
+    });
 
     const meta = (order.meta ?? {}) as Record<string, unknown>;
     await prisma.order.update({
       where: { id: orderId },
       data: {
-        status: "REFUNDED",
-        paymentStatus: "REFUNDED",
+        refundedAmount: Math.round(((order.refundedAmount ?? 0) + computed.amount) * 100) / 100,
+        ...(computed.isFull
+          ? { status: "REFUNDED" as never, paymentStatus: "REFUNDED" as never }
+          : { paymentStatus: "PARTIALLY_REFUNDED" as never }),
         meta: {
           ...meta,
-          refundedAt: new Date().toISOString(),
+          refundedAt: now.toISOString(),
           ...(refund.gatewayRefundId ? { refundId: refund.gatewayRefundId } : {}),
         } as never,
       },
     });
-    // Hand reserved stock back to inventory (claim-first, idempotent).
-    await restoreStockForOrder(orderId).catch(() => {});
+    // Only a full refund returns stock (claim-first, idempotent).
+    if (computed.isFull) await restoreStockForOrder(orderId).catch(() => {});
 
     await logAudit({
       action: "REFUND",
       entity: "Order",
       entityId: orderId,
-      reason: `Refunded via ${order.paymentMethod}`,
+      reason: `Refunded $${computed.amount.toFixed(2)} via ${order.paymentMethod}`,
       meta: {
         orderNumber: order.orderNumber,
         total: order.total,
+        refundedAmount: computed.amount,
+        isFull: computed.isFull,
         gatewayRefundId: refund.gatewayRefundId ?? null,
       },
       actorId: actor.id,
@@ -149,7 +177,7 @@ export async function refundOrder(orderId: string): Promise<ActionResult> {
       .findFirst({ where: { id: orderId, tenantId: TENANT_ID }, include: { items: true } })
       .catch(() => null);
     if (updated) {
-      await sendOrderRefundEmail(toOrderEmailData(updated)).catch(() => {});
+      await sendOrderRefundEmail(toOrderEmailData(updated), computed.amount).catch(() => {});
     }
 
     revalidatePath(`/admin/orders/${orderId}`);

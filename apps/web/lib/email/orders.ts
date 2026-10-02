@@ -147,14 +147,18 @@ export async function sendOrderStatusEmail(order: OrderEmailData, status: string
   }
 }
 
-/** Refund confirmation. */
-export async function sendOrderRefundEmail(order: OrderEmailData): Promise<void> {
+/** Refund confirmation (pass `amount` for a partial refund). */
+export async function sendOrderRefundEmail(order: OrderEmailData, amount?: number): Promise<void> {
+  const isPartial = amount !== undefined && amount + 0.01 < order.total;
+  const body = isPartial
+    ? `<p style="font-size:14px;color:#3f3f46;">A partial refund of <strong>$${(amount as number).toFixed(2)}</strong> of <strong>$${order.total.toFixed(2)}</strong> for order <strong>${esc(order.orderNumber)}</strong> has been issued to your original payment method.</p>`
+    : `<p style="font-size:14px;color:#3f3f46;">A full refund of <strong>$${order.total.toFixed(2)}</strong> for order <strong>${esc(order.orderNumber)}</strong> has been issued to your original payment method.</p>`;
   try {
     await send(
       order,
       `Refund processed — order ${order.orderNumber}`,
       "Your refund has been processed",
-      `<p style="font-size:14px;color:#3f3f46;">A full refund of <strong>$${order.total.toFixed(2)}</strong> for order <strong>${esc(order.orderNumber)}</strong> has been issued to your original payment method.</p>`,
+      body,
     );
   } catch (e) {
     console.warn("[email] refund email failed:", e);

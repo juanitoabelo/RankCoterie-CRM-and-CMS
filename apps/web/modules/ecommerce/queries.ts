@@ -546,6 +546,8 @@ export async function getCartBySession(sessionId: string): Promise<CartWithItems
               stockStatus: true,
               manageStock: true,
               stockQuantity: true,
+              backorders: true,
+              lowStockAmount: true,
               shippingRequired: true,
               type: true,
               downloadable: true,
@@ -581,6 +583,8 @@ export async function getCartByUser(userId: string): Promise<CartWithItems | nul
               stockStatus: true,
               manageStock: true,
               stockQuantity: true,
+              backorders: true,
+              lowStockAmount: true,
               shippingRequired: true,
               type: true,
               downloadable: true,
@@ -620,8 +624,24 @@ export async function getOrCreateCart(sessionId: string, userId?: string): Promi
   return full;
 }
 
+/**
+ * How many more units a customer may buy: null = unlimited (no stock
+ * management, or backorders allowed), otherwise the remaining quantity.
+ */
+export function availableStock(product: {
+  manageStock: boolean;
+  stockQuantity: number | null;
+  backorders?: string | null;
+}): number | null {
+  if (!product.manageStock || product.stockQuantity === null) return null;
+  if (product.backorders === "yes" || product.backorders === "notify") return null;
+  return product.stockQuantity;
+}
+
+type CartMutation = { ok: boolean; error?: string; cartItemId?: string; warning?: string };
+
 /** Add item to cart */
-export async function addItemToCart(cartId: string, productId: string, quantity = 1, variantId?: string, customOptions?: Record<string, unknown>): Promise<{ ok: boolean; error?: string; cartItemId?: string }> {
+export async function addItemToCart(cartId: string, productId: string, quantity = 1, variantId?: string, customOptions?: Record<string, unknown>): Promise<CartMutation> {
   const [product, cart] = await Promise.all([
     prisma.product.findFirst({ where: { id: productId, tenantId: TENANT_ID } }),
     prisma.cart.findFirst({
@@ -649,13 +669,24 @@ export async function addItemToCart(cartId: string, productId: string, quantity 
 
   const price = variantToUse ? variantToUse.price : product.price;
   const wantedVariantId = variantId ?? null;
+  // Clamp to remaining stock (null when backorders are allowed).
+  const limit = availableStock(product);
 
   const existingItem = cart.items.find(
     (item) => item.productId === productId && item.variantId === wantedVariantId,
   );
 
   if (existingItem) {
-    const newQuantity = existingItem.quantity + quantity;
+    const raw = existingItem.quantity + quantity;
+    // Never raise above the limit, never silently lower what's already there.
+    const newQuantity =
+      limit === null ? raw : Math.max(existingItem.quantity, Math.min(raw, limit));
+    const warning =
+      newQuantity < raw
+        ? limit === 0
+          ? "Product is out of stock."
+          : `Only ${limit} left in stock — quantity capped.`
+        : undefined;
 
     await prisma.$transaction(async (tx) => {
       await tx.cartItem.update({
@@ -669,8 +700,15 @@ export async function addItemToCart(cartId: string, productId: string, quantity 
       await recalcCart(tx, cart.id);
     });
 
-    return { ok: true, cartItemId: existingItem.id };
+    return { ok: true, cartItemId: existingItem.id, warning };
   }
+
+  if (limit !== null && limit < 1) {
+    return { ok: false, error: "Product is out of stock." };
+  }
+  const newQuantity = limit === null ? quantity : Math.min(quantity, limit);
+  const warning =
+    newQuantity < quantity ? `Only ${limit} left in stock — quantity capped.` : undefined;
 
   const created = await prisma.$transaction(async (tx) => {
     const cartItem = await tx.cartItem.create({
@@ -678,9 +716,9 @@ export async function addItemToCart(cartId: string, productId: string, quantity 
         cartId: cart.id,
         productId,
         variantId,
-        quantity,
+        quantity: newQuantity,
         price,
-        lineTotal: price * quantity,
+        lineTotal: price * newQuantity,
         meta: { customOptions: (customOptions ?? {}) as Prisma.InputJsonValue },
       },
     });
@@ -688,7 +726,7 @@ export async function addItemToCart(cartId: string, productId: string, quantity 
     return cartItem;
   });
 
-  return { ok: true, cartItemId: created.id };
+  return { ok: true, cartItemId: created.id, warning };
 }
 
 /** Recompute a cart's item count and total from its line items. */
@@ -721,24 +759,36 @@ export async function removeItemFromCart(cartId: string, itemId: string): Promis
 }
 
 /** Update cart item quantity */
-export async function updateCartItemQuantity(cartId: string, itemId: string, quantity: number): Promise<{ ok: boolean; error?: string }> {
+export async function updateCartItemQuantity(cartId: string, itemId: string, quantity: number): Promise<CartMutation> {
   if (quantity < 1) {
     return removeItemFromCart(cartId, itemId);
   }
 
   try {
-    const item = await prisma.cartItem.findFirst({ where: { id: itemId, cartId } });
+    const item = await prisma.cartItem.findFirst({
+      where: { id: itemId, cartId },
+      include: { product: { select: { manageStock: true, stockQuantity: true, backorders: true } } },
+    });
     if (!item) return { ok: false, error: "Cart item not found." };
+
+    const limit = availableStock(item.product);
+    const finalQuantity = limit === null ? quantity : Math.min(quantity, limit);
+    const warning =
+      finalQuantity < quantity
+        ? limit === 0
+          ? "Product is out of stock."
+          : `Only ${limit} left in stock — quantity capped.`
+        : undefined;
 
     await prisma.$transaction(async (tx) => {
       await tx.cartItem.update({
         where: { id: item.id },
-        data: { quantity, lineTotal: item.price * quantity },
+        data: { quantity: finalQuantity, lineTotal: item.price * finalQuantity },
       });
       await recalcCart(tx, cartId);
     });
 
-    return { ok: true };
+    return { ok: true, warning };
   } catch {
     return { ok: false, error: "Failed to update cart item quantity." };
   }

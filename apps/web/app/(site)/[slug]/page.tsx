@@ -136,12 +136,16 @@ export default async function PublicPage({
             ? "On backorder"
             : "Out of stock";
     // Scarcity cue: show the exact remaining count when it's running low.
+    // Products that accept backorders are never scarce.
+    const backorderOk = product.backorders === "yes" || product.backorders === "notify";
+    const lowThreshold = product.lowStockAmount ?? 5;
     const lowStockCount =
       product.manageStock &&
+      !backorderOk &&
       product.stockQuantity !== null &&
       product.stockStatus !== "OUT_OF_STOCK" &&
       product.stockQuantity > 0 &&
-      product.stockQuantity <= 5
+      product.stockQuantity <= lowThreshold
         ? product.stockQuantity
         : null;
 

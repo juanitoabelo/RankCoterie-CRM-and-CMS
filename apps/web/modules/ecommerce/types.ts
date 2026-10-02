@@ -242,6 +242,8 @@ export interface ProductListItem {
   stockStatus: StockStatus;
   stockQuantity: number | null;
   manageStock: boolean;
+  backorders: string;
+  lowStockAmount: number | null;
   downloadable: boolean;
   virtual: boolean;
   shippingRequired: boolean;
@@ -293,7 +295,7 @@ export interface CartItemWithRelations {
   id: string;
   cartId: string;
   productId: string;
-  product: Pick<ProductListItem, "id" | "name" | "slug" | "price" | "regularPrice" | "salePrice" | "stockStatus" | "manageStock" | "stockQuantity" | "images" | "type" | "downloadable" | "virtual" | "shippingRequired">;
+  product: Pick<ProductListItem, "id" | "name" | "slug" | "price" | "regularPrice" | "salePrice" | "stockStatus" | "manageStock" | "stockQuantity" | "backorders" | "lowStockAmount" | "images" | "type" | "downloadable" | "virtual" | "shippingRequired">;
   variantId: string | null;
   variant: Pick<ProductVariantWithRelations, "id" | "name" | "sku" | "price" | "regularPrice" | "salePrice" | "stockStatus" | "stockQuantity" | "manageStock" | "imageAsset" | "attributes"> | null;
   quantity: number;

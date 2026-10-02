@@ -10,13 +10,47 @@ import { readSquareConfig, refundSquareOrder } from "./square";
 
 export type RefundResult = { ok: true; gatewayRefundId?: string } | { ok: false; error: string };
 
-export async function refundOrderPayment(order: {
-  paymentMethod: string | null;
-  total: number;
-  meta: unknown;
-  paymentGatewayId: string | null;
-}): Promise<RefundResult> {
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * How much of an order may be refunded right now. Passing no amount refunds
+ * the full unrefunded balance. Never allows refunding more than paid.
+ */
+export function computeRefund(
+  order: { total: number; refundedAmount?: number | null },
+  amount?: number | null,
+):
+  | { amount: number; remaining: number; isFull: true }
+  | { amount: number; remaining: number; isFull: false }
+  | { error: string } {
+  const remaining = round2(order.total - (order.refundedAmount ?? 0));
+  if (remaining <= 0) {
+    return { error: "This order has already been fully refunded." };
+  }
+  const requested = amount === null || amount === undefined ? remaining : round2(amount);
+  if (!Number.isFinite(requested) || requested <= 0) {
+    return { error: "Enter a refund amount greater than zero." };
+  }
+  if (requested > remaining + 0.01) {
+    return {
+      error: `Refund cannot exceed the unrefunded balance of $${remaining.toFixed(2)}.`,
+    };
+  }
+  const isFull = requested >= remaining - 0.01;
+  return { amount: isFull ? remaining : requested, remaining, isFull };
+}
+
+export async function refundOrderPayment(
+  order: {
+    paymentMethod: string | null;
+    total: number;
+    meta: unknown;
+    paymentGatewayId: string | null;
+  },
+  amount?: number | null,
+): Promise<RefundResult> {
   const meta = (order.meta ?? {}) as Record<string, unknown>;
+  const refundAmount = amount === null || amount === undefined ? order.total : amount;
 
   switch (order.paymentMethod ?? "") {
     case "STRIPE": {
@@ -41,7 +75,10 @@ export async function refundOrderPayment(order: {
         if (!paymentIntent) {
           return { ok: false, error: "Stripe session has no payment intent to refund." };
         }
-        const refund = await stripe.refunds.create({ payment_intent: paymentIntent });
+        const refund = await stripe.refunds.create({
+          payment_intent: paymentIntent,
+          amount: Math.round(refundAmount * 100),
+        });
         return { ok: true, gatewayRefundId: refund.id };
       } catch (e) {
         return { ok: false, error: e instanceof Error ? e.message : "Stripe refund failed." };
@@ -60,7 +97,7 @@ export async function refundOrderPayment(order: {
         : null;
       const cfg = gateway ? readPaypalConfig(gateway.config) : null;
       if (!cfg) return { ok: false, error: "PayPal gateway credentials are missing." };
-      return refundPaypalOrder(cfg, paypalOrderId);
+      return refundPaypalOrder(cfg, paypalOrderId, Math.round(refundAmount * 100));
     }
 
     case "SQUARE": {
@@ -75,7 +112,7 @@ export async function refundOrderPayment(order: {
         : null;
       const cfg = gateway ? readSquareConfig(gateway.config) : null;
       if (!cfg) return { ok: false, error: "Square gateway credentials are missing." };
-      return refundSquareOrder(cfg, squareOrderId, Math.round(order.total * 100));
+      return refundSquareOrder(cfg, squareOrderId, Math.round(refundAmount * 100));
     }
 
     case "MANUAL":

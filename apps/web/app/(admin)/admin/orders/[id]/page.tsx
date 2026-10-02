@@ -140,8 +140,44 @@ export default async function OrderDetailAdminPage({
 
           <RefundButton
             orderId={order.id}
-            canRefund={order.paymentStatus === "PAID"}
+            canRefund={
+              order.paymentStatus === "PAID" || order.paymentStatus === "PARTIALLY_REFUNDED"
+            }
+            total={order.total}
+            refundedAmount={order.refundedAmount ?? 0}
           />
+
+          {order.refunds && order.refunds.length > 0 && (
+            <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
+              <div className="border-b border-zinc-100 bg-zinc-50 px-4 py-3">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+                  Refund history
+                </h2>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  ${(order.refundedAmount ?? 0).toFixed(2)} of ${order.total.toFixed(2)} refunded
+                </p>
+              </div>
+              <ul className="divide-y divide-zinc-100">
+                {order.refunds.map((refund) => (
+                  <li key={refund.id} className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
+                    <div>
+                      <p className="font-medium text-zinc-900 tabular-nums">
+                        ${refund.amount.toFixed(2)}
+                      </p>
+                      <p className="mt-0.5 text-xs text-zinc-500">
+                        {new Date(refund.createdAt).toLocaleString()}
+                        {refund.reason ? ` · ${refund.reason}` : ""}
+                        {refund.gatewayRefundId ? ` · ${refund.gatewayRefundId}` : ""}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded bg-zinc-100 px-2 py-1 text-xs font-medium uppercase text-zinc-600">
+                      {refund.status}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         <aside className="space-y-6">

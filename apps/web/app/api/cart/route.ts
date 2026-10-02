@@ -26,6 +26,10 @@ type SerializedItem = {
   quantity: number;
   lineTotal: number;
   stockStatus: string;
+  manageStock: boolean;
+  stockQuantity: number | null;
+  backorders: string;
+  lowStockAmount: number | null;
 };
 
 function serializeCart(cart: Awaited<ReturnType<typeof getCartBySession>>) {
@@ -45,6 +49,10 @@ function serializeCart(cart: Awaited<ReturnType<typeof getCartBySession>>) {
       quantity: item.quantity,
       lineTotal: item.lineTotal,
       stockStatus: item.product.stockStatus,
+      manageStock: item.product.manageStock,
+      stockQuantity: item.product.stockQuantity,
+      backorders: item.product.backorders,
+      lowStockAmount: item.product.lowStockAmount,
     })),
   };
 }
@@ -82,12 +90,14 @@ export async function POST(request: Request) {
 
     const cart = await getOrCreateCart(sessionId);
     const result = await addItemToCart(cart.id, productId, quantity);
-    const itemCount = result.ok ? (await getCartBySession(sessionId))?.itemCount ?? 0 : cart.itemCount;
+    const updated = result.ok ? await getCartBySession(sessionId) : null;
+    const itemCount = updated?.itemCount ?? cart.itemCount;
 
     const response = NextResponse.json({
       ok: result.ok,
       error: result.error,
-      itemCount,
+      warning: result.warning,
+      ...(updated ? serializeCart(updated) : { itemCount, total: 0, items: [] }),
     });
 
     if (isNew && result.ok) {
@@ -96,7 +106,7 @@ export async function POST(request: Request) {
 
     return result.ok
       ? response
-      : NextResponse.json({ ok: false, error: result.error }, { status: 409 });
+      : NextResponse.json({ ok: false, error: result.error, warning: result.warning }, { status: 409 });
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : "Failed to add to cart." },
@@ -133,7 +143,7 @@ export async function PATCH(request: Request) {
     const updated = await getCartBySession(sessionId);
 
     return result.ok
-      ? NextResponse.json({ ok: true, ...serializeCart(updated) })
+      ? NextResponse.json({ ok: true, ...serializeCart(updated), warning: result.warning })
       : NextResponse.json(result, { status: 409 });
   } catch (e) {
     return NextResponse.json(

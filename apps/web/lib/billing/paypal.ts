@@ -184,6 +184,7 @@ export async function verifyPaypalWebhookSignature(
 export async function refundPaypalOrder(
   cfg: PaypalConfig,
   paypalOrderId: string,
+  amountCents?: number,
 ): Promise<{ ok: true; refundId: string } | { ok: false; error: string }> {
   try {
     const token = await getAccessToken(cfg);
@@ -213,7 +214,11 @@ export async function refundPaypalOrder(
       {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: "{}",
+        body: JSON.stringify(
+          amountCents !== undefined
+            ? { amount: { value: (amountCents / 100).toFixed(2), currency_code: "USD" } }
+            : {},
+        ),
         cache: "no-store",
       },
     );

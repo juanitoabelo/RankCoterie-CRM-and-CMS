@@ -6,6 +6,7 @@ import { checkoutCart, quoteCartTotals } from "@/app/(site)/checkout/actions";
 import { notifyCartUpdated } from "@/lib/cart-event";
 import type { QuoteTotals } from "@/lib/billing/totals";
 import CouponBox from "./CouponBox";
+import AddressFields from "./AddressFields";
 
 type Gateway = { id: string; name: string; type: string };
 
@@ -142,39 +143,14 @@ export default function CheckoutForm({
         <p className="mt-1 text-xs text-zinc-400">We&apos;ll send your order confirmation here.</p>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-zinc-600" htmlFor="checkout-country">
-            Country / Region
-          </label>
-          <input
-            id="checkout-country"
-            type="text"
-            name="country"
-            value={country}
-            onChange={(e) => setCountry(e.target.value)}
-            onBlur={requote}
-            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-            placeholder="e.g. US"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-zinc-600" htmlFor="checkout-state">
-            State / Region
-          </label>
-          <input
-            id="checkout-state"
-            type="text"
-            name="state"
-            value={state}
-            onChange={(e) => setState(e.target.value)}
-            onBlur={requote}
-            className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-            placeholder="e.g. CA"
-          />
-        </div>
-      </div>
-      <p className="mt-1 text-xs text-zinc-400">Used to calculate tax and shipping.</p>
+      <AddressFields
+        idPrefix="checkout"
+        country={country}
+        state={state}
+        onCountryChange={setCountry}
+        onStateChange={setState}
+        onBlur={requote}
+      />
 
       <h2 className="mt-5 text-sm font-semibold uppercase tracking-wide text-zinc-500">
         Coupon

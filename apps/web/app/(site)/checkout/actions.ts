@@ -41,7 +41,18 @@ type LineItem = {
   shippingRequired: boolean;
 };
 
-type Address = { country: string | null; state: string | null };
+type Address = {
+  firstName: string;
+  lastName: string;
+  company: string;
+  address1: string;
+  address2: string;
+  city: string;
+  state: string;
+  postcode: string;
+  country: string;
+  phone: string;
+};
 
 /** Merge a patch into an order's meta JSON without dropping existing keys. */
 async function mergeOrderMeta(orderId: string, patch: Record<string, unknown>): Promise<void> {
@@ -83,10 +94,18 @@ function orderMatchesAttempt(
   items: LineItem[],
   totals: QuoteTotals,
   gatewayId: string,
+  address: Address,
 ): boolean {
   if (order.paymentGatewayId !== gatewayId) return false;
   if (Math.abs(order.total - totals.total) > 0.011) return false;
   if (order.items.length !== items.length) return false;
+  // A changed shipping address is a different attempt — release and re-create.
+  if ((order.billingAddress1 ?? "") !== address.address1) return false;
+  if ((order.billingCity ?? "") !== address.city) return false;
+  if ((order.billingPostcode ?? "") !== address.postcode) return false;
+  if ((order.billingCountry ?? "") !== address.country) return false;
+  if ((order.billingFirstName ?? "") !== address.firstName) return false;
+  if ((order.billingLastName ?? "") !== address.lastName) return false;
   const sortedOrder = [...order.items].sort((a, b) => a.productId.localeCompare(b.productId));
   const sortedNew = [...items].sort((a, b) => a.productId.localeCompare(b.productId));
   return sortedOrder.every((o, i) => o.productId === sortedNew[i].productId && o.quantity === sortedNew[i].quantity);
@@ -98,6 +117,7 @@ function orderMatchesAttempt(
  */
 async function releaseStaleOrder(orderId: string): Promise<void> {
   await restoreStockForOrder(orderId).catch(() => {});
+  await releaseOrderCoupon(orderId).catch(() => {});
   const current = await prisma.order.findUnique({ where: { id: orderId }, select: { meta: true } });
   const meta = (current?.meta ?? {}) as Record<string, unknown>;
   await prisma.order
@@ -261,11 +281,29 @@ async function createOrder(
       paymentMethod: gateway.type,
       paymentMethodTitle: gateway.name,
       shippingMethod: totals.shippingLabel,
-      billingCountry: address.country,
-      billingState: address.state,
-      shippingCountry: address.country,
-      shippingState: address.state,
+      billingFirstName: address.firstName || null,
+      billingLastName: address.lastName || null,
+      billingCompany: address.company || null,
+      billingAddress1: address.address1 || null,
+      billingAddress2: address.address2 || null,
+      billingCity: address.city || null,
+      billingState: address.state || null,
+      billingPostcode: address.postcode || null,
+      billingCountry: address.country || null,
+      billingPhone: address.phone || null,
       billingEmail: email,
+      // Single-address checkout: shipping mirrors billing.
+      shippingFirstName: address.firstName || null,
+      shippingLastName: address.lastName || null,
+      shippingCompany: address.company || null,
+      shippingAddress1: address.address1 || null,
+      shippingAddress2: address.address2 || null,
+      shippingCity: address.city || null,
+      shippingState: address.state || null,
+      shippingPostcode: address.postcode || null,
+      shippingCountry: address.country || null,
+      shippingPhone: address.phone || null,
+      customerNote: null,
       meta: {
         ...(totals.coupon ? { couponCode: totals.coupon.code } : {}),
         taxRate: totals.taxRate,
@@ -306,6 +344,7 @@ async function startPayment(
 
   const rollback = async () => {
     await restoreStockForOrder(order.id).catch(() => {});
+    await releaseOrderCoupon(order.id).catch(() => {});
     await prisma.order.delete({ where: { id: order.id } }).catch(() => {});
   };
 
@@ -410,6 +449,11 @@ async function placeOrder(
   const totals = await totalsResult;
   if (totals.couponError) return { ok: false, error: totals.couponError };
 
+  // Shipping orders need a deliverable address; digital-only orders don't.
+  const requiresShipping = lines.items.some((item) => item.shippingRequired);
+  const addressError = validateAddress(address, requiresShipping);
+  if (addressError) return { ok: false, error: addressError };
+
   // ── Idempotency: a re-submit (double click, back button, flaky network)
   //    with the same checkout token reuses the order it already created.
   if (checkoutToken) {
@@ -418,7 +462,7 @@ async function placeOrder(
       if (existing.paymentStatus === "PAID" || existing.status === "COMPLETED") {
         return { ok: true, url: `/checkout/success?orderId=${existing.id}` };
       }
-      if (existing.status === "PENDING" && orderMatchesAttempt(existing, lines.items, totals, gatewayResult.gateway.id)) {
+      if (existing.status === "PENDING" && orderMatchesAttempt(existing, lines.items, totals, gatewayResult.gateway.id, address)) {
         // Same attempt in flight — skip stock reservation and order creation,
         // just restart the gateway flow (fresh session/URL) on the same order.
         return startPayment(existing, lines.items, totals, productSlugForCancel, gatewayResult.gateway);
@@ -456,7 +500,52 @@ async function placeOrder(
     return { ok: false, error: e instanceof Error ? e.message : "Could not create your order." };
   }
 
+  // Consume one coupon usage now that the order exists (limits are checked
+  // at quote time, so this makes usedCount authoritative). Released again if
+  // the order is later deleted/cancelled before payment (releaseOrderCoupon).
+  if (totals.coupon) await adjustCouponUsage(totals.coupon.code, 1);
+
   return startPayment(order, lines.items, totals, productSlugForCancel, gatewayResult.gateway);
+}
+
+/**
+ * Increment/decrement a coupon's usedCount (never below zero). Usage limits
+ * are enforced in resolveCoupon against usedCount, so both directions matter.
+ */
+async function adjustCouponUsage(code: string, delta: 1 | -1): Promise<void> {
+  await prisma.coupon
+    .updateMany({
+      where: {
+        code: { equals: code, mode: "insensitive" },
+        tenantId: TENANT_ID,
+        ...(delta < 0 ? { usedCount: { gte: 1 } } : {}),
+      },
+      data: { usedCount: { increment: delta } },
+    })
+    .catch(() => {});
+}
+
+/**
+ * Give a pending order's coupon usage back. Claimed via meta.couponReleased
+ * so repeated releases (double delete / stale+rollback) can't decrement twice.
+ */
+async function releaseOrderCoupon(orderId: string): Promise<void> {
+  const current = await prisma.order
+    .findUnique({ where: { id: orderId }, select: { meta: true } })
+    .catch(() => null);
+  if (!current) return;
+  const meta = (current.meta ?? {}) as Record<string, unknown>;
+
+  const claimed = await prisma.order
+    .updateMany({
+      where: { id: orderId, NOT: { meta: { path: ["couponReleased"], equals: true } } },
+      data: { meta: { ...meta, couponReleased: true } as Prisma.InputJsonValue },
+    })
+    .catch(() => ({ count: 0 }));
+  if (claimed.count === 0) return;
+
+  const code = typeof meta.couponCode === "string" ? meta.couponCode : null;
+  if (code) await adjustCouponUsage(code, -1);
 }
 
 /** Restore stock directly from line items (used when no order row exists yet). */
@@ -472,9 +561,37 @@ async function restoreStockForOrderFallback(items: LineItem[]): Promise<void> {
 }
 
 function readAddress(formData: FormData): Address {
-  const country = String(formData.get("country") ?? "").trim().slice(0, 2).toUpperCase();
-  const state = String(formData.get("state") ?? "").trim().slice(0, 64);
-  return { country: country || null, state: state || null };
+  const str = (key: string) =>
+    String(formData.get(key) ?? "").trim().slice(0, 200);
+  return {
+    firstName: str("firstName"),
+    lastName: str("lastName"),
+    company: str("company").slice(0, 120),
+    address1: str("address1"),
+    address2: str("address2").slice(0, 200),
+    city: str("city"),
+    state: str("state").slice(0, 64),
+    postcode: str("postcode").slice(0, 32),
+    country: str("country").slice(0, 2).toUpperCase(),
+    phone: str("phone").slice(0, 40),
+  };
+}
+
+/**
+ * Validate the address for orders that need shipping. Digital-only orders
+ * skip the street-address requirement (country still drives tax).
+ */
+function validateAddress(address: Address, requiresShipping: boolean): string | null {
+  if (!requiresShipping) return null;
+  const missing: string[] = [];
+  if (!address.firstName) missing.push("first name");
+  if (!address.lastName) missing.push("last name");
+  if (!address.address1) missing.push("street address");
+  if (!address.city) missing.push("city");
+  if (!address.postcode) missing.push("postal code");
+  if (!address.country) missing.push("country");
+  if (missing.length > 0) return `Please enter your ${missing.join(", ")}.`;
+  return null;
 }
 
 /** Buy now from the single product page. */
@@ -495,13 +612,15 @@ export async function purchaseProduct(formData: FormData): Promise<PurchaseResul
   const lines = await buildLineItems([{ productId, quantity }]);
   if (!lines.ok) return lines;
 
+  const address = readAddress(formData);
   const totals = quoteTotals({
     lines: toQuoteLines(lines.items),
     couponCode,
-    ...readAddress(formData),
+    country: address.country,
+    state: address.state,
   });
 
-  return placeOrder(lines, totals, gatewayResult, email, readAddress(formData), null, checkoutToken, null);
+  return placeOrder(lines, totals, gatewayResult, email, address, null, checkoutToken, null);
 }
 
 /** Place an order for everything in the cart. */
@@ -511,6 +630,8 @@ export async function checkoutCart(formData: FormData): Promise<PurchaseResult> 
   const checkoutToken = normalizeCheckoutToken(formData.get("checkoutToken"));
 
   if (!gatewayId) return { ok: false, error: "Please choose a payment method." };
+  // Email is how guests look up their order later.
+  if (!email) return { ok: false, error: "Please enter your email address." };
 
   const sessionId = await readExistingCartSession();
   const cart = sessionId ? await getCartBySession(sessionId) : null;
@@ -530,7 +651,8 @@ export async function checkoutCart(formData: FormData): Promise<PurchaseResult> 
   const totals = quoteTotals({
     lines: toQuoteLines(lines.items),
     couponCode: cart.couponCode,
-    ...address,
+    country: address.country,
+    state: address.state,
   });
 
   return placeOrder(lines, totals, gatewayResult, email, address, null, checkoutToken, sessionId);
