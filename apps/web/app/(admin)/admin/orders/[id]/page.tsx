@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import Image from "next/image";
 import { getOrderById } from "@/modules/ecommerce/queries";
 import OrderStatusForm from "@/components/admin/order/OrderStatusForm";
 import RefundButton from "@/components/admin/order/RefundButton";
@@ -65,9 +66,11 @@ export default async function OrderDetailAdminPage({
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {item.product.images[0] ? (
-                          <img
+                          <Image
                             src={`/api/assets/${item.product.images[0].assetId}`}
                             alt=""
+                            width={32}
+                            height={32}
                             className="h-8 w-8 rounded border border-zinc-200 bg-zinc-100 object-cover"
                           />
                         ) : (

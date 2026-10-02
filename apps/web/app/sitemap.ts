@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getCatalogRepo } from "@/lib/directory/catalog";
+import { prisma } from "@/modules/shared";
 
 export const revalidate = 3600;
 
@@ -12,9 +13,15 @@ const SITE_URL = process.env.SITE_URL ?? "https://masternet.org";
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const repo = await getCatalogRepo();
-  const [categories, regions] = await Promise.all([
+  const [categories, regions, products] = await Promise.all([
     repo.getCategories(),
     repo.getRegions(),
+    prisma.product.findMany({
+      where: { status: "PUBLISHED", visibility: "PUBLIC" },
+      select: { slug: true, updatedAt: true },
+      orderBy: { updatedAt: "desc" },
+      take: 5000,
+    }),
   ]);
 
   const entries: MetadataRoute.Sitemap = [
@@ -38,6 +45,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.6,
       });
     }
+  }
+
+  for (const product of products) {
+    entries.push({
+      url: `${SITE_URL}/${product.slug}`,
+      lastModified: product.updatedAt,
+      changeFrequency: "weekly",
+      priority: 0.7,
+    });
   }
 
   return entries;

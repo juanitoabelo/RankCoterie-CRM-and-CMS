@@ -20,6 +20,63 @@ export type OrderLookupResult =
     }
   | { ok: false; error: string };
 
+export type OrderSummary = {
+  orderNumber: string;
+  status: string;
+  paymentStatus: string;
+  total: number;
+  currency: string;
+  createdAt: string;
+  itemCount: number;
+};
+
+export type OrderHistoryResult =
+  | { ok: true; orders: OrderSummary[] }
+  | { ok: false; error: string };
+
+/**
+ * All orders for an email address (guest billing email or account email).
+ * This is the storefront "order history" — no account required.
+ */
+export async function lookupOrdersByEmail(email: string): Promise<OrderHistoryResult> {
+  const mail = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) {
+    return { ok: false, error: "Enter a valid email address." };
+  }
+
+  try {
+    const orders = await prisma.order.findMany({
+      where: {
+        tenantId: TENANT_ID,
+        OR: [
+          { guestEmail: { equals: mail, mode: "insensitive" } },
+          { billingEmail: { equals: mail, mode: "insensitive" } },
+          { user: { email: { equals: mail, mode: "insensitive" } } },
+          { customer: { email: { equals: mail, mode: "insensitive" } } },
+        ],
+      },
+      include: { items: { select: { quantity: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+
+    return {
+      ok: true,
+      orders: orders.map((order) => ({
+        orderNumber: order.orderNumber,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        total: order.total,
+        currency: order.currency,
+        createdAt: order.createdAt.toISOString(),
+        itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
+      })),
+    };
+  } catch {
+    return { ok: false, error: GENERIC_ERROR };
+  }
+}
+
 const GENERIC_ERROR = "We couldn't find an order matching those details.";
 
 /**

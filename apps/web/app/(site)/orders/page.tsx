@@ -20,7 +20,8 @@ export default async function OrdersPage({
       <div className="text-center">
         <h1 className="text-2xl font-semibold text-zinc-900">Track your order</h1>
         <p className="mt-2 text-sm text-zinc-600">
-          Enter your order number and the email you used at checkout.
+          Enter your email to see all your orders, or add an order number for one specific
+          order.
         </p>
       </div>
       <div className="mt-8">

@@ -14,8 +14,35 @@ export const TIER_PRICE_ENV: Record<string, string> = {
   PREMIUM: "STRIPE_PRICE_PREMIUM",
 };
 
-export function isStripeConfigured(): boolean {
-  return !!process.env.STRIPE_SECRET_KEY;
+export function isStripeConfigured(config?: unknown): boolean {
+  return readStripeConfig(config) !== null;
+}
+
+export type StripeConfig = {
+  secretKey: string;
+  publishableKey: string | null;
+  webhookSecret: string | null;
+};
+
+function clean(v: unknown): string | null {
+  const s = typeof v === "string" ? v.trim() : "";
+  return s || null;
+}
+
+/**
+ * Stripe credentials from the gateway's admin config, falling back to env.
+ * Admin → Configure Payment Gateway is the primary source; env vars keep
+ * existing deployments working unchanged.
+ */
+export function readStripeConfig(config: unknown): StripeConfig | null {
+  const c = (config ?? {}) as Record<string, unknown>;
+  const secretKey = clean(c.secretKey) ?? clean(process.env.STRIPE_SECRET_KEY);
+  if (!secretKey) return null;
+  return {
+    secretKey,
+    publishableKey: clean(c.publishableKey) ?? clean(process.env.STRIPE_PUBLISHABLE_KEY),
+    webhookSecret: clean(c.webhookSecret) ?? clean(process.env.STRIPE_WEBHOOK_SECRET),
+  };
 }
 
 export function getPriceId(tier: string): string | null {

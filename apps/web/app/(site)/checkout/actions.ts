@@ -4,7 +4,7 @@ import Stripe from "stripe";
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import { prisma, TENANT_ID } from "@/modules/shared";
-import { isStripeConfigured } from "@/lib/billing/checkout";
+import { isStripeConfigured, readStripeConfig } from "@/lib/billing/checkout";
 import { createPaypalOrder, isPaypalConfigured, readPaypalConfig } from "@/lib/billing/paypal";
 import { createSquarePaymentLink, isSquareConfigured, readSquareConfig } from "@/lib/billing/square";
 import {
@@ -16,6 +16,11 @@ import {
   type QuoteTotals,
 } from "@/lib/billing/totals";
 import { reserveStock, restoreStockForOrder } from "@/lib/billing/stock";
+import {
+  adjustCouponUsage,
+  releaseOrderCoupon,
+  releasePendingOrder,
+} from "@/lib/billing/pending-orders";
 import { getCartBySession } from "@/modules/ecommerce/queries";
 import { readExistingCartSession } from "@/lib/cart-session";
 import { getSessionUid } from "@/modules/auth/session";
@@ -112,24 +117,11 @@ function orderMatchesAttempt(
 }
 
 /**
- * Cancel a stale/abandoned order and hand its stock back.
- * restoreStockForOrder is claim-first, so calling this twice is safe.
+ * Cancel a stale/abandoned order and hand its reservations back.
+ * Claim-first, so calling this twice is safe.
  */
 async function releaseStaleOrder(orderId: string): Promise<void> {
-  await restoreStockForOrder(orderId).catch(() => {});
-  await releaseOrderCoupon(orderId).catch(() => {});
-  const current = await prisma.order.findUnique({ where: { id: orderId }, select: { meta: true } });
-  const meta = (current?.meta ?? {}) as Record<string, unknown>;
-  await prisma.order
-    .update({
-      where: { id: orderId },
-      data: {
-        status: "CANCELLED",
-        paymentStatus: "CANCELLED",
-        meta: { ...meta, cancelledReason: "superseded-by-retry" } as Prisma.InputJsonValue,
-      },
-    })
-    .catch(() => {});
+  await releasePendingOrder(orderId, "superseded-by-retry").catch(() => {});
 }
 
 /** Cancel abandoned PENDING orders from earlier attempts of the same cart checkout. */
@@ -165,7 +157,7 @@ async function resolveGateway(gatewayId: string) {
 
   // Fail fast on gateways that cannot process payment right now — before
   // any order is created, so no orphan orders are left behind.
-  if (gateway.type === "STRIPE" && !isStripeConfigured()) {
+  if (gateway.type === "STRIPE" && !isStripeConfigured(gateway.config)) {
     return {
       ok: false as const,
       error: "Stripe is not configured yet — add your Stripe keys under Configure Payment Gateway.",
@@ -349,8 +341,13 @@ async function startPayment(
   };
 
   if (gateway.type === "STRIPE") {
+    const stripeConfig = readStripeConfig(gateway.config);
+    if (!stripeConfig) {
+      await rollback();
+      return { ok: false, error: "Stripe is not configured yet." };
+    }
     try {
-      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+      const stripe = new Stripe(stripeConfig.secretKey);
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
         line_items: items.map((item) => ({
@@ -506,46 +503,6 @@ async function placeOrder(
   if (totals.coupon) await adjustCouponUsage(totals.coupon.code, 1);
 
   return startPayment(order, lines.items, totals, productSlugForCancel, gatewayResult.gateway);
-}
-
-/**
- * Increment/decrement a coupon's usedCount (never below zero). Usage limits
- * are enforced in resolveCoupon against usedCount, so both directions matter.
- */
-async function adjustCouponUsage(code: string, delta: 1 | -1): Promise<void> {
-  await prisma.coupon
-    .updateMany({
-      where: {
-        code: { equals: code, mode: "insensitive" },
-        tenantId: TENANT_ID,
-        ...(delta < 0 ? { usedCount: { gte: 1 } } : {}),
-      },
-      data: { usedCount: { increment: delta } },
-    })
-    .catch(() => {});
-}
-
-/**
- * Give a pending order's coupon usage back. Claimed via meta.couponReleased
- * so repeated releases (double delete / stale+rollback) can't decrement twice.
- */
-async function releaseOrderCoupon(orderId: string): Promise<void> {
-  const current = await prisma.order
-    .findUnique({ where: { id: orderId }, select: { meta: true } })
-    .catch(() => null);
-  if (!current) return;
-  const meta = (current.meta ?? {}) as Record<string, unknown>;
-
-  const claimed = await prisma.order
-    .updateMany({
-      where: { id: orderId, NOT: { meta: { path: ["couponReleased"], equals: true } } },
-      data: { meta: { ...meta, couponReleased: true } as Prisma.InputJsonValue },
-    })
-    .catch(() => ({ count: 0 }));
-  if (claimed.count === 0) return;
-
-  const code = typeof meta.couponCode === "string" ? meta.couponCode : null;
-  if (code) await adjustCouponUsage(code, -1);
 }
 
 /** Restore stock directly from line items (used when no order row exists yet). */

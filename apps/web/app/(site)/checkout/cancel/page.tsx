@@ -3,6 +3,7 @@ import { prisma, TENANT_ID } from "@/modules/shared";
 import type { Prisma } from "@prisma/client";
 import { logAudit } from "@/lib/audit";
 import { restoreStockForOrder } from "@/lib/billing/stock";
+import { releaseOrderCoupon } from "@/lib/billing/pending-orders";
 
 export const revalidate = 0;
 
@@ -45,6 +46,10 @@ export default async function CheckoutCancelPage({
           meta: { ...meta, cancelledReason: "payment-abandoned" } as Prisma.InputJsonValue,
         },
       });
+      // After the meta write: releases its claim (meta.couponReleased) last so
+      // this update can't wipe it — coupon usage must come back too, or
+      // usage limits leak on abandonment.
+      await releaseOrderCoupon(order.id).catch(() => {});
       await logAudit({
         action: "ORDER_UPDATE",
         entity: "Order",

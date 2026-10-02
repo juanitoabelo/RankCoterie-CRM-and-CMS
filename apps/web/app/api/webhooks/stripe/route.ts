@@ -12,15 +12,33 @@
  * naturally hides/exposes the listing based on status + grace windows.
  */
 import Stripe from "stripe";
-import { prisma } from "@/modules/shared";
+import { prisma, TENANT_ID } from "@/modules/shared";
+import { readStripeConfig } from "@/lib/billing/checkout";
 import { logAudit } from "@/lib/audit";
 import { markOrderPaid } from "@/lib/billing/payment-events";
 // Dunning grace: listing stays visible for N days after the failed charge
 // (README design decision #3: dunning → suspend → expire).
 const DUNNING_GRACE_DAYS = 7;
 
+// Secret key for API calls, refreshed from the gateway config (env fallback)
+// at the start of each webhook request.
+let stripeSecretKey: string | null = process.env.STRIPE_SECRET_KEY ?? null;
+
 function stripe(): Stripe {
-  return new Stripe(process.env.STRIPE_SECRET_KEY!);
+  if (!stripeSecretKey) throw new Error("Stripe is not configured.");
+  return new Stripe(stripeSecretKey);
+}
+
+/** Load Stripe credentials: gateway admin config first, env as fallback. */
+async function loadStripeCredentials(): Promise<{ secretKey: string | null; webhookSecret: string | null }> {
+  const gateway = await prisma.paymentGateway
+    .findFirst({
+      where: { tenantId: TENANT_ID, type: "STRIPE", isEnabled: true },
+      orderBy: { createdAt: "asc" },
+    })
+    .catch(() => null);
+  const cfg = readStripeConfig(gateway?.config);
+  return { secretKey: cfg?.secretKey ?? null, webhookSecret: cfg?.webhookSecret ?? null };
 }
 
 // Stripe SDK v22 dropped `current_period_end` / `Invoice.subscription` from its
@@ -210,7 +228,9 @@ async function handleChargeDisputeCreated(dispute: Stripe.Dispute) {
 }
 
 export async function POST(req: Request) {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  const credentials = await loadStripeCredentials();
+  stripeSecretKey = credentials.secretKey;
+  const secret = credentials.webhookSecret;
   const payload = await req.text();
   const signature = req.headers.get("stripe-signature");
   if (!secret || !signature) {

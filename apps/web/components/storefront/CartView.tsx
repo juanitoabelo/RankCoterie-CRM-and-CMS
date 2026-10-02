@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { notifyCartUpdated } from "@/lib/cart-event";
 import { quoteCartTotals } from "@/app/(site)/checkout/actions";
 import type { QuoteTotals } from "@/lib/billing/totals";
@@ -146,9 +147,11 @@ export default function CartView({
             <li key={item.id} className="flex items-center gap-4 px-4 py-4">
               <Link href={`/${item.slug}`} className="shrink-0">
                 {item.imageAssetId ? (
-                  <img
+                  <Image
                     src={`/api/assets/${item.imageAssetId}`}
                     alt={item.name}
+                    width={64}
+                    height={64}
                     className="h-16 w-16 rounded-lg border border-zinc-200 bg-zinc-50 object-cover"
                   />
                 ) : (

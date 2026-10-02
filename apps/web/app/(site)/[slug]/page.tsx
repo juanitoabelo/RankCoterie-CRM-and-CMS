@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import Image from "next/image";
 import { prisma } from "@/modules/shared";
 import BlockRenderer from "@/components/admin/page-builder/BlockRenderer";
 import ProductPurchase from "@/components/storefront/ProductPurchase";
@@ -109,6 +110,66 @@ function priceLabel(product: {
   return { price: `$${product.regularPrice.toFixed(2)}`, compareAt: null };
 }
 
+type ProductJsonLdRow = {
+  name: string;
+  slug: string;
+  sku: string | null;
+  shortDescription: string | null;
+  metaDesc: string | null;
+  regularPrice: number;
+  salePrice: number | null;
+  salePriceStart: Date | null;
+  salePriceEnd: Date | null;
+  stockStatus: string;
+  images: { assetId: string }[];
+};
+
+/** Product + offer + breadcrumb structured data for the PDP. */
+function productJsonLd(product: ProductJsonLdRow, siteUrl: string) {
+  const url = `${siteUrl}/${product.slug}`;
+  const now = new Date();
+  const saleActive =
+    product.salePrice !== null &&
+    (!product.salePriceStart || product.salePriceStart <= now) &&
+    (!product.salePriceEnd || product.salePriceEnd >= now);
+  const price = saleActive && product.salePrice !== null ? product.salePrice : product.regularPrice;
+  const availability =
+    product.stockStatus === "OUT_OF_STOCK"
+      ? "https://schema.org/OutOfStock"
+      : product.stockStatus === "ON_BACKORDER"
+        ? "https://schema.org/PreOrder"
+        : "https://schema.org/InStock";
+  const image = product.images[0]?.assetId
+    ? `${siteUrl}/api/assets/${product.images[0].assetId}`
+    : undefined;
+  const description = product.shortDescription ?? product.metaDesc ?? undefined;
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    url,
+    ...(description ? { description } : {}),
+    ...(product.sku ? { sku: product.sku } : {}),
+    ...(image ? { image } : {}),
+    offers: {
+      "@type": "Offer",
+      url,
+      priceCurrency: "USD",
+      price: price.toFixed(2),
+      availability,
+      itemCondition: "https://schema.org/NewCondition",
+    },
+    breadcrumb: {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: `${siteUrl}/` },
+        { "@type": "ListItem", position: 2, name: product.name, item: url },
+      ],
+    },
+  };
+}
+
 export default async function PublicPage({
   params,
 }: {
@@ -149,6 +210,8 @@ export default async function PublicPage({
         ? product.stockQuantity
         : null;
 
+    const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+
     return (
       <div className="mx-auto max-w-6xl px-4 py-10">
         <nav className="mb-6 text-sm text-zinc-500">
@@ -162,10 +225,13 @@ export default async function PublicPage({
         <div className="grid gap-10 lg:grid-cols-2">
           <div>
             {mainImage ? (
-              <img
+              <Image
                 src={`/api/assets/${mainImage.assetId}`}
                 alt={mainImage.alt ?? product.name}
-                className="w-full rounded-xl border border-zinc-200 bg-zinc-50 object-cover"
+                width={800}
+                height={800}
+                priority
+                className="h-auto w-full rounded-xl border border-zinc-200 bg-zinc-50 object-cover"
               />
             ) : (
               <div className="flex h-80 w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-zinc-400">
@@ -175,10 +241,12 @@ export default async function PublicPage({
             {product.images.length > 1 && (
               <div className="mt-3 grid grid-cols-5 gap-2">
                 {product.images.slice(1, 6).map((img) => (
-                  <img
+                  <Image
                     key={img.id}
                     src={`/api/assets/${img.assetId}`}
                     alt={img.alt ?? ""}
+                    width={160}
+                    height={80}
                     className="h-20 w-full rounded-lg border border-zinc-200 object-cover"
                   />
                 ))}
@@ -240,6 +308,14 @@ export default async function PublicPage({
             />
           </section>
         )}
+
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            // \u003c keeps "</script>" inside product data from breaking out.
+            __html: JSON.stringify(productJsonLd(product, siteUrl)).replace(/</g, "\\u003c"),
+          }}
+        />
       </div>
     );
   }

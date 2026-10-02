@@ -5,6 +5,7 @@
  */
 import Stripe from "stripe";
 import { prisma, TENANT_ID } from "@/modules/shared";
+import { readStripeConfig } from "./checkout";
 import { readPaypalConfig, refundPaypalOrder } from "./paypal";
 import { readSquareConfig, refundSquareOrder } from "./square";
 
@@ -62,11 +63,17 @@ export async function refundOrderPayment(
             "No Stripe checkout session recorded for this order (it may predate session tracking). Refund it from the Stripe dashboard, then set the payment status manually.",
         };
       }
-      if (!process.env.STRIPE_SECRET_KEY) {
-        return { ok: false, error: "Stripe is not configured (STRIPE_SECRET_KEY missing)." };
+      const gateway = order.paymentGatewayId
+        ? await prisma.paymentGateway.findFirst({
+            where: { id: order.paymentGatewayId, tenantId: TENANT_ID },
+          })
+        : null;
+      const cfg = readStripeConfig(gateway?.config);
+      if (!cfg) {
+        return { ok: false, error: "Stripe is not configured (no gateway secret key)." };
       }
       try {
-        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+        const stripe = new Stripe(cfg.secretKey);
         const session = await stripe.checkout.sessions.retrieve(sessionId);
         const paymentIntent =
           typeof session.payment_intent === "string"

@@ -6,7 +6,8 @@
     ".": "./src/index.ts",
     "./variantPublish": "./src/variantPublish.ts",
     "./feedSync": "./src/feedSync.ts",
-    "./dunning": "./src/dunning.ts"
+    "./dunning": "./src/dunning.ts",
+    "./abandonedOrders": "./src/abandonedOrders.ts"
   },
   "dependencies": {
     "inngest": "^4.18.1",
