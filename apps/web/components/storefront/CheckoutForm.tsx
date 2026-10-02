@@ -37,7 +37,10 @@ function TotalsBreakdown({ totals }: { totals: QuoteTotals }) {
       </div>
       <div className="flex justify-between">
         <dt className="text-zinc-600">
-          Tax{totals.taxRate > 0 ? ` (${totals.taxRate}%)` : ""}
+          Tax
+          {totals.taxRate > 0
+            ? ` (${totals.taxRate}%${totals.pricesIncludeTax ? " included" : ""})`
+            : ""}
         </dt>
         <dd className="font-medium text-zinc-900 tabular-nums">
           {totals.tax > 0 ? `$${totals.tax.toFixed(2)}` : "—"}
@@ -62,6 +65,8 @@ export default function CheckoutForm({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [totals, setTotals] = useState<QuoteTotals>(initialTotals);
+  // One token per checkout attempt — the server dedupes double-submits with it.
+  const [checkoutToken] = useState(() => crypto.randomUUID());
   const [country, setCountry] = useState("");
   const [state, setState] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -121,6 +126,7 @@ export default function CheckoutForm({
 
   return (
     <form onSubmit={onSubmit} className="rounded-xl border border-zinc-200 bg-white p-5">
+      <input type="hidden" name="checkoutToken" value={checkoutToken} />
       <div>
         <label className="block text-xs font-medium text-zinc-600" htmlFor="checkout-email">
           Email <span className="text-red-500">*</span>

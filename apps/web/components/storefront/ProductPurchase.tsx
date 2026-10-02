@@ -29,6 +29,8 @@ export default function ProductPurchase({
   const [isPending, startTransition] = useTransition();
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
+  // One token per buy-now attempt — the server dedupes double-submits with it.
+  const [checkoutToken] = useState(() => crypto.randomUUID());
   const router = useRouter();
 
   if (gateways.length === 0) {
@@ -91,6 +93,7 @@ export default function ProductPurchase({
 
   return (
     <form onSubmit={onSubmit} className="rounded-xl border border-zinc-200 bg-white p-5">
+      <input type="hidden" name="checkoutToken" value={checkoutToken} />
       <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
         Payment method
       </h2>

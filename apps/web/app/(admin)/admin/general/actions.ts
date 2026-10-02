@@ -49,6 +49,7 @@ export async function saveGeneralSettings(formData: FormData): Promise<GeneralAc
       const n = Number(raw);
       return Number.isFinite(n) && n >= 0 ? n : null;
     })(),
+    pricesIncludeTax: bool("pricesIncludeTax"),
   };
 
   try {

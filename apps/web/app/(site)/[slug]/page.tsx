@@ -135,6 +135,15 @@ export default async function PublicPage({
           : product.stockStatus === "ON_BACKORDER"
             ? "On backorder"
             : "Out of stock";
+    // Scarcity cue: show the exact remaining count when it's running low.
+    const lowStockCount =
+      product.manageStock &&
+      product.stockQuantity !== null &&
+      product.stockStatus !== "OUT_OF_STOCK" &&
+      product.stockQuantity > 0 &&
+      product.stockQuantity <= 5
+        ? product.stockQuantity
+        : null;
 
     return (
       <div className="mx-auto max-w-6xl px-4 py-10">
@@ -189,10 +198,18 @@ export default async function PublicPage({
             </div>
 
             <p className="mt-2 text-sm text-zinc-500">
-              {stockLabel}
-              {product.manageStock &&
-                product.stockQuantity !== null &&
-                ` — ${product.stockQuantity} available`}
+              {lowStockCount ? (
+                <span className="font-medium text-amber-600">
+                  Only {lowStockCount} left in stock
+                </span>
+              ) : (
+                <>
+                  {stockLabel}
+                  {product.manageStock &&
+                    product.stockQuantity !== null &&
+                    ` — ${product.stockQuantity} available`}
+                </>
+              )}
               {" · SKU: "}
               {product.sku || "—"}
             </p>

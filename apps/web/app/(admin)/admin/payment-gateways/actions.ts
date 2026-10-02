@@ -5,6 +5,7 @@ import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/modules/auth";
 import { TENANT_ID } from "@/modules/shared";
+import { GATEWAY_FIELDS } from "@/components/admin/product/gatewayFields";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -16,30 +17,17 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/** Build the JSON config from the field definitions so new fields save automatically. */
 function buildConfig(type: string, formData: FormData): Record<string, string | boolean> {
-  switch (type) {
-    case "STRIPE":
-      return {
-        publishableKey: String(formData.get("publishableKey") ?? "").trim(),
-        secretKey: String(formData.get("secretKey") ?? "").trim(),
-        webhookSecret: String(formData.get("webhookSecret") ?? "").trim(),
-      };
-    case "PAYPAL":
-      return {
-        clientId: String(formData.get("clientId") ?? "").trim(),
-        clientSecret: String(formData.get("clientSecret") ?? "").trim(),
-        sandbox: formData.get("sandbox") === "on",
-      };
-    case "SQUARE":
-      return {
-        applicationId: String(formData.get("applicationId") ?? "").trim(),
-        accessToken: String(formData.get("accessToken") ?? "").trim(),
-        locationId: String(formData.get("locationId") ?? "").trim(),
-      };
-    case "MANUAL":
-    default:
-      return {};
+  const out: Record<string, string | boolean> = {};
+  for (const field of GATEWAY_FIELDS[type] ?? []) {
+    if (field.checkbox || field.type === "checkbox") {
+      out[field.name] = formData.get(field.name) === "on";
+    } else {
+      out[field.name] = String(formData.get(field.name) ?? "").trim();
+    }
   }
+  return out;
 }
 
 export async function createPaymentGateway(formData: FormData): Promise<ActionResult> {

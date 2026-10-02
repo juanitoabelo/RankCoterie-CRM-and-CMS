@@ -216,7 +216,13 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
                 footer: footerMenu?.items ?? [],
               }}
             />
-            <div className="absolute right-4 top-1/2 z-20 -translate-y-1/2">
+            <div className="absolute right-4 top-1/2 z-20 -translate-y-1/2 flex items-center gap-4">
+              <Link href="/wishlist" className="hidden text-sm text-zinc-600 hover:text-zinc-900 sm:inline">
+                Wishlist
+              </Link>
+              <Link href="/orders" className="hidden text-sm text-zinc-600 hover:text-zinc-900 sm:inline">
+                Track order
+              </Link>
               <CartIcon />
             </div>
           </div>
@@ -236,6 +242,8 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
                     {item.label}
                   </Link>
                 ))}
+                <Link href="/wishlist" className="hover:text-zinc-900">Wishlist</Link>
+                <Link href="/orders" className="hover:text-zinc-900">Track order</Link>
               </nav>
               <CartIcon />
             </div>

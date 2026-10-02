@@ -18,6 +18,7 @@ import {
 import { reserveStock, restoreStockForOrder } from "@/lib/billing/stock";
 import { getCartBySession } from "@/modules/ecommerce/queries";
 import { readExistingCartSession } from "@/lib/cart-session";
+import { getSessionUid } from "@/modules/auth/session";
 
 export type PurchaseResult =
   | { ok: true; url: string }
@@ -59,6 +60,70 @@ function saleActive(product: ProductRow): boolean {
     (!product.salePriceStart || product.salePriceStart <= now) &&
     (!product.salePriceEnd || product.salePriceEnd >= now)
   );
+}
+
+/** Accept only well-formed client tokens (they end up in a unique index). */
+function normalizeCheckoutToken(raw: unknown): string | null {
+  const token = String(raw ?? "").trim();
+  return /^[A-Za-z0-9-]{8,64}$/.test(token) ? token : null;
+}
+
+type OrderWithItems = NonNullable<Awaited<ReturnType<typeof findOrderByToken>>>;
+
+async function findOrderByToken(token: string) {
+  return prisma.order.findFirst({
+    where: { tenantId: TENANT_ID, meta: { path: ["checkoutToken"], equals: token } },
+    include: { items: true },
+  });
+}
+
+/** Does a token-matching order represent this exact checkout attempt? */
+function orderMatchesAttempt(
+  order: OrderWithItems,
+  items: LineItem[],
+  totals: QuoteTotals,
+  gatewayId: string,
+): boolean {
+  if (order.paymentGatewayId !== gatewayId) return false;
+  if (Math.abs(order.total - totals.total) > 0.011) return false;
+  if (order.items.length !== items.length) return false;
+  const sortedOrder = [...order.items].sort((a, b) => a.productId.localeCompare(b.productId));
+  const sortedNew = [...items].sort((a, b) => a.productId.localeCompare(b.productId));
+  return sortedOrder.every((o, i) => o.productId === sortedNew[i].productId && o.quantity === sortedNew[i].quantity);
+}
+
+/**
+ * Cancel a stale/abandoned order and hand its stock back.
+ * restoreStockForOrder is claim-first, so calling this twice is safe.
+ */
+async function releaseStaleOrder(orderId: string): Promise<void> {
+  await restoreStockForOrder(orderId).catch(() => {});
+  const current = await prisma.order.findUnique({ where: { id: orderId }, select: { meta: true } });
+  const meta = (current?.meta ?? {}) as Record<string, unknown>;
+  await prisma.order
+    .update({
+      where: { id: orderId },
+      data: {
+        status: "CANCELLED",
+        paymentStatus: "CANCELLED",
+        meta: { ...meta, cancelledReason: "superseded-by-retry" } as Prisma.InputJsonValue,
+      },
+    })
+    .catch(() => {});
+}
+
+/** Cancel abandoned PENDING orders from earlier attempts of the same cart checkout. */
+async function supersedeCartOrders(sessionId: string): Promise<void> {
+  const stale = await prisma.order.findMany({
+    where: {
+      tenantId: TENANT_ID,
+      status: "PENDING",
+      paymentStatus: "PENDING",
+      meta: { path: ["cartSessionId"], equals: sessionId },
+    },
+    select: { id: true },
+  });
+  for (const row of stale) await releaseStaleOrder(row.id);
 }
 
 function newOrderNumber(): string {
@@ -165,6 +230,8 @@ async function createOrder(
   gateway: { id: string; name: string; type: string },
   email: string | null,
   address: Address,
+  checkoutToken: string | null,
+  cartSessionId: string | null,
 ) {
   const lineTotals = items.map((item) => round2(item.unitPrice * item.quantity));
   const { lineDiscount, lineTax } = allocateToLines(
@@ -172,10 +239,15 @@ async function createOrder(
     totals,
   );
 
+  // Attach the signed-in user (null for guest checkout) so orders appear in
+  // account history and are covered by user-scoped queries.
+  const userId = await getSessionUid().catch(() => null);
+
   return prisma.order.create({
     data: {
       tenantId: TENANT_ID,
       orderNumber: newOrderNumber(),
+      userId,
       guestEmail: email,
       currency: "USD",
       subtotal: totals.subtotal,
@@ -197,6 +269,8 @@ async function createOrder(
       meta: {
         ...(totals.coupon ? { couponCode: totals.coupon.code } : {}),
         taxRate: totals.taxRate,
+        ...(checkoutToken ? { checkoutToken } : {}),
+        ...(cartSessionId ? { cartSessionId } : {}),
       },
       items: {
         create: items.map((item, i) => ({
@@ -253,6 +327,8 @@ async function startPayment(
         cancel_url: cancelUrl,
       });
       if (!session.url) throw new Error("Stripe did not return a checkout URL.");
+      // Recorded for admin refunds (refundOrderPayment resolves the payment intent from it).
+      await mergeOrderMeta(order.id, { stripeSessionId: session.id });
       return { ok: true, url: session.url };
     } catch (e) {
       await rollback();
@@ -317,7 +393,7 @@ async function startPayment(
   return { ok: true, url: `/checkout/success?orderId=${order.id}&awaiting=1` };
 }
 
-/** Shared tail: reserve stock, create the order, start payment. */
+/** Shared tail: reuse-or-create the order idempotently, reserve stock, start payment. */
 async function placeOrder(
   lines: { ok: true; items: LineItem[] } | { ok: false; error: string },
   totalsResult: Promise<QuoteTotals>,
@@ -325,6 +401,8 @@ async function placeOrder(
   email: string | null,
   address: Address,
   productSlugForCancel: string | null,
+  checkoutToken: string | null,
+  cartSessionId: string | null,
 ): Promise<PurchaseResult> {
   if (!lines.ok) return lines;
   if (!gatewayResult.ok) return gatewayResult;
@@ -332,15 +410,49 @@ async function placeOrder(
   const totals = await totalsResult;
   if (totals.couponError) return { ok: false, error: totals.couponError };
 
+  // ── Idempotency: a re-submit (double click, back button, flaky network)
+  //    with the same checkout token reuses the order it already created.
+  if (checkoutToken) {
+    const existing = await findOrderByToken(checkoutToken);
+    if (existing) {
+      if (existing.paymentStatus === "PAID" || existing.status === "COMPLETED") {
+        return { ok: true, url: `/checkout/success?orderId=${existing.id}` };
+      }
+      if (existing.status === "PENDING" && orderMatchesAttempt(existing, lines.items, totals, gatewayResult.gateway.id)) {
+        // Same attempt in flight — skip stock reservation and order creation,
+        // just restart the gateway flow (fresh session/URL) on the same order.
+        return startPayment(existing, lines.items, totals, productSlugForCancel, gatewayResult.gateway);
+      }
+      // Stale attempt for this token (cart/gateway changed) — release it so
+      // the token is free for the new order below.
+      await releaseStaleOrder(existing.id);
+      await prisma.order.delete({ where: { id: existing.id } }).catch(() => {});
+    }
+  }
+
+  // ── Cart checkouts also supersede abandoned attempts from earlier pages
+  //    (different token, same cart) so they don't hold stock forever.
+  if (cartSessionId) await supersedeCartOrders(cartSessionId);
+
   const stock = await reserveStock(lines.items.map((i) => ({ productId: i.productId, quantity: i.quantity })));
   if (!stock.ok) return stock;
 
   let order;
   try {
-    order = await createOrder(lines.items, totals, gatewayResult.gateway, email, address);
+    order = await createOrder(lines.items, totals, gatewayResult.gateway, email, address, checkoutToken, cartSessionId);
   } catch (e) {
     // Order creation failed — give the reserved stock back.
     await restoreStockForOrderFallback(lines.items);
+    // Lost a race with a concurrent submit of the same token: the winner
+    // created the order, so reuse it instead of erroring.
+    const code = (e as { code?: string }).code;
+    if (checkoutToken && code === "P2002") {
+      const winner = await findOrderByToken(checkoutToken).catch(() => null);
+      if (winner && winner.status === "PENDING") {
+        return startPayment(winner, lines.items, totals, productSlugForCancel, gatewayResult.gateway);
+      }
+      return { ok: true, url: `/checkout/success?orderId=${winner?.id ?? ""}` };
+    }
     return { ok: false, error: e instanceof Error ? e.message : "Could not create your order." };
   }
 
@@ -372,6 +484,7 @@ export async function purchaseProduct(formData: FormData): Promise<PurchaseResul
   const quantity = Math.min(999, Math.max(1, parseInt(String(formData.get("quantity") ?? "1"), 10) || 1));
   const email = String(formData.get("email") ?? "").trim() || null;
   const couponCode = String(formData.get("couponCode") ?? "").trim() || null;
+  const checkoutToken = normalizeCheckoutToken(formData.get("checkoutToken"));
 
   if (!productId) return { ok: false, error: "Missing product." };
   if (!gatewayId) return { ok: false, error: "Please choose a payment method." };
@@ -388,13 +501,14 @@ export async function purchaseProduct(formData: FormData): Promise<PurchaseResul
     ...readAddress(formData),
   });
 
-  return placeOrder(lines, totals, gatewayResult, email, readAddress(formData), null);
+  return placeOrder(lines, totals, gatewayResult, email, readAddress(formData), null, checkoutToken, null);
 }
 
 /** Place an order for everything in the cart. */
 export async function checkoutCart(formData: FormData): Promise<PurchaseResult> {
   const gatewayId = String(formData.get("gatewayId") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim() || null;
+  const checkoutToken = normalizeCheckoutToken(formData.get("checkoutToken"));
 
   if (!gatewayId) return { ok: false, error: "Please choose a payment method." };
 
@@ -419,7 +533,7 @@ export async function checkoutCart(formData: FormData): Promise<PurchaseResult> 
     ...address,
   });
 
-  return placeOrder(lines, totals, gatewayResult, email, address, null);
+  return placeOrder(lines, totals, gatewayResult, email, address, null, checkoutToken, sessionId);
 }
 
 /** Apply a coupon code to the current cart (validated immediately). */

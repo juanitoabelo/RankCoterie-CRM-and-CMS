@@ -242,7 +242,9 @@ export default function CartView({
           <span className="text-zinc-900 tabular-nums">${totals.total.toFixed(2)}</span>
         </div>
         <p className="mt-1 text-xs text-zinc-400">
-          Tax is calculated at checkout based on your country / region.
+          {totals.pricesIncludeTax
+            ? `Prices include tax${totals.taxRate > 0 ? ` (${totals.taxRate}%)` : ""}.`
+            : "Tax is calculated at checkout based on your country / region."}
         </p>
 
         {items.length > 0 ? (

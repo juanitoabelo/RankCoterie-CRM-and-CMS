@@ -1380,5 +1380,70 @@ export async function getProductGridPage(params: ProductGridParams = {}): Promis
   };
 }
 
+/**
+ * Published products by id — powers the wishlist page. Only public,
+ * published rows are returned (ids from other stores or drafts drop out).
+ */
+export async function getProductsByIds(ids: string[]): Promise<ProductGridItem[]> {
+  const unique = Array.from(new Set(ids.filter(Boolean))).slice(0, 100);
+  if (unique.length === 0) return [];
+
+  const rows = await prisma.product.findMany({
+    where: {
+      id: { in: unique },
+      tenantId: TENANT_ID,
+      status: "PUBLISHED",
+      visibility: "PUBLIC",
+    },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      shortDescription: true,
+      description: true,
+      price: true,
+      regularPrice: true,
+      salePrice: true,
+      salePriceStart: true,
+      salePriceEnd: true,
+      averageRating: true,
+      reviewCount: true,
+      stockStatus: true,
+      featured: true,
+      images: {
+        where: { isMain: true },
+        take: 1,
+        select: { asset: { select: { id: true } } },
+      },
+      categories: { select: { category: { select: { id: true, name: true, slug: true } } } },
+    },
+  });
+
+  const now = Date.now();
+  return rows.map((row) => {
+    const saleActive =
+      row.salePrice != null &&
+      row.salePrice < row.regularPrice &&
+      (!row.salePriceStart || row.salePriceStart.getTime() <= now) &&
+      (!row.salePriceEnd || row.salePriceEnd.getTime() >= now);
+
+    return {
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      excerpt: plainExcerpt(row.shortDescription, row.description),
+      price: row.price,
+      regularPrice: row.regularPrice,
+      onSale: saleActive,
+      imageAssetId: row.images[0]?.asset.id ?? null,
+      rating: row.averageRating ?? 0,
+      reviewCount: row.reviewCount,
+      stockStatus: row.stockStatus,
+      featured: row.featured,
+      categories: row.categories.map((link) => link.category),
+    };
+  });
+}
+
 // Export TENANT_ID for use in other modules
 export { TENANT_ID };

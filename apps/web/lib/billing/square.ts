@@ -126,3 +126,32 @@ export async function getSquareOrderState(
   const state = res.data.order?.state ?? "OPEN";
   return { ok: true, state, paid: state === "COMPLETED" };
 }
+
+/**
+ * Full refund of the completed payment attached to a Square order.
+ * Returns the Square refund id on success.
+ */
+export async function refundSquareOrder(
+  config: SquareConfig,
+  squareOrderId: string,
+  amountCents: number,
+): Promise<{ ok: true; refundId: string } | { ok: false; error: string }> {
+  const payments = await squareFetch<{
+    payments?: { id?: string; status?: string }[];
+  }>(`/v2/payments?order_id=${encodeURIComponent(squareOrderId)}`, config, { method: "GET" });
+  if (!payments.ok) return { ok: false, error: payments.error };
+  const payment =
+    payments.data.payments?.find((p) => p.status === "COMPLETED") ?? payments.data.payments?.[0];
+  if (!payment?.id) return { ok: false, error: "No Square payment found for this order." };
+
+  const refund = await squareFetch<{ refund?: { id?: string } }>("/v2/refunds", config, {
+    method: "POST",
+    body: JSON.stringify({
+      idempotencyKey: `refund-${payment.id}-${Date.now()}`,
+      payment_id: payment.id,
+      amount_money: { amount: amountCents, currency: "USD" },
+    }),
+  });
+  if (!refund.ok) return { ok: false, error: refund.error };
+  return { ok: true, refundId: refund.data.refund?.id ?? "" };
+}

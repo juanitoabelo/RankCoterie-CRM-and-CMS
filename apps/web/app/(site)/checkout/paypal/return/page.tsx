@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { prisma, TENANT_ID } from "@/modules/shared";
-import { logAudit } from "@/lib/audit";
 import { capturePaypalOrder, readPaypalConfig } from "@/lib/billing/paypal";
+import { markOrderPaid } from "@/lib/billing/payment-events";
 
 export const revalidate = 0;
 
@@ -65,17 +65,7 @@ export default async function PaypalReturnPage({
       );
     }
 
-    await prisma.order.update({
-      where: { id: order.id },
-      data: { paymentStatus: "PAID", status: "PROCESSING" },
-    });
-    await logAudit({
-      action: "ORDER_PAID",
-      entity: "Order",
-      entityId: order.id,
-      reason: "Paid via PayPal",
-      meta: { orderNumber: order.orderNumber, paypalOrderId: token, source: "paypal-return" },
-    });
+    await markOrderPaid(order.id, "paypal-return");
   }
 
   redirect(`/checkout/success?orderId=${order.id}`);

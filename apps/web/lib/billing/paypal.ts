@@ -67,6 +67,7 @@ export async function createPaypalOrder(params: {
       purchase_units: [
         {
           reference_id: params.referenceId,
+          custom_id: params.referenceId,
           description: params.description,
           amount: {
             currency_code: params.currency ?? "USD",
@@ -133,5 +134,100 @@ export async function capturePaypalOrder(
     };
   } catch (e) {
     return { ok: false, status: "FAILED", error: e instanceof Error ? e.message : "PayPal capture failed." };
+  }
+}
+
+/**
+ * Verify a PayPal webhook transmission using the Verify Webhook Signature API.
+ * Headers are the `paypal-*` request headers; body is the raw request payload.
+ * Requires `webhookId` from the PayPal developer dashboard (Webhooks section).
+ */
+export async function verifyPaypalWebhookSignature(
+  cfg: PaypalConfig,
+  webhookId: string,
+  headers: { get(name: string): string | null },
+  rawBody: string,
+): Promise<boolean> {
+  let webhookEvent: unknown;
+  try {
+    webhookEvent = JSON.parse(rawBody);
+  } catch {
+    return false;
+  }
+  try {
+    const token = await getAccessToken(cfg);
+    const res = await fetch(`${apiBase(cfg.sandbox)}/v1/notifications/verify-webhook-signature`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        auth_algo: headers.get("paypal-auth-algo"),
+        cert_url: headers.get("paypal-cert-url"),
+        transmission_id: headers.get("paypal-transmission-id"),
+        transmission_sig: headers.get("paypal-transmission-sig"),
+        transmission_time: headers.get("paypal-transmission-time"),
+        webhook_id: webhookId,
+        webhook_event: webhookEvent,
+      }),
+      cache: "no-store",
+    });
+    const json = (await res.json().catch(() => null)) as { verification_status?: string } | null;
+    return json?.verification_status === "SUCCESS";
+  } catch {
+    return false;
+  }
+}
+
+/** Full refund of the captured payment for a PayPal order. */
+export async function refundPaypalOrder(
+  cfg: PaypalConfig,
+  paypalOrderId: string,
+): Promise<{ ok: true; refundId: string } | { ok: false; error: string }> {
+  try {
+    const token = await getAccessToken(cfg);
+    const getRes = await fetch(
+      `${apiBase(cfg.sandbox)}/v2/checkout/orders/${encodeURIComponent(paypalOrderId)}`,
+      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
+    );
+    const order = (await getRes.json().catch(() => null)) as
+      | {
+          purchase_units?: {
+            payments?: {
+              captures?: { id?: string; status?: string }[];
+            };
+          }[];
+          details?: { message?: string }[];
+        }
+      | null;
+    if (!getRes.ok || !order) {
+      throw new Error(order?.details?.[0]?.message ?? `PayPal order lookup failed (${getRes.status}).`);
+    }
+    const captures = order.purchase_units?.[0]?.payments?.captures ?? [];
+    const capture = captures.find((c) => c.status === "COMPLETED") ?? captures[0];
+    if (!capture?.id) return { ok: false, error: "No completed PayPal capture found for this order." };
+
+    const refRes = await fetch(
+      `${apiBase(cfg.sandbox)}/v2/payments/captures/${encodeURIComponent(capture.id)}/refund`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: "{}",
+        cache: "no-store",
+      },
+    );
+    const json = (await refRes.json().catch(() => null)) as
+      | { id?: string; status?: string; details?: { message?: string }[] }
+      | null;
+    if (!refRes.ok || !json?.id) {
+      return {
+        ok: false,
+        error: json?.details?.[0]?.message ?? `PayPal refund failed (${refRes.status}).`,
+      };
+    }
+    return { ok: true, refundId: json.id };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "PayPal refund failed." };
   }
 }

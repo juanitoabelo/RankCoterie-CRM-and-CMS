@@ -59,6 +59,7 @@ export default function GeneralSettingsForm({ settings }: { settings: GeneralSet
     fd.set("shippingEnabled", form.shippingEnabled ? "on" : "off");
     fd.set("shippingFlatRate", String(form.shippingFlatRate));
     fd.set("shippingFreeOver", form.shippingFreeOver === null ? "" : String(form.shippingFreeOver));
+    fd.set("pricesIncludeTax", form.pricesIncludeTax ? "on" : "off");
 
     const result = await saveGeneralSettings(fd);
     setSaving(false);
@@ -387,9 +388,9 @@ export default function GeneralSettingsForm({ settings }: { settings: GeneralSet
         </select>
       </div>
 
-      {/* ── Shipping ──────────────────────────────────────────────── */}
+      {/* ── Shipping & Tax ─────────────────────────────────────────── */}
       <div className="rounded-b-lg border border-zinc-200 bg-white px-6 py-5">
-        <h2 className="mb-1 text-base font-semibold text-zinc-900">Shipping</h2>
+        <h2 className="mb-1 text-base font-semibold text-zinc-900">Shipping &amp; Tax</h2>
         <p className="mb-4 text-sm text-zinc-500">
           Flat-rate shipping shown in the cart and applied at checkout. Coupons with free
           shipping and orders over the threshold ship free.
@@ -438,6 +439,20 @@ export default function GeneralSettingsForm({ settings }: { settings: GeneralSet
             <p className={hintCls}>Blank = threshold disabled.</p>
           </div>
         </div>
+
+        <label className="mt-5 flex items-center gap-2 text-sm text-zinc-700">
+          <input
+            type="checkbox"
+            checked={form.pricesIncludeTax}
+            onChange={(e) => set("pricesIncludeTax", e.target.checked)}
+            className="h-4 w-4 rounded border-zinc-400"
+          />
+          Product prices include tax
+        </label>
+        <p className={hintCls}>
+          When enabled, the tax rate is extracted from the entered price instead of added on top
+          (tax-inclusive pricing). Use this when your listed prices already contain VAT/sales tax.
+        </p>
       </div>
 
       {/* ── Save ──────────────────────────────────────────────────── */}

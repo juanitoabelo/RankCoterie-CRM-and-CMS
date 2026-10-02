@@ -16,6 +16,7 @@ export type GeneralSettings = {
   shippingEnabled: boolean;
   shippingFlatRate: number;
   shippingFreeOver: number | null;
+  pricesIncludeTax: boolean;
 };
 
 export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
@@ -36,6 +37,7 @@ export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   shippingEnabled: true,
   shippingFlatRate: 0,
   shippingFreeOver: null,
+  pricesIncludeTax: false,
 };
 
 export const DATE_FORMAT_OPTIONS = [

@@ -53,9 +53,21 @@ export function readShippingSettings(theme: unknown): ShippingSettings {
   };
 }
 
+/** Whether listed product prices already contain tax (tax-inclusive pricing). */
+export function pricesIncludeTax(theme: unknown): boolean {
+  const general = (theme as { generalSettings?: Record<string, unknown> } | null)?.generalSettings;
+  return general?.pricesIncludeTax === true;
+}
+
 export async function getShippingSettings(): Promise<ShippingSettings> {
   const tenant = await safeDb(() => prisma.tenant.findUnique({ where: { id: TENANT_ID } }), null);
   return readShippingSettings(tenant?.theme);
+}
+
+/** Whether listed prices include tax (tax-inclusive pricing) for this store. */
+export async function getPricesIncludeTax(): Promise<boolean> {
+  const tenant = await safeDb(() => prisma.tenant.findUnique({ where: { id: TENANT_ID } }), null);
+  return pricesIncludeTax(tenant?.theme);
 }
 
 type CouponLookup = { ok: true; coupon: AppliedCoupon } | { ok: false; error: string };
@@ -168,6 +180,8 @@ export type QuoteTotals = {
   total: number;
   coupon: AppliedCoupon | null;
   couponError: string | null;
+  /** True when listed prices included tax (tax shown is informational only). */
+  pricesIncludeTax: boolean;
 };
 
 export type QuoteInput = {
@@ -176,6 +190,8 @@ export type QuoteInput = {
   country?: string | null;
   state?: string | null;
   shippingSettings?: ShippingSettings;
+  /** Override for tax-inclusive pricing (defaults to the store setting). */
+  pricesIncludeTax?: boolean;
 };
 
 /** Compute the full totals breakdown for a set of lines. */
@@ -208,8 +224,12 @@ export async function quoteTotals(input: QuoteInput): Promise<QuoteTotals> {
 
   const taxRate = await resolveTaxRate(input.country, input.state);
   const taxable = Math.max(0, round2(subtotal - discount));
-  const tax = round2((taxable * taxRate) / 100);
-  const total = round2(taxable + shipping + tax);
+  const inclusive = input.pricesIncludeTax ?? (await getPricesIncludeTax());
+  const tax = inclusive
+    ? // Listed prices already contain tax — back the tax out of the taxable amount.
+      round2((taxable * taxRate) / (100 + taxRate))
+    : round2((taxable * taxRate) / 100);
+  const total = round2(taxable + shipping + (inclusive ? 0 : tax));
 
   return {
     subtotal,
@@ -221,6 +241,7 @@ export async function quoteTotals(input: QuoteInput): Promise<QuoteTotals> {
     total,
     coupon,
     couponError,
+    pricesIncludeTax: inclusive,
   };
 }
 

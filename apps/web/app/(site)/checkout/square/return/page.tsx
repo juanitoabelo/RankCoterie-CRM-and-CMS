@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { prisma, TENANT_ID } from "@/modules/shared";
-import { logAudit } from "@/lib/audit";
 import { getSquareOrderState, readSquareConfig } from "@/lib/billing/square";
+import { markOrderPaid } from "@/lib/billing/payment-events";
 
 export const revalidate = 0;
 
@@ -61,21 +61,7 @@ export default async function SquareReturnPage({
       );
     }
 
-    await prisma.order.update({
-      where: { id: order.id },
-      data: { paymentStatus: "PAID", status: "PROCESSING", paidAt: new Date() },
-    });
-    await logAudit({
-      action: "ORDER_PAID",
-      entity: "Order",
-      entityId: order.id,
-      reason: "Paid via Square",
-      meta: {
-        orderNumber: order.orderNumber,
-        squareOrderId: meta.squareOrderId,
-        source: "square-return",
-      },
-    });
+    await markOrderPaid(order.id, "square-return");
   }
 
   redirect(`/checkout/success?orderId=${order.id}`);

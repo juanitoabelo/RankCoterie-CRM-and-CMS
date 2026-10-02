@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrderById } from "@/modules/ecommerce/queries";
 import OrderStatusForm from "@/components/admin/order/OrderStatusForm";
+import RefundButton from "@/components/admin/order/RefundButton";
+import FulfillmentForm, { type FulfillmentInfo } from "@/components/admin/order/FulfillmentForm";
 
 export const revalidate = 0;
 
@@ -135,6 +137,11 @@ export default async function OrderDetailAdminPage({
             status={order.status}
             paymentStatus={order.paymentStatus}
           />
+
+          <RefundButton
+            orderId={order.id}
+            canRefund={order.paymentStatus === "PAID"}
+          />
         </div>
 
         <aside className="space-y-6">
@@ -181,6 +188,12 @@ export default async function OrderDetailAdminPage({
               )}
             </dl>
           </div>
+
+          <FulfillmentForm
+            orderId={order.id}
+            initial={(((order.meta ?? {}) as Record<string, unknown>).fulfillment ??
+              {}) as FulfillmentInfo}
+          />
 
           {order.notes && order.notes.length > 0 && (
             <div className="rounded-xl border border-zinc-200 bg-white p-5">

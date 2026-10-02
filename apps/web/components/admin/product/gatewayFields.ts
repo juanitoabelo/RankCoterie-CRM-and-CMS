@@ -15,12 +15,14 @@ export const GATEWAY_FIELDS: Record<string, GatewayField[]> = {
   PAYPAL: [
     { name: "clientId", label: "Client ID", type: "text", placeholder: "AXxxx…" },
     { name: "clientSecret", label: "Client Secret", type: "password", placeholder: "EKxxx…" },
+    { name: "webhookId", label: "Webhook ID (for /api/webhooks/paypal)", type: "text", placeholder: "WH-xxx…" },
     { name: "sandbox", label: "Sandbox mode", type: "checkbox", checkbox: true },
   ],
   SQUARE: [
     { name: "applicationId", label: "Application ID", type: "text", placeholder: "sq0idp-…" },
     { name: "accessToken", label: "Access Token", type: "password", placeholder: "sq0atp-…" },
     { name: "locationId", label: "Location ID", type: "text", placeholder: "Lxxx…" },
+    { name: "signatureKey", label: "Webhook Signature Key (for /api/webhooks/square)", type: "password", placeholder: "Square webhook signature key" },
   ],
   MANUAL: [],
 };
