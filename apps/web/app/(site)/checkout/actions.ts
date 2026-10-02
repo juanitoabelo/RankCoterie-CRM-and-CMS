@@ -1,0 +1,491 @@
+"use server";
+
+import Stripe from "stripe";
+import { revalidatePath } from "next/cache";
+import type { Prisma } from "@prisma/client";
+import { prisma, TENANT_ID } from "@/modules/shared";
+import { isStripeConfigured } from "@/lib/billing/checkout";
+import { createPaypalOrder, isPaypalConfigured, readPaypalConfig } from "@/lib/billing/paypal";
+import { createSquarePaymentLink, isSquareConfigured, readSquareConfig } from "@/lib/billing/square";
+import {
+  allocateToLines,
+  quoteTotals,
+  resolveCoupon,
+  round2,
+  type QuoteLine,
+  type QuoteTotals,
+} from "@/lib/billing/totals";
+import { reserveStock, restoreStockForOrder } from "@/lib/billing/stock";
+import { getCartBySession } from "@/modules/ecommerce/queries";
+import { readExistingCartSession } from "@/lib/cart-session";
+
+export type PurchaseResult =
+  | { ok: true; url: string }
+  | { ok: false; error: string };
+
+export type CouponActionResult = { ok: true } | { ok: false; error: string };
+
+export type QuoteResult = { ok: true; totals: QuoteTotals } | { ok: false; error: string };
+
+type ProductRow = NonNullable<Awaited<ReturnType<typeof prisma.product.findFirst>>>;
+
+type LineItem = {
+  productId: string;
+  name: string;
+  sku: string | null;
+  type: ProductRow["type"];
+  quantity: number;
+  unitPrice: number;
+  saleItem: boolean;
+  shippingRequired: boolean;
+};
+
+type Address = { country: string | null; state: string | null };
+
+/** Merge a patch into an order's meta JSON without dropping existing keys. */
+async function mergeOrderMeta(orderId: string, patch: Record<string, unknown>): Promise<void> {
+  const current = await prisma.order.findUnique({ where: { id: orderId }, select: { meta: true } });
+  const meta = (current?.meta ?? {}) as Record<string, unknown>;
+  await prisma.order.update({
+    where: { id: orderId },
+    data: { meta: { ...meta, ...patch } as Prisma.InputJsonValue },
+  });
+}
+
+function saleActive(product: ProductRow): boolean {
+  const now = new Date();
+  return (
+    product.salePrice !== null &&
+    (!product.salePriceStart || product.salePriceStart <= now) &&
+    (!product.salePriceEnd || product.salePriceEnd >= now)
+  );
+}
+
+function newOrderNumber(): string {
+  const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `CNP-${Date.now().toString(36).toUpperCase()}${rand}`;
+}
+
+/** Resolve the requested gateway — must be enabled for this store. */
+async function resolveGateway(gatewayId: string) {
+  const gateway = await prisma.paymentGateway.findFirst({
+    where: { id: gatewayId, tenantId: TENANT_ID, isEnabled: true },
+  });
+  if (!gateway) {
+    return {
+      ok: false as const,
+      error: "That payment method is no longer available. Please choose another.",
+    };
+  }
+
+  // Fail fast on gateways that cannot process payment right now — before
+  // any order is created, so no orphan orders are left behind.
+  if (gateway.type === "STRIPE" && !isStripeConfigured()) {
+    return {
+      ok: false as const,
+      error: "Stripe is not configured yet — add your Stripe keys under Configure Payment Gateway.",
+    };
+  }
+  if (gateway.type === "PAYPAL" && !isPaypalConfigured(gateway.config)) {
+    return {
+      ok: false as const,
+      error: "PayPal is not configured yet — add your PayPal credentials under Configure Payment Gateway.",
+    };
+  }
+  if (gateway.type === "SQUARE" && !isSquareConfigured(gateway.config)) {
+    return {
+      ok: false as const,
+      error: "Square is not configured yet — add your Square credentials (application ID, access token, location ID) under Configure Payment Gateway.",
+    };
+  }
+  return { ok: true as const, gateway };
+}
+
+/** Load products, validate availability/stock, and price each line (sale-aware). */
+async function buildLineItems(
+  raw: { productId: string; quantity: number }[],
+): Promise<{ ok: true; items: LineItem[]; total: number } | { ok: false; error: string }> {
+  if (raw.length === 0) return { ok: false, error: "Your cart is empty." };
+
+  const products = await prisma.product.findMany({
+    where: { id: { in: raw.map((r) => r.productId) }, tenantId: TENANT_ID },
+  });
+  const byId = new Map(products.map((p) => [p.id, p]));
+
+  const items: LineItem[] = [];
+  for (const line of raw) {
+    const product = byId.get(line.productId);
+    if (!product || product.status !== "PUBLISHED" || product.visibility !== "PUBLIC") {
+      return { ok: false, error: "One or more products in your order are no longer available." };
+    }
+    if (product.stockStatus === "OUT_OF_STOCK") {
+      return { ok: false, error: `“${product.name}” is out of stock.` };
+    }
+    if (
+      product.manageStock &&
+      product.stockQuantity !== null &&
+      product.stockQuantity < line.quantity
+    ) {
+      return { ok: false, error: `Only ${product.stockQuantity} of “${product.name}” left in stock.` };
+    }
+
+    const onSale = saleActive(product);
+    const unitPrice = onSale && product.salePrice !== null ? product.salePrice : product.regularPrice;
+
+    items.push({
+      productId: product.id,
+      name: product.name,
+      sku: product.sku,
+      type: product.type,
+      quantity: line.quantity,
+      unitPrice,
+      saleItem: onSale,
+      shippingRequired: product.shippingRequired,
+    });
+  }
+
+  const total = round2(items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0));
+  return { ok: true, items, total };
+}
+
+function toQuoteLines(items: LineItem[]): QuoteLine[] {
+  return items.map((item) => ({
+    productId: item.productId,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    saleItem: item.saleItem,
+    shippingRequired: item.shippingRequired,
+  }));
+}
+
+/** Create the Order + OrderItem rows with the full totals breakdown. */
+async function createOrder(
+  items: LineItem[],
+  totals: QuoteTotals,
+  gateway: { id: string; name: string; type: string },
+  email: string | null,
+  address: Address,
+) {
+  const lineTotals = items.map((item) => round2(item.unitPrice * item.quantity));
+  const { lineDiscount, lineTax } = allocateToLines(
+    lineTotals.map((t) => ({ lineTotal: t })),
+    totals,
+  );
+
+  return prisma.order.create({
+    data: {
+      tenantId: TENANT_ID,
+      orderNumber: newOrderNumber(),
+      guestEmail: email,
+      currency: "USD",
+      subtotal: totals.subtotal,
+      discountTotal: totals.discount,
+      shippingTotal: totals.shipping,
+      taxTotal: totals.tax,
+      total: totals.total,
+      status: "PENDING",
+      paymentStatus: "PENDING",
+      paymentGatewayId: gateway.id,
+      paymentMethod: gateway.type,
+      paymentMethodTitle: gateway.name,
+      shippingMethod: totals.shippingLabel,
+      billingCountry: address.country,
+      billingState: address.state,
+      shippingCountry: address.country,
+      shippingState: address.state,
+      billingEmail: email,
+      meta: {
+        ...(totals.coupon ? { couponCode: totals.coupon.code } : {}),
+        taxRate: totals.taxRate,
+      },
+      items: {
+        create: items.map((item, i) => ({
+          productId: item.productId,
+          name: item.name,
+          sku: item.sku,
+          type: item.type,
+          quantity: item.quantity,
+          price: item.unitPrice,
+          lineSubtotal: lineTotals[i],
+          lineSubtotalTax: lineTax[i],
+          lineTotal: round2(lineTotals[i] - lineDiscount[i]),
+          lineTax: lineTax[i],
+          taxRate: totals.taxRate > 0 ? totals.taxRate : null,
+        })),
+      },
+    },
+  });
+}
+
+/** Send the customer to the gateway's payment flow (order already created). */
+async function startPayment(
+  order: { id: string; orderNumber: string },
+  items: LineItem[],
+  totals: QuoteTotals,
+  productSlugForCancel: string | null,
+  gateway: { name: string; type: string; config: unknown },
+): Promise<PurchaseResult> {
+  const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";
+  const cancelUrl = productSlugForCancel
+    ? `${siteUrl}/checkout/cancel?orderId=${order.id}`
+    : `${siteUrl}/checkout/cancel?orderId=${order.id}`;
+
+  const rollback = async () => {
+    await restoreStockForOrder(order.id).catch(() => {});
+    await prisma.order.delete({ where: { id: order.id } }).catch(() => {});
+  };
+
+  if (gateway.type === "STRIPE") {
+    try {
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        line_items: items.map((item) => ({
+          quantity: item.quantity,
+          price_data: {
+            currency: "usd",
+            unit_amount: Math.round(item.unitPrice * 100),
+            product_data: { name: item.name },
+          },
+        })),
+        metadata: { orderId: order.id, orderNumber: order.orderNumber },
+        success_url: `${siteUrl}/checkout/success?orderId=${order.id}`,
+        cancel_url: cancelUrl,
+      });
+      if (!session.url) throw new Error("Stripe did not return a checkout URL.");
+      return { ok: true, url: session.url };
+    } catch (e) {
+      await rollback();
+      return { ok: false, error: e instanceof Error ? e.message : "Stripe checkout failed." };
+    }
+  }
+
+  if (gateway.type === "PAYPAL") {
+    const config = readPaypalConfig(gateway.config);
+    if (!config) {
+      await rollback();
+      return { ok: false, error: "PayPal is not configured yet." };
+    }
+    try {
+      const { paypalOrderId, approveUrl } = await createPaypalOrder({
+        config,
+        amount: totals.total.toFixed(2),
+        description: `Order ${order.orderNumber}`,
+        referenceId: order.id,
+        returnUrl: `${siteUrl}/checkout/paypal/return`,
+        cancelUrl: cancelUrl,
+      });
+      await mergeOrderMeta(order.id, { paypalOrderId });
+      return { ok: true, url: approveUrl };
+    } catch (e) {
+      await rollback();
+      return { ok: false, error: e instanceof Error ? e.message : "PayPal checkout failed." };
+    }
+  }
+
+  if (gateway.type === "SQUARE") {
+    const config = readSquareConfig(gateway.config);
+    if (!config) {
+      await rollback();
+      return { ok: false, error: "Square is not configured yet." };
+    }
+    try {
+      const link = await createSquarePaymentLink({
+        config,
+        amount: totals.total,
+        orderNumber: order.orderNumber,
+        reference: order.id,
+        redirectUrl: `${siteUrl}/checkout/square/return?reference=${order.id}`,
+      });
+      if (!link.ok) throw new Error(link.error);
+      await mergeOrderMeta(order.id, {
+        squarePaymentLinkId: link.paymentLinkId,
+        squareOrderId: link.squareOrderId,
+      });
+      return { ok: true, url: link.url };
+    } catch (e) {
+      await rollback();
+      return { ok: false, error: e instanceof Error ? e.message : "Square checkout failed." };
+    }
+  }
+
+  if (gateway.type === "MANUAL") {
+    // Cash-on-delivery / offline payment — order is placed immediately.
+    return { ok: true, url: `/checkout/success?orderId=${order.id}` };
+  }
+
+  return { ok: true, url: `/checkout/success?orderId=${order.id}&awaiting=1` };
+}
+
+/** Shared tail: reserve stock, create the order, start payment. */
+async function placeOrder(
+  lines: { ok: true; items: LineItem[] } | { ok: false; error: string },
+  totalsResult: Promise<QuoteTotals>,
+  gatewayResult: { ok: true; gateway: { id: string; name: string; type: string; config: unknown } } | { ok: false; error: string },
+  email: string | null,
+  address: Address,
+  productSlugForCancel: string | null,
+): Promise<PurchaseResult> {
+  if (!lines.ok) return lines;
+  if (!gatewayResult.ok) return gatewayResult;
+
+  const totals = await totalsResult;
+  if (totals.couponError) return { ok: false, error: totals.couponError };
+
+  const stock = await reserveStock(lines.items.map((i) => ({ productId: i.productId, quantity: i.quantity })));
+  if (!stock.ok) return stock;
+
+  let order;
+  try {
+    order = await createOrder(lines.items, totals, gatewayResult.gateway, email, address);
+  } catch (e) {
+    // Order creation failed — give the reserved stock back.
+    await restoreStockForOrderFallback(lines.items);
+    return { ok: false, error: e instanceof Error ? e.message : "Could not create your order." };
+  }
+
+  return startPayment(order, lines.items, totals, productSlugForCancel, gatewayResult.gateway);
+}
+
+/** Restore stock directly from line items (used when no order row exists yet). */
+async function restoreStockForOrderFallback(items: LineItem[]): Promise<void> {
+  for (const item of items) {
+    await prisma.product
+      .updateMany({
+        where: { id: item.productId, tenantId: TENANT_ID, manageStock: true },
+        data: { stockQuantity: { increment: item.quantity } },
+      })
+      .catch(() => {});
+  }
+}
+
+function readAddress(formData: FormData): Address {
+  const country = String(formData.get("country") ?? "").trim().slice(0, 2).toUpperCase();
+  const state = String(formData.get("state") ?? "").trim().slice(0, 64);
+  return { country: country || null, state: state || null };
+}
+
+/** Buy now from the single product page. */
+export async function purchaseProduct(formData: FormData): Promise<PurchaseResult> {
+  const productId = String(formData.get("productId") ?? "").trim();
+  const gatewayId = String(formData.get("gatewayId") ?? "").trim();
+  const quantity = Math.min(999, Math.max(1, parseInt(String(formData.get("quantity") ?? "1"), 10) || 1));
+  const email = String(formData.get("email") ?? "").trim() || null;
+  const couponCode = String(formData.get("couponCode") ?? "").trim() || null;
+
+  if (!productId) return { ok: false, error: "Missing product." };
+  if (!gatewayId) return { ok: false, error: "Please choose a payment method." };
+
+  const gatewayResult = await resolveGateway(gatewayId);
+  if (!gatewayResult.ok) return gatewayResult;
+
+  const lines = await buildLineItems([{ productId, quantity }]);
+  if (!lines.ok) return lines;
+
+  const totals = quoteTotals({
+    lines: toQuoteLines(lines.items),
+    couponCode,
+    ...readAddress(formData),
+  });
+
+  return placeOrder(lines, totals, gatewayResult, email, readAddress(formData), null);
+}
+
+/** Place an order for everything in the cart. */
+export async function checkoutCart(formData: FormData): Promise<PurchaseResult> {
+  const gatewayId = String(formData.get("gatewayId") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim() || null;
+
+  if (!gatewayId) return { ok: false, error: "Please choose a payment method." };
+
+  const sessionId = await readExistingCartSession();
+  const cart = sessionId ? await getCartBySession(sessionId) : null;
+  if (!cart || cart.items.length === 0) {
+    return { ok: false, error: "Your cart is empty." };
+  }
+
+  const gatewayResult = await resolveGateway(gatewayId);
+  if (!gatewayResult.ok) return gatewayResult;
+
+  const lines = await buildLineItems(
+    cart.items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+  );
+  if (!lines.ok) return lines;
+
+  const address = readAddress(formData);
+  const totals = quoteTotals({
+    lines: toQuoteLines(lines.items),
+    couponCode: cart.couponCode,
+    ...address,
+  });
+
+  return placeOrder(lines, totals, gatewayResult, email, address, null);
+}
+
+/** Apply a coupon code to the current cart (validated immediately). */
+export async function applyCouponToCart(formData: FormData): Promise<CouponActionResult> {
+  const code = String(formData.get("code") ?? "").trim();
+  if (!code) return { ok: false, error: "Enter a coupon code." };
+
+  const sessionId = await readExistingCartSession();
+  const cart = sessionId ? await getCartBySession(sessionId) : null;
+  if (!cart || cart.items.length === 0) return { ok: false, error: "Your cart is empty." };
+
+  const lines: QuoteLine[] = cart.items.map((item) => ({
+    productId: item.productId,
+    quantity: item.quantity,
+    unitPrice: item.quantity > 0 ? round2(item.lineTotal / item.quantity) : item.lineTotal,
+    saleItem: item.product.salePrice !== null,
+    shippingRequired: item.product.shippingRequired !== false,
+  }));
+  const subtotal = round2(lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0));
+
+  const result = await resolveCoupon(code, lines, subtotal);
+  if (!result.ok) return { ok: false, error: result.error };
+
+  await prisma.cart.update({
+    where: { id: cart.id },
+    data: { couponCode: result.coupon.code },
+  });
+  revalidatePath("/cart");
+  revalidatePath("/checkout");
+  return { ok: true };
+}
+
+/** Remove the coupon from the current cart. */
+export async function removeCouponFromCart(): Promise<CouponActionResult> {
+  const sessionId = await readExistingCartSession();
+  const cart = sessionId ? await getCartBySession(sessionId) : null;
+  if (!cart) return { ok: false, error: "No cart found." };
+
+  await prisma.cart.update({
+    where: { id: cart.id },
+    data: { couponCode: null },
+  });
+  revalidatePath("/cart");
+  revalidatePath("/checkout");
+  return { ok: true };
+}
+
+/** Live totals quote for the checkout form (country/state change → tax/shipping update). */
+export async function quoteCartTotals(formData: FormData): Promise<QuoteResult> {
+  const sessionId = await readExistingCartSession();
+  const cart = sessionId ? await getCartBySession(sessionId) : null;
+  if (!cart || cart.items.length === 0) return { ok: false, error: "Your cart is empty." };
+
+  const lines: QuoteLine[] = cart.items.map((item) => ({
+    productId: item.productId,
+    quantity: item.quantity,
+    unitPrice: item.quantity > 0 ? round2(item.lineTotal / item.quantity) : item.lineTotal,
+    saleItem: item.product.salePrice !== null,
+    shippingRequired: item.product.shippingRequired !== false,
+  }));
+
+  const totals = await quoteTotals({
+    lines,
+    couponCode: cart.couponCode,
+    country: String(formData.get("country") ?? "").trim() || null,
+    state: String(formData.get("state") ?? "").trim() || null,
+  });
+  return { ok: true, totals };
+}

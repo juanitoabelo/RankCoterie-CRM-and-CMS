@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ProductGridBlock } from "@/lib/page-builder/types";
+import { notifyCartUpdated } from "@/lib/cart-event";
 
 type ProductGridProps = ProductGridBlock["props"];
 
@@ -118,7 +119,7 @@ function columnStyle(props: ProductGridProps): React.CSSProperties {
   const tablet = Math.min(6, Math.max(1, props.columnsTablet ?? 2));
   const mobile = Math.min(6, Math.max(1, props.columnsMobile ?? 1));
   return {
-    gridTemplateColumns: `repeat(${mobile}, minmax(0, 1fr))`,
+    ["--pg-cols-mobile" as string]: String(mobile),
     ["--pg-cols-tablet" as string]: String(tablet),
     ["--pg-cols-desktop" as string]: String(desktop),
   } as React.CSSProperties;
@@ -286,8 +287,9 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ productId: id, quantity: 1 }),
         });
-        const json = (await res.json()) as { ok: boolean; error?: string };
+        const json = (await res.json()) as { ok: boolean; error?: string; itemCount?: number };
         if (json.ok) {
+          notifyCartUpdated(json.itemCount);
           setAdded((prev) => ({ ...prev, [id]: true }));
           window.setTimeout(() => setAdded((prev) => ({ ...prev, [id]: false })), 2200);
         }

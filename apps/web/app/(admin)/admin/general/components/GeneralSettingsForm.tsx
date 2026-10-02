@@ -56,6 +56,9 @@ export default function GeneralSettingsForm({ settings }: { settings: GeneralSet
     fd.set("timeFormat", form.timeFormat);
     fd.set("customTimeFormat", form.customTimeFormat);
     fd.set("weekStartsOn", form.weekStartsOn);
+    fd.set("shippingEnabled", form.shippingEnabled ? "on" : "off");
+    fd.set("shippingFlatRate", String(form.shippingFlatRate));
+    fd.set("shippingFreeOver", form.shippingFreeOver === null ? "" : String(form.shippingFreeOver));
 
     const result = await saveGeneralSettings(fd);
     setSaving(false);
@@ -369,7 +372,7 @@ export default function GeneralSettingsForm({ settings }: { settings: GeneralSet
       </div>
 
       {/* ── Week Starts On ────────────────────────────────────────── */}
-      <div className="rounded-b-lg border-x border-b border-zinc-200 bg-white px-6 py-5">
+      <div className="rounded-lg border-x border-t border-zinc-200 bg-white px-6 py-5">
         <h2 className="mb-4 text-base font-semibold text-zinc-900">Week Starts On</h2>
         <select
           className={selectCls}
@@ -382,6 +385,59 @@ export default function GeneralSettingsForm({ settings }: { settings: GeneralSet
             </option>
           ))}
         </select>
+      </div>
+
+      {/* ── Shipping ──────────────────────────────────────────────── */}
+      <div className="rounded-b-lg border border-zinc-200 bg-white px-6 py-5">
+        <h2 className="mb-1 text-base font-semibold text-zinc-900">Shipping</h2>
+        <p className="mb-4 text-sm text-zinc-500">
+          Flat-rate shipping shown in the cart and applied at checkout. Coupons with free
+          shipping and orders over the threshold ship free.
+        </p>
+        <label className="flex items-center gap-2 text-sm text-zinc-700">
+          <input
+            type="checkbox"
+            checked={form.shippingEnabled}
+            onChange={(e) => set("shippingEnabled", e.target.checked)}
+            className="h-4 w-4 rounded border-zinc-400"
+          />
+          Enable shipping charges
+        </label>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className={labelCls} htmlFor="shippingFlatRate">
+              Flat rate ($)
+            </label>
+            <input
+              id="shippingFlatRate"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.shippingFlatRate}
+              onChange={(e) => set("shippingFlatRate", Number(e.target.value) || 0)}
+              className={inputCls}
+            />
+            <p className={hintCls}>0 = free standard shipping for everyone.</p>
+          </div>
+          <div>
+            <label className={labelCls} htmlFor="shippingFreeOver">
+              Free shipping over ($)
+            </label>
+            <input
+              id="shippingFreeOver"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.shippingFreeOver ?? ""}
+              onChange={(e) =>
+                set("shippingFreeOver", e.target.value === "" ? null : Number(e.target.value) || 0)
+              }
+              className={inputCls}
+              placeholder="No threshold"
+            />
+            <p className={hintCls}>Blank = threshold disabled.</p>
+          </div>
+        </div>
       </div>
 
       {/* ── Save ──────────────────────────────────────────────────── */}

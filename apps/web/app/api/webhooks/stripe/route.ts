@@ -46,6 +46,26 @@ async function invoiceForPaymentIntent(paymentIntent: string | null) {
 }
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+  // Product order (storefront checkout) — mark the order paid.
+  const orderId = session.metadata?.orderId;
+  if (orderId) {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new Error(`Order not found: ${orderId}`);
+    if (order.paymentStatus === "PAID") return; // idempotent
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { paymentStatus: "PAID", status: "PROCESSING" },
+    });
+    await logAudit({
+      action: "ORDER_PAID",
+      entity: "Order",
+      entityId: orderId,
+      reason: "Paid via Stripe Checkout",
+      meta: { orderNumber: order.orderNumber, source: "checkout.session.completed" },
+    });
+    return;
+  }
+
   const listingId = session.metadata?.listingId ?? session.client_reference_id;
   if (!listingId) throw new Error("Checkout session without listingId metadata");
 

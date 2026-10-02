@@ -273,6 +273,17 @@ export default function ProductForm({
 
       {productId && <input type="hidden" name="id" value={productId} />}
 
+      {/* View product on storefront - top right */}
+      <div className="absolute top-4 right-4">
+        <a
+          href={`/${initial.slug}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-zinc-400 hover:text-zinc-900 text-sm font-medium underline">
+          👁 View on storefront
+        </a>
+      </div>
+
       {/* Basics */}
       <section className={cardCls}>
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">General</h2>
@@ -1148,5 +1159,4 @@ export default function ProductForm({
         </button>
       </div>
     </form>
-  );
-}
+  );}

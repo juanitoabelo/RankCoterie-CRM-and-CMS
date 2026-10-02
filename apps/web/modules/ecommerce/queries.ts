@@ -383,12 +383,13 @@ export async function getOrders(filter: OrderFilter = {}): Promise<{
     where.createdAt = createdAt;
   }
 
-  // Search filter (order number, customer name, email)
+  // Search filter (order number, customer name, email, guest email)
   if (search) {
     where.OR = [
       { orderNumber: { contains: search, mode: "insensitive" } },
       { customer: { email: { contains: search, mode: "insensitive" } } },
       { user: { email: { contains: search, mode: "insensitive" } } },
+      { guestEmail: { contains: search, mode: "insensitive" } },
     ];
   }
 
@@ -402,7 +403,16 @@ export async function getOrders(filter: OrderFilter = {}): Promise<{
 
   const skip = (page - 1) * pageSize;
 
-  const orderBy: Record<string, "asc" | "desc"> = { [sortBy]: sortOrder };
+  const SORT_FIELDS: Record<string, string> = {
+    date: "createdAt",
+    createdAt: "createdAt",
+    total: "total",
+    status: "status",
+    paymentStatus: "paymentStatus",
+  };
+  const orderBy: Record<string, "asc" | "desc"> = {
+    [SORT_FIELDS[sortBy] ?? "createdAt"]: sortOrder,
+  };
 
   const [items, total] = await Promise.all([
     prisma.order.findMany({
@@ -423,10 +433,10 @@ export async function getOrders(filter: OrderFilter = {}): Promise<{
   return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
-/** Get a single order by ID */
+/** Get a single order by ID (tenant-scoped) */
 export async function getOrderById(id: string): Promise<OrderWithRelations | null> {
-  return prisma.order.findUnique({
-    where: { id },
+  return prisma.order.findFirst({
+    where: { id, tenantId: TENANT_ID },
     include: {
       customer: true,
       user: true,
@@ -531,9 +541,12 @@ export async function getCartBySession(sessionId: string): Promise<CartWithItems
               price: true,
               regularPrice: true,
               salePrice: true,
+              salePriceStart: true,
+              salePriceEnd: true,
               stockStatus: true,
               manageStock: true,
               stockQuantity: true,
+              shippingRequired: true,
               type: true,
               downloadable: true,
               virtual: true,
@@ -563,9 +576,12 @@ export async function getCartByUser(userId: string): Promise<CartWithItems | nul
               price: true,
               regularPrice: true,
               salePrice: true,
+              salePriceStart: true,
+              salePriceEnd: true,
               stockStatus: true,
               manageStock: true,
               stockQuantity: true,
+              shippingRequired: true,
               type: true,
               downloadable: true,
               virtual: true,

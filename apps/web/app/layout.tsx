@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import { prisma, TENANT_ID } from "@/modules/shared";
+import { safeDb } from "@/lib/db-resilient";
 import { DEFAULT_STYLE_GUIDE, renderGlobalStyleGuide, type StyleGuide } from "@/lib/style-guide";
 import { DEFAULT_THEME_SETTINGS, renderThemeSettingsCSS, type ThemeSettings } from "@/lib/theme-settings";
 import { renderCustomFontFaces } from "@/lib/custom-fonts";
@@ -28,7 +29,7 @@ export const metadata: Metadata = {
 };
 
 async function getThemeStyles() {
-  const tenant = await prisma.tenant.findUnique({ where: { id: TENANT_ID } });
+  const tenant = await safeDb(() => prisma.tenant.findUnique({ where: { id: TENANT_ID } }), null);
   const theme = (tenant?.theme ?? {}) as {
     styleGuide?: Partial<StyleGuide>;
     themeSettings?: Partial<ThemeSettings>;

@@ -38,6 +38,17 @@ export async function saveGeneralSettings(formData: FormData): Promise<GeneralAc
     timeFormat: str("timeFormat") || "g:i a",
     customTimeFormat: str("customTimeFormat"),
     weekStartsOn: str("weekStartsOn") || "Monday",
+    shippingEnabled: bool("shippingEnabled"),
+    shippingFlatRate: (() => {
+      const n = Number(str("shippingFlatRate"));
+      return Number.isFinite(n) && n >= 0 ? n : 0;
+    })(),
+    shippingFreeOver: (() => {
+      const raw = str("shippingFreeOver");
+      if (!raw) return null;
+      const n = Number(raw);
+      return Number.isFinite(n) && n >= 0 ? n : null;
+    })(),
   };
 
   try {

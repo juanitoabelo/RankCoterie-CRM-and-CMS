@@ -13,6 +13,9 @@ export type GeneralSettings = {
   timeFormat: string;
   customTimeFormat: string;
   weekStartsOn: string;
+  shippingEnabled: boolean;
+  shippingFlatRate: number;
+  shippingFreeOver: number | null;
 };
 
 export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
@@ -30,6 +33,9 @@ export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   timeFormat: "g:i a",
   customTimeFormat: "",
   weekStartsOn: "Monday",
+  shippingEnabled: true,
+  shippingFlatRate: 0,
+  shippingFreeOver: null,
 };
 
 export const DATE_FORMAT_OPTIONS = [

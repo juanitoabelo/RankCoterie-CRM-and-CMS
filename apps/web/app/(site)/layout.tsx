@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import type { Metadata } from "next";
 import { prisma, TENANT_ID } from "@/modules/shared";
+import { safeDb } from "@/lib/db-resilient";
 import { DEFAULT_STYLE_GUIDE, renderGlobalStyleGuide, type StyleGuide } from "@/lib/style-guide";
 import { DEFAULT_THEME_SETTINGS, renderThemeSettingsCSS, type ThemeSettings } from "@/lib/theme-settings";
 import { DEFAULT_HEADER_BLOCKS, DEFAULT_FOOTER_BLOCKS, type HeaderFooterBlock, type ContainerSettings, DEFAULT_CONTAINER_SETTINGS } from "@/lib/header-footer/types";
@@ -10,6 +11,7 @@ import HeaderFooterRenderer from "@/components/admin/header-footer-builder/Heade
 import { resolvePageLayout, parsePageLayoutData } from "@/modules/page-layout";
 import type { PageLayoutBlock } from "@/lib/page-layout/types";
 import PageLayoutRenderer from "@/components/admin/page-layout-builder/PageLayoutRenderer";
+import CartIcon from "@/components/storefront/CartIcon";
 
 // Cache for layout data (tenant, menu, company) - avoids repeated DB hits
 interface LayoutCache {
@@ -36,42 +38,54 @@ async function getLayoutData() {
   }
 
   const [tenant, headerMenu, footerMenu, sidebarMenu] = await Promise.all([
-    prisma.tenant.findUnique({ where: { id: TENANT_ID } }),
-    prisma.menu.findFirst({
-      where: { tenantId: TENANT_ID, location: "HEADER" },
-      include: {
-        items: {
-          where: { parentId: null },
-          orderBy: { order: "asc" },
-          include: { children: { orderBy: { order: "asc" } } },
-        },
-      },
-    }),
-    prisma.menu.findFirst({
-      where: { tenantId: TENANT_ID, location: "FOOTER" },
-      include: {
-        items: {
-          where: { parentId: null },
-          orderBy: { order: "asc" },
-          include: { children: { orderBy: { order: "asc" } } },
-        },
-      },
-    }),
-    prisma.menu.findFirst({
-      where: { tenantId: TENANT_ID, location: "SIDEBAR" },
-      include: {
-        items: {
-          where: { parentId: null },
-          orderBy: { order: "asc" },
-          include: { children: { orderBy: { order: "asc" } } },
-        },
-      },
-    }),
+    safeDb(() => prisma.tenant.findUnique({ where: { id: TENANT_ID } }), null),
+    safeDb(
+      () =>
+        prisma.menu.findFirst({
+          where: { tenantId: TENANT_ID, location: "HEADER" },
+          include: {
+            items: {
+              where: { parentId: null },
+              orderBy: { order: "asc" },
+              include: { children: { orderBy: { order: "asc" } } },
+            },
+          },
+        }),
+      null,
+    ),
+    safeDb(
+      () =>
+        prisma.menu.findFirst({
+          where: { tenantId: TENANT_ID, location: "FOOTER" },
+          include: {
+            items: {
+              where: { parentId: null },
+              orderBy: { order: "asc" },
+              include: { children: { orderBy: { order: "asc" } } },
+            },
+          },
+        }),
+      null,
+    ),
+    safeDb(
+      () =>
+        prisma.menu.findFirst({
+          where: { tenantId: TENANT_ID, location: "SIDEBAR" },
+          include: {
+            items: {
+              where: { parentId: null },
+              orderBy: { order: "asc" },
+              include: { children: { orderBy: { order: "asc" } } },
+            },
+          },
+        }),
+      null,
+    ),
   ]);
 
   const company = tenant?.companyId
-    ? await prisma.company.findUnique({ where: { id: tenant.companyId } })
-    : await prisma.company.findUnique({ where: { tenantId: TENANT_ID } });
+    ? await safeDb(() => prisma.company.findUnique({ where: { id: tenant.companyId! } }), null)
+    : await safeDb(() => prisma.company.findUnique({ where: { tenantId: TENANT_ID } }), null);
 
   // Resolve header and footer blocks from builder or fallback to defaults
   let headerBlocks: HeaderFooterBlock[] = DEFAULT_HEADER_BLOCKS;
@@ -131,7 +145,7 @@ async function getLayoutData() {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const tenant = await prisma.tenant.findUnique({ where: { id: TENANT_ID } });
+  const tenant = await safeDb(() => prisma.tenant.findUnique({ where: { id: TENANT_ID } }), null);
   const theme = (tenant?.theme ?? {}) as {
     generalSettings?: { siteIconUrl?: string; siteTitle?: string };
   };
@@ -189,34 +203,42 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       {/* ── Header ─────────────────────────────────────────────────── */}
       <header className={useHeaderBuilder ? "" : "border-b border-zinc-200 bg-white"}>
         {useHeaderBuilder ? (
-          <HeaderFooterRenderer
-            blocks={layoutData.headerBlocks}
-            containerSettings={layoutData.headerContainerSettings}
-            menus={{
-              header: headerMenu?.items ?? [
-                { id: "home", label: "Home", href: "/" },
-                { id: "directory", label: "Directory", href: "/" },
-                { id: "apply", label: "Apply to list", href: "/apply" },
-              ],
-              footer: footerMenu?.items ?? [],
-            }}
-          />
+          <div className="relative">
+            <HeaderFooterRenderer
+              blocks={layoutData.headerBlocks}
+              containerSettings={layoutData.headerContainerSettings}
+              menus={{
+                header: headerMenu?.items ?? [
+                  { id: "home", label: "Home", href: "/" },
+                  { id: "directory", label: "Directory", href: "/" },
+                  { id: "apply", label: "Apply to list", href: "/apply" },
+                ],
+                footer: footerMenu?.items ?? [],
+              }}
+            />
+            <div className="absolute right-4 top-1/2 z-20 -translate-y-1/2">
+              <CartIcon />
+            </div>
+          </div>
         ) : (
           <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
             <Link href="/" className="text-lg font-semibold text-zinc-900">
               Canopy Directory
             </Link>
-            <nav className="flex items-center gap-6 text-sm text-zinc-600">
-              {(headerMenu?.items.length ? headerMenu.items : [
-                { id: "home", label: "Home", href: "/", target: null },
-                { id: "directory", label: "Directory", href: "/", target: null },
-                { id: "apply", label: "Apply to list", href: "/apply", target: null },
-              ]).map((item) => (
-                <Link key={item.id} href={item.href} target={item.target ?? undefined} className="hover:text-zinc-900">
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
+            <div className="flex items-center gap-4">
+              <nav className="flex items-center gap-6 text-sm text-zinc-600">
+                {(headerMenu?.items.length ? headerMenu.items : [
+                  { id: "home", label: "Home", href: "/", target: null },
+                  { id: "directory", label: "Directory", href: "/", target: null },
+                  { id: "apply", label: "Apply to list", href: "/apply", target: null },
+                ]).map((item) => (
+                  <Link key={item.id} href={item.href} target={item.target ?? undefined} className="hover:text-zinc-900">
+                    {item.label}
+                  </Link>
+                ))}
+              </nav>
+              <CartIcon />
+            </div>
           </div>
         )}
       </header>

@@ -6,10 +6,13 @@
  */
 import Link from "next/link";
 import DeleteProductButton from "@/components/admin/product/DeleteProductButton";
+import PageSizeSelect from "@/components/admin/PageSizeSelect";
 import { getProducts } from "@/modules/ecommerce/queries";
 import { deleteProduct } from "./actions";
 
 export const revalidate = 0;
+
+const PAGE_SIZE_OPTIONS = [10, 20, 30, 50];
 
 const PAGE_SIZE = 20;
 
@@ -54,7 +57,7 @@ function pickOption(value: string | undefined, options: { value: string }[]): st
 export default async function ProductsAdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; type?: string; status?: string; visibility?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; type?: string; status?: string; visibility?: string; page?: string; pageSize?: string }>;
 }) {
   const sp = await searchParams;
   const q = sp.q ?? "";
@@ -62,6 +65,7 @@ export default async function ProductsAdminPage({
   const status = pickOption(sp.status, STATUS_OPTIONS);
   const visibility = pickOption(sp.visibility, VISIBILITY_OPTIONS);
   const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
+  const pageSize = parseInt(sp.pageSize ?? "20", 10);
 
   const { items, total, totalPages } = await getProducts({
     search: q || undefined,
@@ -69,7 +73,7 @@ export default async function ProductsAdminPage({
     status: status as never,
     visibility: visibility as never,
     page,
-    pageSize: PAGE_SIZE,
+    pageSize: parseInt(sp.pageSize ?? "20", 10),
   });
 
   const filterParams = { q, type, status, visibility };
@@ -166,6 +170,23 @@ export default async function ProductsAdminPage({
             {VISIBILITY_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="pageSize" className="block text-xs font-medium text-zinc-500">
+            Per page
+          </label>
+          <select
+            id="pageSize"
+            name="pageSize"
+            defaultValue={String(pageSize)}
+            className="mt-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+          >
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <option key={size} value={size}>
+                {size}
               </option>
             ))}
           </select>
@@ -303,7 +324,7 @@ export default async function ProductsAdminPage({
           <div className="flex gap-2">
             {page > 1 && (
               <Link
-                href={pageHref(filterParams, page - 1)}
+                href={pageHref({ ...filterParams, pageSize: sp.pageSize ?? "20" }, page - 1)}
                 className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
               >
                 Previous
@@ -311,7 +332,7 @@ export default async function ProductsAdminPage({
             )}
             {page < totalPages && (
               <Link
-                href={pageHref(filterParams, page + 1)}
+                href={pageHref({ ...filterParams, pageSize: sp.pageSize ?? "20" }, page + 1)}
                 className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
               >
                 Next
@@ -319,6 +340,13 @@ export default async function ProductsAdminPage({
             )}
           </div>
         </div>
+      )}
+      {totalPages > 1 && (
+        <PageSizeSelect
+          pageSize={sp.pageSize ?? "20"}
+          filterParams={filterParams}
+          options={PAGE_SIZE_OPTIONS}
+        />
       )}
     </div>
   );

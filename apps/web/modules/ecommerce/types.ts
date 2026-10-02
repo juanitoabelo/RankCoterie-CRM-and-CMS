@@ -244,6 +244,7 @@ export interface ProductListItem {
   manageStock: boolean;
   downloadable: boolean;
   virtual: boolean;
+  shippingRequired: boolean;
   featured: boolean;
   catalogVisibility: string;
   images: ProductImageWithAsset[];
@@ -292,7 +293,7 @@ export interface CartItemWithRelations {
   id: string;
   cartId: string;
   productId: string;
-  product: Pick<ProductListItem, "id" | "name" | "slug" | "price" | "regularPrice" | "salePrice" | "stockStatus" | "manageStock" | "stockQuantity" | "images" | "type" | "downloadable" | "virtual">;
+  product: Pick<ProductListItem, "id" | "name" | "slug" | "price" | "regularPrice" | "salePrice" | "stockStatus" | "manageStock" | "stockQuantity" | "images" | "type" | "downloadable" | "virtual" | "shippingRequired">;
   variantId: string | null;
   variant: Pick<ProductVariantWithRelations, "id" | "name" | "sku" | "price" | "regularPrice" | "salePrice" | "stockStatus" | "stockQuantity" | "manageStock" | "imageAsset" | "attributes"> | null;
   quantity: number;
