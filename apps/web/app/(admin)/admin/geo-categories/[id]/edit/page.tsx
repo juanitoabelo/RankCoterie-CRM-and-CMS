@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getGeoCategory } from "../../actions";
+import { getGeoCategory, getGeoCategoryFormOptions } from "../../actions";
 import EditGeoCategoryForm from "./GeoCategoryEditForm";
 
 export const revalidate = 0;
@@ -10,8 +10,8 @@ export default async function EditGeoCategoryPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const category = await getGeoCategory(id);
+  const [category, options] = await Promise.all([getGeoCategory(id), getGeoCategoryFormOptions(id)]);
   if (!category) return notFound();
 
-  return <EditGeoCategoryForm category={category} />;
+  return <EditGeoCategoryForm category={category} sections={options.sections} states={options.states} />;
 }

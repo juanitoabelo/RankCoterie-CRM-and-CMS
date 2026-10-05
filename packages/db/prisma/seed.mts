@@ -107,7 +107,6 @@ async function main() {
         },
       }),
     };
-    const regionList = Object.values(regions);
 
     const wilderness = await tx.category.create({
       data: {
@@ -207,16 +206,26 @@ async function main() {
     ];
 
     const createdListings = [];
+    // Parity with the mock repo (LISTING_REGION_IDS): category joins are
+    // all-to-all (the mock ignores category filters), but region joins are
+    // SELECTIVE — the /g/* index gate counts listings per region, so
+    // all-to-all region linkage would make every region look populated.
+    const listingRegions: Record<string, string[]> = {
+      "clearview-horizon": ["CA", "CA-San-Diego"],
+      "grace-community-homes": ["CA", "CA-San-Diego"],
+      "a-competitor-inc": ["CA"], // suppressed — never counted or rendered
+    };
     for (const data of listings) {
       const listing = await tx.listing.create({ data });
-      // Parity with the mock repo (which ignores category/region filters): join every
-      // listing to every category and region from the seed.
       await tx.listingCategory.createMany({
         data: [wilderness.id, boarding.id].map((categoryId) => ({ listingId: listing.id, categoryId })),
       });
-      await tx.listingRegion.createMany({
-        data: regionList.map((r) => ({ listingId: listing.id, regionId: r.id })),
-      });
+      const linkedRegionIds = listingRegions[listing.slug] ?? [];
+      if (linkedRegionIds.length > 0) {
+        await tx.listingRegion.createMany({
+          data: linkedRegionIds.map((regionId) => ({ listingId: listing.id, regionId })),
+        });
+      }
       if (listing.tier === "PREMIUM") {
         await tx.listingSubscription.create({
           data: {

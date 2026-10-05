@@ -140,6 +140,18 @@ model Category {
   altIntros   Json?  // areaPart-keyed overrides
   sections    Json?  // topic content sections [{title, content}, ...]
   status      String @default("LIVE")
+
+  // SEO — parity with the Page content type (SeoFields: SEO / Advanced / Schema tabs).
+  // seoTitle/metaDesc support {{region}} tokens: rendered per page on /g/* routes.
+  seoTitle        String?
+  metaDesc        String?
+  metaKeywords    String? // JSON array of keywords
+  focusKeyphrase  String?
+  ogImage         String?
+  canonicalUrl    String? // applies to the parent /g/{slug}/ page only; region pages self-canonicalize
+  robotsIndex     Boolean  @default(true)
+  robotsFollow    Boolean  @default(true)
+  jsonSchema      String? // JSON-LD injected on /g/* pages
   regionContent CategoryRegionContent[]
   regionFeeds    CategoryRegionFeed[]
   listingCategories ListingCategory[]

@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getCatalogRepo } from "@/lib/directory/catalog";
-import { renderLocalizedContent, regionContext } from "@/lib/localization/render";
+import { resolveRegionPageIndexable } from "@/lib/directory/indexGate";
+import { regionContext } from "@/lib/localization/render";
+import { jsonLdHtml, parseJsonSchema, regionPageGeoMetadata } from "@/lib/seo/geoCategorySeo";
 import RegionListings from "@/components/RegionListings";
 
 export const revalidate = 3600;
@@ -27,16 +29,18 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { category, region } = await params;
+  const { category, region, pageNum } = await params;
   const repo = await getCatalogRepo();
   const [cat, reg] = await Promise.all([
     repo.getCategoryBySlug(category),
     repo.getRegionBySlug(region),
   ]);
   if (!cat || !reg) return {};
-  return {
-    title: renderLocalizedContent(`${cat.title} {{in region}}`, regionContext(reg.city ? `${reg.city}, ${reg.state}` : reg.stateFull, reg.slug)),
-  };
+  const pageNumInt = Number.parseInt(pageNum, 10) || 2;
+  // Index gate: region must earn it AND listings must spill onto this page
+  // (otherwise /page/2/ is a clamped duplicate of page 1).
+  const indexable = await resolveRegionPageIndexable(repo, cat.id, reg, pageNumInt);
+  return regionPageGeoMetadata(cat, reg, pageNumInt, { indexable });
 }
 
 export default async function RegionPagePaginated({ params }: Props) {
@@ -52,9 +56,14 @@ export default async function RegionPagePaginated({ params }: Props) {
   if (!cat || !reg) notFound();
 
   const ctx = regionContext(reg.city ? `${reg.city}, ${reg.state}` : reg.stateFull, reg.slug);
+  const customSchema = parseJsonSchema(cat.jsonSchema);
 
   return (
     <div>
+      {customSchema && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(customSchema) }} />
+      )}
+
       <p className="text-sm text-zinc-500">
         <Link href="/" className="hover:text-zinc-800">
           Directory

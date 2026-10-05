@@ -22,6 +22,17 @@ export interface CatalogCategory {
   stateDesc: string | null;
   cityInit: string | null;
   cityDesc: string | null;
+  // SEO — parity with the Page content type (SeoFields: SEO / Advanced / Schema tabs).
+  // seoTitle/metaDesc may contain {{region}} tokens; /g/* pages render them per region.
+  seoTitle: string | null;
+  metaDesc: string | null;
+  metaKeywords: string[]; // parsed from the stored JSON array
+  focusKeyphrase: string | null;
+  ogImage: string | null;
+  canonicalUrl: string | null; // parent /g/{slug}/ page only; region pages self-canonicalize
+  robotsIndex: boolean;
+  robotsFollow: boolean;
+  jsonSchema: string | null; // JSON-LD injected on /g/* pages
 }
 
 export interface CatalogRegion {
@@ -66,7 +77,14 @@ export interface CatalogListing {
 
 export interface CategoryRegionContentQuery {
   categoryId: string;
-  state: string;
+  /** Omit to fetch every state's rows for the category (index gate batch path). */
+  state?: string;
+}
+
+/** A candidate listing with its linked region ids (ListingRegion "Nearby Areas"). */
+export interface CategoryListingCandidate {
+  listing: CatalogListing;
+  regionIds: string[];
 }
 
 export interface CatalogRepo {
@@ -74,8 +92,6 @@ export interface CatalogRepo {
   getCategoryBySlug(slug: string): Promise<CatalogCategory | null>;
   getRegions(): Promise<CatalogRegion[]>;
   getRegionBySlug(slug: string): Promise<CatalogRegion | null>;
-  /** State-index regions that have content (legacy: Custom1/Custom2 non-empty). */
-  getIndexedStateRegions(categoryId: string): Promise<CatalogRegion[]>;
   /** State + city regions under a parent category, per-state index. */
   getChildRegions(categoryId: string, state: string): Promise<CatalogRegion[]>;
   getCategoryRegionContent(query: CategoryRegionContentQuery): Promise<CategoryRegionContent[]>;
@@ -84,6 +100,13 @@ export interface CatalogRepo {
     categoryId: string,
     regionId: "ALL" | string,
   ): Promise<CatalogListing[]>;
+  /**
+   * All candidate listings for a category with their region links, in one round
+   * trip — input for the index gate (lib/directory/indexGate.ts). Visibility is
+   * NOT applied here; the gate runs the same filterVisibleListings pipeline the
+   * pages use so counts can never disagree with what renders.
+   */
+  getCategoryListingCandidates(categoryId: string): Promise<CategoryListingCandidate[]>;
   /** Admin-managed opt-out list, fed straight into the visibility gate. */
   getExclusions(): Promise<ExclusionRule[]>;
 }
@@ -141,12 +164,37 @@ const REGIONS: CatalogRegion[] = [
   },
 ];
 
+const DEFAULT_CATEGORY_SEO: Pick<
+  CatalogCategory,
+  | "seoTitle"
+  | "metaDesc"
+  | "metaKeywords"
+  | "focusKeyphrase"
+  | "ogImage"
+  | "canonicalUrl"
+  | "robotsIndex"
+  | "robotsFollow"
+  | "jsonSchema"
+> = {
+  seoTitle: null,
+  metaDesc: null,
+  metaKeywords: [],
+  focusKeyphrase: null,
+  ogImage: null,
+  canonicalUrl: null,
+  robotsIndex: true,
+  robotsFollow: true,
+  jsonSchema: null,
+};
+
 const CATEGORIES: CatalogCategory[] = [
   {
     id: "cat-wilderness",
     slug: "wilderness-therapy",
     title: "Wilderness Therapy for Troubled Teen Girls",
     parentSlug: null,
+    ...DEFAULT_CATEGORY_SEO,
+    seoTitle: "Wilderness Therapy for Troubled Teen Girls {{in region}}",
     description:
       "Wilderness therapy programs help girls {{in region}} rebuild confidence and trust in a Christ-centered outdoor setting.",
     stateInit:
@@ -162,6 +210,7 @@ const CATEGORIES: CatalogCategory[] = [
     slug: "christian-boarding-schools",
     title: "Christian Boarding Schools for Troubled Girls",
     parentSlug: null,
+    ...DEFAULT_CATEGORY_SEO,
     description:
       "Christian boarding schools {{in region}} provide structure, academics and spiritual growth for struggling teen girls.",
     stateInit:
@@ -244,6 +293,12 @@ const LISTINGS: CatalogListing[] = [
   },
 ];
 
+const LISTING_REGION_IDS: Record<string, string[]> = {
+  "l-clearview": ["CA", "CA-San-Diego"],
+  "l-grace": ["CA", "CA-San-Diego"],
+  "l-hidden": ["CA"], // suppressed — never counted or rendered
+};
+
 export const catalogRepo: CatalogRepo = {
   async getCategories() {
     return CATEGORIES;
@@ -257,18 +312,23 @@ export const catalogRepo: CatalogRepo = {
   async getRegionBySlug(slug) {
     return REGIONS.find((r) => r.slug === slug) ?? null;
   },
-  async getIndexedStateRegions() {
-    // Legacy: only states with content (custom1/custom2) enter the parent index.
-    return REGIONS.filter((r) => r.city === null && (r.custom1 || r.custom2));
-  },
   async getChildRegions(_categoryId, state) {
     return REGIONS.filter((r) => r.state === state && r.city !== null);
   },
   async getCategoryRegionContent({ categoryId, state }) {
-    return REGION_CONTENT.filter((c) => c.categoryId === categoryId && c.state === state);
+    return REGION_CONTENT.filter(
+      (c) => c.categoryId === categoryId && (!state || c.state === state),
+    );
   },
-  async getListingsByCategoryAndRegion(_categoryId, _regionId) {
-    return LISTINGS; // seed has one region-scope; real repo will filter by regionId
+  async getListingsByCategoryAndRegion(_categoryId, regionId) {
+    if (regionId === "ALL") return LISTINGS;
+    return LISTINGS.filter((l) => (LISTING_REGION_IDS[l.id] ?? []).includes(regionId));
+  },
+  async getCategoryListingCandidates() {
+    return LISTINGS.map((listing) => ({
+      listing,
+      regionIds: LISTING_REGION_IDS[listing.id] ?? [],
+    }));
   },
   async getExclusions() {
     return getMockExclusions();

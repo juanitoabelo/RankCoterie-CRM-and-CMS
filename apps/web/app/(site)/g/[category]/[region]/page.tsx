@@ -3,13 +3,32 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getCatalogRepo } from "@/lib/directory/catalog";
 import { resolveCategoryContent } from "@/lib/directory/resolveContent";
+import { filterIndexableRegions, resolveRegionIndexable } from "@/lib/directory/indexGate";
 import { renderLocalizedContent, regionContext } from "@/lib/localization/render";
+import {
+  SITE_URL,
+  breadcrumbJsonLd,
+  geoCategoryUrl,
+  geoRegionUrl,
+  itemListJsonLd,
+  jsonLdHtml,
+  parseJsonSchema,
+  regionDisplayName,
+  regionGeoMetadata,
+} from "@/lib/seo/geoCategorySeo";
 import RegionListings from "@/components/RegionListings";
+import RegionFilterBar from "@/components/RegionFilterBar";
 
 export const revalidate = 3600;
 
 interface Props {
   params: Promise<{ category: string; region: string }>;
+  searchParams: Promise<{ 
+    sort?: string; 
+    tier?: string; 
+    rating?: string;
+    page?: string;
+  }>;
 }
 
 export async function generateStaticParams() {
@@ -19,27 +38,26 @@ export async function generateStaticParams() {
   return categories.flatMap((c) => regions.map((r) => ({ category: c.slug, region: r.slug })));
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { category, region } = await params;
+  const { sort, tier } = await searchParams;
   const repo = await getCatalogRepo();
   const [cat, reg] = await Promise.all([
     repo.getCategoryBySlug(category),
     repo.getRegionBySlug(region),
   ]);
   if (!cat || !reg) return {};
-  const ctx = regionContext(regionNameOf(reg), reg.slug);
-  return {
-    title: renderLocalizedContent(`${cat.title} {{in region}}`, ctx),
-    description: renderLocalizedContent(cat.description, ctx),
-  };
+  const indexable = await resolveRegionIndexable(repo, cat.id, reg);
+  const metadata = regionGeoMetadata(cat, reg, { indexable });
+  const sortLabel = sort ? ` - Sorted by ${sort}` : "";
+  const tierLabel = tier ? ` - ${tier}` : "";
+  const baseTitle = typeof metadata.title === "string" ? metadata.title : cat.title;
+  return { ...metadata, title: `${baseTitle}${sortLabel}${tierLabel}` };
 }
 
-function regionNameOf(region: { city: string | null; state: string; stateFull: string }): string {
-  return region.city ? `${region.city}, ${region.state}` : region.stateFull;
-}
-
-export default async function RegionPage({ params }: Props) {
+export default async function RegionPage({ params, searchParams }: Props) {
   const { category, region } = await params;
+  const { sort = "featured", tier, rating, page = "1" } = await searchParams;
   const repo = await getCatalogRepo();
   const [cat, reg] = await Promise.all([
     repo.getCategoryBySlug(category),
@@ -47,7 +65,7 @@ export default async function RegionPage({ params }: Props) {
   ]);
   if (!cat || !reg) notFound();
 
-  const ctx = regionContext(regionNameOf(reg), reg.slug);
+  const ctx = regionContext(regionDisplayName(reg), reg.slug);
 
   // Content resolution (state/city/area-part rules) + token render.
   const contents = await repo.getCategoryRegionContent({
@@ -58,11 +76,38 @@ export default async function RegionPage({ params }: Props) {
   const introHtml = renderLocalizedContent(resolved.intro, ctx);
   const descHtml = renderLocalizedContent(resolved.description, ctx);
 
-  // City links for a state page (child regions under this state).
-  const cities = reg.city === null ? await repo.getChildRegions(cat.id, reg.state) : [];
+  // City links for a state page (child regions under this state) — same index
+  // gate: only cities that earn indexing are surfaced as links.
+  let cities = reg.city === null ? await repo.getChildRegions(cat.id, reg.state) : [];
+  cities = await filterIndexableRegions(repo, cat.id, cities);
+
+  const breadcrumb = breadcrumbJsonLd([
+    { name: "Home", url: `${SITE_URL}/` },
+    { name: cat.title, url: geoCategoryUrl(cat.slug) },
+    { name: ctx.regionName ?? reg.slug, url: geoRegionUrl(cat.slug, reg.slug) },
+  ]);
+  const cityList = cities.length
+    ? itemListJsonLd(
+        `Cities in ${ctx.regionName ?? reg.slug}`,
+        renderLocalizedContent(cat.metaDesc || cat.description, ctx),
+        cities.map((c) => ({
+          name: c.city ?? c.slug,
+          url: geoRegionUrl(cat.slug, c.slug),
+        })),
+      )
+    : null;
+  const customSchema = parseJsonSchema(cat.jsonSchema);
 
   return (
     <div>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(breadcrumb) }} />
+      {cityList && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(cityList) }} />
+      )}
+      {customSchema && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(customSchema) }} />
+      )}
+
       <p className="text-sm text-zinc-500">
         <Link href="/" className="hover:text-zinc-800">
           Directory
@@ -103,12 +148,24 @@ export default async function RegionPage({ params }: Props) {
         </div>
       )}
 
+      <RegionFilterBar
+        categorySlug={cat.slug}
+        regionSlug={reg.slug}
+        currentSort={sort}
+        currentTier={tier ?? ""}
+        currentRating={rating ?? ""}
+      />
+
       <RegionListings
         categorySlug={cat.slug}
         regionSlug={reg.slug}
         categoryId={cat.id}
         regionId={reg.id}
         regionCtx={ctx}
+        page={parseInt(page, 10)}
+        sort={sort}
+        tierFilter={tier}
+        ratingFilter={rating}
       />
     </div>
   );

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { prisma } from "./prismaCatalog";
 import { prismaCatalogRepo } from "./prismaCatalog";
+import { filterIndexableRegions } from "./indexGate";
 import { previewVariant, publishVariants, regionDisplayName } from "../localization/variants";
 
 // Integration test — needs a seeded Postgres (packages/db: db:deploy + db:seed).
@@ -34,7 +35,8 @@ run("prismaCatalogRepo against seeded canopy_dev", () => {
     expect(sd?.city).toBe("San Diego");
     expect(sd?.areaPart).toBe("SOUTHERN");
 
-    const indexed = await prismaCatalogRepo.getIndexedStateRegions(cat!.id);
+    const states = (await prismaCatalogRepo.getRegions()).filter((r) => r.city === null);
+    const indexed = await filterIndexableRegions(prismaCatalogRepo, cat!.id, states);
     expect(indexed.map((r) => r.slug)).toEqual(["California-CA", "Virginia-VA"]);
 
     const children = await prismaCatalogRepo.getChildRegions(cat!.id, "CA");

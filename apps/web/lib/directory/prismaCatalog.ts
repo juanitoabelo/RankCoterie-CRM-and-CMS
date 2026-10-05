@@ -29,6 +29,16 @@ if (process.env.NODE_ENV !== "production") {
 
 const TENANT_ID = process.env.CANOPY_TENANT_ID ?? "tenant-masternet";
 
+function mapKeywords(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
 function mapCategory(c: {
   id: string;
   slug: string;
@@ -38,6 +48,15 @@ function mapCategory(c: {
   stateDesc: string | null;
   cityInit: string | null;
   cityDesc: string | null;
+  seoTitle: string | null;
+  metaDesc: string | null;
+  metaKeywords: string | null;
+  focusKeyphrase: string | null;
+  ogImage: string | null;
+  canonicalUrl: string | null;
+  robotsIndex: boolean;
+  robotsFollow: boolean;
+  jsonSchema: string | null;
   parent: { slug: string } | null;
 }): CatalogCategory {
   return {
@@ -50,6 +69,15 @@ function mapCategory(c: {
     stateDesc: c.stateDesc,
     cityInit: c.cityInit,
     cityDesc: c.cityDesc,
+    seoTitle: c.seoTitle,
+    metaDesc: c.metaDesc,
+    metaKeywords: mapKeywords(c.metaKeywords),
+    focusKeyphrase: c.focusKeyphrase,
+    ogImage: c.ogImage,
+    canonicalUrl: c.canonicalUrl,
+    robotsIndex: c.robotsIndex,
+    robotsFollow: c.robotsFollow,
+    jsonSchema: c.jsonSchema,
   };
 }
 
@@ -150,19 +178,6 @@ export const prismaCatalogRepo: CatalogRepo = {
     return row ? mapRegion(row) : null;
   },
 
-  async getIndexedStateRegions() {
-    // Legacy: only states with authored content (custom1/custom2) enter the index.
-    const rows = await prisma.region.findMany({
-      where: {
-        tenantId: TENANT_ID,
-        city: null,
-        OR: [{ custom1: { not: null } }, { custom2: { not: null } }],
-      },
-      orderBy: { priority: "asc" },
-    });
-    return rows.map(mapRegion);
-  },
-
   async getChildRegions(_categoryId, state) {
     const rows = await prisma.region.findMany({
       where: { tenantId: TENANT_ID, state, city: { not: null } },
@@ -173,7 +188,7 @@ export const prismaCatalogRepo: CatalogRepo = {
 
   async getCategoryRegionContent({ categoryId, state }: CategoryRegionContentQuery) {
     const rows = await prisma.categoryRegionContent.findMany({
-      where: { categoryId, state },
+      where: { categoryId, ...(state ? { state } : {}) },
     });
     return rows.map(
       (c): CategoryRegionContent => ({
@@ -196,6 +211,24 @@ export const prismaCatalogRepo: CatalogRepo = {
       orderBy: { createdAt: "desc" },
     });
     return rows.map(mapListing);
+  },
+
+  async getCategoryListingCandidates(categoryId) {
+    const rows = await prisma.listing.findMany({
+      where: {
+        tenantId: TENANT_ID,
+        categories: { some: { categoryId } },
+      },
+      include: {
+        subscription: { select: { paymentGraceUntil: true } },
+        regions: { select: { regionId: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map((row) => ({
+      listing: mapListing(row),
+      regionIds: row.regions.map((r) => r.regionId),
+    }));
   },
 
   async getExclusions(): Promise<ExclusionRule[]> {
