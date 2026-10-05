@@ -194,6 +194,34 @@ Google Search Console checklist:
 - Listings growth is the flywheel: a new sponsor in a region → cached count refreshes → page
   flips to indexable → sitemap picks it up on next revalidate (`1h`). No manual SEO step.
 
+#### Phase 2 execution log (first batch — done)
+
+| Action | Script / where | Detail |
+|---|---|---|
+| 10 sample listings + region/category joins | `prisma/seed-sample-listings.mts` | Fictional programs (example.com / 555-01xx), `LIVE`, tiers PREMIUM/STANDARD/FREE-with-grace. Idempotent: existing slugs skipped. Region coverage: CA=6, SD=5, FL=6, NY=6, TX=5, VA=6 — **every region now has listings**, so all 6 pass the gate listing-earned as well as content-earned |
+| `custom1` placeholder upgrades ×4 | `prisma/seed-region-content.mts` | TX/FL/NY/VAs shared the identical "…find care close to home." template → replaced with real region intros (guarded overwrite: only fires while the row still holds the exact placeholder, hand-edited copy is never clobbered). CA and San Diego copy left untouched (not template text) |
+| Category-specific intros ×12 | `prisma/seed-region-content.mts` | `CategoryRegionContent` rows for **wilderness-therapy** and **residential-treatment** × {CA, TX, FL, NY, VA} (`areaPart: ALL`) + San Diego (`areaPart: SOUTHERN`). Idempotent upsert on the `(categoryId, state, areaPart)` key. Each row is written with a distinct regional angle — no place-name token swaps |
+
+- **Rerun order after a destructive `db:seed`:** `db:seed` → `seed-sample-listings.mts` →
+  `seed-region-content.mts` (both are idempotent and safe to re-run at any time).
+- **Next editorial batch (priority order):** the remaining 4 categories
+  (`adoption-foster-care`, `christian-boarding-schools`, `family-therapy-services`,
+  `teen-depression-anxiety`) × the 6 regions = 24 rows, same script — extend the `CONTENT`
+  map. Then: demand-driven depth (FAQs, nearest-programs mileage, program counts) on whatever
+  GSC shows impressions for.
+
+#### Phase 3 status
+
+- **Done (code-side):** gate consistency is test-enforced (`indexGate.test.ts`,
+  `geoCategorySeo.test.ts`, `geoCategoryPageWiring.test.ts`) and was verified live: sitemap
+  serves exactly the gate-passing set (42 `/g/` URLs = 6 parents + 6×6 regions) and region
+  pages emit the gate's `robots` directive.
+- **Needs account access (owner):** verify the property in Google Search Console, then run the
+  monthly checklist above. GSC cannot be automated from this repo without API credentials.
+- **Before launch (owner):** flip `theme.readingSettings.searchEngineVisibility` from `hidden`
+  — `app/layout.tsx:78` injects a raw `noindex, nofollow` that currently overrides the
+  gate on every page (likely intentional while in dev).
+
 ---
 
 ## 5. Why this is unique vs. conventional CMS/blog products
