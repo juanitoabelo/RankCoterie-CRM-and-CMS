@@ -35,6 +35,15 @@ export interface CatalogCategory {
   jsonSchema: string | null; // JSON-LD injected on /g/* pages
 }
 
+/** Position image on a GeoCategory (PRIMARY/STATE/CITY) with the WP-style
+ *  asset text (title/alt/caption from the Media Library edit drawer). */
+export interface CatalogCategoryImage {
+  imageAssetId: string;
+  title: string | null;
+  alt: string | null;
+  caption: string | null;
+}
+
 export interface CatalogRegion {
   id: string;
   state: string; // "CA"
@@ -110,6 +119,16 @@ export interface CatalogRepo {
   getCategoryListingCandidates(categoryId: string): Promise<CategoryListingCandidate[]>;
   /** Admin-managed opt-out list, fed straight into the visibility gate. */
   getExclusions(): Promise<ExclusionRule[]>;
+  /**
+   * Image for a category position (PRIMARY on the parent page, STATE/CITY on
+   * region pages). With `regionId`, a region-specific row wins over the
+   * category-level one (bulk geo-image admin can pin images to a region).
+   */
+  getCategoryImage(
+    categoryId: string,
+    position: "PRIMARY" | "STATE" | "CITY",
+    regionId?: string | null,
+  ): Promise<CatalogCategoryImage | null>;
 }
 
 /* ------------------------------------------------------------------ Mock seed
@@ -344,6 +363,19 @@ export const catalogRepo: CatalogRepo = {
       listing,
       regionIds: LISTING_REGION_IDS[listing.id] ?? [],
     }));
+  },
+  async getCategoryImage(categoryId, position) {
+    // Fixture: only wilderness-therapy carries images, one per position —
+    // lets the wiring tests prove STATE/CITY/PRIMARY placement rules.
+    const cat = CATEGORIES.find((c) => c.id === categoryId);
+    if (!cat || cat.slug !== "wilderness-therapy") return null;
+    const lower = position.toLowerCase();
+    return {
+      imageAssetId: `img-wilderness-${lower}`,
+      title: `${position} image title`,
+      alt: `alt for ${position} image`,
+      caption: `caption for ${position} image`,
+    };
   },
   async getExclusions() {
     return getMockExclusions();

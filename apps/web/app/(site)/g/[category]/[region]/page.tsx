@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getCatalogRepo } from "@/lib/directory/catalog";
@@ -68,6 +69,14 @@ export default async function RegionPage({ params, searchParams }: Props) {
 
   const ctx = regionContext(regionDisplayName(reg), reg.slug);
 
+  // State pages show the STATE position image, city pages the CITY one
+  // (uploaded in the GeoCategory edit page; text from the Media Library).
+  const heroImage = await repo.getCategoryImage(
+    cat.id,
+    reg.city === null ? "STATE" : "CITY",
+    reg.id,
+  );
+
   // Content resolution (state/city/area-part rules) + token render.
   const contents = await repo.getCategoryRegionContent({
     categoryId: cat.id,
@@ -133,6 +142,24 @@ export default async function RegionPage({ params, searchParams }: Props) {
         </Link>{" "}
         / <span className="text-zinc-700">{ctx.regionName}</span>
       </p>
+
+      {heroImage && (
+        <figure className="mt-4 max-w-3xl">
+          <div className="relative aspect-[16/9] overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100">
+            <Image
+              src={`/api/assets/${heroImage.imageAssetId}`}
+              alt={heroImage.alt || heroImage.title || ""}
+              title={heroImage.title || undefined}
+              fill
+              sizes="(min-width: 1024px) 768px, 100vw"
+              className="object-cover"
+            />
+          </div>
+          {heroImage.caption && (
+            <figcaption className="mt-2 text-xs text-zinc-500">{heroImage.caption}</figcaption>
+          )}
+        </figure>
+      )}
 
       <div
         className="prose-sm mt-4 max-w-3xl text-zinc-700"

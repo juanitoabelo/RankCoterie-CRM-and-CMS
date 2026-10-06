@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getCatalogRepo } from "@/lib/directory/catalog";
@@ -41,6 +42,10 @@ export default async function CategoryPage({ params }: Props) {
   const cat = await repo.getCategoryBySlug(category);
   if (!cat) notFound();
 
+  // Parent position image (CategoryImage PRIMARY — uploaded in the GeoCategory
+  // edit page; alt/title/caption come from the Media Library edit drawer).
+  const heroImage = await repo.getCategoryImage(cat.id, "PRIMARY");
+
   // "ALL" page: strip region tokens, show the state index — states that pass
   // the index gate (link set === index set; see lib/directory/indexGate.ts).
   const intro = renderLocalizedContent(cat.description, {});
@@ -82,6 +87,24 @@ export default async function CategoryPage({ params }: Props) {
         </Link>{" "}
         / <span className="text-zinc-700">{cat.title}</span>
       </p>
+
+      {heroImage && (
+        <figure className="mt-4 max-w-3xl">
+          <div className="relative aspect-[16/9] overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100">
+            <Image
+              src={`/api/assets/${heroImage.imageAssetId}`}
+              alt={heroImage.alt || heroImage.title || ""}
+              title={heroImage.title || undefined}
+              fill
+              sizes="(min-width: 1024px) 768px, 100vw"
+              className="object-cover"
+            />
+          </div>
+          {heroImage.caption && (
+            <figcaption className="mt-2 text-xs text-zinc-500">{heroImage.caption}</figcaption>
+          )}
+        </figure>
+      )}
 
       <div
         className="prose-sm mt-4 max-w-3xl text-zinc-700"

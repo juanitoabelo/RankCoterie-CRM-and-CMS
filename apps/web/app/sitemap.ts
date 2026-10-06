@@ -9,13 +9,16 @@ export const revalidate = 3600;
 const SITE_URL = process.env.SITE_URL ?? "https://masternet.org";
 
 /**
- * Sitemap: homepage, every category, and every category × region SEO page.
+ * Sitemap: homepage, every category, and every category × region SEO page
+ * (gate-filtered — link set === index set === sitemap set), plus standalone
+ * pages, published products, and LIVE articles with their region variants.
+ * Regenerated hourly (revalidate = 3600) and on deploy — not on every save.
  * Region slugs are legacy DomainKeys (mixed case is canonical, e.g.
  * "San-Diego-California-CA").
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const repo = await getCatalogRepo();
-  const [categories, regions, products, articles, allRegions] = await Promise.all([
+  const [categories, regions, products, articles, allRegions, pages] = await Promise.all([
     repo.getCategories(),
     repo.getRegions(),
     prisma.product.findMany({
@@ -25,7 +28,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       take: 5000,
     }),
     prisma.contentTemplate.findMany({
-      where: { tenantId: TENANT_ID, status: "LIVE" },
+      where: { tenantId: TENANT_ID, status: "LIVE", robotsIndex: true },
       select: {
         slug: true,
         updatedAt: true,
@@ -35,6 +38,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       take: 5000,
     }),
     prisma.region.findMany({ select: { id: true, slug: true } }),
+    prisma.page.findMany({
+      where: { tenantId: TENANT_ID, status: "LIVE", robotsIndex: true, isHomepage: false },
+      select: { slug: true, updatedAt: true },
+      orderBy: { updatedAt: "desc" },
+      take: 5000,
+    }),
   ]);
 
   const entries: MetadataRoute.Sitemap = [
@@ -46,6 +55,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   for (const cat of categories) {
+    // Mirror generateMetadata: /g/* robots = gate AND category.robotsIndex —
+    // a category turned noindex drops its parent AND all its region URLs here.
+    if (!cat.robotsIndex) continue;
     entries.push({
       url: `${SITE_URL}/g/${cat.slug}/`,
       changeFrequency: "weekly",
@@ -98,6 +110,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.6,
       });
     }
+  }
+
+  // Standalone pages (Page content type, served at /{slug}).
+  for (const page of pages) {
+    if (!page.slug) continue;
+    entries.push({
+      url: `${SITE_URL}/${page.slug}`,
+      lastModified: page.updatedAt,
+      changeFrequency: "weekly",
+      priority: 0.6,
+    });
   }
 
   return entries;

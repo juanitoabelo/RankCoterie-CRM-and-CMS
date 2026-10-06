@@ -200,6 +200,7 @@ export default function EditGeoCategoryForm({
             <ImageUploader
               name="parentImageAssetId"
               label="Parent Image"
+              hint="Suggested size: 1600 × 900 px (16:9)"
               currentAssetId={parentImage?.imageAssetId}
             />
             {parentImage && (
@@ -221,6 +222,7 @@ export default function EditGeoCategoryForm({
             <ImageUploader
               name="stateImageAssetId"
               label="State Image"
+              hint="Suggested size: 1600 × 900 px (16:9)"
               currentAssetId={stateImage?.imageAssetId}
             />
             {stateImage && (
@@ -242,6 +244,7 @@ export default function EditGeoCategoryForm({
             <ImageUploader
               name="cityImageAssetId"
               label="City Image"
+              hint="Suggested size: 1600 × 900 px (16:9)"
               currentAssetId={cityImage?.imageAssetId}
             />
             {cityImage && (
@@ -354,12 +357,6 @@ export default function EditGeoCategoryForm({
               ))}
             </div>
           )}
-        </div>
-
-        {/* Alternate Indexes */}
-        <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-zinc-900">Alternate Indexes for GeoCategory City Pages</h2>
-          <p className="text-xs text-zinc-500">Add alt text for city page images for SEO purposes.</p>
         </div>
 
         {/* SEO / Advanced / Schema — same editor as the Page content type */}

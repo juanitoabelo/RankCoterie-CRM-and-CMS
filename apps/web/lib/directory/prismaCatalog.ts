@@ -240,4 +240,25 @@ export const prismaCatalogRepo: CatalogRepo = {
       e.domainKey ? { domainKey: e.domainKey } : { companyNameContains: e.companyName },
     );
   },
+  async getCategoryImage(categoryId, position, regionId) {
+    const pick = (rid: string | null) =>
+      prisma.categoryImage.findFirst({
+        where: { tenantId: TENANT_ID, categoryId, position, regionId: rid },
+        orderBy: [{ isPrimary: "desc" }, { order: "asc" }],
+        select: {
+          imageAssetId: true,
+          imageAsset: { select: { title: true, alt: true, caption: true } },
+        },
+      });
+    // Region-pinned row first (bulk geo-image admin), then category-level.
+    const row = regionId ? (await pick(regionId)) ?? (await pick(null)) : await pick(null);
+    return row
+      ? {
+          imageAssetId: row.imageAssetId,
+          title: row.imageAsset.title,
+          alt: row.imageAsset.alt,
+          caption: row.imageAsset.caption,
+        }
+      : null;
+  },
 };

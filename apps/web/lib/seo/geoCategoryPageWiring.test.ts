@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import RegionPage, { generateMetadata as regionGenerateMetadata } from "@/app/(site)/g/[category]/[region]/page";
+import CategoryPage from "@/app/(site)/g/[category]/page";
 import { generateMetadata as pageGenerateMetadata } from "@/app/(site)/g/[category]/[region]/page/[pageNum]/page";
 
 /**
@@ -87,5 +88,59 @@ describe("/g/ region page FAQ wiring", () => {
     const tree = allStrings(await RegionPage(bodyProps("Texas-TX"))).join("\n");
     expect(tree).not.toContain("FAQPage");
     expect(tree).not.toContain("Frequently asked questions");
+  });
+});
+
+describe("/g/ position image rendering", () => {
+  /** Cycle-safe deep collection of every string (same walker as above). */
+  function allStrings(node: unknown, seen = new Set<unknown>(), acc: string[] = []): string[] {
+    if (typeof node === "string") {
+      acc.push(node);
+    } else if (node && typeof node === "object" && !seen.has(node)) {
+      seen.add(node);
+      if (Array.isArray(node)) {
+        for (const v of node) allStrings(v, seen, acc);
+      } else {
+        for (const v of Object.values(node)) allStrings(v, seen, acc);
+      }
+    }
+    return acc;
+  }
+
+  const regionProps = (category: string, region: string) => ({
+    params: Promise.resolve({ category, region }),
+    searchParams: Promise.resolve({}),
+  });
+
+  it("renders the STATE image with Media Library text on a state page", async () => {
+    const tree = allStrings(await RegionPage(regionProps("wilderness-therapy", "Texas-TX"))).join("\n");
+    expect(tree).toContain("/api/assets/img-wilderness-state");
+    expect(tree).toContain("alt for STATE image");
+    expect(tree).toContain("STATE image title");
+    expect(tree).toContain("caption for STATE image");
+    expect(tree).not.toContain("/api/assets/img-wilderness-city");
+  });
+
+  it("renders the CITY image (not the state one) on a city page", async () => {
+    const tree = allStrings(await RegionPage(regionProps("wilderness-therapy", "San-Diego-California-CA"))).join("\n");
+    expect(tree).toContain("/api/assets/img-wilderness-city");
+    expect(tree).toContain("alt for CITY image");
+    expect(tree).not.toContain("/api/assets/img-wilderness-state");
+  });
+
+  it("renders no image when the category has no position image", async () => {
+    const tree = allStrings(await RegionPage(regionProps("christian-boarding-schools", "Texas-TX"))).join("\n");
+    expect(tree).not.toContain("/api/assets/");
+  });
+
+  it("renders the PRIMARY image on the category parent page", async () => {
+    const tree = allStrings(await CategoryPage({ params: Promise.resolve({ category: "wilderness-therapy" }) })).join("\n");
+    expect(tree).toContain("/api/assets/img-wilderness-primary");
+    expect(tree).toContain("alt for PRIMARY image");
+  });
+
+  it("renders no parent image when none is uploaded", async () => {
+    const tree = allStrings(await CategoryPage({ params: Promise.resolve({ category: "christian-boarding-schools" }) })).join("\n");
+    expect(tree).not.toContain("/api/assets/");
   });
 });
