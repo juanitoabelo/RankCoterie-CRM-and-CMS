@@ -56,6 +56,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { section: "categories", href: "/admin/geo-categories", label: "GeoCategory Pages" },
       { section: "categories", href: "/admin/geo-categories/new", label: "Add New GeoCategory" },
+      { section: "categories", href: "/admin/geo-category-template", label: "Geo Category Custom Single Page" },
       { section: "categories", href: "/admin/geo-categories/images/new", label: "Add New Image" },
       { section: "categories", href: "/admin/geo-categories/images/bulk", label: "Bulk Add Images" },
       { section: "regions", href: "/admin/regions", label: "Regions" },

@@ -1,0 +1,25 @@
+export {
+  parseGeoCategoryTemplateData,
+  serializeGeoCategoryTemplateData,
+  listGeoCategoryTemplates,
+  getGeoCategoryTemplate,
+  createGeoCategoryTemplate,
+  ensureDefaultGeoCategoryTemplates,
+  updateGeoCategoryTemplateData,
+  updateGeoCategoryTemplateMeta,
+  setDefaultGeoCategoryTemplate,
+  deleteGeoCategoryTemplate,
+  snapshotGeoCategoryTemplateRevision,
+  listGeoCategoryTemplateRevisions,
+  restoreGeoCategoryTemplateRevision,
+  resolveGeoCategoryTemplate,
+  getGeoCategoryTemplateAssignment,
+  assignGeoCategoryTemplate,
+} from "./queries";
+export type {
+  GeoTemplateLayoutTag,
+  GeoCategoryTemplateData,
+  GeoCategoryTemplateRow,
+  GeoCategoryTemplateRevisionRow,
+  GeoCategoryTemplateAssignmentRow,
+} from "./queries";

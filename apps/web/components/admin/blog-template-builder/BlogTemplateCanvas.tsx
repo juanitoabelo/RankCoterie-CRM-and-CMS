@@ -26,6 +26,7 @@ function SortableBlock({
   onRemove,
   onDuplicate,
   onAddRowToSection,
+  renderBlock,
 }: {
   block: Block;
   viewport: "desktop" | "tablet" | "mobile";
@@ -36,6 +37,8 @@ function SortableBlock({
   onRemove: (id: string) => void;
   onDuplicate: (id: string) => void;
   onAddRowToSection: (sectionId: string) => void;
+  /** Override the leaf live preview (e.g. geo category blocks render their own preview). */
+  renderBlock?: (block: Block) => React.ReactNode;
 }) {
   const {
     attributes,
@@ -161,6 +164,7 @@ function SortableBlock({
                       onRemove={onRemove}
                       onDuplicate={onDuplicate}
                       onAddRowToSection={onAddRowToSection}
+                      renderBlock={renderBlock}
                     />
                   ))}
                 </div>
@@ -242,6 +246,7 @@ function SortableBlock({
                 onRemove={onRemove}
                 onDuplicate={onDuplicate}
                 onAddRowToSection={onAddRowToSection}
+                renderBlock={renderBlock}
               />
             ))}
           </div>
@@ -305,7 +310,7 @@ function SortableBlock({
         </div>
         {/* Live preview */}
         <div className="pointer-events-none overflow-hidden bg-white">
-          <BlogTemplateBlockRenderer block={block} />
+          {renderBlock ? renderBlock(block) : <BlogTemplateBlockRenderer block={block} />}
         </div>
       </div>
     </div>
@@ -324,6 +329,7 @@ function ColumnCell({
   onRemove,
   onDuplicate,
   onAddRowToSection,
+  renderBlock,
 }: {
   column: ColumnData;
   rowBlock: RowBlock;
@@ -334,6 +340,7 @@ function ColumnCell({
   onRemove: (id: string) => void;
   onDuplicate: (id: string) => void;
   onAddRowToSection: (sectionId: string) => void;
+  renderBlock?: (block: Block) => React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const widths = resolveColumnWidths(column, rowBlock.props.stackOnMobile);
@@ -377,6 +384,7 @@ function ColumnCell({
               onRemove={onRemove}
               onDuplicate={onDuplicate}
               onAddRowToSection={onAddRowToSection}
+              renderBlock={renderBlock}
             />
           ))}
         </div>
@@ -403,6 +411,7 @@ export default function BlogTemplateCanvas({
   onRemove,
   onDuplicate,
   onAddRowToSection,
+  renderBlock,
 }: {
   blocks: Block[];
   viewport: "desktop" | "tablet" | "mobile";
@@ -414,6 +423,8 @@ export default function BlogTemplateCanvas({
   onRemove: (id: string) => void;
   onDuplicate: (id: string) => void;
   onAddRowToSection: (sectionId: string) => void;
+  /** Override the leaf live preview (e.g. geo category blocks render their own preview). */
+  renderBlock?: (block: Block) => React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: CANVAS_ROOT_ID });
 
@@ -495,7 +506,7 @@ export default function BlogTemplateCanvas({
              the full width and shoves the hint off the right edge. */
           <div className="flex w-full min-w-0 flex-1 flex-col items-center justify-center py-16 text-center">
             <p className="text-sm text-zinc-400">
-              Drag blocks from the block palette to build your blog template
+              Drag blocks from the block palette to build your template
             </p>
             <p className="mt-1 text-xs text-zinc-300">
               Start with a Row or Section container
@@ -519,6 +530,7 @@ export default function BlogTemplateCanvas({
                   onRemove={onRemove}
                   onDuplicate={onDuplicate}
                   onAddRowToSection={onAddRowToSection}
+                  renderBlock={renderBlock}
                 />
               ))}
             </div>
@@ -554,6 +566,12 @@ function getBlockIcon(type: string): string {
     blogSidebar: "📋",
     articleContent: "📄",
     articleHero: "🎬",
+    geoHero: "🏞",
+    geoContent: "📝",
+    geoRegionNav: "🗺",
+    geoListings: "🏛",
+    geoFaq: "❓",
+    geoSidebar: "▣",
     row: "▦",
     section: "▣",
   };
@@ -582,6 +600,12 @@ function getBlockLabel(type: string): string {
     blogSidebar: "Blog Sidebar",
     articleContent: "Article Content",
     articleHero: "Article Hero",
+    geoHero: "Category Hero",
+    geoContent: "Category Content",
+    geoRegionNav: "State Links",
+    geoListings: "Listings",
+    geoFaq: "Category FAQ",
+    geoSidebar: "Sidebar",
     row: "Row",
     section: "Section",
   };

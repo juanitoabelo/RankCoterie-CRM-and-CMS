@@ -693,6 +693,45 @@ model BlogTemplateAssignment {
    @@index([tenantId, blogTemplateId])
 }
 
+model GeoCategoryTemplate {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  type        String   @default("single") // "single" (reserved for future template types)
+  layout      String   @default("FULLWIDTH") // "FULLWIDTH" | "SIDEBAR" default variation
+  data        String?  // builder blocks JSON (Block[] + containerSettings)
+  isDefault   Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  revisions   GeoCategoryTemplateRevision[]
+  assignments GeoCategoryTemplateAssignment[]
+
+  @@unique([tenantId, name, type])
+  @@index([tenantId, type])
+}
+
+model GeoCategoryTemplateRevision {
+  id                   String                @id @default(cuid())
+  geoCategoryTemplateId String
+  geoCategoryTemplate  GeoCategoryTemplate   @relation(fields: [geoCategoryTemplateId], references: [id], onDelete: Cascade)
+  data                 String                // builder blocks JSON snapshot
+  createdAt            DateTime              @default(now())
+  @@index([geoCategoryTemplateId, createdAt])
+}
+
+model GeoCategoryTemplateAssignment {
+  id                   String                @id @default(cuid())
+  tenantId             String
+  geoCategoryTemplateId String
+  geoCategoryTemplate  GeoCategoryTemplate   @relation(fields: [geoCategoryTemplateId], references: [id], onDelete: Cascade)
+  priority             Int                   @default(0) // higher = more specific
+  pageId               String?               // GeoCategory id (per-page assignment)
+  pageType             String?               // "geoCategory" (type-level assignment)
+  createdAt            DateTime              @default(now())
+  @@unique([tenantId, geoCategoryTemplateId, pageId, pageType])
+  @@index([tenantId, geoCategoryTemplateId])
+}
+
 // Product Template - similar to BlogTemplate for single product pages
 model ProductTemplate {
   id              String   @id @default(cuid())

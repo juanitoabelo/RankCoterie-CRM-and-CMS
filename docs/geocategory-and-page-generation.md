@@ -288,5 +288,40 @@ Legacy alias : × 2 (.html/.php) → 301 to canonical (proxy.ts:15-51)
 
 ---
 
+## 7. Geo Category Custom Single Page (template builder)
+
+The **parent page** (`/g/[category]/`) can now be composed with the same visual page-builder
+stack that powers the blog templates — admins pick **Visual Display** (live preview) or
+**Structure Display** (block tree + settings), drag blocks, and autosave.
+
+- **Admin entry:** Geo-Targeting → *Geo Category Custom Single Page* (`/admin/geo-category-template`).
+  Two default variations seed on first visit: **Fullwidth — Default** (`isDefault`) and
+  **Right Sidebar — Default**; any number of custom templates can be created per layout tag.
+- **Assignment:** each GeoCategory edit screen has a *Single Page Template* card
+  (`GeoTemplateAssignmentCard`). Choosing a template writes a `GeoCategoryTemplateAssignment`
+  row (`pageType = "geoCategory"`, `priority = 10`). Resolution order at render time:
+  per-category assignment → default template → **null → the original legacy layout** (nothing
+  changes for categories without a template).
+- **Geo blocks:** `geoHero`, `geoContent`, `geoRegionNav`, `geoListings`, `geoFaq`, `geoSidebar`
+  (listings / state links / FAQ / custom-HTML widgets), plus the shared block library
+  (rows, sections, text, image, CTA, …). A bindings editor wires block fields to live data
+  (`category.*`, `region.*`, `heroImage`, `categoryUrl`, …) with rich-text sanitization and
+  unsafe-URL rejection.
+- **Live data on the parent page:** the gated state index (§4 gate), listings through the same
+  visibility pipeline every `/g/` tier uses (`lib/directory/listingQuery.ts` →
+  `filterVisibleListings` → tier sort), FAQ from `CategoryRegionContent` rows (explicit
+  `state = "ALL"` rows win; otherwise all rows aggregated and deduped), and the PRIMARY
+  category image. SEO output (breadcrumb/ItemList/custom JSON-LD, metadata) is unchanged and
+  renders for both template and legacy layouts.
+- **Schema:** `20261006120000_add_geo_category_templates` creates `GeoCategoryTemplate`,
+  `GeoCategoryTemplateRevision` (30-snapshot version history with restore), and
+  `GeoCategoryTemplateAssignment`. Admin actions are permission-gated to the `categories`
+  section and logged under `GEO_CATEGORY_TEMPLATE_*` audit actions.
+
+**v1 scope:** parent pages only — region/state/city pages keep their current design. Listing
+cards deep-link to `/listing/[slug]/` (arrives with the directory listing route).
+
+---
+
 *Related: `docs/system-overview.md` (full platform documentation), `docs/cutover-runbook.md`
 (legacy URL parity), `docs/migration-checklist.md` (data migration status).*

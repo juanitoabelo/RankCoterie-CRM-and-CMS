@@ -2,9 +2,17 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import type { Block } from "@/lib/page-builder/types";
 import { getCatalogRepo } from "@/lib/directory/catalog";
 import { filterIndexableRegions } from "@/lib/directory/indexGate";
+import { getListingPage } from "@/lib/directory/listingQuery";
 import { renderLocalizedContent } from "@/lib/localization/render";
+import {
+  resolveGeoCategoryTemplate,
+  parseGeoCategoryTemplateData,
+} from "@/modules/geo-category-template";
+import GeoCategoryTemplateRenderer from "@/components/admin/geo-category-template-builder/GeoCategoryTemplateRenderer";
+import type { GeoBindingData } from "@/lib/geo-category-template/geo-bindings";
 import {
   SITE_URL,
   breadcrumbJsonLd,
@@ -71,8 +79,8 @@ export default async function CategoryPage({ params }: Props) {
       )
     : null;
 
-  return (
-    <div>
+  const scripts = (
+    <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(breadcrumb) }} />
       {stateIndex && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(stateIndex) }} />
@@ -80,6 +88,103 @@ export default async function CategoryPage({ params }: Props) {
       {customSchema && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(customSchema) }} />
       )}
+    </>
+  );
+
+  /* Custom single page template: per-category assignment → default template →
+     null (legacy layout below). Resolution is try/catch-wrapped in the module
+     so a missing table or stale client still renders the default page. */
+  const template = await resolveGeoCategoryTemplate(cat.id);
+
+  if (template) {
+    const { blocks, containerSettings } = parseGeoCategoryTemplateData(template.data);
+
+    if (blocks.length > 0) {
+      const [contentRows, listingPage] = await Promise.all([
+        repo.getCategoryRegionContent({ categoryId: cat.id }),
+        getListingPage(repo, { categoryId: cat.id, regionId: "ALL" }),
+      ]);
+
+      // Parent-level FAQ: prefer explicit state="ALL" rows; otherwise fall back
+      // to aggregating every category row (deduped by question).
+      const allFaqRows = contentRows.filter((row) => (row.faq ?? []).length > 0);
+      const parentFaqRows = allFaqRows.filter((row) => row.state === "ALL");
+      const faqSource = parentFaqRows.length > 0 ? parentFaqRows : allFaqRows;
+      const seenQuestions = new Set<string>();
+      const faq = faqSource
+        .flatMap((row) => row.faq ?? [])
+        .filter((f) => {
+          const q = renderLocalizedContent(f.q, {});
+          if (!q.trim() || seenQuestions.has(q)) return false;
+          seenQuestions.add(q);
+          return true;
+        })
+        .map((f) => ({
+          q: renderLocalizedContent(f.q, {}),
+          a: renderLocalizedContent(f.a, {}),
+        }))
+        .filter((f) => f.a.trim());
+
+      const listings = listingPage.visible.map((l) => ({
+        id: l.id,
+        title: l.title,
+        slug: l.slug,
+        href: `/listing/${l.slug}/`,
+        summary: l.summary,
+        city: l.city,
+        state: l.state,
+        image: l.avatarImage ? `/api/assets/${l.avatarImage}` : null,
+        tier: l.tier,
+      }));
+
+      const geo: GeoBindingData = {
+        category: {
+          title: cat.title,
+          slug: cat.slug,
+          description: cat.description,
+          stateInit: cat.stateInit,
+          cityInit: cat.cityInit,
+          metaDesc: cat.metaDesc,
+          seoTitle: cat.seoTitle,
+          focusKeyphrase: cat.focusKeyphrase,
+        },
+        region: null,
+        categoryUrl: geoCategoryUrl(cat.slug),
+        heroImage: heroImage ? `/api/assets/${heroImage.imageAssetId}` : null,
+        heroImageAlt: heroImage?.alt || heroImage?.title || null,
+        heroImageCaption: heroImage?.caption || null,
+        stateImage: null,
+        cityImage: null,
+        statesCount: states.length,
+        listingsCount: listings.length,
+      };
+
+      const stateLinks = states.map((s) => ({
+        slug: s.slug,
+        state: s.state,
+        stateFull: s.stateFull,
+        url: geoRegionUrl(cat.slug, s.slug),
+      }));
+
+      return (
+        <div>
+          {scripts}
+          <GeoCategoryTemplateRenderer
+            blocks={blocks as unknown as Block[]}
+            containerSettings={containerSettings}
+            geo={geo}
+            states={stateLinks}
+            faq={faq}
+            listings={listings}
+          />
+        </div>
+      );
+    }
+  }
+
+  return (
+    <div>
+      {scripts}
 
       <p className="text-sm text-zinc-500">
         <Link href="/" className="hover:text-zinc-800">

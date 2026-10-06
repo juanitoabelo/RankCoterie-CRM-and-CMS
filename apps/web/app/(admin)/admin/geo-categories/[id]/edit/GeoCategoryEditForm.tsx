@@ -7,6 +7,7 @@ import { updateGeoCategory, deleteGeoCategory, deleteGeoCategoryImageForm, type 
 import RichTextarea from "@/components/admin/RichTextarea";
 import ImageUploader from "@/components/admin/ImageUploader";
 import SeoFields, { type SeoData } from "@/components/admin/SeoFields";
+import GeoTemplateAssignmentCard from "@/components/admin/geo-category-template-builder/GeoTemplateAssignmentCard";
 
 function parseKeywords(raw: string | null | undefined): string[] {
   if (!raw) return [];
@@ -78,10 +79,14 @@ export default function EditGeoCategoryForm({
   category,
   sections,
   states,
+  geoTemplates = [],
+  assignedTemplateId = null,
 }: {
   category: GeoCategory;
   sections: SectionOption[];
   states: StateOption[];
+  geoTemplates?: Array<{ id: string; name: string; layout: string; isDefault: boolean }>;
+  assignedTemplateId?: string | null;
 }) {
   const router = useRouter();
   const [message, setMessage] = useState<ActionResult | null>(null);
@@ -212,6 +217,13 @@ export default function EditGeoCategoryForm({
             )}
           </div>
         </div>
+
+        {/* Single Page Template Assignment */}
+        <GeoTemplateAssignmentCard
+          categoryId={category.id}
+          templates={geoTemplates}
+          assignedTemplateId={assignedTemplateId}
+        />
 
         {/* State Page */}
         <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-4">
