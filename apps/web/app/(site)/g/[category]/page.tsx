@@ -16,6 +16,7 @@ import type { GeoBindingData } from "@/lib/geo-category-template/geo-bindings";
 import {
   SITE_URL,
   breadcrumbJsonLd,
+  faqJsonLd,
   geoCategoryUrl,
   geoRegionUrl,
   itemListJsonLd,
@@ -23,6 +24,14 @@ import {
   parentGeoMetadata,
   parseJsonSchema,
 } from "@/lib/seo/geoCategorySeo";
+
+/** True when the template tree contains a block of the given type at any depth. */
+function hasBlockOfType(value: unknown, type: string): boolean {
+  if (!value || typeof value !== "object") return false;
+  if (Array.isArray(value)) return value.some((v) => hasBlockOfType(v, type));
+  const obj = value as Record<string, unknown>;
+  return obj.type === type || Object.values(obj).some((v) => hasBlockOfType(v, type));
+}
 
 export const revalidate = 3600;
 
@@ -130,7 +139,7 @@ export default async function CategoryPage({ params }: Props) {
         title: l.title,
         slug: l.slug,
         href: `/listing/${l.slug}/`,
-        summary: l.summary,
+        summary: renderLocalizedContent(l.summary, {}),
         city: l.city,
         state: l.state,
         image: l.avatarImage ? `/api/assets/${l.avatarImage}` : null,
@@ -141,9 +150,11 @@ export default async function CategoryPage({ params }: Props) {
         category: {
           title: cat.title,
           slug: cat.slug,
-          description: cat.description,
-          stateInit: cat.stateInit,
-          cityInit: cat.cityInit,
+          // Parent page has no region ctx — strip region tokens exactly like the
+          // legacy layout's `intro` above (renderLocalizedContent with {}).
+          description: intro,
+          stateInit: renderLocalizedContent(cat.stateInit, {}),
+          cityInit: renderLocalizedContent(cat.cityInit, {}),
           metaDesc: cat.metaDesc,
           seoTitle: cat.seoTitle,
           focusKeyphrase: cat.focusKeyphrase,
@@ -163,12 +174,20 @@ export default async function CategoryPage({ params }: Props) {
         slug: s.slug,
         state: s.state,
         stateFull: s.stateFull,
-        url: geoRegionUrl(cat.slug, s.slug),
+        // In-page nav links stay relative (matches the legacy layout); the
+        // absolute geoRegionUrl is reserved for JSON-LD above.
+        url: `/g/${category}/${s.slug}/`,
       }));
 
       return (
         <div>
           {scripts}
+          {faq.length > 0 && hasBlockOfType(blocks, "geoFaq") && (
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{ __html: jsonLdHtml(faqJsonLd(faq)) }}
+            />
+          )}
           <GeoCategoryTemplateRenderer
             blocks={blocks as unknown as Block[]}
             containerSettings={containerSettings}
