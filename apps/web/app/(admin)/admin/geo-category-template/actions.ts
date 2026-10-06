@@ -26,6 +26,12 @@ export type RestoreResult = ActionResult & { data?: string };
 
 const LIST_PATH = "/admin/geo-category-template";
 
+/** Purges every public /g/[category] page (they export revalidate = 3600).
+ *  revalidatePath("/g") would only hit the literal /g path — not the route. */
+function revalidateGeoPages() {
+  revalidatePath("/g/[category]", "page");
+}
+
 /* ── LIST ─────────────────────────────────────────────────────────────── */
 
 export async function listGeoCategoryTemplates(layout?: GeoTemplateLayoutTag) {
@@ -58,7 +64,7 @@ export async function createGeoCategoryTemplateAction(
       reason: `Created geo category template: ${name} (${layout})`,
     });
     revalidatePath(LIST_PATH);
-    revalidatePath("/g");
+    revalidateGeoPages();
     return { ok: true, id: template.id };
   } catch (e) {
     return {
@@ -88,7 +94,7 @@ export async function updateGeoCategoryTemplateBlocks(
       actorId: actor.id,
     });
     revalidatePath(`${LIST_PATH}/${id}/edit`);
-    revalidatePath("/g");
+    revalidateGeoPages();
     return { ok: true, data: blocksJson };
   } catch (e) {
     return {
@@ -118,6 +124,7 @@ export async function updateGeoCategoryTemplateMetaAction(
     });
     revalidatePath(`${LIST_PATH}/${id}/edit`);
     revalidatePath(LIST_PATH);
+    revalidateGeoPages();
     return { ok: true };
   } catch (e) {
     return {
@@ -140,7 +147,7 @@ export async function setDefaultGeoCategoryTemplateAction(id: string): Promise<A
       actorId: actor.id,
     });
     revalidatePath(LIST_PATH);
-    revalidatePath("/g");
+    revalidateGeoPages();
     return { ok: true };
   } catch (e) {
     return {
@@ -163,7 +170,7 @@ export async function deleteGeoCategoryTemplateAction(id: string): Promise<Actio
       actorId: actor.id,
     });
     revalidatePath(LIST_PATH);
-    revalidatePath("/g");
+    revalidateGeoPages();
     return { ok: true };
   } catch (e) {
     return {
@@ -195,7 +202,7 @@ export async function restoreGeoCategoryTemplateRevisionAction(
       actorId: actor.id,
     });
     revalidatePath(`${LIST_PATH}/${geoCategoryTemplateId}/edit`);
-    revalidatePath("/g");
+    revalidateGeoPages();
     return { ok: true, data };
   } catch (e) {
     return {
@@ -244,7 +251,7 @@ export async function assignGeoCategoryTemplateAction(
         : `Cleared geo template assignment for category ${categoryId}`,
     });
     revalidatePath(`/admin/geo-categories/${categoryId}/edit`);
-    revalidatePath("/g");
+    revalidateGeoPages();
     return { ok: true };
   } catch (e) {
     return {
