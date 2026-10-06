@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCatalogRepo } from "@/lib/directory/catalog";
 import { getListingPage } from "@/lib/directory/listingQuery";
 import type { RegionContext } from "@/lib/localization/render";
+import { SITE_URL, itemListJsonLd, jsonLdHtml } from "@/lib/seo/geoCategorySeo";
 import ListingCard from "@/components/ListingCard";
 
 /**
@@ -42,8 +43,17 @@ export default async function RegionListings({
     );
   }
 
+  // Structured data for the visible inventory — mirrors exactly what renders
+  // below (Google requires JSON-LD to reflect page content).
+  const listingList = itemListJsonLd(
+    `Programs in ${regionCtx.regionName ?? regionSlug}`,
+    `Directory listings for ${categorySlug.replace(/-/g, " ")} in ${regionCtx.regionName ?? regionSlug}`,
+    result.listings.map((l) => ({ name: l.title, url: `${SITE_URL}/listing/${l.slug}/` })),
+  );
+
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(listingList) }} />
       <h2 className="mt-10 text-xl font-semibold text-zinc-900">
         Listings ({result.total})
       </h2>

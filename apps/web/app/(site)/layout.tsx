@@ -197,6 +197,11 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   const useHeaderBuilder = layoutData.headerBlocks.length > 0;
   const useFooterBuilder = layoutData.footerBlocks.length > 0;
 
+  const ga4 = company?.ga4;
+  const gtm = company?.gtm;
+  const fbPixel = company?.fbPixel;
+  const gscVerificationTag = company?.gscVerificationTag;
+
   return (
     <div className="min-h-full flex flex-col">
 
@@ -250,6 +255,58 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           </div>
         )}
       </header>
+
+      {/* ── Head Tracking Codes ───────────────────────────────────── */}
+      {/* GSC verification: set the tag in Admin → My Company → analytics;
+          renders only when configured (inert during development). React 19
+          hoists <meta> into <head>. */}
+      {gscVerificationTag && (
+        <meta name="google-site-verification" content={gscVerificationTag} />
+      )}
+      {ga4 && (
+        <script async src={`https://www.googletagmanager.com/gtag/js?id=${ga4}`} />
+      )}
+      {ga4 && (
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', '${ga4}');
+            `,
+          }}
+        />
+      )}
+      {gtm && (
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function(w,d,s,l,i){w[l]=w[l]||function(){
+              (w[l].q=w[l].q||[]).push(arguments)},w[l].l=+new Date();
+              var f=d.getElementsByTagName(s)[0],
+              j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+              'https://www.googletagmanager.com/gtm.js?id='+i;f.parentNode.insertBefore(j,f)
+              })(window,document,'script','dataLayer','${gtm}');
+            `,
+          }}
+        />
+      )}
+      {fbPixel && (
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+              n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+              n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+              t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+              document,'script','https://connect.facebook.net/en_US/fbevents.js');
+              fbq('init', '${fbPixel}');
+              fbq('track', 'PageView');
+            `,
+          }}
+        />
+      )}
 
       {/* ── Main Content ──────────────────────────────────────────── */}
       <main className="flex-1">

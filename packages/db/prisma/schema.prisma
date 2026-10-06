@@ -168,6 +168,7 @@ model CategoryRegionContent {
   state       String // 2-letter
   areaPart    AreaPart @default(NORTHERN)
   customText  String
+  faq         Json @default("[]") // [{q, a}] — rendered + FAQPage JSON-LD on /g/* region pages
   @@unique([categoryId, state, areaPart])
 }
 

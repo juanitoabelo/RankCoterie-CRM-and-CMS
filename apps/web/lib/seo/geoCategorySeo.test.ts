@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CatalogCategory, CatalogRegion } from "@/lib/directory/catalog";
 import {
   breadcrumbJsonLd,
+  faqJsonLd,
   geoCategoryUrl,
   geoRegionUrl,
   itemListJsonLd,
@@ -170,6 +171,23 @@ describe("JSON-LD builders", () => {
       { name: "California", url: "https://x/g/cat/California-CA/" },
     ]) as { itemListElement: Array<{ url: string }> };
     expect(ld.itemListElement[0].url).toBe("https://x/g/cat/California-CA/");
+  });
+
+  it("builds FAQPage schema from authored Q&A pairs", () => {
+    const ld = faqJsonLd([
+      { q: "How long does it last?", a: "Several weeks to months." },
+      { q: "Is it safe?", a: "Ask about staff ratios." },
+    ]) as {
+      "@type": string;
+      mainEntity: Array<{ "@type": string; name: string; acceptedAnswer: { text: string } }>;
+    };
+    expect(ld["@type"]).toBe("FAQPage");
+    expect(ld.mainEntity).toHaveLength(2);
+    expect(ld.mainEntity[0]).toMatchObject({
+      "@type": "Question",
+      name: "How long does it last?",
+      acceptedAnswer: { "@type": "Answer", text: "Several weeks to months." },
+    });
   });
 
   it("escapes < so script tags cannot break out", () => {

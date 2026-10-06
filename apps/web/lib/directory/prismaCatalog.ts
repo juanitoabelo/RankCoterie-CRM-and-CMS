@@ -196,6 +196,7 @@ export const prismaCatalogRepo: CatalogRepo = {
         state: c.state,
         areaPart: c.areaPart,
         text: c.customText,
+        faq: (c.faq as Array<{ q: string; a: string }> | null) ?? [],
       }),
     );
   },

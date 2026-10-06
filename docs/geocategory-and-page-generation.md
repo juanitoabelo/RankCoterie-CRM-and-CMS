@@ -155,6 +155,9 @@ So Google sees unique title + unique intro copy + unique listing inventory per U
 | **No JSON-LD on `/g/*`** | ✅ **Fixed** | `BreadcrumbList` on parent + region pages, `ItemList` (parent: state index; region page: city list) + admin-authored Schema-tab JSON-LD (`g/[category]/page.tsx`, `g/[category]/[region]/page.tsx`) |
 | **No SEO controls on GeoCategory** | ✅ **Fixed** | GeoCategory new/edit forms now have the same **SEO / Advanced / Schema** tabs as the Page content type (`SeoFields`), stored on `Category` (migration `20261005000000_add_category_seo_fields`) and honored by all `/g/*` metadata: title, meta description, keywords, robots index/follow, OG image, canonical, JSON-LD. `seoTitle`/`metaDesc` support `{{region}}` tokens so 665 region pages keep unique titles |
 | **Thin-content tail** | ✅ **Fixed (index gate)** | `lib/directory/indexGate.ts` implements THE rule: a region page is indexable iff it has **≥1 visible listing OR authored region content** (`custom1`/`custom2` or a matching `CategoryRegionContent` row — shared `stateInit`/`description` fallbacks never count). Non-qualifying pages get `noindex` in `generateMetadata`, drop out of the sitemap, and are unlinked from the parent/city indexes. Counts run through the same visibility gate + candidate query the pages render, so the gate can never disagree with what users see (cached1h, 2 queries per category — not 665) |
+| **No FAQ/depth blocks on region pages** | ✅ **Done (Phase 2)** | `CategoryRegionContent.faq` (migration `20261006000000`) — all 36 category × region rows carry authored intros + 3 Q&A each; the page renders the matched set with `FAQPage` JSON-LD that mirrors the visible copy exactly (tokens localize per region) |
+| **Listings absent from structured data; cards don't link to detail pages** | ✅ **Fixed** | Region pages emit an `ItemList` of the *visible* listings (post-visibility-gate, mirrors what renders); `ListingCard` titles link to `/listing/[slug]/` — internal link equity flows to detail pages (route now committed) |
+| **Analytics/GSC not launch-ready** | ✅ **Ready (dev-inert)** | GA4 loader fixed (config existed without `gtag.js`), FB Pixel + `google-site-verification` meta added, all driven by Admin → My Company fields — renders nothing while unset; see launch-readiness table below |
 | **Parent-index gating exists but generation doesn't** | ✅ **Aligned (deliberately)** | Link set === index set === sitemap set, all derived from the one gate. Generation still produces every URL on purpose: excluded pages stay browsable for humans/ads/shares and flip to indexable the moment listings or authored content land (one cached lookup). Only the *index* is curated, never the *site* |
 | **Crawl budget** | ✅ **Reduced + 🔶 Monitor** | The sitemap now lists only gate-passing region URLs (parent stays at 0.8, qualifying regions at 0.6). Watch GSC coverage — see the Phase 3 checklist below |
 
@@ -194,21 +197,37 @@ Google Search Console checklist:
 - Listings growth is the flywheel: a new sponsor in a region → cached count refreshes → page
   flips to indexable → sitemap picks it up on next revalidate (`1h`). No manual SEO step.
 
-#### Phase 2 execution log (first batch — done)
+#### Phase 2 execution log (batches 1–2 — done)
 
 | Action | Script / where | Detail |
 |---|---|---|
 | 10 sample listings + region/category joins | `prisma/seed-sample-listings.mts` | Fictional programs (example.com / 555-01xx), `LIVE`, tiers PREMIUM/STANDARD/FREE-with-grace. Idempotent: existing slugs skipped. Region coverage: CA=6, SD=5, FL=6, NY=6, TX=5, VA=6 — **every region now has listings**, so all 6 pass the gate listing-earned as well as content-earned |
 | `custom1` placeholder upgrades ×4 | `prisma/seed-region-content.mts` | TX/FL/NY/VAs shared the identical "…find care close to home." template → replaced with real region intros (guarded overwrite: only fires while the row still holds the exact placeholder, hand-edited copy is never clobbered). CA and San Diego copy left untouched (not template text) |
-| Category-specific intros ×12 | `prisma/seed-region-content.mts` | `CategoryRegionContent` rows for **wilderness-therapy** and **residential-treatment** × {CA, TX, FL, NY, VA} (`areaPart: ALL`) + San Diego (`areaPart: SOUTHERN`). Idempotent upsert on the `(categoryId, state, areaPart)` key. Each row is written with a distinct regional angle — no place-name token swaps |
+| Category-specific intros ×36 | `prisma/seed-region-content.mts` | **All 6 categories** × 6 scopes ({CA, TX, FL, NY, VA} `areaPart: ALL` + San Diego `areaPart: SOUTHERN`) — distinct regional angle per scope, no place-name token swaps. Idempotent upsert on the `(categoryId, state, areaPart)` key |
+| FAQ blocks ×36 sets (3 Q&A each) | `CategoryRegionContent.faq` + `prisma/seed-region-content.mts` | New JSON column (migration `20261006000000_add_category_region_faq`). Token-rendered per region; the region page renders the matched set with matching `FAQPage` JSON-LD (structured data mirrors visible copy — never one without the other). Stored per row so a single scope can be specialized later without touching its siblings |
 
 - **Rerun order after a destructive `db:seed`:** `db:seed` → `seed-sample-listings.mts` →
   `seed-region-content.mts` (both are idempotent and safe to re-run at any time).
-- **Next editorial batch (priority order):** the remaining 4 categories
-  (`adoption-foster-care`, `christian-boarding-schools`, `family-therapy-services`,
-  `teen-depression-anxiety`) × the 6 regions = 24 rows, same script — extend the `CONTENT`
-  map. Then: demand-driven depth (FAQs, nearest-programs mileage, program counts) on whatever
-  GSC shows impressions for.
+- **Next editorial batch (priority order):** per-scope FAQ specialization (override one
+  category × region row where GSC shows impressions), nearest-programs mileage / program
+  counts, then demand-driven expansion beyond the 6 live regions. Same script — extend
+  `CONTENT`.
+
+#### Launch-readiness: analytics & Search Console (dev-inert)
+
+Configured in **Admin → My Company**; every value renders only when set, so development
+stays clean and flipping these on at launch requires no code changes:
+
+| Field | Renders | Status |
+|---|---|---|
+| `gscVerificationTag` | `<meta name="google-site-verification">` (React 19 hoists to `<head>`) | ✅ wired + verified live (set → meta appeared → reverted) |
+| `ga4` | `gtag.js` loader **+** `gtag('config')` | ✅ fixed — the config existed but the loader script was missing, so GA4 could never fire; now complete |
+| `gtm` | GTM container snippet | ✅ already wired |
+| `fbPixel` | Meta pixel (`fbevents.js` + `PageView`) | ✅ wired (was fetched but never rendered) |
+
+At launch: set these four fields, flip `searchEngineVisibility`, set production `SITE_URL`
+(both env files currently pin `http://localhost:3000` — canonicals/sitemap would otherwise
+self-reference localhost), verify the GSC property, submit the sitemap.
 
 #### Phase 3 status
 

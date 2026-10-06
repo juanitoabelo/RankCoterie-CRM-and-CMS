@@ -8,6 +8,7 @@ import { renderLocalizedContent, regionContext } from "@/lib/localization/render
 import {
   SITE_URL,
   breadcrumbJsonLd,
+  faqJsonLd,
   geoCategoryUrl,
   geoRegionUrl,
   itemListJsonLd,
@@ -76,6 +77,17 @@ export default async function RegionPage({ params, searchParams }: Props) {
   const introHtml = renderLocalizedContent(resolved.intro, ctx);
   const descHtml = renderLocalizedContent(resolved.description, ctx);
 
+  // FAQ blocks — same (state, areaPart) match rule as resolveContent. Tokens
+  // render per region, and the FAQPage JSON-LD below mirrors exactly this list.
+  const stateContents = contents.filter((c) => c.state === reg.state);
+  const matchedFaqRow =
+    reg.city === null
+      ? stateContents.find((c) => c.areaPart === "ALL")
+      : stateContents.find((c) => c.areaPart === reg.areaPart);
+  const faqs = (matchedFaqRow?.faq ?? [])
+    .map((f) => ({ q: renderLocalizedContent(f.q, ctx), a: renderLocalizedContent(f.a, ctx) }))
+    .filter((f) => f.q.trim() && f.a.trim());
+
   // City links for a state page (child regions under this state) — same index
   // gate: only cities that earn indexing are surfaced as links.
   let cities = reg.city === null ? await repo.getChildRegions(cat.id, reg.state) : [];
@@ -104,6 +116,9 @@ export default async function RegionPage({ params, searchParams }: Props) {
       {cityList && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(cityList) }} />
       )}
+      {faqs.length > 0 && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(faqJsonLd(faqs)) }} />
+      )}
       {customSchema && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(customSchema) }} />
       )}
@@ -128,6 +143,20 @@ export default async function RegionPage({ params, searchParams }: Props) {
           className="mt-3 max-w-3xl text-zinc-600"
           dangerouslySetInnerHTML={{ __html: descHtml }}
         />
+      )}
+
+      {faqs.length > 0 && (
+        <section className="mt-8 max-w-3xl" aria-label="Frequently asked questions">
+          <h2 className="text-lg font-semibold text-zinc-900">Frequently asked questions</h2>
+          <dl className="mt-3 space-y-4">
+            {faqs.map((f) => (
+              <div key={f.q}>
+                <dt className="font-medium text-zinc-900">{f.q}</dt>
+                <dd className="mt-1 text-sm text-zinc-600">{f.a}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
       )}
 
       {cities.length > 0 && (

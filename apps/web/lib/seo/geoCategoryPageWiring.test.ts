@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateMetadata as regionGenerateMetadata } from "@/app/(site)/g/[category]/[region]/page";
+import RegionPage, { generateMetadata as regionGenerateMetadata } from "@/app/(site)/g/[category]/[region]/page";
 import { generateMetadata as pageGenerateMetadata } from "@/app/(site)/g/[category]/[region]/page/[pageNum]/page";
 
 /**
@@ -47,5 +47,45 @@ describe("/g/ pagination page metadata wiring", () => {
   it("noindexes pagination for an excluded region outright", async () => {
     const meta = await pageGenerateMetadata(pageProps("Texas-TX", "2"));
     expect(meta.robots).toEqual({ index: false, follow: true });
+  });
+});
+
+describe("/g/ region page FAQ wiring", () => {
+  const bodyProps = (region: string) => ({
+    params: Promise.resolve({ category: "wilderness-therapy", region }),
+    searchParams: Promise.resolve({}),
+  });
+
+  /** Cycle-safe deep collection of every string in a React element tree
+   * (text nodes + dangerouslySetInnerHTML payloads), skipping functions. */
+  function allStrings(node: unknown, seen = new Set<unknown>(), acc: string[] = []): string[] {
+    if (typeof node === "string") {
+      acc.push(node);
+    } else if (node && typeof node === "object" && !seen.has(node)) {
+      seen.add(node);
+      if (Array.isArray(node)) {
+        for (const v of node) allStrings(v, seen, acc);
+      } else {
+        for (const v of Object.values(node)) allStrings(v, seen, acc);
+      }
+    }
+    return acc;
+  }
+
+  it("renders FAQ copy + FAQPage JSON-LD from the matched CRC row (tokens localized)", async () => {
+    // Mock CRC row: wilderness × CA/SOUTHERN → matches the San Diego city page.
+    const tree = allStrings(await RegionPage(bodyProps("San-Diego-California-CA"))).join("\n");
+    expect(tree).toContain("Frequently asked questions");
+    expect(tree).toContain('"@type":"FAQPage"');
+    // {{in region}} rendered for the city, not left as a token.
+    expect(tree).toContain("wilderness therapy program in San Diego, CA cost");
+    expect(tree).not.toContain("{{in region}}");
+  });
+
+  it("omits the FAQ section when the region has no matched CRC row", async () => {
+    // Texas state page: mock has no TX row → no FAQ, no FAQPage schema.
+    const tree = allStrings(await RegionPage(bodyProps("Texas-TX"))).join("\n");
+    expect(tree).not.toContain("FAQPage");
+    expect(tree).not.toContain("Frequently asked questions");
   });
 });

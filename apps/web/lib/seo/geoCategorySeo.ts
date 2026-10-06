@@ -127,6 +127,22 @@ export function itemListJsonLd(name: string, description: string, items: Array<{
 }
 
 /**
+ * FAQPage JSON-LD from a region's authored FAQ blocks. Only emitted when the
+ * page actually renders the same questions (structured data mirrors content).
+ */
+export function faqJsonLd(faqs: Array<{ q: string; a: string }>) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  };
+}
+
+/**
  * Parse admin-authored JSON-LD from the Schema tab. Returns null on empty/invalid
  * input so a bad paste can never break page rendering (the admin form validates too).
  */

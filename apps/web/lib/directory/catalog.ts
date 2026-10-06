@@ -53,6 +53,7 @@ export interface CategoryRegionContent {
   state: string;
   areaPart: "ALL" | "NORTHERN" | "SOUTHERN" | "EASTERN" | "WESTERN" | "CENTRAL";
   text: string; // tokens allowed
+  faq?: Array<{ q: string; a: string }>; // [{q, a}] tokens allowed
 }
 
 export interface CatalogListing {
@@ -226,7 +227,21 @@ const REGION_CONTENT: CategoryRegionContent[] = [
     categoryId: "cat-wilderness",
     state: "CA",
     areaPart: "SOUTHERN",
-    text: "<p><em>Southern California families</em>: a curated list of wilderness programs serving {{region}}.</p>",
+    text: "<p>Wilderness therapy programs {{in region}} in Southern California combine desert and coastal trail time with therapy sessions — a fit for families who want outdoor structure without leaving the state. Ask about heat protocols, licensing and how school work is handled on trail.</p>",
+    faq: [
+      {
+        q: "What does a wilderness therapy program {{in region}} cost?",
+        a: "Cost depends on program length, clinical staffing and travel — plans typically run several months. Ask each program for a full fee schedule, what's included, and whether insurance or financial aid applies. Compare total cost of care, not just the sticker price.",
+      },
+      {
+        q: "How long do wilderness therapy programs last?",
+        a: "Most programs structure care in phases — assessment, field work and transition — commonly measured in weeks to a few months. The right length depends on your teen's needs; ask how each program decides when a student is ready to step down.",
+      },
+      {
+        q: "Is wilderness therapy safe for teens?",
+        a: "Safety depends on accreditation, staff ratios, clinical supervision and emergency protocols. Ask each program about medical staffing, weather procedures, how families are updated while crews are in the field, and how progress is documented.",
+      },
+    ],
   },
 ];
 
