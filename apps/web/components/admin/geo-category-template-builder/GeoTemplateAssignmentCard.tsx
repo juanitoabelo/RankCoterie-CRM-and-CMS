@@ -53,6 +53,7 @@ export default function GeoTemplateAssignmentCard({
             Parent page template
           </label>
           <select
+            name="geoTemplateId"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"

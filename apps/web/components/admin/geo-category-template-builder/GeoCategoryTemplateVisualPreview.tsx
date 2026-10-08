@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import type { Block } from "@/lib/page-builder/types";
 import type { ContainerSettings } from "@/lib/geo-category-template/types";
 import type { GeoPreviewData } from "@/lib/geo-category-template/geo-bindings";
-import type { GeoStateLink, GeoTemplateListing } from "./GeoCategoryTemplateRenderer";
+import type { GeoStateLink, GeoTemplateListing, GeoCityLink } from "./GeoCategoryTemplateRenderer";
 import GeoCategoryTemplateRenderer from "./GeoCategoryTemplateRenderer";
 
 const SAMPLE_CATEGORY: GeoPreviewData = {
@@ -46,12 +46,21 @@ const SAMPLE_FAQ = [
   { q: "How long do programs last?", a: "<p>Sample answer for the second FAQ item.</p>" },
 ];
 
+const SAMPLE_CITIES: GeoCityLink[] = [
+  { slug: "Boise-ID", name: "Boise", url: "/g/wilderness-therapy/Boise-ID/" },
+  { slug: "Austin-TX", name: "Austin", url: "/g/wilderness-therapy/Austin-TX/" },
+  { slug: "Portland-OR", name: "Portland", url: "/g/wilderness-therapy/Portland-OR/" },
+  { slug: "Ogden-UT", name: "Ogden", url: "/g/wilderness-therapy/Ogden-UT/" },
+  { slug: "Reno-NV", name: "Reno", url: "/g/wilderness-therapy/Reno-NV/" },
+];
+
 /** Shared sample context — also powers live previews in Structure Display. */
 export const GEO_PREVIEW_SAMPLE = {
   geo: SAMPLE_CATEGORY,
   states: SAMPLE_STATES,
   faq: SAMPLE_FAQ,
   listings: SAMPLE_LISTINGS,
+  cities: SAMPLE_CITIES,
 };
 
 export default function GeoCategoryTemplateVisualPreview({
@@ -109,6 +118,7 @@ export default function GeoCategoryTemplateVisualPreview({
         states={SAMPLE_STATES}
         faq={SAMPLE_FAQ}
         listings={SAMPLE_LISTINGS}
+        cities={SAMPLE_CITIES}
         viewport={viewport}
       />
     </div>

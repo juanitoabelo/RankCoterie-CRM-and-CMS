@@ -2,6 +2,7 @@ export type ReadingSettings = {
   homepageDisplays: "latest" | "static";
   homepagePageId: string | null;
   postsPageId: string | null;
+  applyPageId: string | null;
   postsPerPage: number;
   feedsPerPage: number;
   feedFormat: "full" | "excerpt";
@@ -12,6 +13,7 @@ export const DEFAULT_READING_SETTINGS: ReadingSettings = {
   homepageDisplays: "latest",
   homepagePageId: null,
   postsPageId: null,
+  applyPageId: null,
   postsPerPage: 10,
   feedsPerPage: 10,
   feedFormat: "full",

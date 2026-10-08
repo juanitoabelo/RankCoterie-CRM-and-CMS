@@ -69,6 +69,27 @@ export function mapBlocks(blocks: Block[], fn: (b: Block) => Block): Block[] {
   });
 }
 
+/** Whether any block in the tree (sections, rows and columns included) has `type`. */
+export function hasBlockOfType(blocks: Block[], type: string): boolean {
+  for (const b of blocks) {
+    if (b.type === type) return true;
+    if (isSectionBlock(b)) {
+      for (const row of b.props.rows) {
+        if (row.type === type) return true;
+        for (const col of row.props.columns) {
+          if (hasBlockOfType(col.blocks, type)) return true;
+        }
+      }
+    }
+    if (isRowBlock(b)) {
+      for (const col of b.props.columns) {
+        if (hasBlockOfType(col.blocks, type)) return true;
+      }
+    }
+  }
+  return false;
+}
+
 /** Get all rows from the page, including those nested inside sections. */
 function allRows(blocks: Block[]): RowBlock[] {
   const rows: RowBlock[] = [];

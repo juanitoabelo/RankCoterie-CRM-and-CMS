@@ -18,6 +18,10 @@ import {
   regionDisplayName,
   regionGeoMetadata,
 } from "@/lib/seo/geoCategorySeo";
+import { resolveGeoCategoryContainerStyle } from "@/modules/geo-category-template";
+import { resolveRegionFaqs, resolveRegionTemplateView } from "@/lib/directory/regionTemplate";
+import { hasBlockOfType } from "@/lib/page-builder/tree";
+import GeoCategoryTemplateRenderer from "@/components/admin/geo-category-template-builder/GeoCategoryTemplateRenderer";
 import RegionListings from "@/components/RegionListings";
 import RegionFilterBar from "@/components/RegionFilterBar";
 
@@ -88,14 +92,7 @@ export default async function RegionPage({ params, searchParams }: Props) {
 
   // FAQ blocks — same (state, areaPart) match rule as resolveContent. Tokens
   // render per region, and the FAQPage JSON-LD below mirrors exactly this list.
-  const stateContents = contents.filter((c) => c.state === reg.state);
-  const matchedFaqRow =
-    reg.city === null
-      ? stateContents.find((c) => c.areaPart === "ALL")
-      : stateContents.find((c) => c.areaPart === reg.areaPart);
-  const faqs = (matchedFaqRow?.faq ?? [])
-    .map((f) => ({ q: renderLocalizedContent(f.q, ctx), a: renderLocalizedContent(f.a, ctx) }))
-    .filter((f) => f.q.trim() && f.a.trim());
+  const faqs = resolveRegionFaqs(contents, reg, ctx);
 
   // City links for a state page (child regions under this state) — same index
   // gate: only cities that earn indexing are surfaced as links.
@@ -119,8 +116,8 @@ export default async function RegionPage({ params, searchParams }: Props) {
     : null;
   const customSchema = parseJsonSchema(cat.jsonSchema);
 
-  return (
-    <div>
+  const jsonLd = (
+    <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(breadcrumb) }} />
       {cityList && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(cityList) }} />
@@ -131,6 +128,101 @@ export default async function RegionPage({ params, searchParams }: Props) {
       {customSchema && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(customSchema) }} />
       )}
+    </>
+  );
+
+  /* Custom single page template (same resolution as the parent page):
+     per-category assignment → default template → null (legacy layout below).
+     The geoListings block renders the page's full listings UI (cities chips,
+     filter bar, rich cards, pagination) through `listingsSlot`. */
+  const templateView = await resolveRegionTemplateView({
+    repo,
+    cat,
+    reg,
+    ctx,
+    introHtml,
+    descHtml,
+    faqs,
+    heroImage,
+  });
+
+  if (templateView) {
+    // The chips and filter bar can live as template blocks now — when the
+    // selected template includes them, keep them out of the listings slot so
+    // they render once (in their template position) instead of twice.
+    const templateHasChips = hasBlockOfType(templateView.blocks, "geoRegionChips");
+    const templateHasFilter = hasBlockOfType(templateView.blocks, "geoFilterBar");
+
+    return (
+      <div>
+        {jsonLd}
+        <GeoCategoryTemplateRenderer
+          blocks={templateView.blocks}
+          containerSettings={templateView.containerSettings}
+          geo={templateView.geo}
+          states={templateView.states}
+          faq={templateView.faq}
+          listings={templateView.listings}
+          cities={cities.map((c) => ({
+            slug: c.slug,
+            name: c.city ?? c.slug,
+            url: geoRegionUrl(cat.slug, c.slug),
+          }))}
+          listingsSlot={
+            <>
+              {!templateHasChips && cities.length > 0 && (
+                <div className="mt-8">
+                  <h2 className="text-lg font-semibold text-zinc-900">Cities in {ctx.regionName}</h2>
+                  <ul className="mt-3 flex flex-wrap gap-2">
+                    {cities.map((c) => (
+                      <li key={c.id}>
+                        <Link
+                          href={`/g/${cat.slug}/${c.slug}/`}
+                          className="inline-block rounded-full border border-zinc-200 px-3 py-1 text-sm text-zinc-700 hover:border-zinc-300"
+                        >
+                          {c.city}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {!templateHasFilter && (
+                <RegionFilterBar
+                  categorySlug={cat.slug}
+                  regionSlug={reg.slug}
+                  currentSort={sort}
+                  currentTier={tier ?? ""}
+                  currentRating={rating ?? ""}
+                />
+              )}
+
+              <RegionListings
+                categorySlug={cat.slug}
+                regionSlug={reg.slug}
+                categoryId={cat.id}
+                regionId={reg.id}
+                regionCtx={ctx}
+                page={parseInt(page, 10)}
+                sort={sort}
+                tierFilter={tier}
+                ratingFilter={rating}
+              />
+            </>
+          }
+        />
+      </div>
+    );
+  }
+
+  // Legacy layout (no template / empty blocks): still honor the category's
+  // container width so the page never renders edge-to-edge.
+  const containerStyle = await resolveGeoCategoryContainerStyle(cat.id);
+
+  return (
+    <div style={containerStyle}>
+      {jsonLd}
 
       <p className="text-sm text-zinc-500">
         <Link href="/" className="hover:text-zinc-800">

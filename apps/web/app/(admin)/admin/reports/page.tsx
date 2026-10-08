@@ -25,10 +25,14 @@ export default async function AdminReportsPage() {
     <div>
       <h1 className="text-2xl font-semibold text-zinc-900">Reports & exports</h1>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-7">
         <div className="rounded-xl border border-zinc-200 bg-white p-5">
           <p className="text-sm text-zinc-500">Approved revenue</p>
           <p className="mt-1 text-3xl font-semibold text-zinc-900">${report.approvedRevenue.toFixed(2)}</p>
+        </div>
+        <div className="rounded-xl border border-zinc-200 bg-white p-5">
+          <p className="text-sm text-zinc-500">Daily sales</p>
+          <p className="mt-1 text-3xl font-semibold text-zinc-900">${report.dailySales.toFixed(2)}</p>
         </div>
         <div className="rounded-xl border border-zinc-200 bg-white p-5">
           <p className="text-sm text-zinc-500">Clients</p>
@@ -39,8 +43,16 @@ export default async function AdminReportsPage() {
           <p className="mt-1 text-3xl font-semibold text-zinc-900">{report.liveListings}</p>
         </div>
         <div className="rounded-xl border border-zinc-200 bg-white p-5">
+          <p className="text-sm text-zinc-500">Low-stock products</p>
+          <p className="mt-1 text-3xl font-semibold text-zinc-900">{report.lowStockProducts}</p>
+        </div>
+        <div className="rounded-xl border border-zinc-200 bg-white p-5">
           <p className="text-sm text-zinc-500">Open to-dos</p>
           <p className="mt-1 text-3xl font-semibold text-zinc-900">{report.openTodos}</p>
+        </div>
+        <div className="rounded-xl border border-zinc-200 bg-white p-5">
+          <p className="text-sm text-zinc-500">Abandoned recovery</p>
+          <p className="mt-1 text-3xl font-semibold text-zinc-900">{report.abandonedOrderRecoveryRate.toFixed(1)}%</p>
         </div>
       </div>
 

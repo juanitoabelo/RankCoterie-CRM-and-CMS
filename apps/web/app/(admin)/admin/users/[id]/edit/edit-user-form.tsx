@@ -320,7 +320,7 @@ export default function EditUserForm({ user }: { user: UserWithRoles }) {
           Quick Biography
         </label>
         <div className="mt-1 rounded border border-zinc-300 bg-white">
-          <RichTextEditor value={quickBio} onChange={setQuickBio} placeholder="Write a short biography..." minHeight={120} />
+          <RichTextEditor value={quickBio} onChange={setQuickBio} placeholder="Write a short biography..." minHeight={120} showSource />
         </div>
       </Section>
 
@@ -330,7 +330,7 @@ export default function EditUserForm({ user }: { user: UserWithRoles }) {
           General Skills Info
         </label>
         <div className="mt-1 rounded border border-zinc-300 bg-white">
-          <RichTextEditor value={generalSkills} onChange={setGeneralSkills} placeholder="List skills, credentials, and expertise..." minHeight={120} />
+          <RichTextEditor value={generalSkills} onChange={setGeneralSkills} placeholder="List skills, credentials, and expertise..." minHeight={120} showSource />
         </div>
       </Section>
 

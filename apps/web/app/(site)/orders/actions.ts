@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma, TENANT_ID } from "@/modules/shared";
+import { throttle, throttleKey } from "@/lib/throttle";
 
 export type OrderLookupResult =
   | {
@@ -43,6 +44,12 @@ export async function lookupOrdersByEmail(email: string): Promise<OrderHistoryRe
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) {
     return { ok: false, error: "Enter a valid email address." };
   }
+
+  // Two keys: per-IP (blast protection) and per-email (targeted enumeration).
+  const byIp = await throttle("orderHistory", 10, 60_000);
+  if (byIp) return { ok: false, error: byIp };
+  const byEmail = throttleKey("orderHistoryEmail", mail, 5, 5 * 60_000);
+  if (byEmail) return { ok: false, error: byEmail };
 
   try {
     const orders = await prisma.order.findMany({
@@ -90,6 +97,9 @@ export async function lookupOrder(
   const num = orderNumber.trim();
   const mail = email.trim().toLowerCase();
   if (!num || !mail) return { ok: false, error: GENERIC_ERROR };
+
+  const throttled = await throttle("orderLookup", 20, 60_000);
+  if (throttled) return { ok: false, error: throttled };
 
   try {
     const order = await prisma.order.findFirst({

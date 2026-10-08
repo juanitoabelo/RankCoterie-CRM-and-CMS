@@ -468,6 +468,15 @@ export function BlockPreview({
         </div>
       );
       break;
+    case "listingApplyForm":
+      body = (
+        <div className="mx-2 mb-2 rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+          <div className="font-medium text-zinc-700">
+            📝 Listing Apply Form{block.props.showHeading === false ? "" : ` · ${block.props.heading}`}
+          </div>
+        </div>
+      );
+      break;
     default:
       body = null;
   }

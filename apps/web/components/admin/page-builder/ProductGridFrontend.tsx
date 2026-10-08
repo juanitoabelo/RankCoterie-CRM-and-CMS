@@ -141,6 +141,10 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
     showWishlist = false,
     showCategory = true,
     showPagination = true,
+    showCount = true,
+    showSort = true,
+    showBadges = true,
+    showTitle = true,
     orderBy = "date",
     sortOrder = "desc",
     cardAnimation = "fadeUp",
@@ -309,18 +313,20 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
     <section className="px-6 py-6">
       <style>{gridStyles}</style>
       <div className="mx-auto max-w-6xl pg-root">
-        {heading ? (
+        {(heading || showCount) && (
           <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-            <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">{heading}</h2>
-            {data && (
+            {heading ? (
+              <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">{heading}</h2>
+            ) : null}
+            {showCount && data && (
               <span className="text-sm text-zinc-500">
                 {data.total} product{data.total === 1 ? "" : "s"}
               </span>
             )}
           </div>
-        ) : null}
+        )}
 
-        {(showCategoryFilter || showSearch || visibleCategories.length > 0) && (
+        {(showCategoryFilter || showSearch || showSort) && (
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             {showCategoryFilter && visibleCategories.length > 0 ? (
               <div className="pg-pills" role="tablist" aria-label="Filter products by category">
@@ -356,33 +362,37 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
               <div />
             )}
 
-            <div className="flex items-center gap-2">
-              {showSearch && (
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder={searchPlaceholder}
-                  aria-label={searchPlaceholder}
-                  className="w-full sm:w-56 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
-                />
-              )}
-              <select
-                aria-label="Sort products"
-                value={sortKey}
-                onChange={(e) => {
-                  setSortKey(e.target.value);
-                  setPage(1);
-                }}
-                className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
-              >
-                {SORT_OPTIONS.map((option) => (
-                  <option key={option.label} value={option.label}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {(showSearch || showSort) && (
+              <div className="flex items-center gap-2">
+                {showSearch && (
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder={searchPlaceholder}
+                    aria-label={searchPlaceholder}
+                    className="w-full sm:w-56 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
+                  />
+                )}
+                {showSort && (
+                  <select
+                    aria-label="Sort products"
+                    value={sortKey}
+                    onChange={(e) => {
+                      setSortKey(e.target.value);
+                      setPage(1);
+                    }}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
+                  >
+                    {SORT_OPTIONS.map((option) => (
+                      <option key={option.label} value={option.label}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -446,11 +456,13 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
                           <span>🛒</span>
                         </div>
                       )}
-                      <div className="pg-badges">
-                        {item.onSale && <span className="pg-badge pg-badge-sale">Sale</span>}
-                        {item.featured && <span className="pg-badge pg-badge-featured">Featured</span>}
-                        {out && <span className="pg-badge pg-badge-out">Sold out</span>}
-                      </div>
+                      {showBadges && (
+                        <div className="pg-badges">
+                          {item.onSale && <span className="pg-badge pg-badge-sale">Sale</span>}
+                          {item.featured && <span className="pg-badge pg-badge-featured">Featured</span>}
+                          {out && <span className="pg-badge pg-badge-out">Sold out</span>}
+                        </div>
+                      )}
                       {showWishlist ? (
                         <button
                           type="button"
@@ -489,7 +501,7 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
                     {showCategory && item.categories.length > 0 ? (
                       <div className="pg-category">{item.categories[0].name}</div>
                     ) : null}
-                    <h3 className="pg-title">{item.name}</h3>
+                    {showTitle ? <h3 className="pg-title">{item.name}</h3> : null}
                     {showExcerpt && excerpt ? <p className="pg-excerpt">{excerpt}</p> : null}
                     {showRating && item.reviewCount > 0 ? (
                       <div className="pg-rating" aria-label={`Rated ${item.rating} out of 5 from ${item.reviewCount} reviews`}>

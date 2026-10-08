@@ -3,8 +3,12 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getCatalogRepo } from "@/lib/directory/catalog";
 import { resolveRegionPageIndexable } from "@/lib/directory/indexGate";
-import { regionContext } from "@/lib/localization/render";
+import { resolveCategoryContent } from "@/lib/directory/resolveContent";
+import { regionContext, renderLocalizedContent } from "@/lib/localization/render";
 import { jsonLdHtml, parseJsonSchema, regionPageGeoMetadata } from "@/lib/seo/geoCategorySeo";
+import { resolveGeoCategoryContainerStyle } from "@/modules/geo-category-template";
+import { resolveRegionFaqs, resolveRegionTemplateView } from "@/lib/directory/regionTemplate";
+import GeoCategoryTemplateRenderer from "@/components/admin/geo-category-template-builder/GeoCategoryTemplateRenderer";
 import RegionListings from "@/components/RegionListings";
 
 export const revalidate = 3600;
@@ -58,8 +62,65 @@ export default async function RegionPagePaginated({ params }: Props) {
   const ctx = regionContext(reg.city ? `${reg.city}, ${reg.state}` : reg.stateFull, reg.slug);
   const customSchema = parseJsonSchema(cat.jsonSchema);
 
+  // Same live data as the base region page so page N renders the template
+  // chrome (hero, FAQ, sidebar) with only the listings slot paginated.
+  const contents = await repo.getCategoryRegionContent({
+    categoryId: cat.id,
+    state: reg.state,
+  });
+  const resolved = resolveCategoryContent(cat, reg, contents);
+  const introHtml = renderLocalizedContent(resolved.intro, ctx);
+  const descHtml = renderLocalizedContent(resolved.description, ctx);
+  const faqs = resolveRegionFaqs(contents, reg, ctx);
+  const heroImage = await repo.getCategoryImage(
+    cat.id,
+    reg.city === null ? "STATE" : "CITY",
+    reg.id,
+  );
+
+  const templateView = await resolveRegionTemplateView({
+    repo,
+    cat,
+    reg,
+    ctx,
+    introHtml,
+    descHtml,
+    faqs,
+    heroImage,
+  });
+
+  if (templateView) {
+    return (
+      <div>
+        {customSchema && (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(customSchema) }} />
+        )}
+        <GeoCategoryTemplateRenderer
+          blocks={templateView.blocks}
+          containerSettings={templateView.containerSettings}
+          geo={templateView.geo}
+          states={templateView.states}
+          faq={templateView.faq}
+          listings={templateView.listings}
+          listingsSlot={
+            <RegionListings
+              categorySlug={cat.slug}
+              regionSlug={reg.slug}
+              categoryId={cat.id}
+              regionId={reg.id}
+              regionCtx={ctx}
+              page={resolvedPage}
+            />
+          }
+        />
+      </div>
+    );
+  }
+
+  const containerStyle = await resolveGeoCategoryContainerStyle(cat.id);
+
   return (
-    <div>
+    <div style={containerStyle}>
       {customSchema && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(customSchema) }} />
       )}

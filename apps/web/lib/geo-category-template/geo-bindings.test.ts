@@ -58,6 +58,8 @@ describe("geo category template bindings", () => {
       expect.arrayContaining(["heading", "subheading", "image"]),
     );
     expect(geoBindingTargets("geoListings").map((t) => t.key)).toContain("heading");
+    expect(geoBindingTargets("geoRegionChips").map((t) => t.key)).toContain("heading");
+    expect(geoBindingTargets("geoFilterBar")).toEqual([]);
     expect(geoBindingTargets("heading").map((t) => t.key)).toContain("text");
     expect(geoBindingTargets("unknown-block")).toEqual([]);
   });

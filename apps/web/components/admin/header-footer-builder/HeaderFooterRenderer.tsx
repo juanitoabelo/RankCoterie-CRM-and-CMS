@@ -15,7 +15,7 @@ import type { HeaderFooterBlock, ContainerSettings } from "@/lib/header-footer/t
 import { DEFAULT_CONTAINER_SETTINGS } from "@/lib/header-footer/types";
 import { isRowBlock, isSectionBlock } from "@/lib/page-builder/types";
 import { resolveColumnWidths, renderColumnSpanClass } from "@/lib/page-builder/spans";
-import { styleScopeClass, renderStyleGuide } from "@/lib/page-builder/style";
+import { styleScopeClass, renderStyleGuide, scopeDynamicStyle } from "@/lib/page-builder/style";
 import type { StyleBreakpoints } from "@/lib/page-builder/types";
 import {
   getEntranceAnimationClass,
@@ -101,18 +101,26 @@ function LogoRenderer({ block }: { block: Block }) {
   };
   
   const hoverOpacity = p.hoverOpacity !== undefined && (p.hoverOpacity as number) < 100 ? (p.hoverOpacity as number) / 100 : undefined;
-  
+
+  const alignScoped = scopeDynamicStyle(`${block.id}-logo-align`, {
+    textAlign: alignment === "center" ? "center" : alignment === "right" ? "right" : "left",
+  });
+  const imgScoped = scopeDynamicStyle(`${block.id}-logo-img`, imgStyle);
+
   return (
     <BlockAdvancedFrame block={block}>
-      <div className={alignClass} style={{ textAlign: alignment === "center" ? "center" : alignment === "right" ? "right" : "left" }}>
+      <div className={`${alignClass} ${alignScoped.className}`.trim()}>
+        {alignScoped.node}
         <Link href={(p.linkTo as string) || "/"} className="inline-block">
           {p.src ? (
-            <img
-              src={p.src as string}
-              alt={(p.alt as string) || ""}
-              style={imgStyle}
-              className="hover:opacity-75"
-            />
+            <>
+              {imgScoped.node}
+              <img
+                src={p.src as string}
+                alt={(p.alt as string) || ""}
+                className={`hover:opacity-75 ${imgScoped.className}`.trim()}
+              />
+            </>
           ) : (
             <span className="text-lg font-bold text-zinc-900">Logo</span>
           )}

@@ -86,6 +86,40 @@ export async function getReportData(): Promise<ReportData> {
     0
   );
 
+  // Low-stock products: products with stock below lowStockAmount threshold
+  const lowStockProducts = await prisma.product.count({
+    where: {
+      tenantId: TENANT_ID,
+      manageStock: true,
+      stockQuantity: { lt: 10 }, // threshold; adjust as needed per business rules
+    },
+  });
+
+  // Daily sales: total from approved invoices today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dailySalesAgg = await prisma.invoice.aggregate({
+    where: {
+      client: { tenantId: TENANT_ID },
+      status: "APPROVED",
+      chargeDate: { gte: today },
+    },
+    _sum: { amount: true },
+  });
+  const dailySales = Number(dailySalesAgg._sum?.amount ?? 0);
+
+  // Abandoned order recovery rate:
+  // % of PENDING orders that have been recovered (moved to PAID/COMPLETED)
+  // Calculated as: (total orders - total PENDING orders) / total orders * 100
+  const totalPending = await prisma.order.count({
+    where: { tenantId: TENANT_ID, status: "PENDING" },
+  });
+
+  const totalOrders = await prisma.order.count({ where: { tenantId: TENANT_ID } });
+  const abandonedOrderRecoveryRate = totalOrders > 0
+    ? Number(((1 - totalPending / totalOrders) * 100).toFixed(1))
+    : 0;
+
   return {
     approvedRevenue,
     clientCount,
@@ -97,5 +131,8 @@ export async function getReportData(): Promise<ReportData> {
       count: i._count,
       total: Number(i._sum?.amount ?? 0),
     })),
+    lowStockProducts,
+    dailySales: Number(dailySales?.amount ?? 0),
+    abandonedOrderRecoveryRate,
   };
 }

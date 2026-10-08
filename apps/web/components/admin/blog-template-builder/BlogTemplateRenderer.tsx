@@ -7,12 +7,11 @@
  * renderers for standard blocks, adds blog-specific renderers.
  */
 import { createContext, useContext } from "react";
-import Link from "next/link";
 import type { Block } from "@/lib/page-builder/types";
 import type { ContainerSettings } from "@/lib/blog-template/types";
 import { isRowBlock, isSectionBlock } from "@/lib/page-builder/types";
 import { resolveColumnWidths, renderColumnSpanClass } from "@/lib/page-builder/spans";
-import { styleScopeClass, renderStyleGuide } from "@/lib/page-builder/style";
+import { styleScopeClass, renderStyleGuide, scopeDynamicStyle } from "@/lib/page-builder/style";
 import type { StyleBreakpoints } from "@/lib/page-builder/types";
 import {
   getEntranceAnimationClass,
@@ -39,19 +38,18 @@ import {
   needsClientGate,
 } from "../page-builder/renderHelpers";
 import { BlockAdvancedFrame, DisplayConditionGate } from "../page-builder/advanced-ui";
+import ProductGridFrontend from "../page-builder/ProductGridFrontend";
+import BlogPostGridFrontend from "../page-builder/BlogPostGridFrontend";
+import { sanitizeHtml } from "@/lib/style-guide";
+import {
+  resolveArticleBlockBindings,
+  resolveArticlePropsBindings,
+  type ArticlePreviewData,
+} from "@/lib/blog-template/article-bindings";
 
 /* ── Blog Data Context ──────────────────────────────────────────────────── */
 
-interface BlogArticle {
-  id: string;
-  slug: string;
-  title: string;
-  body: string | null;
-  metaDesc: string | null;
-  ogImage: string | null;
-  createdAt: Date;
-  category?: { slug: string; title: string } | null;
-}
+type BlogArticle = ArticlePreviewData;
 
 interface BlogDataContextValue {
   articles?: BlogArticle[];
@@ -79,8 +77,9 @@ function styleScope(block: Block, inner: React.ReactNode): React.ReactNode {
 /* ── Row Renderer ────────────────────────────────────────────────────────── */
 
 function RowRenderer({ block }: { block: Block }) {
+  const { article } = useContext(BlogDataContext);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const p = block.props as any;
+  const p = resolveArticlePropsBindings("row", block.props as Record<string, unknown>, article) as any;
 
   const bgStyle = getBackgroundStyle({
     bgType: p.bgType,
@@ -158,43 +157,47 @@ function RowRenderer({ block }: { block: Block }) {
   const dateVisible = isDateConditionVisible(p.displayCondition, p.displayConditionDate);
   const gateNeeded = needsClientGate(p.displayCondition);
 
+  const rowScoped = scopeDynamicStyle(`${block.id}-row`, rowStyle);
+  const gridScoped = scopeDynamicStyle(`${block.id}-grid`, {
+    gap: p.gap,
+    rowGap: p.gapRow,
+    alignItems: p.align,
+    flexDirection: p.direction === "column" ? "column" : undefined,
+    flexWrap: p.wrap === "wrap" ? "wrap" : undefined,
+    ...getVerticalAlignStyle(p.verticalAlign),
+    ...getTypographyScopeStyle({
+      headingColor: p.headingColor,
+      textColor: p.textColor,
+      linkColor: p.linkColor,
+      linkHoverColor: p.linkHoverColor,
+      textAlign: p.textAlign,
+    }),
+  });
+
   const rowElement = (
     <RowTag
-      style={rowStyle}
       id={p.cssId || undefined}
-      className={rowClasses || undefined}
+      className={[rowClasses, rowScoped.className].filter(Boolean).join(" ") || undefined}
       {...rowAttrs}
     >
+      {rowScoped.node}
       {renderOverlay({ overlayColor: p.overlayColor, overlayOpacity: p.overlayOpacity })}
       {renderShapeDivider("top", p.shapeDividerTop, p.shapeDividerTopColor, p.shapeDividerTopWidth, p.shapeDividerTopHeight)}
       {renderShapeDivider("bottom", p.shapeDividerBottom, p.shapeDividerBottomColor, p.shapeDividerBottomWidth, p.shapeDividerBottomHeight)}
       <div
-        className={`grid grid-cols-12 ${reverseTablet} ${reverseMobile}`}
-        style={{
-          gap: p.gap,
-          rowGap: p.gapRow,
-          alignItems: p.align,
-          flexDirection: p.direction === "column" ? "column" : undefined,
-          flexWrap: p.wrap === "wrap" ? "wrap" : undefined,
-          ...getVerticalAlignStyle(p.verticalAlign),
-          ...getTypographyScopeStyle({
-            headingColor: p.headingColor,
-            textColor: p.textColor,
-            linkColor: p.linkColor,
-            linkHoverColor: p.linkHoverColor,
-            textAlign: p.textAlign,
-          }),
-        }}
+        className={`grid grid-cols-12 ${reverseTablet} ${reverseMobile} ${gridScoped.className}`.trim()}
       >
+        {gridScoped.node}
         {p.columns.map((col: any, idx: number) => {
+          const columnProps = resolveArticlePropsBindings("column", col, article);
           const widths = resolveColumnWidths(col, p.stackOnMobile);
           const spanClass = renderColumnSpanClass(widths);
           const colStyle: React.CSSProperties = {
             backgroundColor: col.bgColor,
-            backgroundImage: col.bgImage ? `url(${col.bgImage})` : undefined,
-            backgroundPosition: col.bgImage ? (col.bgPosition || "center center") : undefined,
-            backgroundSize: col.bgImage ? (col.bgSize || "cover") : undefined,
-            backgroundRepeat: col.bgImage ? (col.bgRepeat || "no-repeat") : undefined,
+            backgroundImage: columnProps.bgImage ? `url(${columnProps.bgImage})` : undefined,
+            backgroundPosition: columnProps.bgImage ? (col.bgPosition || "center center") : undefined,
+            backgroundSize: columnProps.bgImage ? (col.bgSize || "cover") : undefined,
+            backgroundRepeat: columnProps.bgImage ? (col.bgRepeat || "no-repeat") : undefined,
             borderStyle: col.borderStyle !== "none" ? col.borderStyle : undefined,
             borderWidth: col.borderWidth,
             borderColor: col.borderColor,
@@ -217,7 +220,7 @@ function RowRenderer({ block }: { block: Block }) {
             minHeight: col.minHeight,
             order: idx,
           };
-          const colOverlayStyle: React.CSSProperties | undefined = col.bgImage && col.overlayOpacity
+          const colOverlayStyle: React.CSSProperties | undefined = columnProps.bgImage && col.overlayOpacity
             ? {
                 position: "absolute",
                 inset: 0,
@@ -226,14 +229,19 @@ function RowRenderer({ block }: { block: Block }) {
                 pointerEvents: "none",
               }
             : undefined;
+          const colScoped = scopeDynamicStyle(`${block.id}-col-${col.id}`, colStyle);
+          const colOverlayScoped = scopeDynamicStyle(`${block.id}-col-${col.id}-overlay`, colOverlayStyle);
           return (
             <div
               key={col.id}
-              className={[spanClass, col.cssClasses || ""].filter(Boolean).join(" ")}
-              style={colStyle}
+              className={[spanClass, col.cssClasses || "", colScoped.className].filter(Boolean).join(" ")}
               id={col.cssId || undefined}
             >
-              {colOverlayStyle && <div style={colOverlayStyle} />}
+              {colScoped.node}
+              {colOverlayScoped.node}
+              {colOverlayScoped.className && (
+                <div className={colOverlayScoped.className} aria-hidden="true" />
+              )}
               <RenderBlocks blocks={col.blocks as Block[]} />
             </div>
           );
@@ -492,7 +500,14 @@ function HeroRenderer({ block }: { block: Block }) {
     <BlockAdvancedFrame block={block}>
       <div
         className="py-16 text-center"
-        style={{ backgroundColor: p.bgColor, color: p.textColor }}
+        style={{
+          backgroundColor: p.bgColor,
+          backgroundImage: p.bgImage ? `url(${p.bgImage})` : undefined,
+          backgroundPosition: p.bgPosition || "center center",
+          backgroundSize: p.bgSize || "cover",
+          backgroundRepeat: p.bgRepeat || "no-repeat",
+          color: p.textColor,
+        }}
       >
         <h1 className="text-4xl font-bold">{p.heading}</h1>
         <p className="mt-4 text-lg opacity-80" dangerouslySetInnerHTML={{ __html: p.subheading }} />
@@ -505,7 +520,18 @@ function CtaRenderer({ block }: { block: Block }) {
   const p = block.props as { heading: string; body: string; buttonText: string; buttonUrl: string; bgColor: string };
   return (
     <BlockAdvancedFrame block={block}>
-      <div className="py-12 text-center" style={{ backgroundColor: p.bgColor }}>
+      <div
+        className="py-12 text-center"
+        style={{
+          backgroundColor: p.bgColor,
+          backgroundImage: (block.props as Record<string, unknown>).bgImage
+            ? `url(${(block.props as Record<string, unknown>).bgImage})`
+            : undefined,
+          backgroundPosition: (block.props as Record<string, unknown>).bgPosition as string | undefined,
+          backgroundSize: (block.props as Record<string, unknown>).bgSize as string | undefined,
+          backgroundRepeat: (block.props as Record<string, unknown>).bgRepeat as string | undefined,
+        }}
+      >
         <h2 className="text-2xl font-bold">{p.heading}</h2>
         <p className="mt-2 text-zinc-600">{p.body}</p>
         <a href={p.buttonUrl} className="mt-4 inline-block btn px-6 py-3 text-sm font-medium">
@@ -600,6 +626,60 @@ function SliderRenderer({ block }: { block: Block }) {
   );
 }
 
+function ProductGridRenderer({ block }: { block: Block }) {
+  const productGrid = block as Extract<Block, { type: "productGrid" }>;
+  return (
+    <BlockAdvancedFrame block={block}>
+      <ProductGridFrontend props={productGrid.props} />
+    </BlockAdvancedFrame>
+  );
+}
+
+function IconListRenderer({ block }: { block: Block }) {
+  const p = block.props as Extract<Block, { type: "iconList" }>['props'];
+  const list = (
+    <ul className={`space-y-3 ${p.layout === "inline" ? "flex flex-wrap gap-4 space-y-0" : ""}`}>
+      {p.items.map((item, index) => (
+        <li key={`${item.text}-${index}`} className="flex items-center gap-2" style={{ color: p.textColor }}>
+          <span aria-hidden="true" style={{ color: p.iconColor, fontSize: p.iconSize }}>{item.icon}</span>
+          {item.link ? (
+            <a href={item.link} target={p.openInNewTab ? "_blank" : undefined} rel={p.linkRel || undefined} className="hover:underline">
+              {item.text}
+            </a>
+          ) : <span>{item.text}</span>}
+        </li>
+      ))}
+    </ul>
+  );
+
+  return (
+    <BlockAdvancedFrame block={block}>
+      <div style={{ textAlign: p.align }} className={p.cssClasses} id={p.cssId || undefined}>
+        {list}
+      </div>
+    </BlockAdvancedFrame>
+  );
+}
+
+function GoogleMapRenderer({ block }: { block: Block }) {
+  const p = block.props as Extract<Block, { type: "googleMap" }>['props'];
+  if (!p.location.trim()) return null;
+  const source = `https://www.google.com/maps?q=${encodeURIComponent(p.location)}&output=embed${p.zoom ? `&z=${p.zoom}` : ""}`;
+
+  return (
+    <BlockAdvancedFrame block={block}>
+      <iframe
+        title={`Map of ${p.location}`}
+        src={source}
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+        className="w-full rounded-lg border-0"
+        style={{ height: p.height || 400 }}
+      />
+    </BlockAdvancedFrame>
+  );
+}
+
 function VideoRenderer({ block }: { block: Block }) {
   const p = block.props as { source: string; link: string; aspectRatio?: string };
   return (
@@ -614,103 +694,11 @@ function VideoRenderer({ block }: { block: Block }) {
 /* ── Blog-Specific Renderers ────────────────────────────────────────────── */
 
 function BlogPostGridRenderer({ block }: { block: Block }) {
-  const { articles, viewport } = useContext(BlogDataContext);
-  const p = block.props as Record<string, unknown>;
-  const heading = (p.heading as string) || "Latest Posts";
-  const layout = (p.layout as string) || "grid";
-  const columnsDesktop = (p.columnsDesktop as number) || (p.columns as number) || 3;
-  const columnsTablet = (p.columnsTablet as number) || columnsDesktop;
-  const columnsMobile = (p.columnsMobile as number) || 1;
-  const showExcerpt = p.showExcerpt !== false;
-  const showFeaturedImage = p.showFeaturedImage !== false;
-  const showAuthor = p.showAuthor !== false;
-  const showDate = p.showDate !== false;
-  const showCategory = p.showCategory !== false;
-
-  const COL_CLASS: Record<number, string> = {
-    1: "grid-cols-1",
-    2: "grid-cols-2",
-    3: "grid-cols-3",
-  };
-  const SM_COL_CLASS: Record<number, string> = {
-    1: "sm:grid-cols-1",
-    2: "sm:grid-cols-2",
-    3: "sm:grid-cols-3",
-  };
-  const LG_COL_CLASS: Record<number, string> = {
-    1: "lg:grid-cols-1",
-    2: "lg:grid-cols-2",
-    3: "lg:grid-cols-3",
-  };
-
-  const activeColumns = viewport === "mobile"
-    ? columnsMobile
-    : viewport === "tablet"
-      ? columnsTablet
-      : columnsDesktop;
-
-  const colClass = viewport
-    ? COL_CLASS[activeColumns] ?? "grid-cols-3"
-    : `${COL_CLASS[columnsMobile] ?? "grid-cols-1"} ${SM_COL_CLASS[columnsTablet] ?? "sm:grid-cols-1"} ${LG_COL_CLASS[columnsDesktop] ?? "lg:grid-cols-3"}`;
-
-  const posts = articles && articles.length > 0
-    ? articles.map((a) => ({
-        id: a.id,
-        title: a.title,
-        excerpt: a.metaDesc || "",
-        image: a.ogImage || "",
-        author: "Author",
-        date: new Date(a.createdAt).toLocaleDateString(),
-        category: a.category?.title || "",
-        slug: a.slug,
-      }))
-    : Array.from({ length: 6 }, (_, i) => ({
-        id: `placeholder-${i}`,
-        title: `Blog Post Title ${i + 1}`,
-        excerpt: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-        image: "",
-        author: "Author Name",
-        date: "Jan 1, 2025",
-        category: "Category",
-        slug: "#",
-      }));
-
+  const { viewport } = useContext(BlogDataContext);
+  const postGrid = block as Extract<Block, { type: "blogPostGrid" }>;
   return (
     <BlockAdvancedFrame block={block}>
-      <div className="py-8">
-        {heading && <h2 className="mb-6 text-2xl font-bold text-zinc-900">{heading}</h2>}
-        <div className={layout === "list" ? "space-y-6" : `grid gap-6 ${colClass}`}>
-          {posts.map((post) => (
-            <article key={post.id} className="group rounded-lg border border-zinc-200 bg-white overflow-hidden hover:shadow-md transition-shadow">
-              {showFeaturedImage && post.image && (
-                <Link href={`/article/${post.slug}`}>
-                  <img src={post.image} alt={post.title} className="aspect-video w-full object-cover" />
-                </Link>
-              )}
-              {showFeaturedImage && !post.image && (
-                <div className="aspect-video bg-zinc-100" />
-              )}
-              <div className="p-4">
-                {showCategory && post.category && (
-                  <span className="text-xs font-medium text-amber-600">{post.category}</span>
-                )}
-                <h3 className="mt-1 text-lg font-semibold text-zinc-900 group-hover:text-amber-600 transition-colors">
-                  <Link href={`/article/${post.slug}`}>{post.title}</Link>
-                </h3>
-                {showExcerpt && post.excerpt && (
-                  <p className="mt-2 text-sm text-zinc-600 line-clamp-2">{post.excerpt}</p>
-                )}
-                {(showAuthor || showDate) && (
-                  <div className="mt-3 flex items-center gap-3 text-xs text-zinc-500">
-                    {showAuthor && <span>{post.author}</span>}
-                    {showDate && <span>{post.date}</span>}
-                  </div>
-                )}
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
+      <BlogPostGridFrontend props={postGrid.props} viewport={viewport} />
     </BlockAdvancedFrame>
   );
 }
@@ -801,10 +789,12 @@ function ArticleContentRenderer({ block }: { block: Block }) {
   const maxWidth = (p.maxWidth as number) || 720;
 
   const title = article?.title || "Article Title Placeholder";
-  const body = article?.body || "<p>Article content will be injected server-side. This is a placeholder showing the layout and structure of the article content area.</p>";
+  const body = sanitizeHtml(article?.body || "<p>Article content will be injected server-side. This is a placeholder showing the layout and structure of the article content area.</p>");
   const category = article?.category?.title;
-  const date = article?.createdAt ? new Date(article.createdAt).toLocaleDateString() : "January 1, 2025";
-  const image = article?.ogImage;
+  const date = article?.publishedAt || article?.createdAt
+    ? new Date(article.publishedAt || article.createdAt).toLocaleDateString()
+    : "January 1, 2025";
+  const image = article?.featuredImage || article?.ogImage;
 
   return (
     <BlockAdvancedFrame block={block}>
@@ -824,14 +814,14 @@ function ArticleContentRenderer({ block }: { block: Block }) {
             {showAuthor && (
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-full bg-zinc-200" />
-                <span>Author</span>
+                <span>{article?.author || "Author"}</span>
               </div>
             )}
             {showDate && <span>{date}</span>}
           </div>
         )}
         {showFeaturedImage && image && (
-          <img src={image} alt={title} className="mt-6 w-full rounded-lg object-cover" style={{ maxHeight: 400 }} />
+          <img src={image} alt={article?.featuredImageAlt || title} className="mt-6 w-full rounded-lg object-cover" style={{ maxHeight: 400 }} />
         )}
         {showFeaturedImage && !image && (
           <div className="mt-6 aspect-video rounded-lg bg-zinc-100" />
@@ -882,7 +872,9 @@ function ArticleHeroRenderer({ block }: { block: Block }) {
 
   const title = article?.title || "Article Title Placeholder";
   const category = article?.category?.title;
-  const date = article?.createdAt ? new Date(article.createdAt).toLocaleDateString() : "January 1, 2025";
+  const date = article?.publishedAt || article?.createdAt
+    ? new Date(article.publishedAt || article.createdAt).toLocaleDateString()
+    : "January 1, 2025";
 
   return (
     <BlockAdvancedFrame block={block}>
@@ -890,6 +882,10 @@ function ArticleHeroRenderer({ block }: { block: Block }) {
         className={`py-12 ${layout === "centered" ? "text-center" : ""}`}
         style={{
           backgroundColor: (p.bgColor as string) || undefined,
+          backgroundImage: p.bgImage ? `url(${p.bgImage})` : undefined,
+          backgroundPosition: (p.bgPosition as string) || "center center",
+          backgroundSize: (p.bgSize as string) || "cover",
+          backgroundRepeat: (p.bgRepeat as string) || "no-repeat",
           color: (p.textColor as string) || undefined,
         }}
       >
@@ -915,7 +911,7 @@ function ArticleHeroRenderer({ block }: { block: Block }) {
             {showAuthor && (
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-full bg-zinc-200" />
-                <span>Author</span>
+                <span>{article?.author || "Author"}</span>
               </div>
             )}
             {showDate && <span>{date}</span>}
@@ -943,6 +939,9 @@ const BLOCK_RENDERERS: Record<string, React.ComponentType<{ block: Block }>> = {
   faq: FaqRenderer,
   list: ListRenderer,
   contentGrid: ContentGridRenderer,
+  productGrid: ProductGridRenderer,
+  iconList: IconListRenderer,
+  googleMap: GoogleMapRenderer,
   slider: SliderRenderer,
   video: VideoRenderer,
   blogPostGrid: BlogPostGridRenderer,
@@ -965,7 +964,9 @@ function RenderBlocks({ blocks }: { blocks: Block[] }) {
 
 /* ── Main Block Renderer ──────────────────────────────────────────────── */
 
-export function BlogTemplateBlockRenderer({ block }: { block: Block }) {
+export function BlogTemplateBlockRenderer({ block: sourceBlock }: { block: Block }) {
+  const { article } = useContext(BlogDataContext);
+  const block = resolveArticleBlockBindings(sourceBlock, article);
   if (isRowBlock(block)) {
     return styleScope(block, <RowRenderer block={block} />);
   }
@@ -1102,7 +1103,8 @@ export function BlogTemplateBlockRenderer({ block }: { block: Block }) {
     const SectionTag = resolveTag(p.htmlTag, "div");
 
     const innerStyle: React.CSSProperties = {
-      maxWidth: p.width === "boxed" ? p.maxWidth : "100%",
+      width: "100%",
+      maxWidth: p.width === "boxed" ? `${p.maxWidth || 1200}px` : "100%",
       margin: p.width === "boxed" ? "0 auto" : undefined,
       display: "flex",
       flexDirection: p.direction === "column" ? "column" : "row",
@@ -1216,7 +1218,8 @@ export default function BlogTemplateRenderer({
 
   const innerStyle: React.CSSProperties = {};
   if (containerSettings) {
-    innerStyle.maxWidth = containerSettings.width === "boxed" ? containerSettings.maxWidth : "100%";
+    innerStyle.width = "100%";
+    innerStyle.maxWidth = containerSettings.width === "boxed" ? `${containerSettings.maxWidth || 1200}px` : "100%";
     innerStyle.margin = containerSettings.width === "boxed" ? "0 auto" : undefined;
     innerStyle.minHeight = containerSettings.minHeight || undefined;
     innerStyle.zIndex = containerSettings.zindex || undefined;

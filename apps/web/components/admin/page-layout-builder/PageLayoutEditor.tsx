@@ -56,7 +56,7 @@ function HeroEditor({ block, onChange, themeColors }: EditorProps) {
             <input type="text" value={p.heading} onChange={(e) => set({ heading: e.target.value })} className={inputCls} />
           </label>
           <label className={labelCls}>Subheading
-            <RichTextEditor value={p.subheading} onChange={(v) => set({ subheading: v })} minHeight={60} />
+            <RichTextEditor value={p.subheading} onChange={(v) => set({ subheading: v })} minHeight={60} showSource />
           </label>
           <div className="grid grid-cols-2 gap-3">
             <GlobalColorPicker label="Background" value={p.bgColor} onChange={(c) => set({ bgColor: c })} paletteOverride={themeColors} />
@@ -100,7 +100,7 @@ function TextEditor({ block, onChange }: EditorProps) {
       {activeTab === "content" && (
         <div className="space-y-3">
           <label className={labelCls}>Content
-            <RichTextEditor value={p.content} onChange={(v) => set({ content: v })} minHeight={120} textColor={(p as Record<string, unknown>).textColor as string} />
+            <RichTextEditor value={p.content} onChange={(v) => set({ content: v })} minHeight={120} textColor={(p as Record<string, unknown>).textColor as string} showSource />
           </label>
         </div>
       )}
@@ -607,7 +607,7 @@ function CtaEditor({ block, onChange, themeColors }: EditorProps) {
             <input type="text" value={p.heading} onChange={(e) => set({ heading: e.target.value })} className={inputCls} />
           </label>
           <label className={labelCls}>Body
-            <RichTextEditor value={p.body} onChange={(v) => set({ body: v })} minHeight={60} />
+            <RichTextEditor value={p.body} onChange={(v) => set({ body: v })} minHeight={60} showSource />
           </label>
           <label className={labelCls}>Button Text
             <input type="text" value={p.buttonText} onChange={(e) => set({ buttonText: e.target.value })} className={inputCls} />

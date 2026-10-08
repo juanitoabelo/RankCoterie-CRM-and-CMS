@@ -12,7 +12,7 @@ import { PB_CONTAINER } from "@/components/admin/visual-editor/constants";
 import type { PageLayoutBlock, ContainerSettings } from "@/lib/page-layout/types";
 import { isRowBlock, isSectionBlock } from "@/lib/page-builder/types";
 import { resolveColumnWidths, renderColumnSpanClass } from "@/lib/page-builder/spans";
-import { styleScopeClass, renderStyleGuide } from "@/lib/page-builder/style";
+import { styleScopeClass, renderStyleGuide, scopeDynamicStyle } from "@/lib/page-builder/style";
 import type { StyleBreakpoints } from "@/lib/page-builder/types";
 import {
   getEntranceAnimationClass,
@@ -137,37 +137,40 @@ function RowRenderer({ block }: { block: Block }) {
 
   const RowTag = resolveTag(p.htmlTag, "div");
 
+  const rowScoped = scopeDynamicStyle(`${block.id}-row`, rowStyle);
+  const gridScoped = scopeDynamicStyle(`${block.id}-grid`, {
+    gap: p.gap,
+    rowGap: p.gapRow,
+    alignItems: p.align,
+    flexDirection: p.direction === "column" ? "column" : undefined,
+    flexWrap: p.wrap === "wrap" ? "wrap" : undefined,
+    ...getVerticalAlignStyle(p.verticalAlign),
+    ...getTypographyScopeStyle({
+      headingColor: p.headingColor,
+      textColor: p.textColor,
+      linkColor: p.linkColor,
+      linkHoverColor: p.linkHoverColor,
+      textAlign: p.textAlign,
+    }),
+  });
+
   const rowElement = (
     <RowTag
-      style={rowStyle}
       id={p.cssId || undefined}
       data-pb-el={block.id}
       data-pb-kind="row"
       data-pb-type={block.type}
-      className={rowClasses || undefined}
+      className={[rowClasses, rowScoped.className].filter(Boolean).join(" ") || undefined}
       {...rowAttrs}
     >
+      {rowScoped.node}
       {renderOverlay({ overlayColor: p.overlayColor, overlayOpacity: p.overlayOpacity })}
       {renderShapeDivider("top", p.shapeDividerTop, p.shapeDividerTopColor, p.shapeDividerTopWidth, p.shapeDividerTopHeight)}
       {renderShapeDivider("bottom", p.shapeDividerBottom, p.shapeDividerBottomColor, p.shapeDividerBottomWidth, p.shapeDividerBottomHeight)}
       <div
-        className={`grid grid-cols-12 ${reverseTablet} ${reverseMobile}`}
-        style={{
-          gap: p.gap,
-          rowGap: p.gapRow,
-          alignItems: p.align,
-          flexDirection: p.direction === "column" ? "column" : undefined,
-          flexWrap: p.wrap === "wrap" ? "wrap" : undefined,
-          ...getVerticalAlignStyle(p.verticalAlign),
-          ...getTypographyScopeStyle({
-            headingColor: p.headingColor,
-            textColor: p.textColor,
-            linkColor: p.linkColor,
-            linkHoverColor: p.linkHoverColor,
-            textAlign: p.textAlign,
-          }),
-        }}
+        className={`grid grid-cols-12 ${reverseTablet} ${reverseMobile} ${gridScoped.className}`.trim()}
       >
+        {gridScoped.node}
         {p.columns.map((col: any, idx: number) => {
           const widths = resolveColumnWidths(col, p.stackOnMobile);
           const spanClass = renderColumnSpanClass(widths);
@@ -208,16 +211,24 @@ function RowRenderer({ block }: { block: Block }) {
                 pointerEvents: "none",
               }
             : undefined;
+          const colScoped = scopeDynamicStyle(`${block.id}-col-${col.id}`, colStyle);
+          const colOverlayScoped = scopeDynamicStyle(
+            `${block.id}-col-${col.id}-overlay`,
+            colOverlayStyle,
+          );
           return (
             <div
               key={col.id}
-              className={[spanClass, col.cssClasses || ""].filter(Boolean).join(" ")}
-              style={colStyle}
+              className={[spanClass, col.cssClasses || "", colScoped.className].filter(Boolean).join(" ")}
               id={col.cssId || undefined}
               data-pb-el={col.id}
               data-pb-kind="column"
             >
-              {colOverlayStyle && <div style={colOverlayStyle} />}
+              {colScoped.node}
+              {colOverlayScoped.node}
+              {colOverlayScoped.className && (
+                <div className={colOverlayScoped.className} aria-hidden="true" />
+              )}
               <RenderBlocks blocks={col.blocks as PageLayoutBlock[]} />
             </div>
           );
@@ -308,19 +319,29 @@ function HeadingRenderer({ block }: { block: Block }) {
     headingStyle.backgroundRepeat = (p.bgRepeat as string) || "no-repeat";
   }
 
+  const headingScoped = scopeDynamicStyle(`${block.id}-heading`, headingStyle);
+
   const headingContent = (
     <Tag
-      className={`${HEADING_SIZES[level as keyof typeof HEADING_SIZES] || HEADING_SIZES[2]} ${alignCls} ${widthCls}`}
-      style={headingStyle}
+      className={`${HEADING_SIZES[level as keyof typeof HEADING_SIZES] || HEADING_SIZES[2]} ${alignCls} ${widthCls} ${headingScoped.className}`.trim()}
     >
+      {headingScoped.node}
       {p.text as string}
     </Tag>
   );
 
+  const linkScoped = scopeDynamicStyle(`${block.id}-link`, { color: "inherit" });
   const wrapped = p.link ? (
-    <a href={p.link as string} target={(p.linkTarget as string) || undefined} className="no-underline" style={{ color: "inherit" }}>
-      {headingContent}
-    </a>
+    <>
+      {linkScoped.node}
+      <a
+        href={p.link as string}
+        target={(p.linkTarget as string) || undefined}
+        className={`no-underline ${linkScoped.className}`.trim()}
+      >
+        {headingContent}
+      </a>
+    </>
   ) : headingContent;
 
   return (
@@ -334,15 +355,19 @@ function HeadingRenderer({ block }: { block: Block }) {
 
 function TextRenderer({ block }: { block: Block }) {
   const p = block.props as Record<string, unknown>;
+  const textScoped = scopeDynamicStyle(`${block.id}-text`, {
+    textAlign: (p.align as React.CSSProperties["textAlign"]) || undefined,
+    color: (p.textColor as string) || undefined,
+  });
   return (
     <BlockAdvancedFrame block={block}>
-      <div
-        style={{
-          textAlign: (p.align as React.CSSProperties["textAlign"]) || undefined,
-          color: (p.textColor as string) || undefined,
-        }}
-        dangerouslySetInnerHTML={{ __html: p.content as string }}
-      />
+      <>
+        {textScoped.node}
+        <div
+          className={textScoped.className || undefined}
+          dangerouslySetInnerHTML={{ __html: p.content as string }}
+        />
+      </>
     </BlockAdvancedFrame>
   );
 }
@@ -382,10 +407,13 @@ function ImageRenderer({ block }: { block: Block }) {
     transition: "opacity 0.3s ease",
   };
 
+  const imgScoped = scopeDynamicStyle(`${block.id}-image`, imgStyle);
+
   return (
     <BlockAdvancedFrame block={block}>
       <figure className={alignClass}>
-        <img src={p.src as string} alt={(p.alt as string) || ""} style={imgStyle} className="hover:opacity-75" />
+        {imgScoped.node}
+        <img src={p.src as string} alt={(p.alt as string) || ""} className={`hover:opacity-75 ${imgScoped.className}`.trim()} />
         {(p.caption as string) && (
           <figcaption className="mt-2 text-center text-sm text-zinc-500">
             {p.caption as string}
@@ -398,9 +426,13 @@ function ImageRenderer({ block }: { block: Block }) {
 
 function ButtonRenderer({ block }: { block: Block }) {
   const p = block.props as { text: string; url: string; align: string; variant: string };
+  const buttonScoped = scopeDynamicStyle(`${block.id}-button`, {
+    textAlign: p.align as React.CSSProperties["textAlign"],
+  });
   return (
     <BlockAdvancedFrame block={block}>
-      <div style={{ textAlign: p.align as React.CSSProperties["textAlign"] }}>
+      <div className={buttonScoped.className || undefined}>
+        {buttonScoped.node}
         <a
           href={p.url}
           className={`inline-block px-6 py-3 text-sm font-medium ${
@@ -418,9 +450,13 @@ function ButtonRenderer({ block }: { block: Block }) {
 
 function SpacerRenderer({ block }: { block: Block }) {
   const p = block.props as { height: number };
+  const spacerScoped = scopeDynamicStyle(`${block.id}-spacer`, { height: p.height });
   return (
     <BlockAdvancedFrame block={block}>
-      <div style={{ height: p.height }} />
+      <>
+        {spacerScoped.node}
+        <div className={spacerScoped.className || undefined} />
+      </>
     </BlockAdvancedFrame>
   );
 }
@@ -461,37 +497,45 @@ function TestimonialRenderer({ block }: { block: Block }) {
         : "grid-cols-1 sm:grid-cols-2";
 
   if (p.display === "slider") {
+    const trackScoped = scopeDynamicStyle(`${block.id}-testimonial-track`, { minWidth: "min-content" });
     return (
       <BlockAdvancedFrame block={block}>
         <div className="overflow-x-auto py-4">
-          <div className="flex gap-6" style={{ minWidth: "min-content" }}>
-            {items.map((item, i) => (
-              <figure
-                key={i}
-                className="flex-shrink-0 rounded-2xl bg-zinc-50 px-8 py-10 text-center"
-                style={{ width: `${100 / (p.itemsPerView ?? 2)}%`, minWidth: "300px" }}
-              >
-                {item.rating > 0 && (
-                  <div className="text-amber-400">
-                    {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
-                  </div>
-                )}
-                <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800">
-                  {item.quote}
-                </blockquote>
-                <figcaption className="mt-4 text-sm text-zinc-500">
-                  {item.avatar && (
-                    <img
-                      src={item.avatar}
-                      alt={item.author}
-                      className="mx-auto mb-2 h-10 w-10 rounded-full object-cover"
-                    />
+          <div className={`flex gap-6 ${trackScoped.className}`.trim()}>
+            {trackScoped.node}
+            {items.map((item, i) => {
+              const itemScoped = scopeDynamicStyle(`${block.id}-testimonial-item-${i}`, {
+                width: `${100 / (p.itemsPerView ?? 2)}%`,
+                minWidth: "300px",
+              });
+              return (
+                <figure
+                  key={i}
+                  className={`flex-shrink-0 rounded-2xl bg-zinc-50 px-8 py-10 text-center ${itemScoped.className}`.trim()}
+                >
+                  {itemScoped.node}
+                  {item.rating > 0 && (
+                    <div className="text-amber-400">
+                      {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
+                    </div>
                   )}
-                  — {item.author}
-                  {item.role ? `, ${item.role}` : ""}
-                </figcaption>
-              </figure>
-            ))}
+                  <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800">
+                    {item.quote}
+                  </blockquote>
+                  <figcaption className="mt-4 text-sm text-zinc-500">
+                    {item.avatar && (
+                      <img
+                        src={item.avatar}
+                        alt={item.author}
+                        className="mx-auto mb-2 h-10 w-10 rounded-full object-cover"
+                      />
+                    )}
+                    — {item.author}
+                    {item.role ? `, ${item.role}` : ""}
+                  </figcaption>
+                </figure>
+              );
+            })}
           </div>
         </div>
       </BlockAdvancedFrame>

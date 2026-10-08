@@ -2,7 +2,13 @@
  * @deprecated Import from "@/modules/listings" instead.
  * This file is maintained for backward compatibility.
  */
-export type { ActionResult, ListingFormInput } from "@/modules/listings/actions";
+export type {
+  ActionResult,
+  ListingFormInput,
+  DuplicateListing,
+  DuplicateCheckResult,
+  PreviewListingResult,
+} from "@/modules/listings/actions";
 export {
   createListing,
   updateListing,
@@ -10,4 +16,6 @@ export {
   rejectListing,
   approveListingForm,
   rejectListingForm,
+  checkDuplicateListing,
+  previewListing,
 } from "@/modules/listings/actions";

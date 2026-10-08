@@ -1,6 +1,6 @@
 import React from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { styleScopeClass } from "@/lib/page-builder/style";
+import { scopeDynamicStyle, styleScopeClass } from "@/lib/page-builder/style";
 import { spacingSideToCss } from "@/lib/spacing";
 
 /* ── Dynamic HTML Tag ──────────────────────────────────────────────────── */
@@ -122,30 +122,34 @@ export function renderOverlay(props: {
     const start = props.overlayGradientStart || props.overlayColor || "#000000";
     const end = props.overlayGradientEnd || props.overlayColor2 || start;
     const angle = props.overlayGradientAngle ?? 180;
+    const scoped = scopeDynamicStyle("overlay-gradient", {
+      position: "absolute",
+      inset: 0,
+      background: `linear-gradient(${angle}deg, ${start}, ${end})`,
+      opacity,
+      pointerEvents: "none",
+    });
     return (
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: `linear-gradient(${angle}deg, ${start}, ${end})`,
-          opacity,
-          pointerEvents: "none",
-        }}
-      />
+      <>
+        {scoped.node}
+        <div className={scoped.className} aria-hidden="true" />
+      </>
     );
   }
 
   if (!props.overlayColor && props.overlayOpacity === undefined) return null;
+  const scoped = scopeDynamicStyle("overlay-solid", {
+    position: "absolute",
+    inset: 0,
+    backgroundColor: props.overlayColor || "#000000",
+    opacity,
+    pointerEvents: "none",
+  });
   return (
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        backgroundColor: props.overlayColor || "#000000",
-        opacity,
-        pointerEvents: "none",
-      }}
-    />
+    <>
+      {scoped.node}
+      <div className={scoped.className} aria-hidden="true" />
+    </>
   );
 }
 
@@ -171,7 +175,7 @@ export function renderShapeDivider(
   const svgContent = SHAPE_SVGS[shape](color ?? "#ffffff");
   const w = width ?? 100;
   const h = height ?? 100;
-  const style: CSSProperties = {
+  const scoped = scopeDynamicStyle(`shape-${position}`, {
     position: "absolute",
     left: 0,
     right: 0,
@@ -181,16 +185,19 @@ export function renderShapeDivider(
     ...(position === "top"
       ? { top: 0, transform: "scaleY(-1)" }
       : { bottom: 0 }),
-  };
+  });
   return (
-    <div style={style} className="pointer-events-none" aria-hidden="true">
-      <svg
-        viewBox="0 0 1000 100"
-        preserveAspectRatio="none"
-        style={{ width: "100%", height: "100%" }}
-        dangerouslySetInnerHTML={{ __html: svgContent }}
-      />
-    </div>
+    <>
+      {scoped.node}
+      <div className={`pointer-events-none ${scoped.className}`.trim()} aria-hidden="true">
+        <svg
+          viewBox="0 0 1000 100"
+          preserveAspectRatio="none"
+          className="h-full w-full"
+          dangerouslySetInnerHTML={{ __html: svgContent }}
+        />
+      </div>
+    </>
   );
 }
 

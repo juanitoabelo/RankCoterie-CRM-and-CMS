@@ -68,13 +68,37 @@ export async function getArticleById(id: string) {
 export async function getArticleEditData(id: string) {
   const [article, categories, regions] = await Promise.all([
     prisma.contentTemplate.findUnique({
-      where: { id },
+      where: { id, tenantId: TENANT_ID },
       include: { variants: { select: { id: true, regionId: true, status: true } } },
     }),
     prisma.category.findMany({ orderBy: { slug: "asc" } }),
     prisma.region.findMany({ orderBy: [{ priority: "asc" }, { id: "asc" }] }),
   ]);
   return { article, categories, regions };
+}
+
+/** Fetch a small set of article data for single-template visual previews. */
+export async function getArticlePreviewOptions() {
+  return prisma.contentTemplate.findMany({
+    where: { tenantId: TENANT_ID },
+    orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+    take: 30,
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      body: true,
+      metaDesc: true,
+      seoTitle: true,
+      focusKeyphrase: true,
+      ogImage: true,
+      author: true,
+      createdAt: true,
+      publishedAt: true,
+      category: { select: { slug: true, title: true } },
+      featuredImage: { select: { id: true, alt: true, caption: true } },
+    },
+  });
 }
 
 // ============================================================================

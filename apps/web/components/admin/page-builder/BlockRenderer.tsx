@@ -4,11 +4,13 @@ import {
   renderColumnSpanClass,
   resolveColumnWidths,
 } from "@/lib/page-builder/spans";
-import { renderStyleGuide, styleScopeClass } from "@/lib/page-builder/style";
+import { renderStyleGuide, styleScopeClass, scopeDynamicStyle } from "@/lib/page-builder/style";
 import { renderLocalizedContent, type RegionContext } from "@/lib/localization/render";
 import SliderCarousel from "./SliderCarousel";
 import ContentGridFrontend from "./ContentGridFrontend";
 import ProductGridFrontend from "./ProductGridFrontend";
+import BlogPostGridFrontend from "./BlogPostGridFrontend";
+import ApplyListingForm from "@/components/apply/ApplyListingForm";
 import {
   getEntranceAnimationClass,
   getVisibilityClasses,
@@ -62,14 +64,17 @@ function sectionPadding(block: Block): React.CSSProperties {
 }
 
 function HeroBlock({ block, ctx }: { block: Block & { type: "hero" }; ctx: RegionContext }) {
+  const heroScoped = scopeDynamicStyle(`${block.id}-hero`, {
+    ...sectionPadding(block),
+    backgroundColor: block.props.bgColor,
+    color: block.props.textColor,
+  });
   return (
     <BlockAdvancedFrame block={block}>
       {styleScope(
         block,
-        <section
-          className="px-6 py-12 text-center"
-          style={{ ...sectionPadding(block), backgroundColor: block.props.bgColor, color: block.props.textColor }}
-        >
+        <section className={`px-6 py-12 text-center ${heroScoped.className}`.trim()}>
+          {heroScoped.node}
           <div className="mx-auto max-w-4xl">
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
               {renderLocalizedContent(block.props.heading, ctx)}
@@ -94,16 +99,33 @@ function TextBlock({ block, ctx }: { block: Block & { type: "text" }; ctx: Regio
       : p.align === "right"
         ? "text-right"
         : "text-left";
+  const sectionScoped = scopeDynamicStyle(`${block.id}-section`, sectionPadding(block));
+  const textColorScoped = scopeDynamicStyle(
+    `${block.id}-text-color`,
+    p.textColor ? { color: p.textColor } : undefined,
+  );
   return (
     <BlockAdvancedFrame block={block}>
       {styleScope(
         block,
-        <section className="px-6 py-4" style={sectionPadding(block)}>
-          <div
-            className={`mx-auto max-w-3xl leading-relaxed rte-content ${alignCls} ${p.textColor ? "" : "text-zinc-700"}`}
-            style={p.textColor ? { color: p.textColor } : undefined}
-            dangerouslySetInnerHTML={{ __html: renderLocalizedContent(p.content, ctx) }}
-          />
+        <section className={`px-6 py-4 ${sectionScoped.className}`.trim()}>
+          {sectionScoped.node}
+          <>
+            {textColorScoped.node}
+            <div
+              className={
+                [
+                  "mx-auto max-w-3xl leading-relaxed rte-content",
+                  alignCls,
+                  p.textColor ? "" : "text-zinc-700",
+                  textColorScoped.className,
+                ]
+                  .filter(Boolean)
+                  .join(" ") || undefined
+              }
+              dangerouslySetInnerHTML={{ __html: renderLocalizedContent(p.content, ctx) }}
+            />
+          </>
         </section>,
       )}
     </BlockAdvancedFrame>
@@ -147,20 +169,28 @@ function ImageBlock({ block }: { block: Block & { type: "image" } }) {
 
   const alignmentClass = p.alignment === "center" ? "mx-auto" : p.alignment === "right" ? "ml-auto" : "";
 
+  const containerScoped = scopeDynamicStyle(`${block.id}-container`, containerStyle);
+  const figureScoped = scopeDynamicStyle(`${block.id}-figure`, { maxWidth: "100%" });
+  const imgScoped = scopeDynamicStyle(`${block.id}-image`, imgStyle);
+
   return (
     <BlockAdvancedFrame block={block}>
-      <div style={containerStyle}>
-        <figure className={alignmentClass} style={{ maxWidth: "100%" }}>
+      <div className={containerScoped.className || undefined}>
+        {containerScoped.node}
+        <figure className={[alignmentClass, figureScoped.className].filter(Boolean).join(" ") || undefined}>
+          {figureScoped.node}
           {p.src ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={p.src}
-              alt={p.alt}
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              style={imgStyle}
-              className="hover:opacity-75"
-            />
+            <>
+              {imgScoped.node}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={p.src}
+                alt={p.alt}
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                className={`hover:opacity-75 ${imgScoped.className}`.trim()}
+              />
+            </>
           ) : (
             <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-zinc-300 text-sm text-zinc-400">
               Image placeholder
@@ -646,6 +676,14 @@ function ProductGridBlock({ block }: { block: Block & { type: "productGrid" } })
   return (
     <BlockAdvancedFrame block={block}>
       {styleScope(block, <ProductGridFrontend props={block.props} />)}
+    </BlockAdvancedFrame>
+  );
+}
+
+function BlogPostGridBlock({ block }: { block: Block & { type: "blogPostGrid" } }) {
+  return (
+    <BlockAdvancedFrame block={block}>
+      {styleScope(block, <BlogPostGridFrontend props={block.props} />)}
     </BlockAdvancedFrame>
   );
 }
@@ -1239,6 +1277,31 @@ function VideoBlock({ block }: { block: Block; ctx: RegionContext }) {
   );
 }
 
+function ListingApplyFormBlock({
+  block,
+  ctx,
+}: {
+  block: Block & { type: "listingApplyForm" };
+  ctx: RegionContext;
+}) {
+  const p = block.props;
+  return (
+    <BlockAdvancedFrame block={block}>
+      {styleScope(
+        block,
+        <section className="px-6 py-6" style={sectionPadding(block)}>
+          <ApplyListingForm
+            heading={renderLocalizedContent(p.heading, ctx)}
+            subheading={renderLocalizedContent(p.subheading, ctx)}
+            showHeading={p.showHeading}
+            submitLabel={renderLocalizedContent(p.submitLabel, ctx) || "Continue to payment"}
+          />
+        </section>,
+      )}
+    </BlockAdvancedFrame>
+  );
+}
+
 const RENDERERS: Record<string, React.ComponentType<{ block: Block; ctx: RegionContext }>> = {
   hero: HeroBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   text: TextBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
@@ -1259,6 +1322,8 @@ const RENDERERS: Record<string, React.ComponentType<{ block: Block; ctx: RegionC
   slider: SliderBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   contentGrid: ContentGridBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   productGrid: ProductGridBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  blogPostGrid: BlogPostGridBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  listingApplyForm: ListingApplyFormBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   row: RowBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   section: SectionBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
 };

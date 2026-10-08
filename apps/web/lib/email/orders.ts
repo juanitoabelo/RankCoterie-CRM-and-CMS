@@ -118,6 +118,21 @@ async function send(order: OrderEmailData, subject: string, title: string, body:
   if (!result.ok) console.warn(`[email] ${subject} → ${order.email} failed: ${result.error}`);
 }
 
+/** Sent when order is first created (PENDING) — confirmation with payment link. */
+export async function sendOrderConfirmationEmail(order: OrderEmailData): Promise<void> {
+  try {
+    await send(
+      order,
+      `Order placed — order ${order.orderNumber}`,
+      "Thank you for your order!",
+      `<p style="font-size:14px;color:#3f3f46;">Your order <strong>${esc(order.orderNumber)}</strong> has been received and is awaiting payment.</p>
+<p style="font-size:14px;color:#3f3f46;">Please complete payment <a href="${siteUrl()}/orders?order=${encodeURIComponent(order.orderNumber)}">here</a> to confirm your order.</p>`,
+    );
+  } catch (e) {
+    console.warn("[email] order confirmation email failed:", e);
+  }
+}
+
 /** Payment received / order confirmation. */
 export async function sendOrderPaidEmail(order: OrderEmailData): Promise<void> {
   try {
@@ -163,4 +178,40 @@ export async function sendOrderRefundEmail(order: OrderEmailData, amount?: numbe
   } catch (e) {
     console.warn("[email] refund email failed:", e);
   }
+}
+
+/** Sent when a customer's payment fails — notification with retry reminder. */
+export async function sendPaymentFailedEmail(
+  invoice: Stripe.Invoice,
+  subscription: Stripe.Subscription,
+  listingId: string,
+): Promise<void> {
+  // Use Stripe's billing email if available, otherwise skip
+  const email = invoice.billing_email ?? null;
+  if (!email) return;
+
+  const DUNNING_GRACE_DAYS = 7;
+  const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+
+  const graceDays = Math.ceil(DUNNING_GRACE_DAYS / 7);
+  const html = `<!doctype html><html><body style="margin:0;background:#f4f4f5;font-family:system-ui,-apple-system,sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:32px 16px;">
+    <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:28px;">
+      <h1 style="font-size:18px;margin:0 0 16px;color:#18181b;">Payment Failed — Action Required</h1>
+      <p style="font-size:14px;color:#3f3f46;">
+        Unfortunately, the payment for your listing <strong>${listingId}</strong> failed.
+      </p>
+      <p style="font-size:14px;color:#3f3f46;">
+        Your listing is currently suspended and will be <strong>expired</strong> <span style="font-variant-numeric:lining-nums;">${graceDays}</span> day(s) from now if payment is not recovered.
+      </p>
+      <p style="font-size:14px;color:#3f3f46;">
+        <a href="${siteUrl}/checkout?listing=${listingId}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6;text-decoration:none;font-size:14px;display:inline-block;">Retry Payment</a>
+      </p>
+      <p style="font-size:12px;color:#71717a;font-size:12px;margin-top:24px;">This is a transactional message from Canopy.</p>
+    </div></body></html>`;
+
+  const text = `Payment failed for listing ${listingId}. Your listing is suspended and will expire in ${graceDays} day(s). Retry payment at ${siteUrl}/checkout?listing=${listingId}`;
+
+  const result = await sendEmail({ to: email, subject: `Payment failed — listing ${listingId}`, html, text });
+  if (!result.ok) console.warn(`[email] payment failed email → ${email} failed: ${result.error}`);
 }

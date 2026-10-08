@@ -43,6 +43,8 @@ const GEO_BLOCKS: Array<{ type: string; icon: string; label: string }> = [
   { type: "geoListings", icon: "🏛", label: "Listings" },
   { type: "geoFaq", icon: "❓", label: "Category FAQ" },
   { type: "geoSidebar", icon: "📋", label: "Sidebar" },
+  { type: "geoRegionChips", icon: "🏙", label: "City Chips" },
+  { type: "geoFilterBar", icon: "⚙️", label: "Filter Bar" },
 ];
 
 export default function GeoCategoryTemplatePalette({

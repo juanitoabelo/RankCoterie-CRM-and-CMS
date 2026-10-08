@@ -9,7 +9,7 @@ export default async function ContentAdminPage() {
   const [templates, regions] = await Promise.all([
     prisma.contentTemplate.findMany({
       orderBy: { updatedAt: "desc" },
-      include: { variants: { select: { status: true } } },
+      include: { variants: { select: { regionId: true, status: true } } },
     }),
     prisma.region.findMany({ orderBy: [{ priority: "asc" }, { id: "asc" }] }),
   ]);
@@ -19,6 +19,7 @@ export default async function ContentAdminPage() {
     title: t.title,
     status: t.status,
     variantCount: t.variants.length,
+    regionIds: t.variants.map((v) => v.regionId),
   }));
 
   const pickerRegions: PickerRegion[] = regions.map((r) => ({

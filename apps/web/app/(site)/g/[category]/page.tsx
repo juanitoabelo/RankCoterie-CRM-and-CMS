@@ -9,6 +9,7 @@ import { getListingPage } from "@/lib/directory/listingQuery";
 import { renderLocalizedContent } from "@/lib/localization/render";
 import {
   resolveGeoCategoryTemplate,
+  resolveGeoCategoryContainerStyle,
   parseGeoCategoryTemplateData,
 } from "@/modules/geo-category-template";
 import GeoCategoryTemplateRenderer from "@/components/admin/geo-category-template-builder/GeoCategoryTemplateRenderer";
@@ -201,8 +202,12 @@ export default async function CategoryPage({ params }: Props) {
     }
   }
 
+  // Legacy fallback (no template / empty blocks): still honor the category's
+  // container width so the page never renders edge-to-edge.
+  const containerStyle = await resolveGeoCategoryContainerStyle(cat.id);
+
   return (
-    <div>
+    <div style={containerStyle}>
       {scripts}
 
       <p className="text-sm text-zinc-500">

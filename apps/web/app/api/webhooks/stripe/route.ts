@@ -13,9 +13,10 @@
  */
 import Stripe from "stripe";
 import { prisma, TENANT_ID } from "@/modules/shared";
-import { readStripeConfig } from "@/lib/billing/checkout";
+import { readStripeConfig, readListingPaymentConfig } from "@/lib/billing/checkout";
 import { logAudit } from "@/lib/audit";
 import { markOrderPaid } from "@/lib/billing/payment-events";
+import { sendPaymentFailedEmail } from "@/lib/email/orders";
 // Dunning grace: listing stays visible for N days after the failed charge
 // (README design decision #3: dunning → suspend → expire).
 const DUNNING_GRACE_DAYS = 7;
@@ -29,16 +30,35 @@ function stripe(): Stripe {
   return new Stripe(stripeSecretKey);
 }
 
-/** Load Stripe credentials: gateway admin config first, env as fallback. */
-async function loadStripeCredentials(): Promise<{ secretKey: string | null; webhookSecret: string | null }> {
-  const gateway = await prisma.paymentGateway
-    .findFirst({
-      where: { tenantId: TENANT_ID, type: "STRIPE", isEnabled: true },
-      orderBy: { createdAt: "asc" },
-    })
-    .catch(() => null);
-  const cfg = readStripeConfig(gateway?.config);
-  return { secretKey: cfg?.secretKey ?? null, webhookSecret: cfg?.webhookSecret ?? null };
+/** Load all configured Stripe credential sets (gateway config first, then listing payment config). */
+async function loadStripeCredentialsCandidates(): Promise<{ secretKey: string; webhookSecret: string }[]> {
+  const gateways = await prisma.paymentGateway.findMany({
+    where: { tenantId: TENANT_ID, type: "STRIPE", isEnabled: true },
+    orderBy: { createdAt: "asc" },
+  });
+  const candidates: { secretKey: string; webhookSecret: string }[] = [];
+  for (const gateway of gateways) {
+    const cfg = readStripeConfig(gateway.config);
+    if (cfg?.secretKey && cfg?.webhookSecret) candidates.push({ secretKey: cfg.secretKey, webhookSecret: cfg.webhookSecret });
+  }
+  const tenant = await prisma.tenant.findUnique({ where: { id: TENANT_ID } }).catch(() => null);
+  const listingCfg = readListingPaymentConfig(tenant?.theme ?? {});
+  if (listingCfg?.secretKey && listingCfg?.webhookSecret) {
+    candidates.push({ secretKey: listingCfg.secretKey, webhookSecret: listingCfg.webhookSecret });
+  }
+  if (candidates.length === 0) {
+    const secretKey = process.env.STRIPE_SECRET_KEY ?? null;
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? null;
+    if (secretKey && webhookSecret) return [{ secretKey, webhookSecret }];
+  }
+  // Deduplicate identical credentials (env fallbacks can overlap with gateway/listing config).
+  const seen = new Set<string>();
+  return candidates.filter((c) => {
+    const k = `${c.secretKey}|${c.webhookSecret}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
 }
 
 // Stripe SDK v22 dropped `current_period_end` / `Invoice.subscription` from its
@@ -144,6 +164,9 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
     reason: `Payment failed — dunning grace until ${graceUntil.toISOString()}`,
     meta: { source: "invoice.payment_failed" },
   });
+
+  // Send customer notification email about payment failure
+  await sendPaymentFailedEmail(invoice, sub, listingId).catch(() => {});
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
@@ -228,19 +251,24 @@ async function handleChargeDisputeCreated(dispute: Stripe.Dispute) {
 }
 
 export async function POST(req: Request) {
-  const credentials = await loadStripeCredentials();
-  stripeSecretKey = credentials.secretKey;
-  const secret = credentials.webhookSecret;
+  const candidates = await loadStripeCredentialsCandidates();
   const payload = await req.text();
   const signature = req.headers.get("stripe-signature");
-  if (!secret || !signature) {
+  if (candidates.length === 0 || !signature) {
     return new Response("Webhook not configured", { status: 400 });
   }
 
-  let event: Stripe.Event;
-  try {
-    event = stripe().webhooks.constructEvent(payload, signature, secret);
-  } catch {
+  let event: Stripe.Event | null = null;
+  for (const candidate of candidates) {
+    stripeSecretKey = candidate.secretKey;
+    try {
+      event = stripe().webhooks.constructEvent(payload, signature, candidate.webhookSecret);
+      break;
+    } catch {
+      continue;
+    }
+  }
+  if (!event) {
     return new Response("Invalid signature", { status: 400 });
   }
 

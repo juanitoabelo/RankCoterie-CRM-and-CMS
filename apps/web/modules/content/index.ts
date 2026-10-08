@@ -42,6 +42,8 @@ export { getArticlesForAdmin } from "./queries";
 export { getArticleById } from "./queries";
 /** Get article edit data with categories and regions */
 export { getArticleEditData } from "./queries";
+/** Get recent tenant articles for visual template previews */
+export { getArticlePreviewOptions } from "./queries";
 /** Get all categories */
 export { getCategories } from "./queries";
 /** Get categories for admin with parent info */

@@ -1,4 +1,5 @@
 import { getArticlesForAdmin } from "@/modules/content";
+import ImageUploader from "@/components/admin/ImageUploader";
 import { createArticleForm, deleteArticleForm } from "./actions";
 
 export const revalidate = 0;
@@ -23,31 +24,58 @@ export default async function ArticlesAdminPage() {
         className="mt-8 rounded-xl border border-zinc-200 bg-white p-5"
       >
         <h2 className="text-sm font-medium text-zinc-900">Create article</h2>
-        <div className="mt-3 grid gap-3 sm:grid-cols-4">
-          <input
-            name="title"
-            placeholder="Article title *"
-            required
-            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-          />
-          <textarea
-            name="body"
-            placeholder="Body HTML *"
-            required
-            rows={1}
-            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-          />
-          <input
-            name="metaDesc"
-            placeholder="Meta description (optional)"
-            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-          />
-          <button
-            type="submit"
-            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-          >
-            Create
-          </button>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="new-article-title" className="block text-sm font-medium text-zinc-800">
+              Article title <span aria-hidden="true">*</span>
+            </label>
+            <input
+              id="new-article-title"
+              name="title"
+              required
+              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label htmlFor="new-article-meta-desc" className="block text-sm font-medium text-zinc-800">
+              Meta Description
+            </label>
+            <textarea
+              id="new-article-meta-desc"
+              name="metaDesc"
+              rows={3}
+              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label htmlFor="new-article-body" className="block text-sm font-medium text-zinc-800">
+              Body HTML <span aria-hidden="true">*</span>
+            </label>
+            <textarea
+              id="new-article-body"
+              name="body"
+              required
+              rows={8}
+              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 font-mono text-sm"
+            />
+          </div>
+          <div className="sm:col-span-2 rounded-lg border border-zinc-200 p-4">
+            <h3 className="text-sm font-medium text-zinc-800">Featured image</h3>
+            <p className="mt-1 text-xs text-zinc-500">
+              Recommended dimensions: 1200 × 630 px (1.91:1 landscape).
+            </p>
+            <div className="mt-3">
+              <ImageUploader name="featuredImageAssetId" label="Upload featured image" />
+            </div>
+          </div>
+          <div className="sm:col-span-2">
+            <button
+              type="submit"
+              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+            >
+              Create
+            </button>
+          </div>
         </div>
       </form>
 

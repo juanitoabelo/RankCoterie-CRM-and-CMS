@@ -13,6 +13,7 @@ export {
   listGeoCategoryTemplateRevisions,
   restoreGeoCategoryTemplateRevision,
   resolveGeoCategoryTemplate,
+  resolveGeoCategoryContainerStyle,
   getGeoCategoryTemplateAssignment,
   assignGeoCategoryTemplate,
 } from "./queries";

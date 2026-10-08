@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   buildCheckoutParams,
+  DEFAULT_FREE_GRACE_DAYS,
   getPriceId,
   getSetupFeeId,
   isStripeConfigured,
+  readFreeGraceDays,
 } from "./checkout";
 
 describe("buildCheckoutParams", () => {
@@ -76,5 +78,47 @@ describe("buildCheckoutParams", () => {
     expect(isStripeConfigured()).toBe(false); // no SECRET_KEY yet
     process.env.STRIPE_SECRET_KEY = "sk_test_x";
     expect(isStripeConfigured()).toBe(true);
+  });
+});
+describe("readFreeGraceDays", () => {
+  const OLD_ENV = process.env;
+
+  beforeEach(() => {
+    process.env = { ...OLD_ENV };
+    delete process.env.LISTING_FREE_GRACE_DAYS;
+  });
+
+  afterEach(() => {
+    process.env = OLD_ENV;
+  });
+
+  it("defaults to 90 days when unconfigured", () => {
+    expect(readFreeGraceDays({})).toBe(DEFAULT_FREE_GRACE_DAYS);
+    expect(readFreeGraceDays()).toBe(DEFAULT_FREE_GRACE_DAYS);
+  });
+
+  it("reads the tenant listingPayment.freeGraceDays setting", () => {
+    expect(readFreeGraceDays({ listingPayment: { freeGraceDays: 30 } })).toBe(30);
+    expect(readFreeGraceDays({ freeGraceDays: 14 })).toBe(14);
+    expect(readFreeGraceDays({ listingPayment: { freeGraceDays: "45" } })).toBe(45);
+  });
+
+  it("honours a 0-day setting (FREE never publicly visible)", () => {
+    expect(readFreeGraceDays({ listingPayment: { freeGraceDays: 0 } })).toBe(0);
+    expect(readFreeGraceDays({ listingPayment: { freeGraceDays: "0" } })).toBe(0);
+  });
+
+  it("falls back to env, then default", () => {
+    process.env.LISTING_FREE_GRACE_DAYS = "60";
+    expect(readFreeGraceDays({})).toBe(60);
+    expect(readFreeGraceDays({ listingPayment: { freeGraceDays: 30 } })).toBe(30);
+    delete process.env.LISTING_FREE_GRACE_DAYS;
+    expect(readFreeGraceDays({ listingPayment: { freeGraceDays: "abc" } })).toBe(DEFAULT_FREE_GRACE_DAYS);
+    expect(readFreeGraceDays({ listingPayment: { freeGraceDays: -5 } })).toBe(DEFAULT_FREE_GRACE_DAYS);
+  });
+
+  it("clamps absurd values to 3650 and floors fractions", () => {
+    expect(readFreeGraceDays({ listingPayment: { freeGraceDays: 99999 } })).toBe(3650);
+    expect(readFreeGraceDays({ listingPayment: { freeGraceDays: 10.7 } })).toBe(10);
   });
 });

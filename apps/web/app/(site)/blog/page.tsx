@@ -58,7 +58,7 @@ export default async function BlogPage() {
               {articles.map((article) => (
                 <a
                   key={article.id}
-                  href={`/article/${article.slug}`}
+                  href={`/${article.slug}`}
                   className="group rounded-lg border border-zinc-200 bg-white p-6 transition hover:shadow-md"
                 >
                   {article.ogImage && (

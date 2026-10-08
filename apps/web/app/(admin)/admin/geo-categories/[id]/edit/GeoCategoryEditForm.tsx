@@ -8,6 +8,7 @@ import RichTextarea from "@/components/admin/RichTextarea";
 import ImageUploader from "@/components/admin/ImageUploader";
 import SeoFields, { type SeoData } from "@/components/admin/SeoFields";
 import GeoTemplateAssignmentCard from "@/components/admin/geo-category-template-builder/GeoTemplateAssignmentCard";
+import { assignGeoCategoryTemplateAction } from "@/app/(admin)/admin/geo-category-template/actions";
 
 function parseKeywords(raw: string | null | undefined): string[] {
   if (!raw) return [];
@@ -123,8 +124,24 @@ export default function EditGeoCategoryForm({
     formData.set("robotsIndex", seoData.robotsIndex ? "true" : "false");
     formData.set("robotsFollow", seoData.robotsFollow ? "true" : "false");
     formData.set("jsonSchema", seoData.jsonSchema);
+    const geoTemplateId = formData.get("geoTemplateId");
     startTransition(async () => {
       const res = await updateGeoCategory(category.id, formData);
+      if (!res.ok) {
+        setMessage(res);
+        return;
+      }
+      const selected = typeof geoTemplateId === "string" ? geoTemplateId : "";
+      if (selected !== (assignedTemplateId ?? "")) {
+        const assignRes = await assignGeoCategoryTemplateAction(
+          category.id,
+          selected === "" ? null : selected,
+        );
+        if (!assignRes.ok) {
+          setMessage(assignRes);
+          return;
+        }
+      }
       setMessage(res);
     });
   }

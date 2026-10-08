@@ -133,14 +133,25 @@ export default function RichTextEditor({
     <div className="overflow-hidden rounded-lg border border-zinc-300 bg-white">
       {showSource && sourceMode ? (
         <div className="p-2">
+          <div className="flex items-center justify-between mb-2 border-b border-zinc-200 bg-zinc-50 px-1.5 py-1">
+            <p className="text-xs text-zinc-500">Editing HTML source</p>
+            <button
+              type="button"
+              onClick={toggleSource}
+              className="rounded-md px-2 py-1 text-[11px] font-medium text-zinc-600 ring-1 ring-inset ring-zinc-300 hover:bg-zinc-100"
+            >
+              Visual Editor
+            </button>
+          </div>
           <textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             rows={Math.max(6, Math.round(minHeight / 20))}
-            className="w-full resize-y rounded-md border border-zinc-300 bg-zinc-950 px-3 py-2 font-mono text-xs leading-relaxed text-zinc-100 focus:border-zinc-500 focus:outline-none"
+            className="w-full resize-y rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-xs leading-relaxed text-zinc-900 focus:border-zinc-500 focus:outline-none"
+            spellCheck="false"
           />
           <p className="mt-1 text-[11px] text-zinc-400">
-            Editing HTML source. Switch back to Visual to format.
+            Editing HTML source. Click "Visual Editor" above to switch back.
           </p>
         </div>
       ) : (

@@ -24,6 +24,8 @@ import {
 import { getCartBySession } from "@/modules/ecommerce/queries";
 import { readExistingCartSession } from "@/lib/cart-session";
 import { getSessionUid } from "@/modules/auth/session";
+import { throttle } from "@/lib/throttle";
+import { toOrderEmailData, sendOrderConfirmationEmail } from "@/lib/email/orders";
 
 export type PurchaseResult =
   | { ok: true; url: string }
@@ -497,6 +499,13 @@ async function placeOrder(
     return { ok: false, error: e instanceof Error ? e.message : "Could not create your order." };
   }
 
+  // Send order confirmation email when order is first created (PENDING status).
+  // This complements the abandoned-order sweep by confirming before cancelation.
+  if (order) {
+    const emailData = toOrderEmailData(order as any);
+    await sendOrderConfirmationEmail(emailData).catch(() => {});
+  }
+
   // Consume one coupon usage now that the order exists (limits are checked
   // at quote time, so this makes usedCount authoritative). Released again if
   // the order is later deleted/cancelled before payment (releaseOrderCoupon).
@@ -553,6 +562,9 @@ function validateAddress(address: Address, requiresShipping: boolean): string | 
 
 /** Buy now from the single product page. */
 export async function purchaseProduct(formData: FormData): Promise<PurchaseResult> {
+  const throttled = await throttle("placeOrder", 10, 60_000);
+  if (throttled) return { ok: false, error: throttled };
+
   const productId = String(formData.get("productId") ?? "").trim();
   const gatewayId = String(formData.get("gatewayId") ?? "").trim();
   const quantity = Math.min(999, Math.max(1, parseInt(String(formData.get("quantity") ?? "1"), 10) || 1));
@@ -582,6 +594,9 @@ export async function purchaseProduct(formData: FormData): Promise<PurchaseResul
 
 /** Place an order for everything in the cart. */
 export async function checkoutCart(formData: FormData): Promise<PurchaseResult> {
+  const throttled = await throttle("placeOrder", 10, 60_000);
+  if (throttled) return { ok: false, error: throttled };
+
   const gatewayId = String(formData.get("gatewayId") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim() || null;
   const checkoutToken = normalizeCheckoutToken(formData.get("checkoutToken"));
@@ -617,6 +632,9 @@ export async function checkoutCart(formData: FormData): Promise<PurchaseResult> 
 
 /** Apply a coupon code to the current cart (validated immediately). */
 export async function applyCouponToCart(formData: FormData): Promise<CouponActionResult> {
+  const throttled = await throttle("coupon", 15, 60_000);
+  if (throttled) return { ok: false, error: throttled };
+
   const code = String(formData.get("code") ?? "").trim();
   if (!code) return { ok: false, error: "Enter a coupon code." };
 

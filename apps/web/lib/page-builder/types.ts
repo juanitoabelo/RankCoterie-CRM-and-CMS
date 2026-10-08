@@ -408,10 +408,13 @@ export interface BlogPostGridBlock extends BlockBase {
     layout: "grid" | "list" | "masonry";
     /** @deprecated Use columnsDesktop/tablet/mobile instead. Legacy fallback. */
     columns: 1 | 2 | 3;
-    columnsDesktop: 1 | 2 | 3;
-    columnsTablet?: 1 | 2 | 3;
-    columnsMobile?: 1 | 2 | 3;
+    columnsDesktop: 1 | 2 | 3 | 4 | 5 | 6;
+    columnsTablet?: 1 | 2 | 3 | 4 | 5 | 6;
+    columnsMobile?: 1 | 2 | 3 | 4 | 5 | 6;
     postsPerPage: number;
+    categoryId: string;
+    showCategoryFilter: boolean;
+    filterCategories: string[];
     showExcerpt: boolean;
     excerptLength: number;
     showFeaturedImage: boolean;
@@ -419,7 +422,12 @@ export interface BlogPostGridBlock extends BlockBase {
     showDate: boolean;
     showCategory: boolean;
     showPagination: boolean;
+    showSearch: boolean;
+    searchPlaceholder: string;
     orderBy: "date" | "title" | "popular";
+    sortOrder: "asc" | "desc";
+    cardAnimation: "fadeUp" | "zoomIn" | "flip" | "slideIn" | "none";
+    hoverEffect: "lift" | "zoom" | "glow" | "overlay" | "none";
     cardStyle?: "bordered" | "shadow" | "minimal";
     imageAspect?: "16:9" | "4:3" | "1:1";
     style?: StyleBreakpoints;
@@ -451,6 +459,10 @@ export interface ProductGridBlock extends BlockBase {
     showWishlist: boolean;
     showCategory: boolean;
     showPagination: boolean;
+    showCount?: boolean;
+    showSort?: boolean;
+    showBadges?: boolean;
+    showTitle?: boolean;
     orderBy: "price" | "date" | "popular" | "name" | "menuOrder";
     sortOrder: "asc" | "desc";
     /** Entrance animation played for each product card as it scrolls in. */
@@ -511,6 +523,21 @@ export interface ArticleHeroBlock extends BlockBase {
     showDate: boolean;
     bgColor?: string;
     textColor?: string;
+    style?: StyleBreakpoints;
+  };
+}
+
+/**
+ * Public listing application form. Renders the full /apply form (tiers,
+ * details, categories, regions, submit) inline on any page.
+ */
+export interface ListingApplyFormBlock extends BlockBase {
+  type: "listingApplyForm";
+  props: {
+    heading: string;
+    subheading: string;
+    showHeading: boolean;
+    submitLabel: string;
     style?: StyleBreakpoints;
   };
 }
@@ -799,6 +826,7 @@ export type Block =
   | BlogSidebarBlock
   | ArticleContentBlock
   | ArticleHeroBlock
+  | ListingApplyFormBlock
   | RowBlock
   | SectionBlock;
 
@@ -837,6 +865,7 @@ export const LEAF_BLOCK_TYPES: BlockType[] = [
   "blogSidebar",
   "articleContent",
   "articleHero",
+  "listingApplyForm",
 ];
 
 /** Id prefix used by draggable palette items so drag events can be distinguished from real blocks. */
@@ -1132,6 +1161,9 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       columnsTablet: 2,
       columnsMobile: 1,
       postsPerPage: 9,
+      categoryId: "",
+      showCategoryFilter: false,
+      filterCategories: [],
       showExcerpt: true,
       excerptLength: 150,
       showFeaturedImage: true,
@@ -1139,7 +1171,12 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       showDate: true,
       showCategory: true,
       showPagination: true,
+      showSearch: false,
+      searchPlaceholder: "Search posts...",
       orderBy: "date",
+      sortOrder: "desc",
+      cardAnimation: "fadeUp",
+      hoverEffect: "lift",
       cardStyle: "shadow",
       imageAspect: "16:9",
     },
@@ -1177,6 +1214,10 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       inStockOnly: false,
       showSearch: true,
       searchPlaceholder: "Search products...",
+      showCount: true,
+      showSort: true,
+      showBadges: true,
+      showTitle: true,
       cardStyle: "shadow",
       imageAspect: "16:9",
     },
@@ -1221,6 +1262,18 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       showCategory: true,
       showAuthor: true,
       showDate: true,
+    },
+  },
+  {
+    type: "listingApplyForm",
+    label: "Listing Apply Form",
+    icon: "📝",
+    defaults: {
+      heading: "Apply to get listed",
+      subheading:
+        "Get your program listed in the directory with a local SEO page per region. Pay a one-time setup fee plus a monthly subscription after review.",
+      showHeading: true,
+      submitLabel: "Continue to payment",
     },
   },
 ];

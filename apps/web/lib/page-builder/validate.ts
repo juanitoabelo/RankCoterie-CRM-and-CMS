@@ -141,16 +141,24 @@ export function validateBlock(block: Block): string[] {
     case "video":
       if (!block.props.link?.trim()) errors.push("Provide a video URL.");
       break;
-    case "blogPostGrid":
-      if (!(block.props.columns >= 1 && block.props.columns <= 6)) errors.push("Columns must be between 1 and 6.");
+    case "blogPostGrid": {
+      const columns = block.props.columnsDesktop ?? block.props.columns;
+      if (!(columns >= 1 && columns <= 6)) errors.push("Columns must be between 1 and 6.");
       if (!(block.props.postsPerPage >= 1 && block.props.postsPerPage <= 48)) errors.push("Posts per page must be between 1 and 48.");
+      if (block.props.excerptLength < 0 || block.props.excerptLength > 500) errors.push("Excerpt length must be between 0 and 500 characters.");
       break;
+    }
     case "blogSidebar":
       if (!block.props.widgets || block.props.widgets.length === 0) errors.push("Add at least one widget.");
       break;
     case "articleContent":
       break;
     case "articleHero":
+      break;
+    case "listingApplyForm":
+      if (block.props.showHeading && !block.props.heading.trim()) {
+        errors.push("Heading is required when the heading is shown.");
+      }
       break;
     case "divider":
     case "spacer":

@@ -699,8 +699,8 @@ function ContactInfoEditor({ block, onChange, themeColors }: EditorProps) {
       </div>
       {p.showPhone && <label className={labelCls}>Phone<input type="tel" value={p.phone} onChange={(e) => set({ phone: e.target.value })} placeholder="(555) 123-4567" className={inputCls} /></label>}
       {p.showEmail && <label className={labelCls}>Email<input type="email" value={p.email} onChange={(e) => set({ email: e.target.value })} placeholder="info@example.com" className={inputCls} /></label>}
-      {p.showAddress && <label className={labelCls}>Address<RichTextEditor value={p.address} onChange={(v) => set({ address: v })} minHeight={60} /></label>}
-      {p.showHours && <label className={labelCls}>Hours<RichTextEditor value={p.hours} onChange={(v) => set({ hours: v })} minHeight={60} placeholder="Mon-Fri: 9am-5pm" /></label>}
+{p.showAddress && <label className={labelCls}>Address<RichTextEditor value={p.address} onChange={(v) => set({ address: v })} minHeight={60} showSource /></label>}
+{p.showHours && <label className={labelCls}>Hours<RichTextEditor value={p.hours} onChange={(v) => set({ hours: v })} minHeight={60} placeholder="Mon-Fri: 9am-5pm" showSource /></label>}
       <div className="grid grid-cols-2 gap-3">
         <label className={labelCls}>Separator
           <select value={p.separator} onChange={(e) => set({ separator: e.target.value })} className={inputCls}>
@@ -778,7 +778,7 @@ function HeroEditor({ block, onChange, themeColors }: EditorProps) {
         <input type="text" value={p.heading} onChange={(e) => set({ heading: e.target.value })} className={inputCls} />
       </label>
       <label className={labelCls}>Subheading
-        <RichTextEditor value={p.subheading} onChange={(v) => set({ subheading: v })} minHeight={60} />
+        <RichTextEditor value={p.subheading} onChange={(v) => set({ subheading: v })} minHeight={60} showSource />
       </label>
       <div className="grid grid-cols-2 gap-3">
         <GlobalColorPicker label="Background" value={p.bgColor} onChange={(c) => set({ bgColor: c })} paletteOverride={themeColors} />
@@ -814,7 +814,7 @@ function TextEditor({ block, onChange }: EditorProps) {
           </div>
 
           <label className={labelCls}>Content
-            <RichTextEditor value={p.content} onChange={(v) => set({ content: v })} minHeight={120} textColor={(p as Record<string, unknown>).textColor as string} />
+            <RichTextEditor value={p.content} onChange={(v) => set({ content: v })} minHeight={120} textColor={(p as Record<string, unknown>).textColor as string} showSource />
           </label>
 
           <div className="flex items-center justify-between">

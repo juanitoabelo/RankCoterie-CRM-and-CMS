@@ -18,11 +18,17 @@
     "migrate:legacy": "npx tsx scripts/migrate-legacy.ts",
     "migrate:verify": "npx tsx scripts/verify-migration.ts",
     "stripe:listen": "stripe listen --forward-to localhost:3111/api/webhooks/stripe",
-    "stripe:e2e": "npm run test --workspace=web -- --testPathPattern=stripe-e2e"
+    "stripe:e2e": "npm run test --workspace=web -- --testPathPattern=stripe-e2e",
+    "verify:stripe": "npx tsx scripts/verify/stripe.ts",
+    "verify:paypal": "npx tsx scripts/verify/paypal.ts",
+    "verify:square": "npx tsx scripts/verify/square.ts",
+    "verify:all": "npx tsx scripts/verify/all.ts",
+    "config:track": "npx tsx scripts/admin-config-tracker.ts"
   },
   "devDependencies": {
     "@types/node": "26.2.0",
-    "mysql2": "^3.24.4"
+    "mysql2": "^3.24.4",
+    "playwright": "^1.64.0"
   },
   "allowScripts": {
     "@prisma/engines@6.19.3": true

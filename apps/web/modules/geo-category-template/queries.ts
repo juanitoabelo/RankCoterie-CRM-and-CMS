@@ -261,6 +261,34 @@ export async function resolveGeoCategoryTemplate(
   }
 }
 
+/**
+ * Inline style for a category's public /g page wrappers (region, paginated
+ * region, legacy parent fallback). Mirrors the template renderer's container:
+ * Boxed → `width:100%; maxWidth:<n>px; margin:0 auto`, Full → plain 100%.
+ * Driven by the same assignment → isDefault resolution as the template page,
+ * so the builder's Container setting governs every geo category page. Falls
+ * back to Boxed 1200px when no template exists yet.
+ */
+export async function resolveGeoCategoryContainerStyle(
+  categoryId: string,
+): Promise<{ width: string; maxWidth?: string; margin?: string }> {
+  let boxed = true;
+  let maxWidth = 1200;
+  try {
+    const template = await resolveGeoCategoryTemplate(categoryId);
+    if (template) {
+      const settings = parseGeoCategoryTemplateData(template.data).containerSettings;
+      boxed = settings.width === "boxed";
+      maxWidth = settings.maxWidth || 1200;
+    }
+  } catch {
+    /* keep Boxed 1200px fallback */
+  }
+  return boxed
+    ? { width: "100%", maxWidth: `${maxWidth}px`, margin: "0 auto" }
+    : { width: "100%" };
+}
+
 /** The template currently assigned to a category (null when only the default applies). */
 export async function getGeoCategoryTemplateAssignment(
   categoryId: string,

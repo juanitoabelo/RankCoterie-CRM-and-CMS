@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { CatalogListing } from "@/lib/directory/catalog";
 import { renderLocalizedContent, type RegionContext } from "@/lib/localization/render";
 
@@ -19,7 +20,14 @@ export default function ListingCard({
   return (
     <article className="flex flex-col rounded-xl border border-zinc-200 bg-white p-5">
       <div className="flex items-start justify-between gap-3">
-        <h3 className="font-semibold text-zinc-900">{listing.title}</h3>
+        <h3 className="font-semibold text-zinc-900">
+          <Link
+            href={`/listing/${listing.slug}/`}
+            className="underline-offset-2 hover:underline"
+          >
+            {listing.title}
+          </Link>
+        </h3>
         {isPremium && (
           <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
             Featured

@@ -8,6 +8,7 @@ import {
 } from "@/app/(admin)/admin/articles/actions";
 import RichTextEditor from "./page-builder/RichTextEditor";
 import SeoFields, { DEFAULT_SEO_DATA, type SeoData } from "./SeoFields";
+import ImageUploader from "@/components/admin/ImageUploader";
 
 export interface ArticleFormCategory {
   id: string;
@@ -21,6 +22,7 @@ export interface ArticleFormArticle {
   slug: string;
   body: string;
   metaDesc: string | null;
+  featuredImageAssetId?: string | null;
   categoryId: string | null;
   status: string;
   seoTitle: string | null;
@@ -180,6 +182,20 @@ export default function ArticleForm({
             placeholder="Write your article content here. Use {{region}} to localize."
           />
           <input type="hidden" name="body" value={body} />
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-zinc-200 p-4">
+        <h3 className="text-sm font-medium text-zinc-800">Featured image</h3>
+        <p className="mt-1 text-xs text-zinc-500">
+          Recommended dimensions: 1200 × 630 px (1.91:1 landscape).
+        </p>
+        <div className="mt-3">
+          <ImageUploader
+            name="featuredImageAssetId"
+            label="Upload featured image"
+            currentAssetId={article?.featuredImageAssetId ?? null}
+          />
         </div>
       </div>
 

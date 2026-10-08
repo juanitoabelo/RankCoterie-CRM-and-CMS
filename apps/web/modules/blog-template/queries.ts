@@ -3,6 +3,7 @@
  */
 import { prisma } from "@/modules/shared";
 import { TENANT_ID } from "@/modules/shared";
+import type { Prisma } from "@prisma/client";
 import type { ContainerSettings } from "@/lib/blog-template/types";
 import { DEFAULT_CONTAINER_SETTINGS } from "@/lib/blog-template/types";
 
@@ -278,4 +279,124 @@ export async function saveBlogTemplateAssignments(
       }),
     ),
   ]);
+}
+
+export type BlogGridItem = {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  image: string | null;
+  author: string | null;
+  createdAt: Date;
+  category: { id: string; title: string; slug: string } | null;
+};
+
+export type BlogGridCategory = { id: string; name: string; slug: string };
+
+export type BlogGridPage = {
+  items: BlogGridItem[];
+  page: number;
+  perPage: number;
+  total: number;
+  totalPages: number;
+  categories: BlogGridCategory[];
+};
+
+export type BlogGridParams = {
+  categoryId?: string;
+  filterCategoryIds?: string[];
+  page?: number;
+  perPage?: number;
+  orderBy?: "date" | "title" | "popular";
+  sortOrder?: "asc" | "desc";
+  search?: string;
+};
+
+export async function getBlogGridPage(params: BlogGridParams = {}): Promise<BlogGridPage> {
+  const {
+    categoryId = "",
+    filterCategoryIds = [],
+    page = 1,
+    perPage = 9,
+    orderBy: orderByKey = "date",
+    sortOrder = "desc",
+    search = "",
+  } = params;
+
+  const size = Math.min(48, Math.max(1, Math.round(perPage)));
+  const current = Math.max(1, Math.round(page));
+  const order: "asc" | "desc" = sortOrder === "asc" ? "asc" : "desc";
+
+  const where: Prisma.ContentTemplateWhereInput = {
+    tenantId: TENANT_ID,
+    status: "LIVE",
+  };
+
+  if (categoryId) {
+    where.categoryId = categoryId;
+  } else if (filterCategoryIds.length > 0) {
+    where.categoryId = { in: filterCategoryIds };
+  }
+
+  const term = search.trim();
+  if (term) {
+    where.OR = [
+      { title: { contains: term, mode: "insensitive" } },
+      { metaDesc: { contains: term, mode: "insensitive" } },
+      { author: { contains: term, mode: "insensitive" } },
+    ];
+  }
+
+  const orderBy: Prisma.ContentTemplateOrderByWithRelationInput =
+    orderByKey === "title" ? { title: order } : { createdAt: order };
+
+  const skip = (current - 1) * size;
+
+  const [rows, total, categoryRows] = await Promise.all([
+    prisma.contentTemplate.findMany({
+      where,
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        metaDesc: true,
+        ogImage: true,
+        author: true,
+        createdAt: true,
+        category: { select: { id: true, title: true, slug: true } },
+      },
+      orderBy,
+      skip,
+      take: size,
+    }),
+    prisma.contentTemplate.count({ where }),
+    prisma.category.findMany({
+      where: {
+        tenantId: TENANT_ID,
+        status: "LIVE",
+        ...(filterCategoryIds.length > 0 ? { id: { in: filterCategoryIds } } : {}),
+      },
+      select: { id: true, slug: true, title: true },
+      orderBy: { title: "asc" },
+    }),
+  ]);
+
+  return {
+    items: rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      slug: row.slug,
+      excerpt: row.metaDesc,
+      image: row.ogImage,
+      author: row.author,
+      createdAt: row.createdAt,
+      category: row.category,
+    })),
+    page: current,
+    perPage: size,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / size)),
+    categories: categoryRows.map((c) => ({ id: c.id, name: c.title, slug: c.slug })),
+  };
 }

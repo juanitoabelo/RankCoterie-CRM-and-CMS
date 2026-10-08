@@ -127,7 +127,7 @@ export default function BlogTemplatePalette({
         </h3>
         <div className="grid grid-cols-3 gap-1.5">
           {BLOCK_DEFINITIONS.filter((d) =>
-            ["hero", "text", "image", "button", "heading", "list", "spacer", "divider"].includes(d.type),
+            ["hero", "text", "image", "button", "heading", "list", "iconList", "spacer", "divider"].includes(d.type),
           ).map((def) => (
             <DraggableItem
               key={def.type}
@@ -147,7 +147,7 @@ export default function BlogTemplatePalette({
         </h3>
         <div className="grid grid-cols-3 gap-1.5">
           {BLOCK_DEFINITIONS.filter((d) =>
-            ["video", "embed", "slider"].includes(d.type),
+            ["video", "embed", "slider", "googleMap"].includes(d.type),
           ).map((def) => (
             <DraggableItem
               key={def.type}
@@ -167,7 +167,7 @@ export default function BlogTemplatePalette({
         </h3>
         <div className="grid grid-cols-3 gap-1.5">
           {BLOCK_DEFINITIONS.filter((d) =>
-            ["cta", "features", "faq", "testimonial", "contentGrid"].includes(d.type),
+            ["cta", "features", "faq", "testimonial", "contentGrid", "productGrid"].includes(d.type),
           ).map((def) => (
             <DraggableItem
               key={def.type}

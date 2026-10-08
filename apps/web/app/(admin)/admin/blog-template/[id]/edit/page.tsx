@@ -11,6 +11,7 @@ import {
 import { getThemeSettings } from "../../../theme-settings/actions";
 import BlogTemplateBuilder from "@/components/admin/blog-template-builder/BlogTemplateBuilder";
 import { parseBlogTemplateData } from "@/modules/blog-template";
+import { getArticlePreviewOptions } from "@/modules/content";
 
 export const revalidate = 0;
 
@@ -24,8 +25,29 @@ export default async function BlogTemplateEditPage({
   if (!template) notFound();
 
   const { blocks, containerSettings } = parseBlogTemplateData(template.data);
-  const assignments = await getAssignments(id);
-  const themeSettings = await getThemeSettings();
+  const [assignments, themeSettings, articlePreviewRows] = await Promise.all([
+    getAssignments(id),
+    getThemeSettings(),
+    template.type === "single" ? getArticlePreviewOptions() : Promise.resolve([]),
+  ]);
+
+  const previewArticles = articlePreviewRows.map((article) => ({
+    id: article.id,
+    title: article.title,
+    slug: article.slug,
+    body: article.body,
+    metaDesc: article.metaDesc,
+    seoTitle: article.seoTitle,
+    focusKeyphrase: article.focusKeyphrase,
+    ogImage: article.ogImage,
+    author: article.author,
+    createdAt: article.createdAt,
+    publishedAt: article.publishedAt,
+    category: article.category,
+    featuredImage: article.featuredImage ? `/api/assets/${article.featuredImage.id}` : null,
+    featuredImageAlt: article.featuredImage?.alt ?? null,
+    featuredImageCaption: article.featuredImage?.caption ?? null,
+  }));
 
   const themeColors = [
     { key: "background", label: "Background", color: themeSettings.colors.background },
@@ -78,6 +100,7 @@ export default async function BlogTemplateEditPage({
         initialContainerSettings={containerSettings}
         isDefault={template.isDefault}
         initialAssignments={assignments}
+        previewArticles={previewArticles}
         themeColors={themeColors}
         onSave={saveBlocks}
         onListRevisions={loadRevisions}

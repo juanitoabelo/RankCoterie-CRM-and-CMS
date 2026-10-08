@@ -14,6 +14,7 @@ export interface TemplateOption {
   title: string;
   status: string;
   variantCount: number;
+  regionIds: string[];
 }
 
 /**
@@ -31,13 +32,21 @@ export default function VariantPublisher({
   onPublished?: () => void;
 }) {
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
-  const [regionIds, setRegionIds] = useState<string[]>([]);
+  const [regionIds, setRegionIds] = useState<string[]>(templates[0]?.regionIds ?? []);
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [previewRegionId, setPreviewRegionId] = useState<string>("");
   const [result, setResult] = useState<PublishResult | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const template = templates.find((t) => t.id === templateId);
+
+  const onSelectTemplate = (id: string) => {
+    setTemplateId(id);
+    setRegionIds(templates.find((t) => t.id === id)?.regionIds ?? []);
+    setPreview(null);
+    setPreviewRegionId("");
+    setResult(null);
+  };
 
   const previewTarget = useMemo(() => {
     if (previewRegionId && regionIds.includes(previewRegionId)) return previewRegionId;
@@ -72,7 +81,7 @@ export default function VariantPublisher({
         <label className="block text-sm font-medium text-zinc-800">Content template</label>
         <select
           value={templateId}
-          onChange={(e) => setTemplateId(e.target.value)}
+          onChange={(e) => onSelectTemplate(e.target.value)}
           className="mt-1 w-full max-w-md rounded-lg border border-zinc-300 px-3 py-2 text-sm"
         >
           {templates.map((t) => (

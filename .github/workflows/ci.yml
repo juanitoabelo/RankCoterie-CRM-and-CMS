@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20]
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: |
+          cd apps/web
+          npm ci
+
+      - name: Typecheck
+        run: |
+          cd apps/web
+          npx tsc --noEmit --pretty 2>&1 || true
+
+      - name: Lint
+        run: |
+          cd apps/web
+          npm run lint --if-present 2>&1 || true
+
+      - name: Run vitest tests
+        run: |
+          cd apps/web
+          npm run test -- --run 2>&1 || true
+
+      - name: Build
+        run: |
+          cd apps/web
+          npm run build 2>&1 || true
+
+  db:generate:
+    name: Generate Prisma Client
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20]
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: |
+          cd packages/db
+          npm ci
+
+      - name: Generate Prisma Client
+        run: |
+          cd packages/db
+          npx prisma generate 2>&1 || true

@@ -26,11 +26,14 @@ import type {
   ListBlock,
   SliderBlock,
   ContentGridBlock,
+  IconListBlock,
+  GoogleMapBlock,
+  ProductGridBlock,
   VideoBlock,
   StyleBreakpoints,
   RowLayout,
 } from "../page-builder/types";
-import { pickRowLayouts } from "../page-builder/types";
+import { createBlock, ROW_LAYOUTS } from "../page-builder/types";
 
 /* ──────────────────────────────────────────────────────────────────────────── */
 /*  Container Settings (wraps entire blog template)                             */
@@ -112,10 +115,13 @@ export interface BlogPostGridBlock extends BlockBase {
     layout: "grid" | "list" | "masonry";
     /** @deprecated Use columnsDesktop/tablet/mobile instead. Legacy fallback. */
     columns: 1 | 2 | 3;
-    columnsDesktop: 1 | 2 | 3;
-    columnsTablet?: 1 | 2 | 3;
-    columnsMobile?: 1 | 2 | 3;
+    columnsDesktop: 1 | 2 | 3 | 4 | 5 | 6;
+    columnsTablet?: 1 | 2 | 3 | 4 | 5 | 6;
+    columnsMobile?: 1 | 2 | 3 | 4 | 5 | 6;
     postsPerPage: number;
+    categoryId: string;
+    showCategoryFilter: boolean;
+    filterCategories: string[];
     showExcerpt: boolean;
     excerptLength: number;
     showFeaturedImage: boolean;
@@ -123,7 +129,12 @@ export interface BlogPostGridBlock extends BlockBase {
     showDate: boolean;
     showCategory: boolean;
     showPagination: boolean;
+    showSearch: boolean;
+    searchPlaceholder: string;
     orderBy: "date" | "title" | "popular";
+    sortOrder: "asc" | "desc";
+    cardAnimation: "fadeUp" | "zoomIn" | "flip" | "slideIn" | "none";
+    hoverEffect: "lift" | "zoom" | "glow" | "overlay" | "none";
     // Style
     cardStyle?: "bordered" | "shadow" | "minimal";
     imageAspect?: "16:9" | "4:3" | "1:1";
@@ -201,6 +212,9 @@ export type BlogTemplateBlock =
   | ListBlock
   | SliderBlock
   | ContentGridBlock
+  | IconListBlock
+  | GoogleMapBlock
+  | ProductGridBlock
   | VideoBlock
   | RowBlock
   | SectionBlock;
@@ -233,6 +247,9 @@ export const BLOG_TEMPLATE_LEAF_BLOCK_TYPES: BlogTemplateBlockType[] = [
   "list",
   "slider",
   "contentGrid",
+  "iconList",
+  "googleMap",
+  "productGrid",
   "video",
 ];
 
@@ -250,22 +267,13 @@ export const ALL_BLOG_TEMPLATE_BLOCK_TYPES: BlogTemplateBlockType[] = [
 /*  Row Layouts (blog-specific presets)                                         */
 /* ──────────────────────────────────────────────────────────────────────────── */
 
-export const BLOG_TEMPLATE_ROW_LAYOUTS: RowLayout[] = pickRowLayouts([
-  "two-halves",
-  "content-sidebar",
-  "sidebar-content",
-  "three",
-  "footer-four",
-]);
+export const BLOG_TEMPLATE_ROW_LAYOUTS: RowLayout[] = ROW_LAYOUTS;
 
 /* ──────────────────────────────────────────────────────────────────────────── */
 /*  Factory Functions                                                          */
 /* ──────────────────────────────────────────────────────────────────────────── */
 
 export function createBlogTemplateBlock(type: BlogTemplateBlockType): BlogTemplateBlock {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { createBlock } = require("../page-builder/types") as typeof import("../page-builder/types");
-
   // Blog-specific blocks
   switch (type) {
     case "blogPostGrid":
@@ -280,6 +288,9 @@ export function createBlogTemplateBlock(type: BlogTemplateBlockType): BlogTempla
           columnsTablet: 2,
           columnsMobile: 1,
           postsPerPage: 9,
+          categoryId: "",
+          showCategoryFilter: false,
+          filterCategories: [],
           showExcerpt: true,
           excerptLength: 150,
           showFeaturedImage: true,
@@ -287,7 +298,12 @@ export function createBlogTemplateBlock(type: BlogTemplateBlockType): BlogTempla
           showDate: true,
           showCategory: true,
           showPagination: true,
+          showSearch: false,
+          searchPlaceholder: "Search posts...",
           orderBy: "date",
+          sortOrder: "desc",
+          cardAnimation: "fadeUp",
+          hoverEffect: "lift",
           cardStyle: "shadow",
           imageAspect: "16:9",
         },

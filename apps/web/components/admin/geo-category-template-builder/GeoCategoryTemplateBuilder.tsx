@@ -86,6 +86,8 @@ const GEO_LABELS: Record<string, string> = {
   geoListings: "Listings",
   geoFaq: "Category FAQ",
   geoSidebar: "Sidebar",
+  geoRegionChips: "City Chips",
+  geoFilterBar: "Filter Bar",
 };
 
 /* Recursive column lookup — columns live on top-level rows, rows nested inside

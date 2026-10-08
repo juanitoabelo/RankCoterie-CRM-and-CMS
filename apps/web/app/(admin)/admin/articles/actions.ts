@@ -14,6 +14,7 @@ export async function createArticle(formData: FormData): Promise<ActionResult> {
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
   const metaDesc = String(formData.get("metaDesc") ?? "").trim() || null;
+  const featuredImageAssetId = String(formData.get("featuredImageAssetId") ?? "").trim() || null;
   const categoryId = String(formData.get("categoryId") ?? "").trim() || null;
   const slug = String(formData.get("slug") ?? "").trim()
     || title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -30,6 +31,14 @@ export async function createArticle(formData: FormData): Promise<ActionResult> {
   if (!body) return { ok: false, error: "Body is required." };
 
   try {
+    if (featuredImageAssetId) {
+      const asset = await prisma.asset.findFirst({
+        where: { id: featuredImageAssetId, tenantId: TENANT_ID },
+        select: { id: true },
+      });
+      if (!asset) return { ok: false, error: "Featured image asset not found." };
+    }
+
     const row = await prisma.contentTemplate.create({
       data: {
         tenantId: TENANT_ID,
@@ -37,6 +46,7 @@ export async function createArticle(formData: FormData): Promise<ActionResult> {
         slug,
         body,
         metaDesc,
+        featuredImageAssetId,
         categoryId: categoryId || undefined,
         status: "DRAFT",
         seoTitle,
@@ -70,6 +80,7 @@ export async function updateArticle(
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
   const metaDesc = String(formData.get("metaDesc") ?? "").trim() || null;
+  const featuredImageAssetId = String(formData.get("featuredImageAssetId") ?? "").trim() || null;
   const categoryId = String(formData.get("categoryId") ?? "").trim() || null;
   const status = String(formData.get("status") ?? "DRAFT").trim();
   const slug = String(formData.get("slug") ?? "").trim()
@@ -87,13 +98,22 @@ export async function updateArticle(
   if (!body) return { ok: false, error: "Body is required." };
 
   try {
-    await prisma.contentTemplate.update({
-      where: { id },
+    if (featuredImageAssetId) {
+      const asset = await prisma.asset.findFirst({
+        where: { id: featuredImageAssetId, tenantId: TENANT_ID },
+        select: { id: true },
+      });
+      if (!asset) return { ok: false, error: "Featured image asset not found." };
+    }
+
+    const result = await prisma.contentTemplate.updateMany({
+      where: { id, tenantId: TENANT_ID },
       data: {
         title,
         slug,
         body,
         metaDesc,
+        featuredImageAssetId,
         categoryId: categoryId || null,
         status: status as ContentStatus,
         seoTitle,
@@ -106,6 +126,7 @@ export async function updateArticle(
         jsonSchema,
       },
     });
+    if (result.count === 0) return { ok: false, error: "Article not found." };
     await logAudit({
       action: "ARTICLE_UPDATE",
       entity: "ContentTemplate",
@@ -123,8 +144,13 @@ export async function updateArticle(
 export async function deleteArticle(id: string, _formData: FormData): Promise<void> {
   await requireSection("articles");
   try {
+    const article = await prisma.contentTemplate.findFirst({
+      where: { id, tenantId: TENANT_ID },
+      select: { id: true },
+    });
+    if (!article) return;
     await prisma.contentVariant.deleteMany({ where: { templateId: id } });
-    await prisma.contentTemplate.delete({ where: { id } });
+    await prisma.contentTemplate.deleteMany({ where: { id, tenantId: TENANT_ID } });
     await logAudit({
       action: "ARTICLE_DELETE",
       entity: "ContentTemplate",

@@ -10,10 +10,12 @@
  */
 import { createContext, useContext } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import RegionFilterBar from "@/components/RegionFilterBar";
 import type { Block } from "@/lib/page-builder/types";
 import { isRowBlock, isSectionBlock } from "@/lib/page-builder/types";
 import { resolveColumnWidths, renderColumnSpanClass } from "@/lib/page-builder/spans";
-import { styleScopeClass, renderStyleGuide } from "@/lib/page-builder/style";
+import { styleScopeClass, renderStyleGuide, scopeDynamicStyle } from "@/lib/page-builder/style";
 import type { StyleBreakpoints } from "@/lib/page-builder/types";
 import {
   getEntranceAnimationClass,
@@ -75,11 +77,22 @@ export interface GeoFaqItem {
   a: string;
 }
 
+export interface GeoCityLink {
+  slug: string;
+  name: string;
+  url: string;
+}
+
 export interface GeoTemplateContextValue {
   geo?: GeoBindingData | null;
   states?: GeoStateLink[];
   faq?: GeoFaqItem[];
   listings?: GeoTemplateListing[];
+  /** Child-region links for a state page (feeds geoRegionChips). */
+  cities?: GeoCityLink[];
+  /** Page-specific replacement for the geoListings block body (region pages
+   *  inject their sort/filter/pagination + rich listing cards here). */
+  listingsSlot?: React.ReactNode;
   viewport?: "desktop" | "tablet" | "mobile";
 }
 
@@ -182,84 +195,92 @@ function GeoRowRenderer({ block }: { block: Block }) {
   const dateVisible = isDateConditionVisible(p.displayCondition, p.displayConditionDate);
   const gateNeeded = needsClientGate(p.displayCondition);
 
+  const rowScoped = scopeDynamicStyle(`${block.id}-row`, rowStyle);
+  const gridScoped = scopeDynamicStyle(`${block.id}-grid`, {
+    gap: p.gap,
+    rowGap: p.gapRow,
+    alignItems: p.align,
+    flexDirection: p.direction === "column" ? "column" : undefined,
+    flexWrap: p.wrap === "wrap" ? "wrap" : undefined,
+    ...getVerticalAlignStyle(p.verticalAlign),
+    ...getTypographyScopeStyle({
+      headingColor: p.headingColor,
+      textColor: p.textColor,
+      linkColor: p.linkColor,
+      linkHoverColor: p.linkHoverColor,
+      textAlign: p.textAlign,
+    }),
+  });
+
   const rowElement = (
     // eslint-disable-next-line react-hooks/static-components -- resolveTag is a module-level TAG_MAP lookup, not created during render
-    <RowTag style={rowStyle} id={p.cssId || undefined} className={rowClasses || undefined} {...rowAttrs}>
+    <RowTag id={p.cssId || undefined} className={[rowClasses, rowScoped.className].filter(Boolean).join(" ") || undefined} {...rowAttrs}>
+      {rowScoped.node}
       {renderOverlay({ overlayColor: p.overlayColor, overlayOpacity: p.overlayOpacity })}
       {renderShapeDivider("top", p.shapeDividerTop, p.shapeDividerTopColor, p.shapeDividerTopWidth, p.shapeDividerTopHeight)}
       {renderShapeDivider("bottom", p.shapeDividerBottom, p.shapeDividerBottomColor, p.shapeDividerBottomWidth, p.shapeDividerBottomHeight)}
-      <div
-        className={`grid grid-cols-12 ${reverseTablet} ${reverseMobile}`}
-        style={{
-          gap: p.gap,
-          rowGap: p.gapRow,
-          alignItems: p.align,
-          flexDirection: p.direction === "column" ? "column" : undefined,
-          flexWrap: p.wrap === "wrap" ? "wrap" : undefined,
-          ...getVerticalAlignStyle(p.verticalAlign),
-          ...getTypographyScopeStyle({
-            headingColor: p.headingColor,
-            textColor: p.textColor,
-            linkColor: p.linkColor,
-            linkHoverColor: p.linkHoverColor,
-            textAlign: p.textAlign,
-          }),
-        }}
-      >
+      <div className={`grid grid-cols-12 ${reverseTablet} ${reverseMobile} ${gridScoped.className}`.trim()}>
+        {gridScoped.node}
         {p.columns.map((col: Record<string, unknown>, idx: number) => {
-          const columnProps = resolveGeoPropsBindings("column", col, geo);
-          const widths = resolveColumnWidths(col as never, p.stackOnMobile);
-          const spanClass = renderColumnSpanClass(widths);
-          const colStyle: React.CSSProperties = {
-            backgroundColor: col.bgColor as string | undefined,
-            backgroundImage: columnProps.bgImage ? `url(${columnProps.bgImage})` : undefined,
-            backgroundPosition: columnProps.bgImage ? ((col.bgPosition as string) || "center center") : undefined,
-            backgroundSize: columnProps.bgImage ? ((col.bgSize as string) || "cover") : undefined,
-            backgroundRepeat: columnProps.bgImage ? ((col.bgRepeat as string) || "no-repeat") : undefined,
-            borderStyle: col.borderStyle !== "none" ? (col.borderStyle as string) : undefined,
-            borderWidth: col.borderWidth as number | undefined,
-            borderColor: col.borderColor as string | undefined,
-            borderRadius: col.borderRadius as number | undefined,
-            boxShadow: col.boxShadow as string | undefined,
-            marginTop: col.margin ? `${(col.margin as { top?: number }).top ?? 0}px` : undefined,
-            marginRight: col.margin ? `${(col.margin as { right?: number }).right ?? 0}px` : undefined,
-            marginBottom: col.margin ? `${(col.margin as { bottom?: number }).bottom ?? 0}px` : undefined,
-            marginLeft: col.margin ? `${(col.margin as { left?: number }).left ?? 0}px` : undefined,
-            paddingTop: col.padding ? `${(col.padding as { top?: number }).top ?? 0}px` : undefined,
-            paddingRight: col.padding ? `${(col.padding as { right?: number }).right ?? 0}px` : undefined,
-            paddingBottom: col.padding ? `${(col.padding as { bottom?: number }).bottom ?? 0}px` : undefined,
-            paddingLeft: col.padding ? `${(col.padding as { left?: number }).left ?? 0}px` : undefined,
-            zIndex: col.zindex as number | undefined,
-            position: "relative",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: (col.justifyContent as string) ?? "flex-start",
-            alignItems: (col.alignItems as string) ?? "stretch",
-            minHeight: col.minHeight as number | undefined,
-            order: idx,
-          };
-          const colOverlayStyle: React.CSSProperties | undefined =
-            columnProps.bgImage && col.overlayOpacity
-              ? {
-                  position: "absolute",
-                  inset: 0,
-                  backgroundColor: (col.overlayColor as string) || "#000000",
-                  opacity: (col.overlayOpacity as number) / 100,
-                  pointerEvents: "none",
-                }
-              : undefined;
-          return (
-            <div
-              key={col.id as string}
-              className={[spanClass, (col.cssClasses as string) || ""].filter(Boolean).join(" ")}
-              style={colStyle}
-              id={(col.cssId as string) || undefined}
-            >
-              {colOverlayStyle && <div style={colOverlayStyle} />}
-              <RenderGeoBlocks blocks={col.blocks as Block[]} />
-            </div>
-          );
-        })}
+              const columnProps = resolveGeoPropsBindings("column", col, geo);
+              const widths = resolveColumnWidths(col as never, p.stackOnMobile);
+              const spanClass = renderColumnSpanClass(widths);
+              const colStyle: React.CSSProperties = {
+                backgroundColor: col.bgColor as string | undefined,
+                backgroundImage: columnProps.bgImage ? `url(${columnProps.bgImage})` : undefined,
+                backgroundPosition: columnProps.bgImage ? ((col.bgPosition as string) || "center center") : undefined,
+                backgroundSize: columnProps.bgImage ? ((col.bgSize as string) || "cover") : undefined,
+                backgroundRepeat: columnProps.bgImage ? ((col.bgRepeat as string) || "no-repeat") : undefined,
+                borderStyle: col.borderStyle !== "none" ? (col.borderStyle as string) : undefined,
+                borderWidth: col.borderWidth as number | undefined,
+                borderColor: col.borderColor as string | undefined,
+                borderRadius: col.borderRadius as number | undefined,
+                boxShadow: col.boxShadow as string | undefined,
+                marginTop: col.margin ? `${(col.margin as { top?: number }).top ?? 0}px` : undefined,
+                marginRight: col.margin ? `${(col.margin as { right?: number }).right ?? 0}px` : undefined,
+                marginBottom: col.margin ? `${(col.margin as { bottom?: number }).bottom ?? 0}px` : undefined,
+                marginLeft: col.margin ? `${(col.margin as { left?: number }).left ?? 0}px` : undefined,
+                paddingTop: col.padding ? `${(col.padding as { top?: number }).top ?? 0}px` : undefined,
+                paddingRight: col.padding ? `${(col.padding as { right?: number }).right ?? 0}px` : undefined,
+                paddingBottom: col.padding ? `${(col.padding as { bottom?: number }).bottom ?? 0}px` : undefined,
+                paddingLeft: col.padding ? `${(col.padding as { left?: number }).left ?? 0}px` : undefined,
+                zIndex: col.zindex as number | undefined,
+                position: "relative",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: (col.justifyContent as string) ?? "flex-start",
+                alignItems: (col.alignItems as string) ?? "stretch",
+                minHeight: col.minHeight as number | undefined,
+                order: idx,
+              };
+              const colScoped = scopeDynamicStyle(`${block.id}-col-${col.id as string}`, colStyle);
+              const colOverlayScoped = scopeDynamicStyle(
+                `${block.id}-col-${col.id as string}-overlay`,
+                columnProps.bgImage && col.overlayOpacity
+                  ? {
+                      position: "absolute",
+                      inset: 0,
+                      backgroundColor: (col.overlayColor as string) || "#000000",
+                      opacity: (col.overlayOpacity as number) / 100,
+                      pointerEvents: "none",
+                    }
+                  : undefined,
+              );
+              return (
+                <div
+                  key={col.id as string}
+                  className={[spanClass, (col.cssClasses as string) || "", colScoped.className].filter(Boolean).join(" ")}
+                  id={(col.cssId as string) || undefined}
+                >
+                  {colScoped.node}
+                  {colOverlayScoped.node}
+                  {colOverlayScoped.className && (
+                    <div className={colOverlayScoped.className} aria-hidden="true" />
+                  )}
+                  <RenderGeoBlocks blocks={col.blocks as Block[]} />
+                </div>
+              );
+            })}
       </div>
       {customCss && <style dangerouslySetInnerHTML={{ __html: customCss }} />}
       {hoverCss && <style dangerouslySetInnerHTML={{ __html: hoverCss }} />}
@@ -307,16 +328,17 @@ function GeoHeroRenderer({ block }: { block: Block }) {
   const imageSrc = p.image || geo?.heroImage || null;
   const centered = p.layout === "centered";
   const regionName = geo?.region?.displayName || geo?.region?.stateFull || null;
+  const heroScoped = scopeDynamicStyle(`${block.id}-hero`, {
+    backgroundColor: p.bgColor || undefined,
+    color: p.textColor || undefined,
+  });
 
   return (
     <BlockAdvancedFrame block={block}>
       <div
-        className={`rounded-xl border border-zinc-200 bg-white ${centered ? "text-center" : ""}`}
-        style={{
-          backgroundColor: p.bgColor || undefined,
-          color: p.textColor || undefined,
-        }}
+        className={`rounded-xl border border-zinc-200 bg-white ${centered ? "text-center" : ""} ${heroScoped.className}`.trim()}
       >
+        {heroScoped.node}
         <div className="p-6 sm:p-8">
           {p.showBreadcrumb !== false && (
             <nav className={`mb-3 text-xs text-zinc-500 ${centered ? "text-center" : ""}`} aria-label="Breadcrumb">
@@ -375,10 +397,14 @@ function GeoContentRenderer({ block }: { block: Block }) {
   };
   const html = p.content ? sanitizeHtml(p.content) : "";
   if (!html) return null;
+  const widthScoped = scopeDynamicStyle(`${block.id}-content`, {
+    maxWidth: p.maxWidth ? `${p.maxWidth}px` : undefined,
+  });
 
   return (
     <BlockAdvancedFrame block={block}>
-      <div style={{ maxWidth: p.maxWidth ? `${p.maxWidth}px` : undefined }}>
+      <div className={widthScoped.className || undefined}>
+        {widthScoped.node}
         {p.showHeading && p.heading && (
           <h2 className="mb-3 text-xl font-semibold text-zinc-900">{p.heading}</h2>
         )}
@@ -390,8 +416,18 @@ function GeoContentRenderer({ block }: { block: Block }) {
 
 function GeoRegionNavRenderer({ block }: { block: Block }) {
   const { states } = useContext(GeoDataContext);
-  const p = block.props as { heading?: string; columns?: 2 | 3 | 4; showCount?: boolean };
-  if (!states || states.length === 0) return null;
+  const p = block.props as { heading?: string; columns?: 2 | 3 | 4; showCount?: boolean; emptyMessage?: string };
+  if (!states || states.length === 0) {
+    if (!p.emptyMessage) return null;
+    return (
+      <BlockAdvancedFrame block={block}>
+        <div className="py-4">
+          <h2 className="mb-4 text-xl font-semibold text-zinc-900">{p.heading || "Programs by state"}</h2>
+          <p className="text-sm text-zinc-500">{p.emptyMessage}</p>
+        </div>
+      </BlockAdvancedFrame>
+    );
+  }
 
   const colClass =
     p.columns === 2
@@ -455,15 +491,37 @@ function GeoListingCard({ listing }: { listing: GeoTemplateListing }) {
 }
 
 function GeoListingsRenderer({ block }: { block: Block }) {
-  const { listings } = useContext(GeoDataContext);
+  const { listings, listingsSlot, geo } = useContext(GeoDataContext);
   const p = block.props as {
     heading?: string;
     limit?: number;
     columnsDesktop?: 1 | 2 | 3;
     showDescription?: boolean;
+    showCount?: boolean;
+    emptyMessage?: string;
   };
+  // Region pages supply their own full-featured listings UI (filter bar,
+  // rich cards, pagination) — render it in place of the built-in grid.
+  if (listingsSlot) {
+    return <BlockAdvancedFrame block={block}>{listingsSlot}</BlockAdvancedFrame>;
+  }
   const items = (listings ?? []).slice(0, p.limit ?? 9);
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    if (!p.emptyMessage) return null;
+    return (
+      <BlockAdvancedFrame block={block}>
+        <div className="py-4">
+          <p className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-4 py-6 text-sm text-zinc-500">
+            {p.emptyMessage}
+          </p>
+        </div>
+      </BlockAdvancedFrame>
+    );
+  }
+
+  const total = geo?.listingsCount;
+  const showCount = p.showCount && total !== undefined && total !== null;
+  const showHeading = Boolean(p.heading) || showCount;
 
   const colClass =
     p.columnsDesktop === 1
@@ -475,7 +533,14 @@ function GeoListingsRenderer({ block }: { block: Block }) {
   return (
     <BlockAdvancedFrame block={block}>
       <div className="py-4">
-        {p.heading && <h2 className="mb-4 text-xl font-semibold text-zinc-900">{p.heading}</h2>}
+        {showHeading && (
+          <h2 className="mb-4 text-xl font-semibold text-zinc-900">
+            {p.heading || "Listings"}
+            {showCount && (
+              <span className="ml-2 text-sm font-normal text-zinc-500">({total})</span>
+            )}
+          </h2>
+        )}
         <div className={`grid grid-cols-1 gap-4 ${colClass}`}>
           {items.map((listing) => (
             <GeoListingCard key={listing.id} listing={listing} />
@@ -509,6 +574,61 @@ function GeoFaqRenderer({ block }: { block: Block }) {
           ))}
         </dl>
       </section>
+    </BlockAdvancedFrame>
+  );
+}
+
+/* ── City chips ("Cities in {state}") — legacy region-page pill links ─────── */
+
+function GeoRegionChipsRenderer({ block }: { block: Block }) {
+  const { cities, geo } = useContext(GeoDataContext);
+  const p = block.props as { heading?: string; showHeading?: boolean };
+  if (!cities || cities.length === 0) return null;
+
+  const regionName = geo?.region?.displayName || geo?.region?.stateFull || null;
+  const heading = p.heading || (regionName ? `Cities in ${regionName}` : "Nearby cities");
+
+  return (
+    <BlockAdvancedFrame block={block}>
+      <div className="mt-8">
+        {p.showHeading !== false && (
+          <h2 className="text-lg font-semibold text-zinc-900">{heading}</h2>
+        )}
+        <ul className="mt-3 flex flex-wrap gap-2">
+          {cities.map((c) => (
+            <li key={c.slug}>
+              <Link
+                href={c.url}
+                className="inline-block rounded-full border border-zinc-200 px-3 py-1 text-sm text-zinc-700 hover:border-zinc-300"
+              >
+                {c.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </BlockAdvancedFrame>
+  );
+}
+
+/* ── Filter bar — legacy region sort/tier/rating selects (region pages) ───── */
+
+function GeoFilterBarRenderer({ block }: { block: Block }) {
+  const { geo } = useContext(GeoDataContext);
+  const searchParams = useSearchParams();
+  const categorySlug = geo?.category?.slug;
+  const regionSlug = geo?.region?.slug;
+  if (!categorySlug || !regionSlug) return null;
+
+  return (
+    <BlockAdvancedFrame block={block}>
+      <RegionFilterBar
+        categorySlug={categorySlug}
+        regionSlug={regionSlug}
+        currentSort={searchParams.get("sort") ?? "featured"}
+        currentTier={searchParams.get("tier") ?? ""}
+        currentRating={searchParams.get("rating") ?? ""}
+      />
     </BlockAdvancedFrame>
   );
 }
@@ -612,6 +732,8 @@ const GEO_BLOCK_RENDERERS: Record<string, (props: { block: Block }) => React.Rea
   geoListings: GeoListingsRenderer,
   geoFaq: GeoFaqRenderer,
   geoSidebar: GeoSidebarRenderer,
+  geoRegionChips: GeoRegionChipsRenderer,
+  geoFilterBar: GeoFilterBarRenderer,
 };
 
 function RenderGeoBlocks({ blocks }: { blocks: Block[] }) {
@@ -693,6 +815,7 @@ export function GeoBlockRenderer({ block: sourceBlock }: { block: Block }) {
       .join(" ");
 
     const SectionTag = resolveTag(p.htmlTag as string, "div");
+    const sectionScoped = scopeDynamicStyle(`${block.id}-section`, outerStyle);
 
     const innerStyle: React.CSSProperties = {
       width: "100%",
@@ -714,6 +837,7 @@ export function GeoBlockRenderer({ block: sourceBlock }: { block: Block }) {
         textAlign: p.textAlign as string,
       }),
     };
+    const innerScoped = scopeDynamicStyle(`${block.id}-section-inner`, innerStyle);
 
     const customCss = scopeCustomCss(p.customCss as string, block.id);
     const hoverCss = hasAdvancedHover(p) ? buildAdvancedHoverCss(block.id, p) : "";
@@ -726,11 +850,13 @@ export function GeoBlockRenderer({ block: sourceBlock }: { block: Block }) {
 
     const sectionElement = (
       // eslint-disable-next-line react-hooks/static-components -- resolveTag is a module-level TAG_MAP lookup, not created during render
-      <SectionTag style={outerStyle} id={(p.cssId as string) || undefined} className={sectionClasses || undefined} {...sectionAttrs}>
+      <SectionTag id={(p.cssId as string) || undefined} className={[sectionClasses, sectionScoped.className].filter(Boolean).join(" ") || undefined} {...sectionAttrs}>
+        {sectionScoped.node}
         {renderOverlay({ overlayColor: p.overlayColor as string, overlayOpacity: p.overlayOpacity as number })}
         {renderShapeDivider("top", p.shapeDividerTop as string, p.shapeDividerTopColor as string, p.shapeDividerTopWidth as number, p.shapeDividerTopHeight as number)}
         {renderShapeDivider("bottom", p.shapeDividerBottom as string, p.shapeDividerBottomColor as string, p.shapeDividerBottomWidth as number, p.shapeDividerBottomHeight as number)}
-        <div style={innerStyle}>
+        <div className={innerScoped.className || undefined}>
+          {innerScoped.node}
           <RenderGeoBlocks blocks={p.rows as Block[]} />
         </div>
         {customCss && <style dangerouslySetInnerHTML={{ __html: customCss }} />}
@@ -771,6 +897,8 @@ export default function GeoCategoryTemplateRenderer({
   states,
   faq,
   listings,
+  cities,
+  listingsSlot,
   viewport,
 }: {
   blocks: Block[];
@@ -779,6 +907,8 @@ export default function GeoCategoryTemplateRenderer({
   states?: GeoStateLink[];
   faq?: GeoFaqItem[];
   listings?: GeoTemplateListing[];
+  cities?: GeoCityLink[];
+  listingsSlot?: React.ReactNode;
   viewport?: "desktop" | "tablet" | "mobile";
 }) {
   const outerStyle: React.CSSProperties = {
@@ -815,22 +945,30 @@ export default function GeoCategoryTemplateRenderer({
     innerStyle.minHeight = containerSettings.minHeight || undefined;
     innerStyle.zIndex = containerSettings.zindex || undefined;
   }
+  const outerScoped = scopeDynamicStyle("geo-container-outer", outerStyle);
+  const innerScoped = scopeDynamicStyle("geo-container-inner", { ...innerStyle, position: "relative", zIndex: 1 });
+  const overlayScoped = scopeDynamicStyle("geo-container-overlay",
+    containerSettings?.bgImage && containerSettings.overlayOpacity
+      ? {
+          position: "absolute",
+          inset: 0,
+          backgroundColor: containerSettings.overlayColor || "#000000",
+          opacity: containerSettings.overlayOpacity / 100,
+          pointerEvents: "none",
+        }
+      : undefined,
+  );
 
   return (
-    <GeoDataContext.Provider value={{ geo, states, faq, listings, viewport }}>
-      <div style={outerStyle}>
-        {containerSettings?.bgImage && containerSettings.overlayOpacity ? (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              backgroundColor: containerSettings.overlayColor || "#000000",
-              opacity: containerSettings.overlayOpacity / 100,
-              pointerEvents: "none",
-            }}
-          />
+    <GeoDataContext.Provider value={{ geo, states, faq, listings, cities, listingsSlot, viewport }}>
+      <div className={outerScoped.className || undefined}>
+        {outerScoped.node}
+        {overlayScoped.node}
+        {overlayScoped.className ? (
+          <div className={overlayScoped.className} aria-hidden="true" />
         ) : null}
-        <div style={{ ...innerStyle, position: "relative", zIndex: 1 }}>
+        <div className={innerScoped.className || undefined}>
+          {innerScoped.node}
           <RenderGeoBlocks blocks={blocks} />
         </div>
       </div>

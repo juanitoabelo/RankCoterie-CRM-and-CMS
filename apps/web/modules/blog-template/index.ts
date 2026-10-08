@@ -14,10 +14,15 @@ export {
   resolveBlogTemplate,
   getBlogTemplateAssignments,
   saveBlogTemplateAssignments,
+  getBlogGridPage,
 } from "./queries";
 export type {
   BlogTemplateData,
   BlogTemplateRow,
   BlogTemplateRevisionRow,
   BlogTemplateAssignmentRow,
+  BlogGridItem,
+  BlogGridCategory,
+  BlogGridPage,
+  BlogGridParams,
 } from "./queries";

@@ -134,6 +134,8 @@ const TARGETS_BY_BLOCK: Record<string, Record<string, { label: string; valueType
   geoListings: { heading: { label: "Heading", valueType: "text" } },
   geoFaq: { heading: { label: "Heading", valueType: "text" } },
   geoSidebar: {},
+  geoRegionChips: { heading: { label: "Heading", valueType: "text" } },
+  geoFilterBar: {},
 };
 
 const ARRAY_TARGETS_BY_BLOCK: Record<string, Record<string, { label: string; valueType: GeoBindingValueType }>> = {

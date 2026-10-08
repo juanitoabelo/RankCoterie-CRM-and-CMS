@@ -27,9 +27,12 @@ export type RestoreResult = ActionResult & { data?: string };
 const LIST_PATH = "/admin/geo-category-template";
 
 /** Purges every public /g/[category] page (they export revalidate = 3600).
- *  revalidatePath("/g") would only hit the literal /g path — not the route. */
+ *  revalidatePath("/g") would only hit the literal /g path — not the route.
+ *  Region + paginated region routes render the same template, so they purge too. */
 function revalidateGeoPages() {
   revalidatePath("/g/[category]", "page");
+  revalidatePath("/g/[category]/[region]", "page");
+  revalidatePath("/g/[category]/[region]/page/[pageNum]", "page");
 }
 
 /* ── LIST ─────────────────────────────────────────────────────────────── */

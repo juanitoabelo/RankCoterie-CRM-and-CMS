@@ -16,6 +16,7 @@ import {
   flattenIds,
   insertLayoutBlock,
   moveBlock,
+  hasBlockOfType,
   normalizeDropTarget,
   removeBlock,
   removeColumnFromRow,
@@ -535,5 +536,41 @@ describe("dropping on the canvas root", () => {
       overId: normalizeDropTarget(CANVAS_ROOT_ID),
     });
     expect(next).toHaveLength(4);
+  });
+});
+describe("hasBlockOfType", () => {
+  it("finds blocks at the top level, inside rows and inside sections", () => {
+    const { blocks, textA } = fixture();
+    expect(hasBlockOfType(blocks, "text")).toBe(true);
+    expect(hasBlockOfType(blocks, "geoListings")).toBe(false);
+
+    const section = createBlock("section");
+    const inSection = [
+      {
+        ...section,
+        props: {
+          ...(section.props as Record<string, unknown>),
+          rows: [
+            {
+              id: "sec-row",
+              type: "row",
+              props: {
+                columns: [
+                  {
+                    id: "sec-col",
+                    span: 12,
+                    blocks: [{ id: "geo-b", type: "geoRegionChips", props: {} }],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    ] as unknown as Block[];
+
+    expect(hasBlockOfType(inSection, "geoRegionChips")).toBe(true);
+    expect(hasBlockOfType(inSection, "geoFilterBar")).toBe(false);
+    expect(hasBlockOfType([textA], "text")).toBe(true);
   });
 });

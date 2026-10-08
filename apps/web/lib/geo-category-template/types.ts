@@ -136,6 +136,7 @@ export interface GeoRegionNavBlock extends BlockBase {
     heading?: string;
     columns: 2 | 3 | 4;
     showCount: boolean;
+    emptyMessage?: string;
     style?: StyleBreakpoints;
   };
 }
@@ -148,6 +149,8 @@ export interface GeoListingsBlock extends BlockBase {
     columnsDesktop: 1 | 2 | 3;
     showImage: boolean;
     showDescription: boolean;
+    showCount?: boolean;
+    emptyMessage?: string;
     style?: StyleBreakpoints;
   };
 }
@@ -156,6 +159,24 @@ export interface GeoFaqBlock extends BlockBase {
   type: "geoFaq";
   props: {
     heading?: string;
+    style?: StyleBreakpoints;
+  };
+}
+
+/** City chips for a state page — the legacy "Cities in {state}" pill links. */
+export interface GeoRegionChipsBlock extends BlockBase {
+  type: "geoRegionChips";
+  props: {
+    heading?: string;
+    showHeading: boolean;
+    style?: StyleBreakpoints;
+  };
+}
+
+/** Sort / tier / rating bar — the legacy region filter bar (region pages only). */
+export interface GeoFilterBarBlock extends BlockBase {
+  type: "geoFilterBar";
+  props: {
     style?: StyleBreakpoints;
   };
 }
@@ -186,6 +207,8 @@ export type GeoCategoryTemplateBlock =
   | GeoListingsBlock
   | GeoFaqBlock
   | GeoSidebarBlock
+  | GeoRegionChipsBlock
+  | GeoFilterBarBlock
   | HeroBlock
   | TextBlock
   | ImageBlock
@@ -222,6 +245,8 @@ export const GEO_TEMPLATE_LEAF_BLOCK_TYPES: GeoCategoryTemplateBlockType[] = [
   "geoListings",
   "geoFaq",
   "geoSidebar",
+  "geoRegionChips",
+  "geoFilterBar",
   // Standard blocks
   "hero",
   "text",
@@ -338,6 +363,22 @@ export function createGeoCategoryTemplateBlock(
         },
       } as GeoSidebarBlock;
 
+    case "geoRegionChips":
+      return {
+        id: crypto.randomUUID(),
+        type: "geoRegionChips",
+        props: {
+          showHeading: true,
+        },
+      } as GeoRegionChipsBlock;
+
+    case "geoFilterBar":
+      return {
+        id: crypto.randomUUID(),
+        type: "geoFilterBar",
+        props: {},
+      } as GeoFilterBarBlock;
+
     default:
       return createBlock(type) as GeoCategoryTemplateBlock;
   }
@@ -389,6 +430,16 @@ export const DEFAULT_GEO_FULLWIDTH_BLOCKS: GeoCategoryTemplateBlock[] = [
                     id: "geo-default-fullwidth-faq",
                     type: "geoFaq",
                     props: { heading: "Frequently asked questions" },
+                  },
+                  {
+                    id: "geo-default-fullwidth-chips",
+                    type: "geoRegionChips",
+                    props: { showHeading: true },
+                  },
+                  {
+                    id: "geo-default-fullwidth-filter",
+                    type: "geoFilterBar",
+                    props: {},
                   },
                   {
                     id: "geo-default-fullwidth-listings",
@@ -461,6 +512,16 @@ export const DEFAULT_GEO_SIDEBAR_BLOCKS: GeoCategoryTemplateBlock[] = [
                     id: "geo-default-sidebar-faq",
                     type: "geoFaq",
                     props: { heading: "Frequently asked questions" },
+                  },
+                  {
+                    id: "geo-default-sidebar-chips",
+                    type: "geoRegionChips",
+                    props: { showHeading: true },
+                  },
+                  {
+                    id: "geo-default-sidebar-filter",
+                    type: "geoFilterBar",
+                    props: {},
                   },
                   {
                     id: "geo-default-sidebar-listings",

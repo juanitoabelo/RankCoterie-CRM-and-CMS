@@ -42,6 +42,9 @@ export interface ReportData {
   openTodos: number;
   leadCounts: Array<{ status: string; count: number }>;
   invoiceCounts: Array<{ status: string; count: number; total: number }>;
+  lowStockProducts: number;
+  dailySales: number;
+  abandonedOrderRecoveryRate: number;
 }
 
 /** Report query filters */

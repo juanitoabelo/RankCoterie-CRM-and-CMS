@@ -45,6 +45,51 @@ function styleFields(block: Block, onChange: (props: Block["props"]) => void) {
   );
 }
 
+/** Standard Content / Style / Advanced tab shell shared by every flat block editor. */
+function withStandardTabs(Editor: React.ComponentType<EditorProps>): React.ComponentType<EditorProps> {
+  function TabbedEditor({ block, onChange, onAddToColumn }: EditorProps) {
+    const [activeTab, setActiveTab] = useState<"content" | "style" | "advanced">("content");
+    const set = (patch: Record<string, unknown>) =>
+      onChange({ ...block.props, ...patch } as Block["props"]);
+
+    return (
+      <div className="space-y-3">
+        <div className="flex border-b border-zinc-200">
+          {(["content", "style", "advanced"] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-2 text-xs font-medium capitalize ${activeTab === tab ? "border-b-2 border-zinc-900 text-zinc-900" : "text-zinc-500 hover:text-zinc-700"}`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === "content" && (
+          <div className="space-y-3">
+            <Editor block={block} onChange={onChange} onAddToColumn={onAddToColumn} />
+          </div>
+        )}
+
+        {activeTab === "style" && (
+          <div className="space-y-3">
+            <BlockStyleTab props={block.props as Record<string, unknown>} set={set} />
+            {styleFields(block, onChange)}
+          </div>
+        )}
+
+        {activeTab === "advanced" && (
+          <BlockAdvancedTab props={block.props as Record<string, unknown>} set={set} />
+        )}
+      </div>
+    );
+  }
+
+  return TabbedEditor;
+}
+
 function HeroEditor({
   block,
   onChange,
@@ -90,7 +135,6 @@ function HeroEditor({
           />
         </div>
       </div>
-      {styleFields(block, onChange)}
     </>
   );
 }
@@ -518,7 +562,6 @@ function CtaEditor({
           onChange={(e) => onChange({ ...block.props, bgColor: e.target.value })}
         />
       </div>
-      {styleFields(block, onChange)}
     </>
   );
 }
@@ -616,7 +659,6 @@ function FeaturesEditor({
           + Add item
         </button>
       </div>
-      {styleFields(block, onChange)}
     </>
   );
 }
@@ -696,7 +738,6 @@ function ButtonEditor({
           </select>
         </div>
       </div>
-      {styleFields(block, onChange)}
     </>
   );
 }
@@ -798,7 +839,6 @@ function FaqEditor({
           + Add question
         </button>
       </div>
-      {styleFields(block, onChange)}
     </>
   );
 }
@@ -999,7 +1039,6 @@ function TestimonialEditor({
 
       {uploadErr && <p className="text-xs text-red-600">{uploadErr}</p>}
 
-      {styleFields(block, onChange)}
     </>
   );
 }
@@ -1129,7 +1168,6 @@ function ListEditor({
           One item per line — blank lines are skipped on the published page.
         </p>
       </div>
-      {styleFields(block, onChange)}
     </>
   );
 }
@@ -1350,7 +1388,6 @@ function SliderEditor({
           + Add slide
         </button>
       </div>
-      {styleFields(block, onChange)}
     </>
   );
 }
@@ -1476,7 +1513,6 @@ function ContentGridEditor({
         Cards load from live {block.props.source === "articles" ? "articles" : "feeds"} with
         pagination on the published page.
       </p>
-      {styleFields(block, onChange)}
     </>
   );
 }
@@ -1758,7 +1794,10 @@ function ProductGridEditor({
       </div>
 
       <div className="space-y-1.5">
+        <CheckField id={`pg-count-${block.id}`} label="Show product count" checked={p.showCount ?? true} onChange={(v) => set("showCount", v)} />
         <CheckField id={`pg-img-${block.id}`} label="Show image" checked={p.showFeaturedImage} onChange={(v) => set("showFeaturedImage", v)} />
+        <CheckField id={`pg-badges-${block.id}`} label="Show sale/featured badges" checked={p.showBadges ?? true} onChange={(v) => set("showBadges", v)} />
+        <CheckField id={`pg-title-${block.id}`} label="Show product title" checked={p.showTitle ?? true} onChange={(v) => set("showTitle", v)} />
         <CheckField id={`pg-price-${block.id}`} label="Show price" checked={p.showPrice} onChange={(v) => set("showPrice", v)} />
         <CheckField id={`pg-rating-${block.id}`} label="Show rating" checked={p.showRating} onChange={(v) => set("showRating", v)} />
         <CheckField id={`pg-excerpt-${block.id}`} label="Show excerpt" checked={p.showExcerpt} onChange={(v) => set("showExcerpt", v)} />
@@ -1766,6 +1805,7 @@ function ProductGridEditor({
         <CheckField id={`pg-cart-${block.id}`} label="Show add-to-cart button" checked={p.showAddToCart} onChange={(v) => set("showAddToCart", v)} />
         <CheckField id={`pg-wish-${block.id}`} label="Show wishlist heart" checked={p.showWishlist} onChange={(v) => set("showWishlist", v)} />
         <CheckField id={`pg-search-${block.id}`} label="Show search box" checked={p.showSearch} onChange={(v) => set("showSearch", v)} />
+        <CheckField id={`pg-sort-${block.id}`} label="Show sort dropdown" checked={p.showSort ?? true} onChange={(v) => set("showSort", v)} />
         <CheckField id={`pg-page-${block.id}`} label="Show pagination" checked={p.showPagination} onChange={(v) => set("showPagination", v)} />
         <CheckField id={`pg-stock-${block.id}`} label="In-stock products only" checked={p.inStockOnly} onChange={(v) => set("inStockOnly", v)} />
       </div>
@@ -1819,7 +1859,299 @@ function ProductGridEditor({
         Cards load live from your catalog with pagination, filtering and animations on the
         published page.
       </p>
-      {styleFields(block, onChange)}
+    </>
+  );
+}
+
+type BlogCategoryOption = { id: string; name: string; slug: string; parentId: string | null };
+
+function BlogPostGridEditor({
+  block,
+  onChange,
+}: {
+  block: Block & { type: "blogPostGrid" };
+  onChange: (props: Block["props"]) => void;
+}) {
+  const [categories, setCategories] = useState<BlogCategoryOption[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    try {
+      fetch("/api/blog-grid?perPage=1")
+        .then((res) => (res.ok ? res.json() : { categories: [] }))
+        .then((data) => {
+          if (!cancelled && Array.isArray(data.categories)) setCategories(data.categories);
+        })
+        .catch(() => undefined);
+    } catch {
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const set = <K extends keyof (Block & { type: "blogPostGrid" })["props"]>(
+    key: K,
+    value: (Block & { type: "blogPostGrid" })["props"][K],
+  ) => onChange({ ...block.props, [key]: value });
+
+  const toggleFilterCategory = (id: string, on: boolean) => {
+    const current = block.props.filterCategories ?? [];
+    const next = on ? [...current, id] : current.filter((x) => x !== id);
+    set("filterCategories", next);
+  };
+
+  const p = block.props;
+  const sortValue = `${p.orderBy ?? "date"}|${p.sortOrder ?? "desc"}`;
+
+  return (
+    <>
+      <div>
+        <label className={labelCls}>Heading</label>
+        <input
+          className={inputCls}
+          value={p.heading ?? ""}
+          onChange={(e) => set("heading", e.target.value)}
+          placeholder="Latest Posts"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Category</label>
+          <select
+            className={inputCls}
+            value={p.categoryId ?? ""}
+            onChange={(e) => set("categoryId", e.target.value)}
+          >
+            <option value="">All posts</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Layout</label>
+          <select
+            className={inputCls}
+            value={p.layout}
+            onChange={(e) => set("layout", e.target.value as typeof p.layout)}
+          >
+            <option value="grid">Grid</option>
+            <option value="list">List</option>
+            <option value="masonry">Masonry</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label className={labelCls}>Desktop</label>
+          <select
+            className={inputCls}
+            value={p.columnsDesktop ?? p.columns ?? 3}
+            onChange={(e) => set("columnsDesktop", Number(e.target.value) as typeof p.columnsDesktop)}
+          >
+            {[1, 2, 3, 4, 5, 6].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Tablet</label>
+          <select
+            className={inputCls}
+            value={p.columnsTablet ?? p.columnsDesktop ?? 2}
+            onChange={(e) => set("columnsTablet", Number(e.target.value) as NonNullable<typeof p.columnsTablet>)}
+          >
+            {[1, 2, 3, 4].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Mobile</label>
+          <select
+            className={inputCls}
+            value={p.columnsMobile ?? 1}
+            onChange={(e) => set("columnsMobile", Number(e.target.value) as NonNullable<typeof p.columnsMobile>)}
+          >
+            {[1, 2, 3].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Per page (1–48)</label>
+          <input
+            type="number"
+            min={1}
+            max={48}
+            className={inputCls}
+            value={p.postsPerPage}
+            onChange={(e) => set("postsPerPage", Number(e.target.value))}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Sort</label>
+          <select
+            className={inputCls}
+            value={sortValue}
+            onChange={(e) => {
+              const [order, sort] = e.target.value.split("|");
+              onChange({
+                ...p,
+                orderBy: order as typeof p.orderBy,
+                sortOrder: sort as NonNullable<typeof p.sortOrder>,
+              });
+            }}
+          >
+            <option value="date|desc">Newest first</option>
+            <option value="date|asc">Oldest first</option>
+            <option value="title|asc">Title: A–Z</option>
+            <option value="title|desc">Title: Z–A</option>
+            <option value="popular|desc">Most popular</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Entrance animation</label>
+          <select
+            className={inputCls}
+            value={p.cardAnimation ?? "fadeUp"}
+            onChange={(e) => set("cardAnimation", e.target.value as NonNullable<typeof p.cardAnimation>)}
+          >
+            <option value="fadeUp">Fade up</option>
+            <option value="zoomIn">Zoom in</option>
+            <option value="flip">Flip in</option>
+            <option value="slideIn">Slide in</option>
+            <option value="none">None</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Hover effect</label>
+          <select
+            className={inputCls}
+            value={p.hoverEffect ?? "lift"}
+            onChange={(e) => set("hoverEffect", e.target.value as NonNullable<typeof p.hoverEffect>)}
+          >
+            <option value="lift">Lift</option>
+            <option value="zoom">Image zoom</option>
+            <option value="glow">Glow</option>
+            <option value="overlay">Read-more overlay</option>
+            <option value="none">None</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Card style</label>
+          <select
+            className={inputCls}
+            value={p.cardStyle ?? "shadow"}
+            onChange={(e) => set("cardStyle", e.target.value as NonNullable<typeof p.cardStyle>)}
+          >
+            <option value="shadow">Shadow</option>
+            <option value="bordered">Bordered</option>
+            <option value="minimal">Minimal</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Image aspect</label>
+          <select
+            className={inputCls}
+            value={p.imageAspect ?? "16:9"}
+            onChange={(e) => set("imageAspect", e.target.value as NonNullable<typeof p.imageAspect>)}
+          >
+            <option value="16:9">16:9</option>
+            <option value="4:3">4:3</option>
+            <option value="1:1">1:1</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <CheckField
+          id={`bg-filter-${block.id}`}
+          label="Show category filter bar"
+          checked={p.showCategoryFilter ?? false}
+          onChange={(v) => set("showCategoryFilter", v)}
+        />
+        {(p.showCategoryFilter ?? false) && (
+          <div className="mt-2 rounded-lg border border-zinc-200 p-2">
+            <p className="mb-1 text-[11px] font-medium text-zinc-500">
+              Filter options (none checked = every category)
+            </p>
+            <div className="max-h-36 space-y-1 overflow-y-auto">
+              {categories.length === 0 ? (
+                <p className="text-[11px] text-zinc-400">No categories yet.</p>
+              ) : (
+                categories.map((c) => (
+                  <CheckField
+                    key={c.id}
+                    id={`bg-fc-${block.id}-${c.id}`}
+                    label={c.name}
+                    checked={(p.filterCategories ?? []).includes(c.id)}
+                    onChange={(v) => toggleFilterCategory(c.id, v)}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        <CheckField id={`bg-img-${block.id}`} label="Show image" checked={p.showFeaturedImage} onChange={(v) => set("showFeaturedImage", v)} />
+        <CheckField id={`bg-excerpt-${block.id}`} label="Show excerpt" checked={p.showExcerpt} onChange={(v) => set("showExcerpt", v)} />
+        <CheckField id={`bg-cat-${block.id}`} label="Show category label" checked={p.showCategory} onChange={(v) => set("showCategory", v)} />
+        <CheckField id={`bg-author-${block.id}`} label="Show author" checked={p.showAuthor} onChange={(v) => set("showAuthor", v)} />
+        <CheckField id={`bg-date-${block.id}`} label="Show date" checked={p.showDate} onChange={(v) => set("showDate", v)} />
+        <CheckField id={`bg-search-${block.id}`} label="Show search box" checked={p.showSearch ?? false} onChange={(v) => set("showSearch", v)} />
+        <CheckField id={`bg-page-${block.id}`} label="Show pagination" checked={p.showPagination} onChange={(v) => set("showPagination", v)} />
+      </div>
+
+      <div>
+        <label className={labelCls}>Excerpt chars</label>
+        <input
+          type="number"
+          min={0}
+          max={500}
+          className={inputCls}
+          value={p.excerptLength}
+          onChange={(e) => set("excerptLength", Number(e.target.value))}
+        />
+      </div>
+
+      {(p.showSearch ?? false) && (
+        <div>
+          <label className={labelCls}>Search placeholder</label>
+          <input
+            className={inputCls}
+            value={p.searchPlaceholder ?? ""}
+            onChange={(e) => set("searchPlaceholder", e.target.value)}
+          />
+        </div>
+      )}
+
+      <p className="text-[11px] leading-snug text-zinc-400">
+        Cards load live from your articles with pagination, filtering and animations on the
+        published page.
+      </p>
     </>
   );
 }
@@ -3861,26 +4193,80 @@ function VideoEditor({
   );
 }
 
+function ListingApplyFormEditor({
+  block,
+  onChange,
+}: {
+  block: Block & { type: "listingApplyForm" };
+  onChange: (props: Block["props"]) => void;
+}) {
+  const p = block.props;
+  return (
+    <>
+      <CheckField
+        id={`laf-heading-${block.id}`}
+        label="Show heading"
+        checked={p.showHeading}
+        onChange={(v) => onChange({ ...p, showHeading: v })}
+      />
+      {p.showHeading && (
+        <>
+          <div>
+            <label className={labelCls}>Heading</label>
+            <input
+              className={inputCls}
+              value={p.heading}
+              onChange={(e) => onChange({ ...p, heading: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Subheading</label>
+            <textarea
+              className={`${inputCls} min-h-[80px] resize-y`}
+              value={p.subheading}
+              onChange={(e) => onChange({ ...p, subheading: e.target.value })}
+            />
+          </div>
+        </>
+      )}
+      <div>
+        <label className={labelCls}>Submit button label</label>
+        <input
+          className={inputCls}
+          value={p.submitLabel}
+          onChange={(e) => onChange({ ...p, submitLabel: e.target.value })}
+        />
+      </div>
+      <p className="text-xs text-zinc-400">
+        Renders the full listing application form (tiers, details, categories,
+        regions). Pricing labels come from System Tools → Listing Payment settings.
+      </p>
+    </>
+  );
+}
+
 const EDITORS: Record<string, React.ComponentType<EditorProps>> = {
-  hero: HeroEditor as React.ComponentType<EditorProps>,
+  hero: withStandardTabs(HeroEditor as React.ComponentType<EditorProps>),
   text: TextEditor as React.ComponentType<EditorProps>,
   image: ImageEditor as React.ComponentType<EditorProps>,
-  cta: CtaEditor as React.ComponentType<EditorProps>,
-  features: FeaturesEditor as React.ComponentType<EditorProps>,
-  button: ButtonEditor as React.ComponentType<EditorProps>,
-  embed: EmbedEditor as React.ComponentType<EditorProps>,
-  faq: FaqEditor as React.ComponentType<EditorProps>,
-  testimonial: TestimonialEditor as React.ComponentType<EditorProps>,
-  spacer: SpacerEditor as React.ComponentType<EditorProps>,
-  divider: DividerEditor as React.ComponentType<EditorProps>,
+  cta: withStandardTabs(CtaEditor as React.ComponentType<EditorProps>),
+  features: withStandardTabs(FeaturesEditor as React.ComponentType<EditorProps>),
+  button: withStandardTabs(ButtonEditor as React.ComponentType<EditorProps>),
+  embed: withStandardTabs(EmbedEditor as React.ComponentType<EditorProps>),
+  faq: withStandardTabs(FaqEditor as React.ComponentType<EditorProps>),
+  testimonial: withStandardTabs(TestimonialEditor as React.ComponentType<EditorProps>),
+  spacer: withStandardTabs(SpacerEditor as React.ComponentType<EditorProps>),
+  divider: withStandardTabs(DividerEditor as React.ComponentType<EditorProps>),
   heading: HeadingEditor as React.ComponentType<EditorProps>,
-  list: ListEditor as React.ComponentType<EditorProps>,
+  list: withStandardTabs(ListEditor as React.ComponentType<EditorProps>),
   iconList: IconListEditor as React.ComponentType<EditorProps>,
   googleMap: GoogleMapEditor as React.ComponentType<EditorProps>,
   video: VideoEditor as React.ComponentType<EditorProps>,
-  slider: SliderEditor as React.ComponentType<EditorProps>,
-  contentGrid: ContentGridEditor as React.ComponentType<EditorProps>,
-  productGrid: ProductGridEditor as React.ComponentType<EditorProps>,
+  slider: withStandardTabs(SliderEditor as React.ComponentType<EditorProps>),
+  contentGrid: withStandardTabs(ContentGridEditor as React.ComponentType<EditorProps>),
+  productGrid: withStandardTabs(ProductGridEditor as React.ComponentType<EditorProps>),
+  blogPostGrid: withStandardTabs(BlogPostGridEditor as React.ComponentType<EditorProps>),
+  listingApplyForm: withStandardTabs(ListingApplyFormEditor as React.ComponentType<EditorProps>),
   row: RowEditor as React.ComponentType<EditorProps>,
   section: SectionEditor as React.ComponentType<EditorProps>,
 };

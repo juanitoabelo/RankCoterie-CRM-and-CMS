@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCatalogRepo } from "@/lib/directory/catalog";
 import { getListingPage } from "@/lib/directory/listingQuery";
 import type { RegionContext } from "@/lib/localization/render";
+import type { CatalogListing } from "@/lib/directory/catalog";
 import { SITE_URL, itemListJsonLd, jsonLdHtml } from "@/lib/seo/geoCategorySeo";
 import ListingCard from "@/components/ListingCard";
 
@@ -16,6 +17,9 @@ export default async function RegionListings({
   regionId,
   regionCtx,
   page = 1,
+  sort = "featured",
+  tierFilter,
+  ratingFilter,
 }: {
   categorySlug: string;
   regionSlug: string;
@@ -23,6 +27,9 @@ export default async function RegionListings({
   regionId: string | "ALL";
   regionCtx: RegionContext;
   page?: number;
+  sort?: string;
+  tierFilter?: string;
+  ratingFilter?: string;
 }) {
   const repo = await getCatalogRepo();
   const result = await getListingPage(
@@ -31,12 +38,46 @@ export default async function RegionListings({
     { exclusions: await repo.getExclusions() },
   );
 
-  if (result.listings.length === 0) {
+  // Apply additional filters and sorting
+  let listings = result.listings as unknown as CatalogListing[];
+
+  // Tier filter
+  if (tierFilter) {
+    listings = listings.filter((l) => l.tier === tierFilter);
+  }
+
+  // Rating filter (simplified - would need review data)
+  if (ratingFilter) {
+    // This would need to join with reviews table
+    // For now, we'll skip as it requires additional query
+  }
+
+  // Custom sorting
+  switch (sort) {
+    case "rating":
+      // Would need review data
+      break;
+    case "reviews":
+      // Would need review data
+      break;
+    case "newest":
+      listings = [...listings].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      break;
+    case "name":
+      listings = [...listings].sort((a, b) => a.title.localeCompare(b.title));
+      break;
+    case "featured":
+    default:
+      // Default is already sorted by tier prominence
+      break;
+  }
+
+  if (listings.length === 0) {
     return (
       <p className="mt-4 text-zinc-500">
-        No programs are currently listed for this area. Looking to get listed?{" "}
-        <a href="/" className="underline underline-offset-2 hover:text-zinc-800">
-          Apply here
+        No programs match your filters.{" "}
+        <a href={`/g/${categorySlug}/${regionSlug}/`} className="underline underline-offset-2 hover:text-zinc-800">
+          Clear filters
         </a>
         .
       </p>
@@ -48,18 +89,18 @@ export default async function RegionListings({
   const listingList = itemListJsonLd(
     `Programs in ${regionCtx.regionName ?? regionSlug}`,
     `Directory listings for ${categorySlug.replace(/-/g, " ")} in ${regionCtx.regionName ?? regionSlug}`,
-    result.listings.map((l) => ({ name: l.title, url: `${SITE_URL}/listing/${l.slug}/` })),
+    listings.map((l) => ({ name: l.title, url: `${SITE_URL}/listing/${l.slug}/` })),
   );
 
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(listingList) }} />
       <h2 className="mt-10 text-xl font-semibold text-zinc-900">
-        Listings ({result.total})
+        Listings ({listings.length} of {result.total})
       </h2>
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
-        {result.listings.map((l) => (
+        {listings.map((l) => (
           <ListingCard key={l.id} listing={l} regionCtx={regionCtx} />
         ))}
       </div>

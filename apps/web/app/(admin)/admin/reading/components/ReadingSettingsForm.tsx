@@ -27,6 +27,7 @@ export default function ReadingSettingsForm({
     fd.set("homepageDisplays", form.homepageDisplays);
     fd.set("homepagePageId", form.homepagePageId ?? "");
     fd.set("postsPageId", form.postsPageId ?? "");
+    fd.set("applyPageId", form.applyPageId ?? "");
     fd.set("postsPerPage", String(form.postsPerPage));
     fd.set("feedsPerPage", String(form.feedsPerPage));
     fd.set("feedFormat", form.feedFormat);
@@ -149,6 +150,33 @@ export default function ReadingSettingsForm({
             />
           </div>
         </div>
+      </div>
+
+      {/* ── Directory listing apply page ─────────────────────── */}
+      <div className="border-x border-b border-zinc-200 bg-white px-6 py-5">
+        <h2 className="mb-4 text-base font-semibold text-zinc-900">
+          Directory listing
+        </h2>
+
+        <div className="flex items-center gap-3">
+          <label className="w-28 text-sm font-medium text-zinc-700">Apply page:</label>
+          <select
+            value={form.applyPageId ?? ""}
+            onChange={(e) => set("applyPageId", e.target.value || null)}
+            className="w-64 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+          >
+            <option value="">— Default apply form —</option>
+            {livePages.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <p className="mt-2 text-xs text-zinc-400">
+          Assign a custom page to render its content above the listing application
+          form on /apply. Leave blank to use the default apply form.
+        </p>
       </div>
 
       {/* ── Feed format ───────────────────────────────────────────── */}

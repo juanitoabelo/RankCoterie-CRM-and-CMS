@@ -6,6 +6,7 @@ import BlockRenderer from "@/components/admin/page-builder/BlockRenderer";
 import ProductPurchase from "@/components/storefront/ProductPurchase";
 import { getEnabledPaymentGateways } from "@/modules/ecommerce/queries";
 import { sanitizeHtml } from "@/lib/style-guide";
+import { getSinglePostSeo, loadSinglePost, SinglePost } from "@/app/(site)/components/SinglePost";
 import type { Block } from "@/lib/page-builder/types";
 import type { Metadata } from "next";
 
@@ -13,10 +14,13 @@ export const revalidate = 0;
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ region?: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
+  const { region } = await searchParams;
 
   const product = await prisma.product.findUnique({
     where: { slug },
@@ -64,7 +68,10 @@ export async function generateMetadata({
     },
   });
 
-  if (!page) return { title: "Page not found" };
+  if (!page) {
+    const postSeo = await getSinglePostSeo(slug, region);
+    return postSeo ?? { title: "Page not found" };
+  }
 
   const title = page.seoTitle || page.title || page.name;
   const metaKeywords = page.metaKeywords
@@ -172,10 +179,13 @@ function productJsonLd(product: ProductJsonLdRow, siteUrl: string) {
 
 export default async function PublicPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ region?: string }>;
 }) {
   const { slug } = await params;
+  const { region } = await searchParams;
 
   const product = await prisma.product.findUnique({
     where: { slug },
@@ -328,19 +338,25 @@ export default async function PublicPage({
     },
   });
 
-  if (!page) notFound();
+  if (page) {
+    const blocks: Block[] = page.data ? JSON.parse(page.data) : [];
 
-  const blocks: Block[] = page.data ? JSON.parse(page.data) : [];
+    return (
+      <div>
+        <BlockRenderer blocks={blocks} />
+        {page.jsonSchema && (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: page.jsonSchema }}
+          />
+        )}
+      </div>
+    );
+  }
 
-  return (
-    <div>
-      <BlockRenderer blocks={blocks} />
-      {page.jsonSchema && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: page.jsonSchema }}
-        />
-      )}
-    </div>
-  );
+  // Fall back to a single post (article) by slug
+  const post = await loadSinglePost(slug, region);
+  if (post) return <SinglePost {...post} />;
+
+  notFound();
 }

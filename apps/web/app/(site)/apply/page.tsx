@@ -1,101 +1,67 @@
-import { applyListingForm } from "./actions";
-import { isStripeConfigured } from "@/lib/billing/checkout";
+import { getApplyFormOptions } from "./actions";
+import { prisma, TENANT_ID } from "@/modules/shared";
+import BlockRenderer from "@/components/admin/page-builder/BlockRenderer";
+import ApplyListingForm from "@/components/apply/ApplyListingForm";
+import { hasBlockOfType } from "@/lib/page-builder/tree";
+import type { Block } from "@/lib/page-builder/types";
+import type { Metadata } from "next";
 
-export default function ApplyPage() {
-  const configured = isStripeConfigured();
+export const revalidate = 0;
 
-  const tierCard =
-    "rounded-xl border border-zinc-200 bg-white p-5 text-left transition hover:border-zinc-300";
+async function getAssignedApplyPage() {
+  const tenant = await prisma.tenant.findUnique({ where: { id: TENANT_ID } }).catch(() => null);
+  const theme = (tenant?.theme ?? {}) as {
+    readingSettings?: { applyPageId?: string | null };
+  };
+  const applyPageId = theme.readingSettings?.applyPageId;
+  if (!applyPageId) return null;
+  return prisma.page
+    .findFirst({
+      where: { id: applyPageId, tenantId: TENANT_ID, status: "LIVE" },
+    })
+    .catch(() => null);
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const page = await getAssignedApplyPage();
+  if (!page) {
+    return {
+      title: "Apply to get listed | Canopy Directory",
+      description:
+        "Get your program listed in the directory with a local SEO page per region.",
+    };
+  }
+  const title = page.seoTitle || page.title || page.name;
+  const keywords = page.metaKeywords ? (JSON.parse(page.metaKeywords) as string[]) : [];
+  return {
+    title,
+    description: page.metaDesc ?? undefined,
+    keywords: keywords.length > 0 ? keywords : undefined,
+    robots: { index: page.robotsIndex, follow: page.robotsFollow },
+    alternates: page.canonicalUrl ? { canonical: page.canonicalUrl } : undefined,
+  };
+}
+
+export default async function ApplyPage() {
+  const [applyPage, options] = await Promise.all([
+    getAssignedApplyPage(),
+    getApplyFormOptions(),
+  ]);
+
+  const blocks: Block[] = applyPage?.data ? JSON.parse(applyPage.data) : [];
+  // When the assigned page already embeds the form block, render only the page
+  // content — otherwise we'd show two forms.
+  const hasFormBlock = hasBlockOfType(blocks, "listingApplyForm");
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="text-3xl font-semibold text-zinc-900">Apply to get listed</h1>
-      <p className="mt-3 text-zinc-600">
-        Get your program listed in the directory with a local SEO page per region.
-        Pay a one-time setup fee plus a monthly subscription after review.
-      </p>
-
-      {!configured && (
-        <p className="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Applications are temporarily paused while payments are being configured.
-        </p>
+      {blocks.length > 0 && (
+        <div className={hasFormBlock ? "" : "mb-10"}>
+          <BlockRenderer blocks={blocks} />
+        </div>
       )}
 
-      <form action={applyListingForm} className="mt-8 space-y-8">
-        <div>
-          <h2 className="text-sm font-medium text-zinc-900">Choose your tier</h2>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <label className={`${tierCard} cursor-pointer`}>
-              <input type="radio" name="tier" value="STANDARD" required className="sr-only" />
-              <p className="font-semibold text-zinc-900">Standard — $97/mo</p>
-              <p className="mt-1 text-sm text-zinc-600">
-                Listed in category and region pages for your areas.
-              </p>
-            </label>
-            <label className={`${tierCard} cursor-pointer`}>
-              <input type="radio" name="tier" value="PREMIUM" required className="sr-only" />
-              <p className="font-semibold text-zinc-900">Premium — $197/mo</p>
-              <p className="mt-1 text-sm text-zinc-600">
-                Featured placement at the top plus a dedicated landing page.
-              </p>
-            </label>
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="block text-sm font-medium text-zinc-800">Program title *</label>
-            <input
-              name="title"
-              required
-              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-              placeholder="e.g. Clearview Horizon"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-zinc-800">Company name</label>
-            <input
-              name="companyName"
-              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-zinc-800">Contact email *</label>
-            <input
-              name="email"
-              type="email"
-              required
-              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-zinc-800">Phone</label>
-            <input name="phone" className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-zinc-800">Website</label>
-            <input name="website" type="url" className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-zinc-800">City</label>
-              <input name="city" className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-zinc-800">State</label>
-              <input name="state" className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
-            </div>
-          </div>
-        </div>
-
-        <button
-          type="submit"
-          disabled={!configured}
-          className="rounded-lg bg-zinc-900 px-6 py-3 text-sm font-medium text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Continue to payment
-        </button>
-      </form>
+      {!hasFormBlock && <ApplyListingForm initialOptions={options} />}
     </div>
   );
 }

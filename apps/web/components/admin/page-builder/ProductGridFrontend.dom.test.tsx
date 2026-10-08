@@ -225,6 +225,9 @@ describe("ProductGridFrontend", () => {
     ]);
     expect(container.querySelector("h2")?.textContent).toBe("Shop the collection");
     expect(container.textContent).toContain("12 products");
+    expect(container.querySelector('select[aria-label="Sort products"]')).toBeTruthy();
+    expect(container.querySelector(".pg-title")).toBeTruthy();
+    expect(container.querySelector(".pg-badges")).toBeTruthy();
     expect(container.querySelectorAll(".pg-pill").length).toBe(4);
     expect(container.querySelectorAll(".pg-cart-btn").length).toBe(4);
     expect(container.querySelectorAll(".pg-wishlist").length).toBe(4);
@@ -319,6 +322,33 @@ describe("ProductGridFrontend", () => {
     click(heart);
     await settle();
     expect(JSON.parse(window.localStorage.getItem("canopy:wishlist") ?? "[]")).toHaveLength(0);
+  });
+
+  it("hides the count, sort dropdown, badges and title when disabled", async () => {
+    await act(async () => {
+      root.unmount();
+      container.innerHTML = "";
+      root = createRoot(container);
+      root.render(
+        <ProductGridFrontend
+          props={{
+            ...baseProps,
+            showCount: false,
+            showSort: false,
+            showBadges: false,
+            showTitle: false,
+          }}
+        />,
+      );
+    });
+    await settle();
+    expect(container.querySelectorAll("[data-pg-card]").length).toBe(4);
+    expect(container.textContent).not.toContain("12 products");
+    expect(container.querySelector('select[aria-label="Sort products"]')).toBeNull();
+    expect(container.querySelector(".pg-title")).toBeNull();
+    expect(container.querySelector(".pg-badges")).toBeNull();
+    expect(container.querySelector('input[type="search"]')).toBeTruthy();
+    expect(container.querySelectorAll(".pg-pill").length).toBe(4);
   });
 
   it("renders masonry layout and applies price and stock filters", async () => {

@@ -221,7 +221,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
                 footer: footerMenu?.items ?? [],
               }}
             />
-            <div className="absolute right-4 top-1/2 z-20 -translate-y-1/2 flex items-center gap-4">
+            <div className="absolute right-4 top-1/5 z-20 -translate-y-1/2 flex items-center gap-4">
               <Link href="/wishlist" className="hidden text-sm text-zinc-600 hover:text-zinc-900 sm:inline">
                 Wishlist
               </Link>
@@ -232,7 +232,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
             </div>
           </div>
         ) : (
-          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
+          <div className="mx-auto flex max-w-5il items-center justify-between px-4 py-4">
             <Link href="/" className="text-lg font-semibold text-zinc-900">
               Canopy Directory
             </Link>
@@ -316,7 +316,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
             containerSettings={layoutData.pageLayoutContainerSettings}
           />
         ) : (
-          <div className="w-full">{children}</div>
+          children
         )}
       </main>
 

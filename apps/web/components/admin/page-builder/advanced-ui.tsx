@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { scopeDynamicStyle } from "@/lib/page-builder/style";
 import {
   buildAdvancedHoverCss,
   buildTransformCss,
@@ -98,6 +99,12 @@ export function MouseEffectLayer({
 
   if (!enabled) return <>{children}</>;
 
+  const scopedFx = scopeDynamicStyle("mouse-effect", {
+    transition: "transform 0.18s ease-out",
+    willChange: "transform",
+  });
+  const moved = offset.x !== 0 || offset.y !== 0;
+
   return (
     <div
       ref={ref}
@@ -111,12 +118,10 @@ export function MouseEffectLayer({
       }}
       onMouseLeave={() => setOffset({ x: 0, y: 0 })}
     >
+      {scopedFx.node}
       <div
-        style={{
-          transform: `translate3d(${offset.x}px, ${offset.y}px, 0)`,
-          transition: "transform 0.18s ease-out",
-          willChange: "transform",
-        }}
+        className={scopedFx.className || undefined}
+        style={moved ? { transform: `translate3d(${offset.x}px, ${offset.y}px, 0)` } : undefined}
       >
         {children}
       </div>
@@ -171,6 +176,8 @@ export function BlockAdvancedFrame({
   }
   if (hoverCss) Object.assign(mergedStyle, getAdvancedHoverTransition());
 
+  const scopedAdvanced = scopeDynamicStyle(`${block.id}-advanced`, mergedStyle);
+
   const visibilityClass = getVisibilityClasses({
     hideOnDesktop: p.hideOnDesktop as boolean,
     hideOnTablet: p.hideOnTablet as boolean,
@@ -193,6 +200,7 @@ export function BlockAdvancedFrame({
     visibilityClass,
     showOnClasses,
     animClass,
+    scopedAdvanced.className,
   ]
     .filter(Boolean)
     .join(" ");
@@ -210,9 +218,9 @@ export function BlockAdvancedFrame({
       data-pb-el={block.id}
       data-pb-kind="block"
       className={mergedClass || undefined}
-      style={mergedStyle}
       {...mergedAttrs}
     >
+      {scopedAdvanced.node}
       {customCss && <style dangerouslySetInnerHTML={{ __html: customCss }} />}
       {hoverCss && <style dangerouslySetInnerHTML={{ __html: hoverCss }} />}
       <MouseEffectLayer enabled={p.mouseEffects as boolean}>{children}</MouseEffectLayer>

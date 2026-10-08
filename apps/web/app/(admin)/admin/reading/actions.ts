@@ -39,6 +39,7 @@ export async function saveReadingSettings(formData: FormData): Promise<ActionRes
   const homepageDisplays = str("homepageDisplays") as "latest" | "static";
   const homepagePageId = str("homepagePageId") || null;
   const postsPageId = str("postsPageId") || null;
+  const applyPageId = str("applyPageId") || null;
 
   // Update the Page.isHomepage flag
   await prisma.page.updateMany({
@@ -56,6 +57,7 @@ export async function saveReadingSettings(formData: FormData): Promise<ActionRes
     homepageDisplays,
     homepagePageId,
     postsPageId,
+    applyPageId,
     postsPerPage: num("postsPerPage", 10),
     feedsPerPage: num("feedsPerPage", 10),
     feedFormat: (str("feedFormat") as "full" | "excerpt") || "full",
@@ -86,6 +88,7 @@ export async function saveReadingSettings(formData: FormData): Promise<ActionRes
     });
     revalidatePath("/admin/reading");
     revalidatePath("/");
+    revalidatePath("/apply");
     return { ok: true };
   } catch (e) {
     return {

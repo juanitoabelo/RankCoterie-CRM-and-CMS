@@ -120,6 +120,7 @@ model Region {
   zipCodes   String[]  @default([])
   createdAt  DateTime  @default(now())
   categoryImages CategoryImage[]
+  featuredPlacements FeaturedPlacement[]
   @@index([tenantId])
 }
 
@@ -140,7 +141,6 @@ model Category {
   altIntros   Json?  // areaPart-keyed overrides
   sections    Json?  // topic content sections [{title, content}, ...]
   status      String @default("LIVE")
-
   // SEO — parity with the Page content type (SeoFields: SEO / Advanced / Schema tabs).
   // seoTitle/metaDesc support {{region}} tokens: rendered per page on /g/* routes.
   seoTitle        String?
@@ -158,6 +158,7 @@ model Category {
   contentTemplates  ContentTemplate[]
   contentSections Section[]
   images CategoryImage[]
+  featuredPlacements FeaturedPlacement[]
   @@unique([tenantId, slug])
 }
 
@@ -226,10 +227,13 @@ model Listing {
   city         String?
   state        String?
   zip          String?
+  lat          Float?        // for map/geo search
+  lng          Float?        // for map/geo search
 
   avatarImage  String?
   feedImage    String?
   videoUrl     String?
+  galleryImages Json @default("[]") // additional images
   summary      String?
   staff        String?
   clientFocus  String?
@@ -243,18 +247,77 @@ model Listing {
   clientGender String?
   religion     String?
   languages    Json          @default("[]")
-  pricing      Json          @default("{}") // Price1/2, Duration1/2, sliding scale
+  pricing      Json          @default("{}") // structured pricing tiers
+  specialties   Json @default("[]") // list of specialties/services
+  amenities     Json @default("[]") // list of amenities
+  certifications Json @default("[]") // licenses/certifications
+  insuranceAccepted Json @default("[]") // insurance providers
+  hoursOfOperation Json @default("{}") // weekly schedule
 
   authorId     String?       // legacy UserID (staff page)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+
+  // Verification & Claim
+  claimedById  String?       // User who claimed this listing
+  claimedAt    DateTime?
+  verificationToken String? // for email verification
+  verificationExpires DateTime?
+  verifiedAt   DateTime?     // when phone/email/license verified
+  verifiedFields Json @default("[]") // which fields verified
+
+  // Featured/Monetization
+  featuredUntil DateTime?    // featured placement expiry
+  featuredSlots Int @default(0) // number of featured slots purchased
+  featuredPosition Int?      // position in featured carousel
+
+  // Lead Capture
+  leadEmail    String?       // where to send leads
+  leadPhone    String?       // phone for lead notifications
+  leadFormFields Json @default("{}") // custom lead form config
+  leadNotificationEmail Boolean @default(true)
+  leadNotificationSms Boolean @default(false)
+  leadAutoResponder Json @default("{}") // auto-responder config
+
+  // Analytics
+  viewCount    Int @default(0)
+  clickCount   Int @default(0)
+  leadCount    Int @default(0)
+  lastViewedAt DateTime?
+
+  // Reviews/Aggregates
+  reviewCount  Int @default(0)
+  averageRating Float @default(0)
+
+  // SEO
+  seoTitle     String?
+  metaDesc     String?
+  focusKeyphrase String?
+  ogImage      String?
+  canonicalUrl String?
+  robotsIndex  Boolean @default(true)
+  robotsFollow Boolean @default(true)
+  jsonSchema   String? // custom JSON-LD
+
+  // Badges/Verification
+  badges       Json @default("[]") // earned badges: verified, top_rated, years_in_business, etc.
 
   categories   ListingCategory[]
   regions      ListingRegion[]
   subscription ListingSubscription?
   articles     SearchArticle[]
   merchants    Merchant[]
+  reviews      Review[]
+  leads        ListingLead[]
+  analytics    ListingAnalytic[]
+  featuredPlacementPurchases FeaturedPlacementPurchase[]
+  leadCredits  LeadCredit[]
+  webhookDeliveries WebhookDelivery[]
+  verificationRequests VerificationRequest[]
   @@index([tenantId, tier, status])
+  @@index([tenantId, slug])
+  @@index([tenantId, city, state])
+  @@index([tenantId, claimedById])
 }
 
 model ListingCategory {
@@ -303,6 +366,72 @@ model ListingSubscription {
   approvedAt       DateTime?
   canceledAt       DateTime?
   createdAt        DateTime      @default(now())
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  tenantId    String
+  listingId   String
+  listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  authorId    String?  // User who wrote the review
+  authorName  String?  // for anonymous/guest reviews
+  authorEmail String?  // for verification
+  rating      Int      // 1-5
+  title       String?
+  content     String
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED, FLAGGED
+  isVerified  Boolean  @default(false) // verified purchase/lead
+  helpfulCount Int     @default(0)
+  response    String?  // owner response
+  respondedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, listingId])
+  @@index([tenantId, status])
+  @@index([listingId, status])
+}
+
+model ListingAnalytic {
+  id        String   @id @default(cuid())
+  tenantId  String
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  views     Int      @default(0)
+  clicks    Int      @default(0)
+  leads     Int      @default(0)
+  calls     Int      @default(0)
+  emails    Int      @default(0)
+  directions Int     @default(0)
+  websiteClicks Int  @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([listingId, date])
+  @@index([tenantId, date])
+  @@index([listingId, date])
+}
+
+model ListingLead {
+  id          String   @id @default(cuid())
+  tenantId    String
+  listingId   String?
+  listing     Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  name        String
+  email       String
+  phone       String?
+  message     String?
+  subject     String?
+  source      String   @default("listing") // listing, contact_form, claim, etc.
+  status      String   @default("NEW") // NEW, CONTACTED, QUALIFIED, CONVERTED, LOST
+  assignedToId String?
+  metadata    Json     @default("{}") // form data, utm params, etc.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, listingId])
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
 }
 
 // ---------------------------------------------------------------------------
@@ -689,8 +818,8 @@ model BlogTemplateAssignment {
    pageId          String?      // null = global or type-level
    pageType        String?      // null = global or page-level ("blog", "article")
    createdAt       DateTime     @default(now())
-   @@unique([tenantId, blogTemplateId, pageId, pageType])
-   @@index([tenantId, blogTemplateId])
+  @@unique([tenantId, blogTemplateId, pageId, pageType])
+  @@index([tenantId, blogTemplateId])
 }
 
 model GeoCategoryTemplate {
@@ -1748,4 +1877,231 @@ model ProductComparisonItem {
   product      Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
   @@unique([comparisonId, productId])
   @@index([productId])
+}
+
+// ============================================================================
+// Featured Placement / Monetization
+// ============================================================================
+
+enum FeaturedPlacementType {
+  HOME_HERO           // Homepage hero carousel (1 slot)
+  HOME_FEATURED       // Homepage featured grid (3 slots)
+  CATEGORY_TOP        // Category page top banner (1 per category)
+  CATEGORY_FEATURED   // Category featured grid (3 per category)
+  REGION_SPOTLIGHT    // Region page spotlight (1 per region)
+  SEARCH_TOP          // Search results top (2 slots)
+}
+
+enum FeaturedPlacementStatus {
+  AVAILABLE
+  RESERVED
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+model FeaturedPlacement {
+  id          String                @id @default(cuid())
+  tenantId    String
+  type        FeaturedPlacementType
+  slug        String                // e.g. "home-hero", "category-wilderness-therapy-top"
+  label       String                // Display name: "Homepage Hero", "Wilderness Therapy Top Banner"
+  description String?
+  
+  // Pricing
+  priceMonthly   Float
+  priceQuarterly Float?
+  priceAnnually  Float?
+  currency       String   @default("USD")
+  
+  // Slot configuration
+  maxSlots      Int     @default(1)
+  currentSlots  Int     @default(0)
+  
+  // Targeting
+  categoryId    String?
+  category      Category? @relation(fields: [categoryId], references: [id])
+  regionId      String?
+  region        Region?   @relation(fields: [regionId], references: [id])
+  
+  // Status & Timing
+  status        FeaturedPlacementStatus @default(AVAILABLE)
+  startsAt      DateTime?
+  endsAt        DateTime?
+  
+  // Metadata
+  metadata      Json    @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  purchases     FeaturedPlacementPurchase[]
+  
+  @@unique([tenantId, slug])
+  @@index([tenantId, type, status])
+  @@index([tenantId, categoryId, regionId])
+}
+
+model FeaturedPlacementPurchase {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  placementId         String
+  placement           FeaturedPlacement @relation(fields: [placementId], references: [id])
+  listingId           String
+  listing             Listing   @relation(fields: [listingId], references: [id])
+  
+  // Pricing snapshot
+  pricePaid           Float
+  currency            String   @default("USD")
+  billingInterval     String   // MONTHLY, QUARTERLY, ANNUALLY
+  
+  // Stripe
+  stripeCustomerId    String?
+  stripeSubscriptionId String?  @unique
+  stripePriceId       String?
+  
+  // Status
+  status              String   @default("ACTIVE") // ACTIVE, CANCELLED, PAST_DUE, EXPIRED
+  currentPeriodStart  DateTime
+  currentPeriodEnd    DateTime
+  cancelledAt         DateTime?
+  
+  // Position in carousel (if applicable)
+  position            Int?
+  
+  // Metadata
+  metadata            Json     @default("{}")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  @@index([tenantId, listingId])
+  @@index([tenantId, placementId])
+  @@index([stripeSubscriptionId])
+}
+
+model LeadCredit {
+  id            String   @id @default(cuid())
+  tenantId      String
+  listingId     String
+  listing       Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  
+  // Credit balance
+  balance       Int      @default(0) // number of leads remaining
+  usedThisMonth Int      @default(0)
+  monthStart    DateTime @default(now())
+  
+  // Subscription tier limits
+  monthlyLimit  Int      @default(10) // included leads per month
+  
+  // Overages
+  overageCount  Int      @default(0)
+  overageRate   Float    @default(2.00) // price per overage lead
+  
+  // Metadata
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([tenantId, listingId])
+  @@index([tenantId])
+}
+
+model WebhookEndpoint {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  url         String
+  secret      String   // signing secret
+  events      String[] // e.g., ["lead.created", "lead.updated", "order.paid"]
+  isActive    Boolean  @default(true)
+  secretKey   String?  // for HMAC verification
+  
+  // Retry config
+  maxRetries  Int      @default(3)
+  retryDelay  Int      @default(60) // seconds
+  
+  // Stats
+  successCount Int     @default(0)
+  failureCount Int     @default(0)
+  lastTriggeredAt DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  deliveries  WebhookDelivery[]
+  
+  @@index([tenantId, isActive])
+}
+
+model WebhookDelivery {
+  id              String   @id @default(cuid())
+  tenantId        String
+  endpointId      String
+  endpoint        WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  listingId       String?
+  listing         Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  
+  event           String
+  payload         Json
+  responseStatus  Int?
+  responseBody    String?
+  attempt         Int      @default(1)
+  status          String   @default("PENDING") // PENDING, SUCCESS, FAILED, GIVEN_UP
+  
+  nextRetryAt     DateTime?
+  deliveredAt     DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([tenantId, status])
+  @@index([endpointId, status])
+  @@index([tenantId, createdAt])
+  @@index([listingId])
+}
+
+enum VerificationType {
+  EMAIL
+  PHONE
+  LICENSE
+  IDENTITY
+  BUSINESS_LICENSE
+  INSURANCE
+}
+
+enum VerificationStatus {
+  PENDING
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+model VerificationRequest {
+  id              String           @id @default(cuid())
+  tenantId        String
+  listingId       String
+  listing         Listing          @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  requestedById   String           // User who requested verification
+  type            VerificationType
+  status          VerificationStatus @default(PENDING)
+  
+  // Verification data
+  documentUrl     String?          // URL to uploaded document
+  documentType    String?          // e.g., "license", "insurance", "id_card"
+  documentNumber  String?          // License number, etc.
+  expirationDate  DateTime?        // When the verification expires
+  
+  // Review
+  reviewedById    String?
+  reviewedAt      DateTime?
+  rejectionReason String?
+  
+  // Metadata
+  metadata        Json             @default("{}")
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  @@index([tenantId, listingId])
+  @@index([tenantId, status])
+  @@index([tenantId, type])
 }

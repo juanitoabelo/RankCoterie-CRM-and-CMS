@@ -48,8 +48,9 @@ const NAV_GROUPS: NavGroup[] = [
       { section: "products", href: "/admin/tax", label: "Tax Rates" },
       { section: "products", href: "/admin/products/create-single", label: "Create Custom Single Product page" },
       { section: "products", href: "/admin/products/create-card-template", label: "Create Custom product item Card template" },
-      { section: "products", href: "/admin/products/page-template", label: "Custom Product page template" },
-    ],
+{ section: "products", href: "/admin/products/page-template", label: "Custom Product page template" },
+      { section: "products", href: "/admin/products/reports", label: "Ecommerce Reports" },
+      ],
   },
   {
     title: "Geo-Targeting",
@@ -64,15 +65,21 @@ const NAV_GROUPS: NavGroup[] = [
       { section: "geoImages", href: "/admin/geo-images", label: "Geo Category Images" },
     ],
   },
-  {
-    title: "Directory",
-    items: [
-      { section: "listings", href: "/admin/listings", label: "Listings" },
-      { section: "reviewQueue", href: "/admin/listings?status=PENDING_REVIEW", label: "Review queue" },
-      { section: "exclusions", href: "/admin/exclusions", label: "Exclusions" },
-      { section: "feeds", href: "/admin/feeds", label: "Feeds" },
-    ],
-  },
+{
+      title: "Directory",
+      items: [
+        { section: "listings", href: "/admin/listings", label: "Listings" },
+        { section: "listings", href: "/admin/listings/bulk", label: "Bulk Actions" },
+        { section: "listings", href: "/admin/listings/payment", label: "Payment Configuration" },
+        { section: "reports", href: "/admin/listings/reports", label: "Listing Revenue" },
+        { section: "featuredPlacements", href: "/admin/featured-placements", label: "Featured Placements" },
+        { section: "verification", href: "/admin/verification", label: "Verification" },
+        { section: "reviews", href: "/admin/reviews", label: "Reviews" },
+        { section: "reviewQueue", href: "/admin/listings?status=PENDING_REVIEW", label: "Review queue" },
+        { section: "exclusions", href: "/admin/exclusions", label: "Exclusions" },
+        { section: "feeds", href: "/admin/feeds", label: "Feeds" },
+      ],
+    },
   {
     title: "Ads / Listing",
     items: [

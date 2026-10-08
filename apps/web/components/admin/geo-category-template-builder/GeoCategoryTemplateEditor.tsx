@@ -179,6 +179,16 @@ function GeoRegionNavEditor({ block, onChange }: EditorProps) {
             <input type="checkbox" className={checkboxCls} checked={p.showCount === true} onChange={(e) => set({ showCount: e.target.checked })} />
             Show count next to heading
           </label>
+          <label className={labelCls}>
+            Empty message
+            <textarea
+              value={(p.emptyMessage as string) || ""}
+              onChange={(e) => set({ emptyMessage: e.target.value })}
+              placeholder="Leave empty to hide this block when there are no states"
+              rows={2}
+              className={inputCls}
+            />
+          </label>
         </div>
       )}
       {tab === "style" && <BlockStyleTab props={p} set={set} />}
@@ -218,6 +228,20 @@ function GeoListingsEditor({ block, onChange }: EditorProps) {
           <label className="flex items-center gap-2 text-xs text-zinc-700">
             <input type="checkbox" className={checkboxCls} checked={p.showDescription !== false} onChange={(e) => set({ showDescription: e.target.checked })} />
             Show listing summaries
+          </label>
+          <label className="flex items-center gap-2 text-xs text-zinc-700">
+            <input type="checkbox" className={checkboxCls} checked={p.showCount === true} onChange={(e) => set({ showCount: e.target.checked })} />
+            Show total count next to heading
+          </label>
+          <label className={labelCls}>
+            Empty message
+            <textarea
+              value={(p.emptyMessage as string) || ""}
+              onChange={(e) => set({ emptyMessage: e.target.value })}
+              placeholder="Leave empty to hide this block when there are no listings"
+              rows={2}
+              className={inputCls}
+            />
           </label>
         </div>
       )}
@@ -347,6 +371,68 @@ function GeoSidebarEditor({ block, onChange }: EditorProps) {
   );
 }
 
+/* ── Geo Region Chips Editor ──────────────────────────────────────────── */
+
+function GeoRegionChipsEditor({ block, onChange }: EditorProps) {
+  const [tab, setTab] = useState<"content" | "style" | "advanced">("content");
+  const p = block.props as Record<string, unknown>;
+  const set = createSetter(block, onChange);
+
+  return (
+    <div className="space-y-3">
+      <Tabs active={tab} onChange={setTab} />
+      {tab === "content" && (
+        <div className="space-y-3">
+          <p className="text-xs text-zinc-500">
+            City links for a state page — shows the child regions of the bound category.
+            Hidden automatically on city pages.
+          </p>
+          <label className="flex items-center gap-2 text-xs text-zinc-700">
+            <input type="checkbox" className={checkboxCls} checked={p.showHeading !== false} onChange={(e) => set({ showHeading: e.target.checked })} />
+            Show heading
+          </label>
+          {p.showHeading !== false && (
+            <label className={labelCls}>
+              Heading
+              <input
+                type="text"
+                value={(p.heading as string) || ""}
+                onChange={(e) => set({ heading: e.target.value })}
+                placeholder="Cities in {region} (auto)"
+                className={inputCls}
+              />
+            </label>
+          )}
+        </div>
+      )}
+      {tab === "style" && <BlockStyleTab props={p} set={set} />}
+      {tab === "advanced" && <BlockAdvancedTab props={p} set={set} />}
+    </div>
+  );
+}
+
+/* ── Geo Filter Bar Editor ────────────────────────────────────────────── */
+
+function GeoFilterBarEditor({ block, onChange }: EditorProps) {
+  const [tab, setTab] = useState<"content" | "style" | "advanced">("content");
+  const p = block.props as Record<string, unknown>;
+  const set = createSetter(block, onChange);
+
+  return (
+    <div className="space-y-3">
+      <Tabs active={tab} onChange={setTab} />
+      {tab === "content" && (
+        <p className="text-xs text-zinc-500">
+          Sort / tier / rating filter bar. Renders on region pages only — hidden
+          automatically on category and city pages.
+        </p>
+      )}
+      {tab === "style" && <BlockStyleTab props={p} set={set} />}
+      {tab === "advanced" && <BlockAdvancedTab props={p} set={set} />}
+    </div>
+  );
+}
+
 /* ── Root ─────────────────────────────────────────────────────────────── */
 
 const GEO_EDITOR_MAP: Record<string, (props: EditorProps) => React.ReactNode> = {
@@ -356,6 +442,8 @@ const GEO_EDITOR_MAP: Record<string, (props: EditorProps) => React.ReactNode> = 
   geoListings: GeoListingsEditor,
   geoFaq: GeoFaqEditor,
   geoSidebar: GeoSidebarEditor,
+  geoRegionChips: GeoRegionChipsEditor,
+  geoFilterBar: GeoFilterBarEditor,
 };
 
 export default function GeoCategoryTemplateEditor({

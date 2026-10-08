@@ -87,7 +87,7 @@ export async function GET(request: Request) {
       type: "article",
       title: row.title,
       excerpt: excerptFromHtml(row.body, row.metaDesc),
-      url: row.slug ? `/article/${row.slug}` : null,
+      url: row.slug ? `/${row.slug}` : null,
       image: firstImageSrc(row.body ?? ""),
       category: row.category?.title ?? null,
       date: (row.publishedAt ?? row.createdAt).toISOString(),

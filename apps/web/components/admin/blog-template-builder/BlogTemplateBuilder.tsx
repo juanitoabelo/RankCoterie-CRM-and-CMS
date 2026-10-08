@@ -42,8 +42,11 @@ import {
   normalizeDropTarget,
 } from "@/lib/page-builder/tree";
 import type { BlogTemplateRevisionRow } from "@/modules/blog-template";
+import type { ArticlePreviewData } from "@/lib/blog-template/article-bindings";
 import { innermostPointerWithin } from "@/lib/page-builder/collision";
 import BlogTemplateCanvas from "./BlogTemplateCanvas";
+import BlogTemplateVisualPreview from "./BlogTemplateVisualPreview";
+import ArticleBindingsEditor from "./ArticleBindingsEditor";
 import BlogTemplatePalette from "./BlogTemplatePalette";
 import BlogTemplateEditor from "./BlogTemplateEditor";
 import { blockLabel } from "@/components/admin/visual-editor/labels";
@@ -65,6 +68,7 @@ interface Props {
     pageType: string | null;
     priority: number;
   }>;
+  previewArticles?: ArticlePreviewData[];
   themeColors?: Array<{ key: string; label: string; color: string }>;
   onSave: (
     id: string,
@@ -94,6 +98,7 @@ export default function BlogTemplateBuilder({
   initialContainerSettings,
   isDefault,
   initialAssignments,
+  previewArticles = [],
   themeColors,
   onSave,
   onListRevisions,
@@ -111,6 +116,7 @@ export default function BlogTemplateBuilder({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedColumnId, setSelectedColumnId] = useState<string | null>(null);
   const [viewport, setViewport] = useState<"desktop" | "tablet" | "mobile">("desktop");
+  const [displayMode, setDisplayMode] = useState<"structure" | "visual">("structure");
   const [dirty, setDirty] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -189,6 +195,14 @@ export default function BlogTemplateBuilder({
       );
     },
     [selectedColumnId, commit],
+  );
+
+  const addBlockToColumn = useCallback(
+    (columnId: string, type: import("@/lib/page-builder/types").BlockType) => {
+      const block = createBlogTemplateBlock(type as BlogTemplateBlockType);
+      commit((present) => addBlockFromPalette(present, block as Block, columnId));
+    },
+    [commit],
   );
 
   const addLayout = useCallback(
@@ -429,7 +443,7 @@ export default function BlogTemplateBuilder({
       ? "mx-auto max-w-[390px]"
       : viewport === "tablet"
         ? "mx-auto max-w-[768px]"
-        : "mx-auto max-w-[1200px]";
+        : "w-full";
 
   return (
     <div className="mt-4">
@@ -439,6 +453,24 @@ export default function BlogTemplateBuilder({
           {templateType === "listing" ? "📄 Blog Template (Listing)" : "📄 Blog Template (Single)"}
         </span>
         <span className="text-sm text-zinc-900">{templateName}</span>
+
+        {templateType === "single" && (
+          <div className="ml-4 flex items-center gap-1 rounded-lg border border-zinc-200 p-0.5" role="group" aria-label="Template display mode">
+            {(["structure", "visual"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={displayMode === mode}
+                onClick={() => setDisplayMode(mode)}
+                className={`rounded px-3 py-1 text-xs font-medium capitalize ${
+                  displayMode === mode ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100"
+                }`}
+              >
+                {mode === "visual" ? "Visual Display" : "Structure Display"}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="ml-4 flex items-center gap-1 rounded-lg border border-zinc-200 p-0.5">
           {(["desktop", "tablet", "mobile"] as const).map((v) => (
@@ -506,18 +538,27 @@ export default function BlogTemplateBuilder({
           {/* Canvas */}
           <div className="min-w-0 flex-1">
             <div className={viewportCls}>
-              <BlogTemplateCanvas
-                blocks={blocks}
-                viewport={viewport}
-                containerSettings={containerSettings}
-                selectedId={selectedId}
-                selectedColumnId={selectedColumnId}
-                onSelect={onSelect}
-                onSelectColumn={onSelectColumn}
-                onRemove={removeBlockById}
-                onDuplicate={duplicateBlockById}
-                onAddRowToSection={addRowToSectionHandler}
-              />
+              {templateType === "single" && displayMode === "visual" ? (
+                <BlogTemplateVisualPreview
+                  blocks={blocks}
+                  containerSettings={containerSettings}
+                  viewport={viewport}
+                  articles={previewArticles}
+                />
+              ) : (
+                <BlogTemplateCanvas
+                  blocks={blocks}
+                  viewport={viewport}
+                  containerSettings={containerSettings}
+                  selectedId={selectedId}
+                  selectedColumnId={selectedColumnId}
+                  onSelect={onSelect}
+                  onSelectColumn={onSelectColumn}
+                  onRemove={removeBlockById}
+                  onDuplicate={duplicateBlockById}
+                  onAddRowToSection={addRowToSectionHandler}
+                />
+              )}
             </div>
           </div>
 
@@ -540,13 +581,24 @@ export default function BlogTemplateBuilder({
               }
               if (!selectedCol) return null;
               return (
-                <ColumnEditor
-                  column={selectedCol}
-                  onUpdate={(patch) => updateColumn(selectedColumnId, patch)}
-                  onRemove={() => removeColumn(selectedColumnId)}
-                  onDuplicate={() => duplicateSelectedColumn(selectedColumnId)}
-                  themeColors={themeColors}
-                />
+                <div className="space-y-4">
+                  {templateType === "single" && (
+                    <div className="rounded-lg border border-zinc-200 bg-white p-4">
+                      <ArticleBindingsEditor
+                        blockType="column"
+                        props={selectedCol as unknown as Record<string, unknown>}
+                        onChange={(props) => updateColumn(selectedColumnId, props)}
+                      />
+                    </div>
+                  )}
+                  <ColumnEditor
+                    column={selectedCol}
+                    onUpdate={(patch) => updateColumn(selectedColumnId, patch)}
+                    onRemove={() => removeColumn(selectedColumnId)}
+                    onDuplicate={() => duplicateSelectedColumn(selectedColumnId)}
+                    themeColors={themeColors}
+                  />
+                </div>
               );
             })()}
 
@@ -565,6 +617,8 @@ export default function BlogTemplateBuilder({
                 onRemove={() => removeBlockById(selectedBlock.id)}
                 onDuplicate={() => duplicateBlockById(selectedBlock.id)}
                 onUpdateColumn={updateColumn}
+                onAddToColumn={addBlockToColumn}
+                allowArticleBindings={templateType === "single"}
                 themeColors={themeColors}
               />
             )}
