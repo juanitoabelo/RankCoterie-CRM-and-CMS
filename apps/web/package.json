@@ -10,6 +10,9 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium",
+    "test:e2e:ci": "playwright test --workers=1",
     "test:stripe": "vitest run lib/billing/stripe-e2e.test.ts"
   },
   "dependencies": {

@@ -1,5 +1,5 @@
-import { getWebhookEvents } from "./actions";
-import WebhookForm from "./WebhookForm";
+import { getWebhookEvents } from "../actions";
+import WebhookForm from "../WebhookForm";
 
 export const revalidate = 0;
 

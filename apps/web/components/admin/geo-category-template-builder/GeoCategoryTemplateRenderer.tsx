@@ -8,7 +8,7 @@
  * blocks are delegated to the blog template renderer so both builders share
  * one implementation of the shared block library.
  */
-import { createContext, useContext } from "react";
+import { Suspense, createContext, useContext } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import RegionFilterBar from "@/components/RegionFilterBar";
@@ -733,7 +733,13 @@ const GEO_BLOCK_RENDERERS: Record<string, (props: { block: Block }) => React.Rea
   geoFaq: GeoFaqRenderer,
   geoSidebar: GeoSidebarRenderer,
   geoRegionChips: GeoRegionChipsRenderer,
-  geoFilterBar: GeoFilterBarRenderer,
+  // useSearchParams() requires a Suspense boundary during static prerender of
+  // the /g/* pages; fall back to a null shell until the client hydrates.
+  geoFilterBar: ({ block }) => (
+    <Suspense fallback={null}>
+      <GeoFilterBarRenderer block={block} />
+    </Suspense>
+  ),
 };
 
 function RenderGeoBlocks({ blocks }: { blocks: Block[] }) {

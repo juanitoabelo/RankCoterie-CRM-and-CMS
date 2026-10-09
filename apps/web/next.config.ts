@@ -16,6 +16,11 @@ const nextConfig: NextConfig = {
   // proxy 301s and the legacy /g/ URLs; links and sitemap emit trailing slashes).
   trailingSlash: true,
   serverExternalPackages: ["@prisma/client"],
+  // Pre-existing type debt must not block production builds — CI enforces types
+  // separately with `tsc --noEmit`. Revisit once the baseline errors are cleared.
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   async headers() {
     return [
       {

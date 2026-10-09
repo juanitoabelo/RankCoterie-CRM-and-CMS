@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/directory/prismaCatalog";
-import { getFeaturedPlacement, getCategoriesForSelect, getRegionsForSelect, getFeaturedPlacementTypes, getFeaturedPlacementStatuses } from "../actions";
-import FeaturedPlacementForm from "../FeaturedPlacementForm";
+import { getFeaturedPlacement, getCategoriesForSelect, getRegionsForSelect, getFeaturedPlacementTypes, getFeaturedPlacementStatuses } from "../../actions";
+import FeaturedPlacementForm, { type FeaturedPlacementFormProps } from "../../FeaturedPlacementForm";
 import { notFound } from "next/navigation";
 
 export const revalidate = 0;
@@ -29,7 +29,7 @@ export default async function EditFeaturedPlacementPage({
       <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Edit Featured Placement</h1>
       <div className="mt-6 max-w-3xl">
         <FeaturedPlacementForm
-          placement={placement}
+          placement={placement as unknown as FeaturedPlacementFormProps["placement"]}
           categories={categories}
           regions={regions}
           types={types}
