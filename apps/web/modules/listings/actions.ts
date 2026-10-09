@@ -12,6 +12,7 @@ import { prisma } from "@/lib/directory/prismaCatalog";
 import { logAudit } from "@/lib/audit";
 import { createSession, requireSection, requireUser } from "@/modules/auth";
 import { hashPassword } from "@/lib/passwords";
+import { throttle } from "@/lib/throttle";
 import type { ListingTier, ListingStatus } from "@/lib/directory/visibility";
 import { TENANT_ID } from "@/lib/tenant";
 import { readFreeGraceDays } from "@/lib/billing/checkout";
@@ -489,6 +490,10 @@ export async function updateMyListing(
 
   const listing = await prisma.listing.findFirst({
     where: { id: listingId, claimedById: user.id },
+    include: {
+      categories: { include: { category: { select: { slug: true } } } },
+      regions: { select: { regionId: true } },
+    },
   });
   if (!listing) {
     return {
@@ -497,19 +502,47 @@ export async function updateMyListing(
     };
   }
 
+  // Moderation: once a listing went live (or is suspended) any owner edit takes
+  // it back into the review queue so staff vet the change before re-publishing.
+  // FREE tier listings hide immediately by clearing the grace window.
+  const requeue = listing.status === "LIVE" || listing.status === "SUSPENDED";
+  const updateData: Prisma.ListingUpdateInput = {
+    ...(input as Prisma.ListingUpdateInput),
+    ...(requeue ? { status: "PENDING_REVIEW", freeGraceUntil: null } : {}),
+  };
+
   try {
     await prisma.listing.update({
       where: { id: listingId },
-      data: input as Prisma.ListingUpdateInput,
+      data: updateData,
     });
     await logAudit({
       action: "LISTING_OWNER_UPDATE",
       entity: "Listing",
       entityId: listingId,
       actorId: user.id,
+      meta: requeue ? { requeuedForReview: true, previousStatus: listing.status } : undefined,
     });
+
+    // Revalidate everywhere this listing's data surfaces: its detail page, every
+    // category page, every category×region page, and the home page.
     revalidatePath(`/listing/${listing.slug}`);
     revalidatePath("/admin/my-listing");
+    revalidatePath("/");
+    for (const c of listing.categories) {
+      revalidatePath(`/g/${c.category.slug}`);
+    }
+    if (listing.regions.length > 0) {
+      const regionRows = await prisma.region.findMany({
+        where: { id: { in: listing.regions.map((r) => r.regionId) } },
+        select: { slug: true },
+      });
+      for (const c of listing.categories) {
+        for (const r of regionRows) {
+          revalidatePath(`/g/${c.category.slug}/${r.slug}`);
+        }
+      }
+    }
     return { ok: true };
   } catch (e) {
     return {
@@ -521,6 +554,9 @@ export async function updateMyListing(
 
 /** Claim completion: create a subscriber account and link the verified listing. */
 export async function completeClaim(formData: FormData): Promise<ActionResult> {
+  const throttled = await throttle("completeClaim", 5, 10 * 60_000);
+  if (throttled) return { ok: false, error: throttled };
+
   const listingId = String(formData.get("listingId") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const name = String(formData.get("name") ?? "").trim();
@@ -538,7 +574,18 @@ export async function completeClaim(formData: FormData): Promise<ActionResult> {
     return { ok: false, error: "Passwords do not match." };
   }
 
-  const listing = await prisma.listing.findUnique({ where: { id: listingId } });
+  const listing = await prisma.listing.findUnique({
+    where: { id: listingId },
+    select: {
+      id: true,
+      tier: true,
+      status: true,
+      slug: true,
+      verifiedAt: true,
+      claimedById: true,
+      freeGraceUntil: true,
+    },
+  });
   if (!listing) return { ok: false, error: "Listing not found." };
   if (!listing.verifiedAt) {
     return { ok: false, error: "This listing hasn't been verified yet." };
@@ -573,10 +620,52 @@ export async function completeClaim(formData: FormData): Promise<ActionResult> {
       });
       accountId = created.id;
     }
-    await prisma.listing.update({
-      where: { id: listingId },
+
+    // Atomic claim: only one claimant can ever win, even under a race.
+    const claimed = await prisma.listing.updateMany({
+      where: { id: listingId, claimedById: null },
       data: { claimedById: accountId, claimedAt: new Date() },
     });
+    if (claimed.count !== 1) {
+      throw new Error("This listing has already been claimed.");
+    }
+
+    // Billing: ensure the claimed listing carries a subscription record. A FREE
+    // listing gets the same migration grace window an admin approval would set so
+    // it stays visible and the billing layer has a full row to act on. Paid tiers
+    // are left untouched — their Stripe subscription drives status/lifecycle.
+    if (listing.tier === "FREE") {
+      const existingSub = await prisma.listingSubscription.findUnique({
+        where: { listingId },
+        select: { id: true },
+      });
+      if (!existingSub) {
+        const graceDays = readFreeGraceDays(
+          (await prisma.tenant.findUnique({ where: { id: TENANT_ID } }).catch(() => null))?.theme ?? undefined,
+        );
+        const graceUntil =
+          listing.status === "LIVE"
+            ? listing.freeGraceUntil ?? new Date(Date.now() + graceDays * 86400000)
+            : null;
+        await prisma.$transaction(async (tx) => {
+          await tx.listingSubscription.create({
+            data: {
+              listingId,
+              tier: "FREE",
+              status: listing.status,
+              approvedAt: listing.status === "LIVE" ? new Date() : null,
+            },
+          });
+          if (graceUntil) {
+            await tx.listing.update({
+              where: { id: listingId },
+              data: { freeGraceUntil: graceUntil },
+            });
+          }
+        });
+      }
+    }
+
     await logAudit({
       action: "LISTING_CLAIM",
       entity: "Listing",
@@ -591,6 +680,9 @@ export async function completeClaim(formData: FormData): Promise<ActionResult> {
     };
   }
 
+  revalidatePath(`/listing/${listing.slug}`);
+  revalidatePath("/");
+  revalidatePath("/admin/my-listing");
   await createSession(accountId);
   redirect("/admin/my-listing");
   return { ok: true };

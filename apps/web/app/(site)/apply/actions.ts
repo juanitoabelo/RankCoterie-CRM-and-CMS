@@ -193,8 +193,10 @@ export async function applyListing(formData: FormData): Promise<ApplyResult> {
         meta: { source: "apply", email },
       });
     }
-    await prisma.listing.update({
-      where: { id: listing.id },
+    // Atomic claim: this listing was just created by this request, but the guard
+    // keeps the invariant airtight if two submissions ever race the same slug.
+    await prisma.listing.updateMany({
+      where: { id: listing.id, claimedById: null },
       data: { claimedById: accountId, claimedAt: new Date() },
     });
 
