@@ -374,7 +374,13 @@ export function renderThemeSettingsCSS(
     ? `@import url('https://fonts.googleapis.com/css2?${googleFonts.map((f) => `family=${f}`).join("&")}&display=swap');\n`
     : "";
 
-  return `${fontLink}:root {
+  // Emitted into @layer base so Tailwind utilities (e.g. `text-white`) can
+  // still override the theme. Un-layered author CSS would otherwise beat every
+  // layered utility and recolor nav links/buttons that intentionally use white
+  // text on a dark background. The `@import` for Google Fonts must stay above
+  // any other rule, so it is kept outside the layer block.
+  return `${fontLink}@layer base {
+:root {
   --theme-bg: "${esc(colors.background)}";
   --theme-text: "${esc(colors.text)}";
   --theme-accent: "${esc(colors.accent)}";
@@ -475,6 +481,7 @@ a:hover { color: var(--theme-link-hover, #1d4ed8); }
   --sg-body-font: var(--theme-body-font);
   --background: var(--theme-bg);
   --foreground: var(--theme-text);
+}
 }
 `;
 }

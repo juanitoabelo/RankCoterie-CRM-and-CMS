@@ -151,7 +151,12 @@ export function renderGlobalStyleGuide(guide: StyleGuide): string {
   const btnBg = `var(--sg-btn-bg, var(--sg-accent))`;
   const btnText = `var(--sg-btn-text, #ffffff)`;
 
-  return `:root {
+  // The rule set is emitted into @layer base (not the implicit global layer)
+  // so Tailwind utilities such as `text-white` can still override the theme.
+  // An un-layered `a { color }` would beat every layered utility in the
+  // cascade (un-layered author CSS always wins over layered CSS).
+  return `@layer base {
+:root {
 ${vars}
   --background: var(--sg-background, #ffffff);
   --foreground: var(--sg-text, #171717);
@@ -175,6 +180,7 @@ a:hover {
   display: inline-block;
   background-color: ${btnBg};
   color: ${btnText};
+}
 }
 `;
 }
