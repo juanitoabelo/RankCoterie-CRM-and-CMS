@@ -83,7 +83,7 @@ export default async function ClaimListingPage({
               placeholder="owner@business.com"
             />
             <p className="mt-1 text-xs text-zinc-500">
-              We'll send a verification link to this email address.
+              We&apos;ll send a verification link to this email address.
             </p>
           </div>
 
@@ -124,9 +124,9 @@ export default async function ClaimListingPage({
           <div className="rounded-lg bg-amber-50 p-4 border border-amber-200">
             <h4 className="font-medium text-amber-800 mb-1">Verification Process</h4>
             <ul className="mt-2 text-sm text-amber-700 space-y-1">
-              <li>• We'll send a verification link to the email above</li>
+              <li>• We&apos;ll send a verification link to the email above</li>
               <li>• Click the link within 24 hours to confirm ownership</li>
-              <li>• If the email matches the listing's contact info, verification is instant</li>
+              <li>• If the email matches the listing&apos;s contact info, verification is instant</li>
               <li>• Otherwise, we may request additional documentation</li>
             </ul>
           </div>
@@ -138,7 +138,7 @@ export default async function ClaimListingPage({
 
         <p className="mt-6 text-center text-sm text-zinc-500">
           Already have an account?{" "}
-          <Link href="/login" className="text-blue-600 hover:underline">
+          <Link href="/admin/login" className="text-blue-600 hover:underline">
             Sign in
           </Link>
         </p>

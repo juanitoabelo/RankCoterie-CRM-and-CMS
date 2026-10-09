@@ -24,11 +24,13 @@ export default function AdminSidebar({
   groups,
   userName,
   isSuperAdmin,
+  subscriberOnly,
   logoutAction,
 }: {
   groups: NavGroup[];
   userName: string;
   isSuperAdmin: boolean;
+  subscriberOnly: boolean;
   logoutAction: () => Promise<void>;
 }) {
   const pathname = usePathname();
@@ -36,6 +38,8 @@ export default function AdminSidebar({
   // Determine if on admin dashboard page
   const isAdminPage =
     pathname === "/admin" || pathname === "/admin/";
+
+  const myListingActive = pathname === "/admin/my-listing" || pathname.startsWith("/admin/my-listing/");
 
   return (
     <aside
@@ -59,28 +63,55 @@ export default function AdminSidebar({
 
       <nav className="flex-1 px-4 py-4">
         <ul className="space-y-1">
-          <li>
-            <Link
-              href="/admin"
-              className={[
-                "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150",
-                isAdminPage ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              onMouseOver={isAdminPage ? () => {} : undefined}
-            >
-              <svg
-                className="h-4 w-4 text-zinc-500 shrink-0"
-                viewBox="0 0 24 24"
-                fill="currentColor"
+          {subscriberOnly ? (
+            <li>
+              <Link
+                href="/admin/my-listing"
+                className={[
+                  "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150",
+                  myListingActive
+                    ? "bg-zinc-900 text-white"
+                    : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
               >
-                <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 6v4a2 2 0 002 2h4a2 2 0 002-2v-4" />
-              </svg>
-              <span className="sr-only">Dashboard</span>
-              Dashboard
-            </Link>
-          </li>
+                <svg
+                  className="h-4 w-4 text-zinc-500 shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                My Listing
+              </Link>
+            </li>
+          ) : (
+            <li>
+              <Link
+                href="/admin"
+                className={[
+                  "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150",
+                  isAdminPage ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                onMouseOver={isAdminPage ? () => {} : undefined}
+              >
+                <svg
+                  className="h-4 w-4 text-zinc-500 shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 6v4a2 2 0 002 2h4a2 2 0 002-2v-4" />
+                </svg>
+                <span className="sr-only">Dashboard</span>
+                Dashboard
+              </Link>
+            </li>
+          )}
         </ul>
 
         {groups.map((group) => (

@@ -2,8 +2,10 @@
 
 import { redirect } from "next/navigation";
 import Stripe from "stripe";
+import { Role } from "@prisma/client";
 import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
+import { hashPassword } from "@/lib/passwords";
 import { TENANT_ID } from "@/modules/shared";
 import {
   buildCheckoutParams,
@@ -97,12 +99,20 @@ export async function applyListing(formData: FormData): Promise<ApplyResult> {
   const summary = String(formData.get("summary") ?? "").trim();
   const categoryIds = formData.getAll("categoryIds").map(String);
   const regionIds = formData.getAll("regionIds").map(String);
+  const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
   if (tier !== "STANDARD" && tier !== "PREMIUM") {
     return { ok: false, error: "Choose a listing tier." };
   }
   if (!title) return { ok: false, error: "Company title is required." };
   if (!email) return { ok: false, error: "Contact email is required." };
+  if (password.length < 8) {
+    return { ok: false, error: "Password must be at least 8 characters." };
+  }
+  if (password !== confirmPassword) {
+    return { ok: false, error: "Passwords do not match." };
+  }
   if (categoryIds.length === 0) {
     return { ok: false, error: "Select at least one category." };
   }
@@ -148,6 +158,44 @@ export async function applyListing(formData: FormData): Promise<ApplyResult> {
       entity: "Listing",
       entityId: listing.id,
       meta: { source: "apply", tier, title, categoryIds, regionIds },
+    });
+
+    // Create (or reuse) a subscriber account so the owner can log in and manage
+    // their listing via /admin/my-listing after it's reviewed.
+    const existingUser = await prisma.user.findFirst({
+      where: { email, tenantId: TENANT_ID },
+      include: { roles: true },
+    });
+    let accountId: string;
+    if (existingUser) {
+      accountId = existingUser.id;
+      if (!existingUser.roles.some((r) => r.role === Role.SUBSCRIBER)) {
+        await prisma.userRole.create({
+          data: { userId: existingUser.id, role: Role.SUBSCRIBER },
+        });
+      }
+    } else {
+      const createdUser = await prisma.user.create({
+        data: {
+          tenantId: TENANT_ID,
+          email,
+          passwordHash: hashPassword(password),
+          firstName: companyName || null,
+          active: true,
+          roles: { create: [{ role: Role.SUBSCRIBER }] },
+        },
+      });
+      accountId = createdUser.id;
+      await logAudit({
+        action: "USER_CREATE",
+        entity: "User",
+        entityId: accountId,
+        meta: { source: "apply", email },
+      });
+    }
+    await prisma.listing.update({
+      where: { id: listing.id },
+      data: { claimedById: accountId, claimedAt: new Date() },
     });
 
     const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";

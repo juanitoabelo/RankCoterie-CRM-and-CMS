@@ -42,6 +42,11 @@ export function isSuperAdmin(user: Pick<AdminUser, "roles">): boolean {
   return user.roles.includes(Role.SUPER_ADMIN);
 }
 
+/** Check if user is a directory subscriber (self-service My Listing only). */
+export function isSubscriberOnly(user: Pick<AdminUser, "roles">): boolean {
+  return user.roles.length === 1 && user.roles[0] === Role.SUBSCRIBER;
+}
+
 /** Check if user can access a specific section */
 export function canAccessSection(
   user: Pick<AdminUser, "roles">,

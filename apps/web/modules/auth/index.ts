@@ -32,6 +32,8 @@ import type { AdminUser, CanAccessSection } from "./types";
 export type { AdminUser, CanAccessSection, SessionPayload } from "./types";
 /** Check if user is Super Admin */
 export { isSuperAdmin } from "./permissions";
+/** Check if user is a directory subscriber (My Listing only) */
+export { isSubscriberOnly } from "./permissions";
 /** Check if user can access a section */
 export { canAccessSection } from "./permissions";
 /** Create a session cookie */

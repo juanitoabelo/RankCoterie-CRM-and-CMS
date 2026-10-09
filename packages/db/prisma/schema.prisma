@@ -82,6 +82,7 @@ enum Role {
   REVIEWER // listing approval queue
   SALES_REP // leads, clients, invoices, merchants
   GRACE_COACH
+  SUBSCRIBER // directory listing owner — self-service "My Listing" edit only
 }
 
 model UserRole {

@@ -52,6 +52,7 @@ export const ROLE_LABELS: Record<string, string> = {
   REVIEWER: "Reviewer",
   SALES_REP: "Sales Rep",
   GRACE_COACH: "Grace Coach",
+  SUBSCRIBER: "Subscriber",
 };
 
 /** All available roles */
@@ -63,4 +64,5 @@ export const ALL_ROLES: Role[] = [
   Role.REVIEWER,
   Role.SALES_REP,
   Role.GRACE_COACH,
+  Role.SUBSCRIBER,
 ];

@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { getCurrentUser, isSuperAdmin, canAccessSection } from "@/modules/auth";
+import { getCurrentUser, isSuperAdmin, isSubscriberOnly, canAccessSection } from "@/modules/auth";
 import { adminLogout } from "./login/actions";
 import AdminSidebar from "./AdminSidebar";
 import { CustomFontProvider } from "@/components/admin/CustomFontProvider";
@@ -138,6 +137,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     .map((g) => ({ ...g, items: visibleItems(g.items, can) }))
     .filter((g) => g.items.length > 0);
 
+  const subscriberOnly = user !== null && isSubscriberOnly(user);
+
   // Uploaded fonts feed every font-family dropdown in the admin, so they load
   // once here and reach the builders through context.
   const customFonts = user ? await loadCustomFontsSafe() : [];
@@ -146,9 +147,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <CustomFontProvider fonts={customFonts}>
       <div className="flex min-h-screen bg-zinc-50 text-zinc-900">
         <AdminSidebar
-          groups={visibleGroups}
+          groups={subscriberOnly ? [] : visibleGroups}
           userName={name ?? ""}
           isSuperAdmin={user !== null && isSuperAdmin(user)}
+          subscriberOnly={subscriberOnly}
           logoutAction={adminLogout}
         />
         <main className="ml-60 flex-1 px-6 py-8">{children}</main>

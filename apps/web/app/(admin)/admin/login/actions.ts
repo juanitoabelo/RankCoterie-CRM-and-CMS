@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { Role } from "@prisma/client";
 import { prisma } from "@/modules/shared";
 import { createSession, destroySession } from "@/modules/auth";
 import { verifyPassword } from "@/lib/passwords";
@@ -44,6 +45,9 @@ export async function adminLogin(formData: FormData): Promise<void> {
   await prisma.loginAttempt.deleteMany({ where: { email } });
 
   await createSession(user.id);
+  if (user.roles.length === 1 && user.roles[0].role === Role.SUBSCRIBER) {
+    redirect("/admin/my-listing");
+  }
   redirect("/admin");
 }
 

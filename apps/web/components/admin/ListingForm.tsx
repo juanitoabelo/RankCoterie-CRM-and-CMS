@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import RegionPicker, { type PickerRegion } from "@/components/regions/RegionPicker";
+import RegionPicker from "@/components/regions/RegionPicker";
 import {
   createListing,
   updateListing,
+  updateMyListing,
   checkDuplicateListing,
   previewListing,
   type ActionResult,
@@ -69,16 +70,237 @@ const inputCls =
   "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm";
 const labelCls = "block text-sm font-medium text-zinc-800";
 
+// ---------------------------------------------------------------------------
+// Structured editors (replaces the raw-JSON textareas)
+// ---------------------------------------------------------------------------
+
+function parseJsonList(value: string | null): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed.map(String).map((s) => s.trim()).filter(Boolean);
+  } catch {
+    /* ignore */
+  }
+  return [];
+}
+
+type HoursMap = Record<string, { opens: string; closes: string }>;
+
+const WEEK_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+const DAY_LABELS: Record<string, string> = {
+  monday: "Monday",
+  tuesday: "Tuesday",
+  wednesday: "Wednesday",
+  thursday: "Thursday",
+  friday: "Friday",
+  saturday: "Saturday",
+  sunday: "Sunday",
+};
+
+function parseHours(value: string | null): HoursMap {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as HoursMap;
+    }
+  } catch {
+    /* ignore */
+  }
+  return {};
+}
+
+function HoursEditor({ value }: { value: string | null }) {
+  const [hours, setHours] = useState<HoursMap>(() => parseHours(value));
+  const [manuallyClosed, setManuallyClosed] = useState<Record<string, boolean>>(() => {
+    const parsed = parseHours(value);
+    const closed: Record<string, boolean> = {};
+    for (const day of WEEK_DAYS) {
+      const entry = parsed[day];
+      closed[day] = !entry || (entry.opens === "00:00" && entry.closes === "00:00");
+    }
+    return closed;
+  });
+
+  const toggle = (day: string, open: boolean) => {
+    setManuallyClosed((prev) => ({ ...prev, [day]: !open }));
+    setHours((prev) => {
+      const next = { ...prev };
+      if (open) next[day] = prev[day] ?? { opens: "09:00", closes: "17:00" };
+      else delete next[day];
+      return next;
+    });
+  };
+
+  const setTime = (day: string, key: "opens" | "closes", time: string) => {
+    setHours((prev) => {
+      const cur = prev[day] ?? { opens: "09:00", closes: "17:00" };
+      return { ...prev, [day]: { ...cur, [key]: time } };
+    });
+  };
+
+  return (
+    <div>
+      <input type="hidden" name="hoursOfOperation" value={JSON.stringify(hours)} />
+      <div className="space-y-2">
+        {WEEK_DAYS.map((day) => (
+          <div key={day} className="flex flex-wrap items-center gap-3">
+            <label className="flex w-36 items-center gap-2 text-sm text-zinc-700">
+              <input
+                type="checkbox"
+                checked={!manuallyClosed[day]}
+                onChange={(e) => toggle(day, e.target.checked)}
+                className="h-4 w-4 accent-zinc-900"
+              />
+              {DAY_LABELS[day]}
+            </label>
+            {hours[day] ? (
+              <>
+                <input
+                  type="time"
+                  value={hours[day].opens ?? "09:00"}
+                  onChange={(e) => setTime(day, "opens", e.target.value)}
+                  className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                />
+                <span className="text-sm text-zinc-400">to</span>
+                <input
+                  type="time"
+                  value={hours[day].closes ?? "17:00"}
+                  onChange={(e) => setTime(day, "closes", e.target.value)}
+                  className="rounded border border-zinc-300 px-2 py-1 text-sm"
+                />
+              </>
+            ) : (
+              <span className="text-sm text-zinc-400">Closed</span>
+            )}
+          </div>
+        ))}
+      </div>
+      <p className="mt-1 text-xs text-zinc-500">
+        Check a day to add hours, uncheck to mark it closed.
+      </p>
+    </div>
+  );
+}
+
+function ListEditor({ name, value, placeholder }: { name: string; value: string | null; placeholder?: string }) {
+  const [items, setItems] = useState<string[]>(() => parseJsonList(value));
+  return (
+    <div>
+      <input type="hidden" name={name} value={JSON.stringify(items)} />
+      <input
+        type="text"
+        value={items.join(", ")}
+        onChange={(e) => {
+          const parts = e.target.value.split(",").map((s) => s.trim());
+          setItems(parts);
+        }}
+        placeholder={placeholder}
+        className={inputCls}
+      />
+      <p className="mt-1 text-xs text-zinc-500">Separate items with commas.</p>
+    </div>
+  );
+}
+
+function parsePricing(value: string | null): Record<string, string> {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const out: Record<string, string> = {};
+      for (const [k, v] of Object.entries(parsed)) out[k] = String(v);
+      return out;
+    }
+  } catch {
+    /* ignore */
+  }
+  return {};
+}
+
+function PricingEditor({ value }: { value: string | null }) {
+  const [rows, setRows] = useState<{ key: string; value: string }[]>(() => {
+    const parsed = parsePricing(value);
+    const entries = Object.entries(parsed);
+    return entries.length > 0 ? entries.map(([key, value]) => ({ key, value })) : [{ key: "", value: "" }];
+  });
+
+  const setRow = (i: number, patch: Partial<{ key: string; value: string }>) => {
+    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  };
+  const removeRow = (i: number) => setRows((prev) => prev.filter((_, idx) => idx !== i));
+
+  const toObject = () => {
+    const out: Record<string, number> = {};
+    for (const row of rows) {
+      const key = row.key.trim();
+      if (key) out[key] = Number(row.value) || 0;
+    }
+    return out;
+  };
+
+  return (
+    <div>
+      <input type="hidden" name="pricing" value={JSON.stringify(toObject())} />
+      <div className="space-y-2">
+        {rows.map((row, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <input
+              value={row.key}
+              onChange={(e) => setRow(i, { key: e.target.value })}
+              placeholder="e.g. Initial session"
+              className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+            />
+            <input
+              value={row.value}
+              onChange={(e) => setRow(i, { value: e.target.value })}
+              type="number"
+              step="any"
+              min="0"
+              placeholder="$"
+              className="w-28 rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => removeRow(i)}
+              className="rounded border border-zinc-200 px-2 py-1 text-xs text-zinc-400 hover:text-red-600"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => setRows((prev) => [...prev, { key: "", value: "" }])}
+        className="mt-2 rounded border border-zinc-300 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50"
+      >
+        + Add pricing row
+      </button>
+      <p className="mt-1 text-xs text-zinc-500">
+        Per-service pricing shown on your listing (e.g. session fees).
+      </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main form
+// ---------------------------------------------------------------------------
+
 export default function ListingForm({
   listing,
   categories,
   regions,
   submitLabel,
+  ownerMode = false,
 }: {
   listing: ListingFormListing | null;
   categories: { id: string; slug: string; title: string }[];
   regions: { id: string; state: string; stateFull: string; city: string | null }[];
   submitLabel: string;
+  ownerMode?: boolean;
 }) {
   const [message, setMessage] = useState<
     ActionResult | DuplicateCheckResult | PreviewListingResult | null
@@ -89,9 +311,11 @@ export default function ListingForm({
   );
   const [selectedRegions, setSelectedRegions] = useState<string[]>(listing?.regionIds ?? []);
 
-  const action = listing
-    ? updateListing.bind(null, listing.id)
-    : createListing;
+  const action = ownerMode
+    ? updateMyListing.bind(null, listing?.id ?? "")
+    : listing
+      ? updateListing.bind(null, listing.id)
+      : createListing;
 
   const onSubmit = (formData: FormData) => {
     setMessage(null);
@@ -115,7 +339,7 @@ export default function ListingForm({
                     <>
                       {message.message}{" "}
                       <a
-                        href={(message as any).previewUrl}
+                        href={message.previewUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="underline"
@@ -132,54 +356,73 @@ export default function ListingForm({
       {/* Main Info */}
       <section className="rounded-xl border border-zinc-200 bg-white p-6 space-y-6">
         <h2 className="text-lg font-semibold text-zinc-900">Basic Information</h2>
+        {ownerMode && (
+          <p className="rounded-lg bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
+            Title: <strong>{listing?.title}</strong> · Status:{" "}
+            <strong>{listing?.status}</strong> · Tier: <strong>{listing?.tier}</strong>
+          </p>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className={labelCls}>Title *</label>
-            <input name="title" required defaultValue={listing?.title ?? ""} className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Slug * (lowercase, hyphens)</label>
-            <input name="slug" required defaultValue={listing?.slug ?? ""} className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Domain key</label>
-            <input name="domainKey" defaultValue={listing?.domainKey ?? ""} className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Company name</label>
-            <input name="companyName" defaultValue={listing?.companyName ?? ""} className={inputCls} />
-          </div>
+          {!ownerMode ? (
+            <>
+              <div>
+                <label className={labelCls}>Title *</label>
+                <input name="title" required defaultValue={listing?.title ?? ""} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Slug * (lowercase, hyphens)</label>
+                <input name="slug" required defaultValue={listing?.slug ?? ""} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Domain key</label>
+                <input name="domainKey" defaultValue={listing?.domainKey ?? ""} className={inputCls} />
+              </div>
+            </>
+          ) : (
+            <div className="sm:col-span-2">
+              <label className={labelCls}>Company name</label>
+              <input name="companyName" defaultValue={listing?.companyName ?? ""} className={inputCls} />
+            </div>
+          )}
+          {!ownerMode && (
+            <div>
+              <label className={labelCls}>Company name</label>
+              <input name="companyName" defaultValue={listing?.companyName ?? ""} className={inputCls} />
+            </div>
+          )}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div>
-            <label className={labelCls}>Tier</label>
-            <select name="tier" defaultValue={listing?.tier ?? "FREE"} className={inputCls}>
-              {["SUPPRESSED", "FREE", "STANDARD", "PREMIUM", "FEATURED"].map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </select>
+        {!ownerMode && (
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <label className={labelCls}>Tier</label>
+              <select name="tier" defaultValue={listing?.tier ?? "FREE"} className={inputCls}>
+                {TIERS.map((t) => (
+                  <option key={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Status</label>
+              <select name="status" defaultValue={listing?.status ?? "DRAFT"} className={inputCls}>
+                {STATUSES.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end pb-1">
+              <label className="flex items-center gap-2 text-sm text-zinc-700">
+                <input
+                  type="checkbox"
+                  name="isLandingPage"
+                  defaultChecked={listing?.isLandingPage ?? false}
+                  className="h-4 w-4 accent-zinc-900"
+                />
+                Landing page listing
+              </label>
+            </div>
           </div>
-          <div>
-            <label className={labelCls}>Status</label>
-            <select name="status" defaultValue={listing?.status ?? "DRAFT"} className={inputCls}>
-              {["DRAFT", "PENDING_REVIEW", "LIVE", "SUSPENDED", "EXPIRED"].map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-end pb-1">
-            <label className="flex items-center gap-2 text-sm text-zinc-700">
-              <input
-                type="checkbox"
-                name="isLandingPage"
-                defaultChecked={listing?.isLandingPage ?? false}
-                className="h-4 w-4 accent-zinc-900"
-              />
-              Landing page listing
-            </label>
-          </div>
-        </div>
+        )}
       </section>
 
       {/* Contact Info */}
@@ -197,10 +440,6 @@ export default function ListingForm({
           <div>
             <label className={labelCls}>Website</label>
             <input name="website" type="url" defaultValue={listing?.website ?? ""} className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Domain key</label>
-            <input name="domainKey" defaultValue={listing?.domainKey ?? ""} className={inputCls} />
           </div>
         </div>
       </section>
@@ -299,17 +538,7 @@ export default function ListingForm({
       {/* Hours of Operation */}
       <section className="rounded-xl border border-zinc-200 bg-white p-6 space-y-6">
         <h2 className="text-lg font-semibold text-zinc-900">Hours of Operation</h2>
-        <div>
-          <label className={labelCls}>Hours (JSON format)</label>
-          <textarea
-            name="hoursOfOperation"
-            rows={5}
-            defaultValue={listing?.hoursOfOperation ?? '{"monday": {"opens": "09:00", "closes": "17:00"}, "tuesday": {"opens": "09:00", "closes": "17:00"}, "wednesday": {"opens": "09:00", "closes": "17:00"}, "thursday": {"opens": "09:00", "closes": "17:00"}, "friday": {"opens": "09:00", "closes": "17:00"}, "saturday": {"opens": "09:00", "closes": "15:00"}, "sunday": {"opens": "00:00", "closes": "00:00"}}'}
-            className={inputCls + " font-mono text-sm"}
-            placeholder='{"monday": {"opens": "09:00", "closes": "17:00"}, ...}'
-          />
-          <p className="mt-1 text-xs text-zinc-500">JSON format. Use 24-hour format. Set both opens/closes to "00:00" for closed days.</p>
-        </div>
+        <HoursEditor value={listing?.hoursOfOperation ?? null} />
       </section>
 
       {/* Rich Profile Fields */}
@@ -317,182 +546,156 @@ export default function ListingForm({
         <h2 className="text-lg font-semibold text-zinc-900">Profile Details</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <RichTextarea
-              name="description"
-              label="Full Description"
-              value={listing?.description ?? ""}
-              placeholder="Full description with formatting..."
-            />
+            <label className={labelCls}>Specialties</label>
+            <ListEditor name="specialties" value={listing?.specialties ?? null} placeholder="Counseling, Therapy, Residential" />
           </div>
           <div className="sm:col-span-2">
-            <RichTextarea
-              name="specialties"
-              label="Specialties (JSON array)"
-              value={listing?.specialties ?? '["Counseling", "Therapy", "Residential"]'}
-              placeholder='["Counseling", "Therapy", "Residential"]'
-            />
+            <label className={labelCls}>Amenities</label>
+            <ListEditor name="amenities" value={listing?.amenities ?? null} placeholder="WiFi, Parking, Outdoor Space" />
           </div>
           <div className="sm:col-span-2">
-            <RichTextarea
-              name="amenities"
-              label="Amenities (JSON array)"
-              value={listing?.amenities ?? '["WiFi", "Parking", "Outdoor Space"]'}
-              placeholder='["WiFi", "Parking", "Outdoor Space"]'
-            />
+            <label className={labelCls}>Certifications</label>
+            <ListEditor name="certifications" value={listing?.certifications ?? null} placeholder="State Licensed, JCAHO Accredited" />
           </div>
           <div className="sm:col-span-2">
-            <RichTextarea
-              name="certifications"
-              label="Certifications (JSON array)"
-              value={listing?.certifications ?? '["State Licensed", "JCAHO Accredited"]'}
-              placeholder='["State Licensed", "JCAHO Accredited"]'
-            />
+            <label className={labelCls}>Insurance Accepted</label>
+            <ListEditor name="insuranceAccepted" value={listing?.insuranceAccepted ?? null} placeholder="Private Pay, Insurance, Medicaid" />
           </div>
           <div className="sm:col-span-2">
-            <RichTextarea
-              name="insuranceAccepted"
-              label="Insurance Accepted (JSON array)"
-              value={listing?.insuranceAccepted ?? '["Private Pay", "Insurance", "Medicaid"]'}
-              placeholder='["Private Pay", "Insurance", "Medicaid"]'
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <RichTextarea
-              name="pricing"
-              label="Pricing (JSON)"
-              value={listing?.pricing ?? '{"assessment": 150, "session": 120, "package": 1000}'}
-              placeholder='{"assessment": 150, "session": 120, "package": 1000}'
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <RichTextarea
-              name="videoUrl"
-              label="Video URL"
-              value={listing?.videoUrl ?? ""}
-              placeholder="https://youtube.com/... or https://vimeo.com/..."
-            />
+            <label className={labelCls}>Pricing</label>
+            <PricingEditor value={listing?.pricing ?? null} />
           </div>
         </div>
       </section>
 
       {/* SEO Fields */}
-      <section className="rounded-xl border border-zinc-200 bg-white p-6 space-y-6">
-        <h2 className="text-lg font-semibold text-zinc-900">SEO</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className={labelCls}>SEO Title</label>
-            <input name="seoTitle" defaultValue={listing?.seoTitle ?? ""} className={inputCls} />
+      {!ownerMode && (
+        <section className="rounded-xl border border-zinc-200 bg-white p-6 space-y-6">
+          <h2 className="text-lg font-semibold text-zinc-900">SEO</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className={labelCls}>SEO Title</label>
+              <input name="seoTitle" defaultValue={listing?.seoTitle ?? ""} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Meta Description</label>
+              <input name="metaDesc" defaultValue={listing?.metaDesc ?? ""} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Focus Keyphrase</label>
+              <input name="focusKeyphrase" defaultValue={listing?.focusKeyphrase ?? ""} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Canonical URL</label>
+              <input name="canonicalUrl" type="url" defaultValue={listing?.canonicalUrl ?? ""} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>OG Image Asset ID</label>
+              <input name="ogImage" defaultValue={listing?.ogImage ?? ""} className={inputCls} />
+            </div>
+            <div className="flex items-end gap-4">
+              <label className="flex items-center gap-2 text-sm text-zinc-700">
+                <input type="checkbox" name="robotsIndex" defaultChecked={listing?.robotsIndex ?? true} className="h-4 w-4 accent-zinc-900" />
+                Index
+              </label>
+              <label className="flex items-center gap-2 text-sm text-zinc-700">
+                <input type="checkbox" name="robotsFollow" defaultChecked={listing?.robotsFollow ?? true} className="h-4 w-4 accent-zinc-900" />
+                Follow
+              </label>
+            </div>
           </div>
-          <div>
-            <label className={labelCls}>Meta Description</label>
-            <input name="metaDesc" defaultValue={listing?.metaDesc ?? ""} className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Focus Keyphrase</label>
-            <input name="focusKeyphrase" defaultValue={listing?.focusKeyphrase ?? ""} className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Canonical URL</label>
-            <input name="canonicalUrl" type="url" defaultValue={listing?.canonicalUrl ?? ""} className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>OG Image Asset ID</label>
-            <input name="ogImage" defaultValue={listing?.ogImage ?? ""} className={inputCls} />
-          </div>
-          <div className="flex items-end gap-4">
-            <label className="flex items-center gap-2 text-sm text-zinc-700">
-              <input type="checkbox" name="robotsIndex" defaultChecked={listing?.robotsIndex ?? true} className="h-4 w-4 accent-zinc-900" />
-              Index
-            </label>
-            <label className="flex items-center gap-2 text-sm text-zinc-700">
-              <input type="checkbox" name="robotsFollow" defaultChecked={listing?.robotsFollow ?? true} className="h-4 w-4 accent-zinc-900" />
-              Follow
-            </label>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Categories */}
-      <section className="rounded-xl border border-zinc-200 bg-white p-6 space-y-4">
-        <h3 className="text-sm font-medium text-zinc-900">Categories * (select at least one)</h3>
-        <p className="text-xs text-zinc-500">Listing will appear in selected categories</p>
-        {categories.length === 0 ? (
-          <p className="text-amber-600 text-sm">No categories available. Create categories first in Admin → Topics.</p>
-        ) : (
-          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-            {categories.map((c) => (
-              <label key={c.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="categoryIds"
-                  value={c.id}
-                  checked={selectedCategories.includes(c.id)}
-                  onChange={(e) =>
-                    setSelectedCategories((prev) =>
-                      e.target.checked ? [...prev, c.id] : prev.filter((x) => x !== c.id),
-                    )
-                  }
-                  className="h-4 w-4 accent-zinc-900"
-                />
-                <span className="truncate">{c.title}</span>
-              </label>
-            ))}
-          </div>
-        )}
-      </section>
+      {!ownerMode && (
+        <section className="rounded-xl border border-zinc-200 bg-white p-6 space-y-4">
+          <h3 className="text-sm font-medium text-zinc-900">Categories * (select at least one)</h3>
+          <p className="text-xs text-zinc-500">Listing will appear in selected categories</p>
+          {categories.length === 0 ? (
+            <p className="text-amber-600 text-sm">No categories available. Create categories first in Admin → Topics.</p>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+              {categories.map((c) => (
+                <label key={c.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="categoryIds"
+                    value={c.id}
+                    checked={selectedCategories.includes(c.id)}
+                    onChange={(e) =>
+                      setSelectedCategories((prev) =>
+                        e.target.checked ? [...prev, c.id] : prev.filter((x) => x !== c.id),
+                      )
+                    }
+                    className="h-4 w-4 accent-zinc-900"
+                  />
+                  <span className="truncate">{c.title}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Regions */}
-      <section className="rounded-xl border border-zinc-200 bg-white p-6 space-y-4">
-        <h3 className="text-sm font-medium text-zinc-900">Nearby Areas (3–5 recommended)</h3>
-        <p className="text-xs text-zinc-500">These regions appear in the listing's area coverage</p>
-        {selectedRegions.map((id) => (
-          <input key={id} type="hidden" name="regionIds" value={id} />
-        ))}
-        <div className="mt-3">
-          <RegionPicker
-            regions={regions}
-            value={selectedRegions}
-            onChange={setSelectedRegions}
-          />
-        </div>
-      </section>
+      {!ownerMode && (
+        <section className="rounded-xl border border-zinc-200 bg-white p-6 space-y-4">
+          <h3 className="text-sm font-medium text-zinc-900">Nearby Areas (3–5 recommended)</h3>
+          <p className="text-xs text-zinc-500">These regions appear in the listing&apos;s area coverage</p>
+          {selectedRegions.map((id) => (
+            <input key={id} type="hidden" name="regionIds" value={id} />
+          ))}
+          <div className="mt-3">
+            <RegionPicker
+              regions={regions}
+              value={selectedRegions}
+              onChange={setSelectedRegions}
+            />
+          </div>
+        </section>
+      )}
 
       <div className="flex flex-wrap gap-3 pt-4 border-t border-zinc-200">
-        <button
-          type="button"
-          onClick={async (e) => {
-            e.preventDefault();
-            startTransition(async () => {
-              const res = await previewListing(
-                new FormData(e.currentTarget.form ?? undefined),
-              );
-              setMessage(res);
-              if (res.ok && "previewUrl" in res && res.previewUrl) {
-                window.open(res.previewUrl, "_blank", "noopener,noreferrer");
-              }
-            });
-          }}
-          disabled={isPending}
-          className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
-        >
-          Preview Listing
-        </button>
-        <button
-          type="button"
-          onClick={async (e) => {
-            e.preventDefault();
-            startTransition(async () => {
-              const res = await checkDuplicateListing(
-                new FormData(e.currentTarget.form ?? undefined),
-              );
-              setMessage(res);
-            });
-          }}
-          disabled={isPending}
-          className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
-        >
-          Check for Duplicates
-        </button>
+        {!ownerMode && (
+          <>
+            <button
+              type="button"
+              onClick={async (e) => {
+                e.preventDefault();
+                startTransition(async () => {
+                  const res = await previewListing(
+                    new FormData(e.currentTarget.form ?? undefined),
+                  );
+                  setMessage(res);
+                  if (res.ok && "previewUrl" in res && res.previewUrl) {
+                    window.open(res.previewUrl, "_blank", "noopener,noreferrer");
+                  }
+                });
+              }}
+              disabled={isPending}
+              className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+            >
+              Preview Listing
+            </button>
+            <button
+              type="button"
+              onClick={async (e) => {
+                e.preventDefault();
+                startTransition(async () => {
+                  const res = await checkDuplicateListing(
+                    new FormData(e.currentTarget.form ?? undefined),
+                  );
+                  setMessage(res);
+                });
+              }}
+              disabled={isPending}
+              className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+            >
+              Check for Duplicates
+            </button>
+          </>
+        )}
         <button
           type="submit"
           disabled={isPending}

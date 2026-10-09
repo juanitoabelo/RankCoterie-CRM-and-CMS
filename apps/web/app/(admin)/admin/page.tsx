@@ -4,11 +4,16 @@
  * Uses the Dashboard module for stats.
  */
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getDashboardStats } from "@/modules/dashboard";
+import { requireUser, isSubscriberOnly } from "@/modules/auth";
 
 export const revalidate = 0;
 
 export default async function AdminDashboardPage() {
+  const user = await requireUser();
+  if (isSubscriberOnly(user)) redirect("/admin/my-listing");
+
   const stats = await getDashboardStats();
 
   const cards = [

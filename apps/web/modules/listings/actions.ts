@@ -7,8 +7,11 @@
  */
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { Prisma, Role } from "@prisma/client";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { logAudit } from "@/lib/audit";
+import { createSession, requireSection, requireUser } from "@/modules/auth";
+import { hashPassword } from "@/lib/passwords";
 import type { ListingTier, ListingStatus } from "@/lib/directory/visibility";
 import { TENANT_ID } from "@/lib/tenant";
 import { readFreeGraceDays } from "@/lib/billing/checkout";
@@ -141,6 +144,7 @@ function validate(input: ListingFormInput): string | null {
 }
 
 export async function createListing(formData: FormData): Promise<ActionResult> {
+  await requireSection("listings");
   const input = parseForm(formData);
   const invalid = validate(input);
   if (invalid) return { ok: false, error: invalid };
@@ -207,6 +211,7 @@ export async function createListing(formData: FormData): Promise<ActionResult> {
 }
 
 export async function updateListing(id: string, formData: FormData): Promise<ActionResult> {
+  await requireSection("listings");
   const input = parseForm(formData);
   const invalid = validate(input);
   if (invalid) return { ok: false, error: invalid };
@@ -280,6 +285,7 @@ export async function updateListing(id: string, formData: FormData): Promise<Act
 
 /** Review queue: approve → LIVE (FREE tier gets the migration grace window). */
 export async function approveListing(id: string): Promise<ActionResult> {
+  await requireSection("reviewQueue");
   try {
     const [listing, tenant] = await Promise.all([
       prisma.listing.findUnique({ where: { id } }),
@@ -310,6 +316,7 @@ export async function approveListing(id: string): Promise<ActionResult> {
 }
 
 export async function rejectListing(id: string, reason?: string): Promise<ActionResult> {
+  await requireSection("reviewQueue");
   try {
     const listing = await prisma.listing.findUnique({ where: { id } });
     if (!listing) return { ok: false, error: "Listing not found." };
@@ -342,24 +349,25 @@ export async function rejectListingForm(id: string, _formData: FormData): Promis
 export async function checkDuplicateListing(
   formData: FormData,
 ): Promise<DuplicateCheckResult> {
+  await requireSection("listings");
   const phone = String(formData.get("phone") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const website = String(formData.get("website") ?? "").trim().toLowerCase();
   const domainKey = String(formData.get("domainKey") ?? "").trim().toLowerCase();
   const companyName = String(formData.get("companyName") ?? "").trim().toLowerCase();
 
-  const where: any = { tenantId: TENANT_ID, OR: [] };
+  const conditions: Prisma.ListingWhereInput[] = [];
 
-  if (phone) where.OR.push({ phone });
-  if (email) where.OR.push({ email });
-  if (website) where.OR.push({ website });
-  if (domainKey) where.OR.push({ domainKey });
-  if (companyName) where.OR.push({ companyName });
+  if (phone) conditions.push({ phone });
+  if (email) conditions.push({ email });
+  if (website) conditions.push({ website });
+  if (domainKey) conditions.push({ domainKey });
+  if (companyName) conditions.push({ companyName });
 
-  if (where.OR.length === 0) return { ok: true, duplicates: [] };
+  if (conditions.length === 0) return { ok: true, duplicates: [] };
 
   const duplicates = await prisma.listing.findMany({
-    where,
+    where: { tenantId: TENANT_ID, OR: conditions },
     select: {
       id: true,
       title: true,
@@ -386,6 +394,7 @@ export async function checkDuplicateListing(
 export async function previewListing(
   formData: FormData,
 ): Promise<PreviewListingResult> {
+  await requireSection("listings");
   const input = parseForm(formData);
   const invalid = validate(input);
   if (invalid) return { ok: false, error: invalid };
@@ -399,4 +408,190 @@ export async function previewListing(
     previewUrl: `${siteUrl}/listing/${tempSlug}`,
     message: "Preview generated. Note: this is a temporary preview URL.",
   };
+}
+
+// ---------------------------------------------------------------------------
+// Self-service "My Listing" (subscriber) + claim account setup
+// ---------------------------------------------------------------------------
+
+/** Fields a listing owner may edit via the self-service My Listing page. */
+const OWNER_EDITABLE = [
+  "companyName",
+  "phone",
+  "email",
+  "website",
+  "address",
+  "city",
+  "state",
+  "zip",
+  "lat",
+  "lng",
+  "summary",
+  "description",
+  "avatarImage",
+  "feedImage",
+  "galleryImages",
+  "videoUrl",
+  "hoursOfOperation",
+  "specialties",
+  "amenities",
+  "certifications",
+  "insuranceAccepted",
+  "pricing",
+] as const;
+
+/** Parse only the whitelisted owner-editable fields (never tier/status/slug/SEO). */
+function parseOwnerForm(formData: FormData): Record<string, string | number | null> {
+  const asString = (k: string) => {
+    const v = String(formData.get(k) ?? "").trim();
+    return v || null;
+  };
+  const asJson = (k: string) => {
+    const v = String(formData.get(k) ?? "").trim();
+    if (!v) return null;
+    try {
+      JSON.parse(v);
+      return v;
+    } catch {
+      return null;
+    }
+  };
+  const data: Record<string, string | number | null> = {};
+  for (const key of OWNER_EDITABLE) {
+    if (key === "lat" || key === "lng") {
+      const v = asString(key);
+      const n = Number(v);
+      data[key] = v !== null && Number.isFinite(n) ? n : null;
+    } else if (
+      key === "galleryImages" ||
+      key === "hoursOfOperation" ||
+      key === "specialties" ||
+      key === "amenities" ||
+      key === "certifications" ||
+      key === "insuranceAccepted" ||
+      key === "pricing"
+    ) {
+      data[key] = asJson(key);
+    } else {
+      data[key] = asString(key);
+    }
+  }
+  return data;
+}
+
+/** Owner-scoped update used by the subscriber My Listing page. */
+export async function updateMyListing(
+  listingId: string,
+  formData: FormData,
+): Promise<ActionResult> {
+  const user = await requireUser();
+  const input = parseOwnerForm(formData);
+
+  const listing = await prisma.listing.findFirst({
+    where: { id: listingId, claimedById: user.id },
+  });
+  if (!listing) {
+    return {
+      ok: false,
+      error: "Listing not found or you don't have permission to edit it.",
+    };
+  }
+
+  try {
+    await prisma.listing.update({
+      where: { id: listingId },
+      data: input as Prisma.ListingUpdateInput,
+    });
+    await logAudit({
+      action: "LISTING_OWNER_UPDATE",
+      entity: "Listing",
+      entityId: listingId,
+      actorId: user.id,
+    });
+    revalidatePath(`/listing/${listing.slug}`);
+    revalidatePath("/admin/my-listing");
+    return { ok: true };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed to update listing.",
+    };
+  }
+}
+
+/** Claim completion: create a subscriber account and link the verified listing. */
+export async function completeClaim(formData: FormData): Promise<ActionResult> {
+  const listingId = String(formData.get("listingId") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const name = String(formData.get("name") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+
+  if (!listingId || !email) {
+    return { ok: false, error: "Email is required." };
+  }
+  if (!name) return { ok: false, error: "Your name is required." };
+  if (password.length < 8) {
+    return { ok: false, error: "Password must be at least 8 characters." };
+  }
+  if (password !== confirmPassword) {
+    return { ok: false, error: "Passwords do not match." };
+  }
+
+  const listing = await prisma.listing.findUnique({ where: { id: listingId } });
+  if (!listing) return { ok: false, error: "Listing not found." };
+  if (!listing.verifiedAt) {
+    return { ok: false, error: "This listing hasn't been verified yet." };
+  }
+  if (listing.claimedById) {
+    return { ok: false, error: "This listing has already been claimed." };
+  }
+
+  let accountId: string;
+  try {
+    const existingUser = await prisma.user.findFirst({
+      where: { email, tenantId: TENANT_ID },
+      include: { roles: true },
+    });
+    if (existingUser) {
+      accountId = existingUser.id;
+      if (!existingUser.roles.some((r) => r.role === Role.SUBSCRIBER)) {
+        await prisma.userRole.create({
+          data: { userId: existingUser.id, role: Role.SUBSCRIBER },
+        });
+      }
+    } else {
+      const created = await prisma.user.create({
+        data: {
+          tenantId: TENANT_ID,
+          email,
+          passwordHash: hashPassword(password),
+          firstName: name || null,
+          active: true,
+          roles: { create: [{ role: Role.SUBSCRIBER }] },
+        },
+      });
+      accountId = created.id;
+    }
+    await prisma.listing.update({
+      where: { id: listingId },
+      data: { claimedById: accountId, claimedAt: new Date() },
+    });
+    await logAudit({
+      action: "LISTING_CLAIM",
+      entity: "Listing",
+      entityId: listingId,
+      actorId: accountId,
+      meta: { email },
+    });
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed to complete claim.",
+    };
+  }
+
+  await createSession(accountId);
+  redirect("/admin/my-listing");
+  return { ok: true };
 }

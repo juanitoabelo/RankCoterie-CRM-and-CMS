@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/modules/shared";
 
 export async function GET(request: NextRequest) {
+  const slug = new URL(request.url).searchParams.get("slug");
   try {
     const { searchParams } = new URL(request.url);
     const token = searchParams.get("token");
-    const slug = searchParams.get("slug");
 
     if (!token || !slug) {
       return NextResponse.redirect(
@@ -43,15 +43,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL(`/claim/${slug}?error=expired`, request.url));
     }
 
-    // Mark as verified - for now we'll just mark it verified
-    // In production, you'd create a user account and link it
+    // Mark as verified. Account + ownership link are created on /claim/[slug]/complete
+    // once the claimant sets their password.
     await prisma.listing.update({
-      where: { id: slug },
+      where: { id: listing.id },
       data: {
         verifiedAt: new Date(),
         verificationToken: null,
         verificationExpires: null,
-        // claimedById would be set when user creates account
       },
     });
 
@@ -61,13 +60,13 @@ export async function GET(request: NextRequest) {
         tenantId: "default",
         action: "LISTING_VERIFY",
         entity: "Listing",
-        entityId: slug,
+        entityId: listing.id,
         reason: "Email verification completed",
       },
     });
 
-    // Redirect to success page
-    return NextResponse.redirect(new URL(`/listing/${slug}?verified=success`, request.url));
+    // Redirect to account setup (create login + link ownership)
+    return NextResponse.redirect(new URL(`/claim/${slug}/complete`, request.url));
   } catch (error) {
     console.error("Verification error:", error);
     return NextResponse.redirect(new URL(`/claim/${slug}?error=server`, request.url));

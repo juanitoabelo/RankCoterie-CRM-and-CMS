@@ -17,6 +17,26 @@ function parseJson<T>(value: unknown, fallback: T): T {
   }
 }
 
+const HOURS_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+const HOURS_LABELS: Record<string, string> = {
+  monday: "Monday",
+  tuesday: "Tuesday",
+  wednesday: "Wednesday",
+  thursday: "Thursday",
+  friday: "Friday",
+  saturday: "Saturday",
+  sunday: "Sunday",
+};
+
+function formatClock(time?: string): string {
+  if (!time) return time ?? "";
+  const [h, m] = time.split(":").map(Number);
+  if (!Number.isFinite(h)) return time;
+  const suffix = h >= 12 ? "PM" : "AM";
+  const hr = h % 12 === 0 ? 12 : h % 12;
+  return `${hr}:${String(m ?? 0).padStart(2, "0")} ${suffix}`;
+}
+
 type JsonLdListing = {
   title: string;
   slug: string;
@@ -180,6 +200,14 @@ export default async function ListingDetailPage({
 
   if (!listing) notFound();
 
+  const regionRows = await prisma.region.findMany({
+    where: { id: { in: listing.regions.map((r) => r.regionId) } },
+    select: { id: true, state: true, stateFull: true, city: true },
+  });
+  const regionLabels = new Map(
+    regionRows.map((r) => [r.id, r.city ? `${r.city}, ${r.stateFull}` : r.stateFull]),
+  );
+
   // Increment view count
   await prisma.listing.update({
     where: { id: listing.id },
@@ -323,7 +351,7 @@ export default async function ListingDetailPage({
           {listing.description && (
             <section className="rounded-xl border border-zinc-200 bg-white p-6">
               <h2 className="text-lg font-semibold text-zinc-900">Description</h2>
-              <div className="mt-4 prose prose-zinc max-w-none" dangerouslySetInnerHTML={{ __html: listing.description }} />
+              <div className="mt-4 prose prose-zinc max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(listing.description) }} />
             </section>
           )}
 
@@ -346,7 +374,7 @@ export default async function ListingDetailPage({
                 <dd className="mt-1 flex flex-wrap gap-2">
                   {listing.regions.map((r) => (
                     <span key={r.regionId} className="rounded bg-zinc-100 px-3 py-1 text-sm text-zinc-700">
-                      {r.regionId}
+                      {regionLabels.get(r.regionId) ?? r.regionId}
                     </span>
                   ))}
                 </dd>
@@ -391,14 +419,35 @@ export default async function ListingDetailPage({
                   </dd>
                 </div>
               )}
-              {Object.keys(parseJson<Record<string, unknown>>(listing.hoursOfOperation, {})).length > 0 && (
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <dt className="text-sm text-zinc-500">Hours</dt>
-                  <dd className="mt-1 text-sm text-zinc-600">
-                    <pre className="whitespace-pre-wrap">{JSON.stringify(parseJson<Record<string, string>>(listing.hoursOfOperation, {}), null, 2)}</pre>
-                  </dd>
-                </div>
-              )}
+              {(() => {
+                const hours = parseJson<Record<string, { opens?: string; closes?: string }>>(listing.hoursOfOperation, {});
+                if (Object.keys(hours).length === 0) return null;
+                return (
+                  <div className="sm:col-span-2 lg:col-span-3">
+                    <dt className="text-sm text-zinc-500">Hours</dt>
+                    <dd className="mt-1 text-sm text-zinc-600">
+                      <ul className="space-y-1">
+                        {HOURS_DAYS.map((day) => {
+                          const entry = hours[day];
+                          const isOpen =
+                            entry && entry.opens && entry.closes &&
+                            entry.opens !== "00:00" && entry.closes !== "00:00";
+                          return (
+                            <li key={day} className="flex justify-between gap-4">
+                              <span className="capitalize text-zinc-500">{HOURS_LABELS[day]}</span>
+                              <span className="font-medium">
+                                {isOpen
+                                  ? `${formatClock(entry.opens)} – ${formatClock(entry.closes)}`
+                                  : "Closed"}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </dd>
+                  </div>
+                );
+              })()}
             </dl>
           </section>
 

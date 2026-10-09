@@ -227,6 +227,38 @@ export default function ApplyListingForm({
         </div>
 
         <div>
+          <h2 className="text-sm font-medium text-zinc-900">Create your login</h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            We&apos;ll use your contact email above as your username. This lets you
+            manage your listing (hours, photos, description) after it&apos;s published.
+          </p>
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <label className={labelCls}>
+              Password *
+              <input
+                name="password"
+                type="password"
+                required
+                minLength={8}
+                autoComplete="new-password"
+                className={fieldCls}
+              />
+            </label>
+            <label className={labelCls}>
+              Confirm password *
+              <input
+                name="confirmPassword"
+                type="password"
+                required
+                minLength={8}
+                autoComplete="new-password"
+                className={fieldCls}
+              />
+            </label>
+          </div>
+        </div>
+
+        <div>
           <h2 className="text-sm font-medium text-zinc-900">Categories *</h2>
           <p className="mt-1 text-sm text-zinc-500">
             Pick at least one category your program belongs to.
