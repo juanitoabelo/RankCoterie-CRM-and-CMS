@@ -859,6 +859,7 @@ function TestimonialEditor({
 }) {
   const [uploadIdx, setUpIdx] = useState<number | null>(null);
   const [uploadErr, setUploadErr] = useState<string | null>(null);
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
 
   const uploadAvatar = async (i: number, file: File) => {
     setUploadErr(null);
@@ -890,10 +891,12 @@ function TestimonialEditor({
       ...block.props,
       items: [...items, { quote: "", author: "", role: "", rating: 5, avatar: "" }],
     });
+    setOpenIdx(items.length);
   };
 
   const removeItem = (i: number) => {
     onChange({ ...block.props, items: items.filter((_: unknown, j: number) => j !== i) });
+    setOpenIdx((cur) => (cur === i ? null : cur !== null && cur > i ? cur - 1 : cur));
   };
 
   return (
@@ -943,97 +946,118 @@ function TestimonialEditor({
         </div>
       </div>
 
-      <div className="space-y-3">
-        {items.map((item: { quote: string; author: string; role: string; rating: number; avatar?: string }, i: number) => (
-          <div key={i} className="rounded-lg border border-zinc-200 p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-zinc-500">TESTIMONIAL {i + 1}</span>
-              {items.length > 1 && (
+      <div className="space-y-2">
+        {items.map((item: { quote: string; author: string; role: string; rating: number; avatar?: string }, i: number) => {
+          const open = openIdx === i;
+          const preview =
+            item.author?.trim() ||
+            item.quote?.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() ||
+            "Empty";
+          return (
+            <div key={i} className="rounded-lg border border-zinc-200">
+              <div className="flex items-center justify-between gap-2 px-3 py-2">
                 <button
                   type="button"
-                  onClick={() => removeItem(i)}
-                  className="text-[10px] text-red-500 hover:text-red-700"
+                  onClick={() => setOpenIdx(open ? null : i)}
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
                 >
-                  Remove
+                  <span className="shrink-0 text-zinc-400">{open ? "▾" : "▸"}</span>
+                  <span className="shrink-0 text-[10px] font-bold text-zinc-500">
+                    TESTIMONIAL {i + 1}
+                  </span>
+                  <span className="truncate text-xs text-zinc-400">{preview}</span>
                 </button>
-              )}
-            </div>
-            <div>
-              <label className={labelCls}>Quote</label>
-              <div className="mt-1">
-                <RichTextEditor
-                  value={item.quote}
-                  onChange={(v) => updateItem(i, { quote: v })}
-                  minHeight={80}
-                  placeholder="The customer's words…"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className={labelCls}>Author</label>
-                <input
-                  className={inputCls}
-                  value={item.author}
-                  onChange={(e) => updateItem(i, { author: e.target.value })}
-                  placeholder="Jane Doe"
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Role</label>
-                <input
-                  className={inputCls}
-                  value={item.role}
-                  onChange={(e) => updateItem(i, { role: e.target.value })}
-                  placeholder="Founder, Acme Co."
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className={labelCls}>Rating</label>
-                <select
-                  className={inputCls}
-                  value={String(item.rating)}
-                  onChange={(e) => updateItem(i, { rating: Number(e.target.value) })}
-                >
-                  {[0, 1, 2, 3, 4, 5].map((n) => (
-                    <option key={n} value={n}>
-                      {"★".repeat(n) || "No stars"}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelCls}>Avatar</label>
-                {item.avatar && (
-                  <div className="mb-1">
-                    <img src={item.avatar} alt="" className="h-8 w-8 rounded-full object-cover" />
-                  </div>
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="block w-full text-[10px] text-zinc-500 file:mr-2 file:rounded file:border-0 file:bg-zinc-200 file:px-2 file:py-0.5 file:text-[10px] file:font-medium"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void uploadAvatar(i, file);
-                  }}
-                />
-                {uploadIdx === i && <p className="text-[10px] text-zinc-500">Uploading…</p>}
-                {item.avatar && (
+                {items.length > 1 && (
                   <button
                     type="button"
-                    onClick={() => updateItem(i, { avatar: "" })}
-                    className="text-[10px] text-red-500 hover:text-red-700"
+                    onClick={() => removeItem(i)}
+                    className="shrink-0 text-[10px] text-red-500 hover:text-red-700"
                   >
                     Remove
                   </button>
                 )}
               </div>
+              {open && (
+                <div className="space-y-2 border-t border-zinc-100 p-3">
+                  <div>
+                    <label className={labelCls}>Quote</label>
+                    <div className="mt-1">
+                      <RichTextEditor
+                        value={item.quote}
+                        onChange={(v) => updateItem(i, { quote: v })}
+                        minHeight={60}
+                        placeholder="The customer's words…"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className={labelCls}>Author</label>
+                      <input
+                        className={inputCls}
+                        value={item.author}
+                        onChange={(e) => updateItem(i, { author: e.target.value })}
+                        placeholder="Jane Doe"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Role</label>
+                      <input
+                        className={inputCls}
+                        value={item.role}
+                        onChange={(e) => updateItem(i, { role: e.target.value })}
+                        placeholder="Founder, Acme Co."
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className={labelCls}>Rating</label>
+                      <select
+                        className={inputCls}
+                        value={String(item.rating)}
+                        onChange={(e) => updateItem(i, { rating: Number(e.target.value) })}
+                      >
+                        {[0, 1, 2, 3, 4, 5].map((n) => (
+                          <option key={n} value={n}>
+                            {"★".repeat(n) || "No stars"}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Avatar</label>
+                      {item.avatar && (
+                        <div className="mb-1">
+                          <img src={item.avatar} alt="" className="h-8 w-8 rounded-full object-cover" />
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="block w-full text-[10px] text-zinc-500 file:mr-2 file:rounded file:border-0 file:bg-zinc-200 file:px-2 file:py-0.5 file:text-[10px] file:font-medium"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) void uploadAvatar(i, file);
+                        }}
+                      />
+                      {uploadIdx === i && <p className="text-[10px] text-zinc-500">Uploading…</p>}
+                      {item.avatar && (
+                        <button
+                          type="button"
+                          onClick={() => updateItem(i, { avatar: "" })}
+                          className="text-[10px] text-red-500 hover:text-red-700"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <button
