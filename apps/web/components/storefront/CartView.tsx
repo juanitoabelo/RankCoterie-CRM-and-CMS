@@ -148,7 +148,7 @@ export default function CartView({
               <Link href={`/${item.slug}`} className="shrink-0">
                 {item.imageAssetId ? (
                   <Image
-                    src={`/api/assets/${item.imageAssetId}`}
+                    src={`/api/assets/${item.imageAssetId}/`}
                     alt={item.name}
                     width={64}
                     height={64}

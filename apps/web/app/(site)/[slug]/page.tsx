@@ -236,7 +236,7 @@ export default async function PublicPage({
           <div>
             {mainImage ? (
               <Image
-                src={`/api/assets/${mainImage.assetId}`}
+                src={`/api/assets/${mainImage.assetId}/`}
                 alt={mainImage.alt ?? product.name}
                 width={800}
                 height={800}
@@ -253,7 +253,7 @@ export default async function PublicPage({
                 {product.images.slice(1, 6).map((img) => (
                   <Image
                     key={img.id}
-                    src={`/api/assets/${img.assetId}`}
+                    src={`/api/assets/${img.assetId}/`}
                     alt={img.alt ?? ""}
                     width={160}
                     height={80}

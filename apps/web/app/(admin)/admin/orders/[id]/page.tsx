@@ -67,7 +67,7 @@ export default async function OrderDetailAdminPage({
                       <div className="flex items-center gap-3">
                         {item.product.images[0] ? (
                           <Image
-                            src={`/api/assets/${item.product.images[0].assetId}`}
+                            src={`/api/assets/${item.product.images[0].assetId}/`}
                             alt=""
                             width={32}
                             height={32}
