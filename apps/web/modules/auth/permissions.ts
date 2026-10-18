@@ -26,6 +26,7 @@ const SECTION_ROLES: SectionRoles = {
   exclusions: ["SUPER_ADMIN", "ADMIN", "MARKETING"],
   feeds: ["SUPER_ADMIN", "ADMIN", "MARKETING"],
   reports: ["SUPER_ADMIN", "ADMIN", "MARKETING"],
+  sitemap: ["SUPER_ADMIN", "ADMIN", "MARKETING"],
   myCompany: ["SUPER_ADMIN", "ADMIN"],
   users: ["SUPER_ADMIN"],
   leads: ["SUPER_ADMIN", "ADMIN", "SALES_REP"],

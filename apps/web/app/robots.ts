@@ -1,8 +1,7 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/seo/sitemap";
 
 export const revalidate = 3600;
-
-const SITE_URL = process.env.SITE_URL ?? "https://masternet.org";
 
 /**
  * robots.txt — allow all crawlers, point them at the sitemap.

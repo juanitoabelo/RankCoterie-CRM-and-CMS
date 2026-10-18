@@ -122,6 +122,7 @@ const NAV_GROUPS: NavGroup[] = [
       { section: "general", href: "/admin/general", label: "General" },
       { section: "general", href: "/admin/email-settings", label: "Email Settings" },
       { section: "reading", href: "/admin/reading", label: "Reading" },
+      { section: "sitemap", href: "/admin/sitemap", label: "Sitemap" },
       { section: "themeSettings", href: "/admin/theme-settings", label: "Theme Settings" },
       { section: "styleGuide", href: "/admin/style-guide", label: "Style Guide (Legacy)" },
       { section: "reports", href: "/admin/reports", label: "Reports" },
