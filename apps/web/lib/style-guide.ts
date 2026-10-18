@@ -113,13 +113,15 @@ export function sanitizeHtml(html: string): string {
 }
 
 /**
- * Flatten a `StyleGuide` into CSS variable declarations for `:root`. Fonts are
- * quoted so multi-family stacks parse as a single value.
+ * Flatten a `StyleGuide` into CSS variable declarations for `:root`. Color
+ * values are emitted unquoted — a quoted string is not a valid `<color>` and
+ * would make consuming declarations invalid at computed-value time. Font
+ * stacks keep their own embedded quotes from the source values.
  */
 export function styleGuideVars(guide: StyleGuide): string {
   const lines: string[] = [];
   const push = (varName: string, value: string) => {
-    if (value) lines.push(`  ${varName}: "${esc(value)}";`);
+    if (value) lines.push(`  ${varName}: ${esc(value)};`);
   };
   const pushFont = (varName: string, value: string) => {
     if (value) lines.push(`  ${varName}: ${esc(value)};`);

@@ -31,7 +31,7 @@ export default async function ClaimListingPage({
   const { slug } = await params;
 
   const listing = await prisma.listing.findUnique({
-    where: { slug },
+    where: { slug, isLandingPage: false },
     select: {
       id: true,
       title: true,
@@ -138,7 +138,7 @@ export default async function ClaimListingPage({
 
         <p className="mt-6 text-center text-sm text-zinc-500">
           Already have an account?{" "}
-          <Link href="/admin/login" className="text-blue-600 hover:underline">
+          <Link href="/listing/login" className="text-blue-600 hover:underline">
             Sign in
           </Link>
         </p>

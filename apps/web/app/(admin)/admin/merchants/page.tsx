@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/modules/shared";
+import { requireSection } from "@/modules/auth";
+import { FlashBanner } from "@/components/admin/FlashBanner";
 import { merchantAddForm, merchantToggleForm } from "./actions";
 
 export const revalidate = 0;
@@ -7,7 +9,13 @@ export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Merchants | Admin" };
 
-export default async function AdminMerchantsPage() {
+export default async function AdminMerchantsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; ok?: string }>;
+}) {
+  await requireSection("merchants");
+  const { error, ok } = await searchParams;
   const [merchants, listings] = await Promise.all([
     prisma.merchant.findMany({
       orderBy: { createdAt: "desc" },
@@ -25,6 +33,7 @@ export default async function AdminMerchantsPage() {
 
   return (
     <div>
+      <FlashBanner error={error} ok={ok} />
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-900">Merchants</h1>
@@ -114,7 +123,9 @@ export default async function AdminMerchantsPage() {
           {merchants.map((m) => (
             <tr key={m.id} className="hover:bg-zinc-50">
               <td className="py-3 pr-4">
-                <p className="font-medium text-zinc-900">{m.name}</p>
+                <Link href={`/admin/merchants/${m.id}/`} className="font-medium text-zinc-900 hover:underline">
+                  {m.name}
+                </Link>
                 {m.contactName && <p className="text-xs text-zinc-400">{m.contactName}</p>}
                 {m.email && <p className="text-xs text-zinc-400">{m.email}</p>}
               </td>

@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import type { Block } from "@/lib/page-builder/types";
+import { BLOCK_DEFINITIONS, SHARED_BLOCK_TYPES } from "@/lib/page-builder/types";
 
 const PALETTE_ITEMS = [
   { type: "hero", label: "Hero" },
@@ -10,6 +9,19 @@ const PALETTE_ITEMS = [
   { type: "cta", label: "Call to Action" },
   { type: "features", label: "Features" },
   { type: "button", label: "Button / Link" },
+  { type: "blogArticleSlider", label: "Blog/Article Slider" },
+  { type: "productSlider", label: "Product Slider" },
+  { type: "listingSlider", label: "Directory Listing Slider" },
+  { type: "companySlider", label: "Company Listing Slider" },
+  { type: "geoCategorySlider", label: "Geo Category Slider" },
+  { type: "sectionSlider", label: "Section Slider" },
+  { type: "topicSubTopicSlider", label: "Topic and Sub Topic Slider" },
+  { type: "imageSlider", label: "Image Slider" },
+  { type: "videoSlider", label: "Video Slider" },
+  ...SHARED_BLOCK_TYPES.map((type) => ({
+    type,
+    label: BLOCK_DEFINITIONS.find((d) => d.type === type)?.label ?? type,
+  })),
 ];
 
 export default function ProductTemplatePalette({ onAdd }: { onAdd: (type: string) => void }) {

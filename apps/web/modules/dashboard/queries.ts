@@ -132,7 +132,7 @@ export async function getReportData(): Promise<ReportData> {
       total: Number(i._sum?.amount ?? 0),
     })),
     lowStockProducts,
-    dailySales: Number(dailySales?.amount ?? 0),
+    dailySales,
     abandonedOrderRecoveryRate,
   };
 }

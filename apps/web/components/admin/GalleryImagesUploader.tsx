@@ -120,7 +120,7 @@ export default function GalleryImagesUploader({
         label="Add More Images from Gallery"
       />
 
-      <input type="hidden" name={name} value={assetIds.join(",")} />
+      <input type="hidden" name={name} value={JSON.stringify(assetIds)} />
     </div>
   );
 }

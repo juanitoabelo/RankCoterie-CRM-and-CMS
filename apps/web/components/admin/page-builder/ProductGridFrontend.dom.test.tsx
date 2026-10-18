@@ -306,7 +306,7 @@ describe("ProductGridFrontend", () => {
     await settle(900);
     const cartCall = requests.find((r) => r.includes("/api/cart"));
     expect(cartCall).toBeTruthy();
-    expect(buttons[0].textContent).toContain("Added to cart");
+    expect(buttons[0].textContent).toContain("Add to cart ✓");
     expect(buttons[0].className).toContain("is-added");
   });
 
@@ -398,5 +398,49 @@ describe("ProductGridFrontend", () => {
     expect(lastGridRequest().searchParams.get("category")).toBe("cat-gear");
     expect(container.textContent).toContain("4 products");
     expect(titles().every((title) => title.startsWith("Grid Test Gear"))).toBe(true);
+  });
+
+  it("applies custom add-to-cart labels to both buttons", async () => {
+    await act(async () => {
+      root.unmount();
+      container.innerHTML = "";
+      root = createRoot(container);
+      root.render(
+        <ProductGridFrontend
+          props={{ ...baseProps, addToCartLabel: "Buy me", quickAddToCartLabel: "Grab it" }}
+        />,
+      );
+    });
+    await settle();
+    const card = container.querySelector(".pg-cart-btn") as HTMLButtonElement;
+    const quick = container.querySelector(".pg-quick-btn") as HTMLButtonElement;
+    expect(card.textContent?.trim()).toBe("Buy me");
+    expect(quick.textContent?.trim()).toBe("Grab it");
+  });
+
+  it("hides each add-to-cart button independently", async () => {
+    await act(async () => {
+      root.unmount();
+      container.innerHTML = "";
+      root = createRoot(container);
+      root.render(
+        <ProductGridFrontend props={{ ...baseProps, showAddToCart: false }} />,
+      );
+    });
+    await settle();
+    expect(container.querySelectorAll(".pg-cart-btn").length).toBe(0);
+    expect(container.querySelectorAll(".pg-quick-btn").length).toBe(0);
+
+    await act(async () => {
+      root.unmount();
+      container.innerHTML = "";
+      root = createRoot(container);
+      root.render(
+        <ProductGridFrontend props={{ ...baseProps, showAddToCart: false, showQuickAddToCart: true }} />,
+      );
+    });
+    await settle();
+    expect(container.querySelectorAll(".pg-cart-btn").length).toBe(0);
+    expect(container.querySelectorAll(".pg-quick-btn").length).toBe(4);
   });
 });

@@ -4,6 +4,9 @@ import { useState } from "react";
 import { inputCls, labelCls } from "./settings";
 import { SpacingInput, type SpacingValues } from "./settings";
 import MediaLibraryPicker from "./MediaLibraryPicker";
+import GlobalColorPicker from "../header-footer-builder/GlobalColorPicker";
+import type { PaletteColor } from "@/lib/theme-colors";
+import { useThemeColors } from "./ThemeColorsProvider";
 
 /* ── Types ───────────────────────────────────────────────────────────────── */
 
@@ -11,7 +14,8 @@ export interface AdvancedTabProps {
   props: Record<string, unknown>;
   set: (patch: Record<string, unknown>) => void;
   show?: AdvancedSection[];
-  themeColors?: string[];
+  /** Optional global color palette override (defaults to the provider). */
+  themeColors?: PaletteColor[];
 }
 
 export type AdvancedSection =
@@ -57,9 +61,11 @@ function ToggleTab({ active, onChange }: { active: "normal" | "hover"; onChange:
 
 /* ── Component ───────────────────────────────────────────────────────────── */
 
-export default function BlockAdvancedTab({ props: p, set, show }: AdvancedTabProps) {
+export default function BlockAdvancedTab({ props: p, set, show, themeColors }: AdvancedTabProps) {
   const allSections = show ?? (["layout", "motionEffects", "transform", "background", "border", "mask", "responsive", "attributes", "customCss", "displayConditions", "cacheSettings"] as AdvancedSection[]);
   const [openSection, setOpenSection] = useState<string | null>("layout");
+  const providerColors = useThemeColors();
+  const palette = themeColors ?? providerColors;
 
   const toggle = (key: string) => setOpenSection(openSection === key ? null : key);
 
@@ -271,12 +277,13 @@ export default function BlockAdvancedTab({ props: p, set, show }: AdvancedTabPro
 
               {(p[gp("bgType")] || "classic") === "classic" ? (
                 <>
-                  <label className={labelCls}>Background Color
-                    <div className="flex items-center gap-2">
-                      <input type="color" className="h-10 w-12 rounded-lg border border-zinc-300" value={(p[gp("bgColor")] as string) || "#ffffff"} onChange={(e) => set({ [gp("bgColor")]: e.target.value })} />
-                      <input className={inputCls} value={(p[gp("bgColor")] as string) || ""} onChange={(e) => set({ [gp("bgColor")]: e.target.value })} placeholder="#ffffff" />
-                    </div>
-                  </label>
+                  <GlobalColorPicker
+                    label="Background Color"
+                    value={(p[gp("bgColor")] as string) || undefined}
+                    onChange={(c) => set({ [gp("bgColor")]: c || undefined })}
+                    allowClear
+                    paletteOverride={palette}
+                  />
 
                   <MediaLibraryPicker
                     value={(p[gp("bgImage")] as string) || ""}
@@ -313,18 +320,20 @@ export default function BlockAdvancedTab({ props: p, set, show }: AdvancedTabPro
                 </>
               ) : (
                 <>
-                  <label className={labelCls}>Gradient Color
-                    <div className="flex items-center gap-2">
-                      <input type="color" className="h-10 w-12 rounded-lg border border-zinc-300" value={(p[gp("bgGradientStart")] as string) || "#000000"} onChange={(e) => set({ [gp("bgGradientStart")]: e.target.value })} />
-                      <input className={inputCls} value={(p[gp("bgGradientStart")] as string) || ""} onChange={(e) => set({ [gp("bgGradientStart")]: e.target.value })} placeholder="#000000" />
-                    </div>
-                  </label>
-                  <label className={labelCls}>Gradient Color (End)
-                    <div className="flex items-center gap-2">
-                      <input type="color" className="h-10 w-12 rounded-lg border border-zinc-300" value={(p[gp("bgGradientEnd")] as string) || "#ffffff"} onChange={(e) => set({ [gp("bgGradientEnd")]: e.target.value })} />
-                      <input className={inputCls} value={(p[gp("bgGradientEnd")] as string) || ""} onChange={(e) => set({ [gp("bgGradientEnd")]: e.target.value })} placeholder="#ffffff" />
-                    </div>
-                  </label>
+                  <GlobalColorPicker
+                    label="Gradient Color"
+                    value={(p[gp("bgGradientStart")] as string) || undefined}
+                    onChange={(c) => set({ [gp("bgGradientStart")]: c || undefined })}
+                    allowClear
+                    paletteOverride={palette}
+                  />
+                  <GlobalColorPicker
+                    label="Gradient Color (End)"
+                    value={(p[gp("bgGradientEnd")] as string) || undefined}
+                    onChange={(c) => set({ [gp("bgGradientEnd")]: c || undefined })}
+                    allowClear
+                    paletteOverride={palette}
+                  />
                   <label className={labelCls}>Angle
                     <div className="flex items-stretch gap-1">
                       <input type="number" className={`${inputCls} mt-0 min-w-0 flex-1`} value={(p[gp("bgGradientAngle")] as number) || ""} onChange={(e) => set({ [gp("bgGradientAngle")]: Number(e.target.value) || undefined })} min={0} max={360} placeholder="180" />
@@ -367,9 +376,13 @@ export default function BlockAdvancedTab({ props: p, set, show }: AdvancedTabPro
                   <label className={labelCls}>Width
                     <input type="number" className={inputCls} value={(p[bp("borderWidth")] as number) || 1} onChange={(e) => set({ [bp("borderWidth")]: Number(e.target.value) || 1 })} min={0} max={20} />
                   </label>
-                  <label className={labelCls}>Color
-                    <input type="color" className="mt-1 h-10 w-full rounded-lg border border-zinc-300" value={(p[bp("borderColor")] as string) || "#000000"} onChange={(e) => set({ [bp("borderColor")]: e.target.value })} />
-                  </label>
+                  <GlobalColorPicker
+                    label="Color"
+                    value={(p[bp("borderColor")] as string) || undefined}
+                    onChange={(c) => set({ [bp("borderColor")]: c || undefined })}
+                    allowClear
+                    paletteOverride={palette}
+                  />
                 </div>
               )}
 

@@ -17,6 +17,10 @@ export type GeneralSettings = {
   shippingFlatRate: number;
   shippingFreeOver: number | null;
   pricesIncludeTax: boolean;
+  recaptchaEnabled: boolean;
+  recaptchaSiteKey: string;
+  recaptchaSecretKey: string;
+  recaptchaMinScore: number;
 };
 
 export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
@@ -38,6 +42,10 @@ export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   shippingFlatRate: 0,
   shippingFreeOver: null,
   pricesIncludeTax: false,
+  recaptchaEnabled: false,
+  recaptchaSiteKey: "",
+  recaptchaSecretKey: "",
+  recaptchaMinScore: 0.5,
 };
 
 export const DATE_FORMAT_OPTIONS = [

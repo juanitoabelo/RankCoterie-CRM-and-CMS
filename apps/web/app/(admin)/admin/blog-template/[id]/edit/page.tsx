@@ -10,6 +10,7 @@ import {
 } from "../../actions";
 import { getThemeSettings } from "../../../theme-settings/actions";
 import BlogTemplateBuilder from "@/components/admin/blog-template-builder/BlogTemplateBuilder";
+import { ThemeColorsProvider } from "@/components/admin/page-builder/ThemeColorsProvider";
 import { parseBlogTemplateData } from "@/modules/blog-template";
 import { getArticlePreviewOptions } from "@/modules/content";
 
@@ -92,22 +93,24 @@ export default async function BlogTemplateEditPage({
         <span className="text-zinc-700">{template.name}</span>
       </p>
 
-      <BlogTemplateBuilder
-        templateId={template.id}
-        templateName={template.name}
-        templateType={template.type as "listing" | "single"}
-        initialBlocks={blocks}
-        initialContainerSettings={containerSettings}
-        isDefault={template.isDefault}
-        initialAssignments={assignments}
-        previewArticles={previewArticles}
-        themeColors={themeColors}
-        onSave={saveBlocks}
-        onListRevisions={loadRevisions}
-        onRestoreRevision={restore}
-        onSaveMeta={updateBlogTemplateMetaAction}
-        onSaveAssignments={saveAssignmentsAction}
-      />
+      <ThemeColorsProvider colors={themeColors}>
+        <BlogTemplateBuilder
+          templateId={template.id}
+          templateName={template.name}
+          templateType={template.type as "listing" | "single"}
+          initialBlocks={blocks}
+          initialContainerSettings={containerSettings}
+          isDefault={template.isDefault}
+          initialAssignments={assignments}
+          previewArticles={previewArticles}
+          themeColors={themeColors}
+          onSave={saveBlocks}
+          onListRevisions={loadRevisions}
+          onRestoreRevision={restore}
+          onSaveMeta={updateBlogTemplateMetaAction}
+          onSaveAssignments={saveAssignmentsAction}
+        />
+      </ThemeColorsProvider>
     </div>
   );
 }

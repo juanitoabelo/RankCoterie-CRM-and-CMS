@@ -99,9 +99,14 @@ export async function updateSubTopic(id: string, formData: FormData): Promise<Ac
   const author = String(formData.get("author") ?? "").trim() || null;
   const featuredImageAssetId = String(formData.get("featuredImageAssetId") ?? "").trim() || null;
   const displaySectionsRaw = String(formData.get("displaySections") ?? "[]").trim();
+  const statusRaw = String(formData.get("status") ?? "").trim();
 
   if (!title) return { ok: false, error: "Title is required." };
   if (!slug) return { ok: false, error: "Slug is required." };
+
+  const status = (Object.values(ContentStatus) as string[]).includes(statusRaw)
+    ? (statusRaw as ContentStatus)
+    : undefined;
 
   let displaySections: (string | boolean)[];
   try {
@@ -126,6 +131,7 @@ export async function updateSubTopic(id: string, formData: FormData): Promise<Ac
         author,
         featuredImageAssetId: featuredImageAssetId || null,
         displaySections: displaySections as unknown as Prisma.InputJsonValue,
+        ...(status ? { status } : {}),
       },
     });
 

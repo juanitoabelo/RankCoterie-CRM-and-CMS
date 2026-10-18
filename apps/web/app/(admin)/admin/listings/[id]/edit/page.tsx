@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { prisma } from "@/modules/shared";
 import ListingForm, {
   type ListingFormCategory,
@@ -14,7 +15,7 @@ export default async function EditListingPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [listing, categories, regions] = await Promise.all([
+  const [listing, categories, regions, templates] = await Promise.all([
     prisma.listing.findUnique({
       where: { id },
       include: {
@@ -24,6 +25,10 @@ export default async function EditListingPage({
     }),
     prisma.category.findMany({ orderBy: { slug: "asc" } }),
     prisma.region.findMany({ orderBy: [{ priority: "asc" }, { id: "asc" }] }),
+    prisma.listingTemplate.findMany({
+      select: { id: true, name: true, isPreset: true },
+      orderBy: [{ isPreset: "desc" }, { name: "asc" }],
+    }),
   ]);
 
   if (!listing) notFound();
@@ -60,6 +65,7 @@ export default async function EditListingPage({
     feedImage: listing.feedImage,
     galleryImages: jsonString(listing.galleryImages),
     videoUrl: listing.videoUrl,
+    googleMapsUrl: listing.googleMapsUrl,
     hoursOfOperation: jsonString(listing.hoursOfOperation),
     specialties: jsonString(listing.specialties),
     amenities: jsonString(listing.amenities),
@@ -73,6 +79,7 @@ export default async function EditListingPage({
     canonicalUrl: listing.canonicalUrl,
     robotsIndex: listing.robotsIndex,
     robotsFollow: listing.robotsFollow,
+    listingTemplateId: listing.listingTemplateId,
   };
 
   const categoryOptions: ListingFormCategory[] = categories.map((c) => ({
@@ -92,12 +99,23 @@ export default async function EditListingPage({
       <p className="text-sm text-zinc-500">
         Admin / Listings / <span className="text-zinc-700">{listing.title}</span>
       </p>
-      <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Edit listing</h1>
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold text-zinc-900">Edit listing</h1>
+        <Link
+          href={`/listing/${listing.slug}/`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+        >
+          View Listing →
+        </Link>
+      </div>
       <div className="mt-6 max-w-3xl">
         <ListingForm
           listing={formListing}
           categories={categoryOptions}
           regions={regionOptions}
+          templates={templates}
           submitLabel="Save changes"
         />
       </div>

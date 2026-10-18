@@ -65,6 +65,7 @@ export interface ListingFormInput {
   feedImage?: string;
   galleryImages?: string;
   videoUrl?: string;
+  googleMapsUrl?: string;
   hoursOfOperation?: string;
   specialties?: string;
   amenities?: string;
@@ -78,6 +79,7 @@ export interface ListingFormInput {
   canonicalUrl?: string;
   robotsIndex?: boolean;
   robotsFollow?: boolean;
+  listingTemplateId?: string;
 }
 
 function parseForm(formData: FormData): ListingFormInput {
@@ -116,6 +118,7 @@ function parseForm(formData: FormData): ListingFormInput {
     feedImage: asString("feedImage"),
     galleryImages: asString("galleryImages"),
     videoUrl: asString("videoUrl"),
+    googleMapsUrl: asString("googleMapsUrl"),
     hoursOfOperation: asJson("hoursOfOperation"),
     specialties: asJson("specialties"),
     amenities: asJson("amenities"),
@@ -129,6 +132,7 @@ function parseForm(formData: FormData): ListingFormInput {
     canonicalUrl: asString("canonicalUrl"),
     robotsIndex: asBool("robotsIndex"),
     robotsFollow: asBool("robotsFollow"),
+    listingTemplateId: asString("listingTemplateId"),
   };
 }
 
@@ -179,6 +183,7 @@ export async function createListing(formData: FormData): Promise<ActionResult> {
         feedImage: input.feedImage,
         galleryImages: input.galleryImages,
         videoUrl: input.videoUrl,
+        googleMapsUrl: input.googleMapsUrl,
         hoursOfOperation: input.hoursOfOperation,
         specialties: input.specialties,
         amenities: input.amenities,
@@ -192,6 +197,7 @@ export async function createListing(formData: FormData): Promise<ActionResult> {
         canonicalUrl: input.canonicalUrl,
         robotsIndex: input.robotsIndex ?? true,
         robotsFollow: input.robotsFollow ?? true,
+        listingTemplateId: input.listingTemplateId || null,
         categories: { create: input.categoryIds.map((categoryId) => ({ categoryId })) },
         regions: { create: input.regionIds.map((regionId) => ({ regionId })) },
       },
@@ -251,6 +257,7 @@ export async function updateListing(id: string, formData: FormData): Promise<Act
           feedImage: input.feedImage,
           galleryImages: input.galleryImages,
           videoUrl: input.videoUrl,
+          googleMapsUrl: input.googleMapsUrl,
           hoursOfOperation: input.hoursOfOperation,
           specialties: input.specialties,
           amenities: input.amenities,
@@ -264,6 +271,7 @@ export async function updateListing(id: string, formData: FormData): Promise<Act
         canonicalUrl: input.canonicalUrl,
         robotsIndex: input.robotsIndex ?? true,
         robotsFollow: input.robotsFollow ?? true,
+        listingTemplateId: input.listingTemplateId || null,
         categories: { create: input.categoryIds.map((categoryId) => ({ categoryId })) },
         regions: { create: input.regionIds.map((regionId) => ({ regionId })) },
       },
@@ -433,6 +441,7 @@ const OWNER_EDITABLE = [
   "feedImage",
   "galleryImages",
   "videoUrl",
+  "googleMapsUrl",
   "hoursOfOperation",
   "specialties",
   "amenities",

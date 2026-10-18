@@ -6,9 +6,12 @@ import type { GeoCategoryTemplateBlock, GeoSidebarWidget } from "@/lib/geo-categ
 import RichTextEditor from "../page-builder/RichTextEditor";
 import { inputCls, labelCls } from "../page-builder/settings";
 import BlockStyleTab from "../page-builder/BlockStyleTab";
+import ElementStyleTab from "../page-builder/ElementStyleTab";
 import BlockAdvancedTab from "../page-builder/BlockAdvancedTab";
 import BlockEditor from "../page-builder/BlockEditor";
 import GeoCategoryBindingsEditor from "./GeoCategoryBindingsEditor";
+import { getGeoBlockStyleSchema } from "@/lib/geo-category-template/style-schema";
+import type { ElementStyles } from "@/lib/page-builder/element-style";
 
 type ThemeColor = { key: string; label: string; color: string };
 
@@ -56,6 +59,28 @@ function Tabs({
 
 const checkboxCls = "h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900";
 
+/* ── Block-specific Style tab ───────────────────────────────────────────── */
+
+function GeoStyleTab({
+  blockType,
+  p,
+  set,
+}: {
+  blockType: string;
+  p: Record<string, unknown>;
+  set: (patch: Record<string, unknown>) => void;
+}) {
+  const schema = getGeoBlockStyleSchema(blockType);
+  if (!schema) return <BlockStyleTab props={p} set={set} />;
+  return (
+    <ElementStyleTab
+      schema={schema}
+      value={p.elementStyles as ElementStyles | undefined}
+      onChange={(next) => set({ elementStyles: next })}
+    />
+  );
+}
+
 /* ── Geo Hero Editor ──────────────────────────────────────────────────── */
 
 function GeoHeroEditor({ block, onChange }: EditorProps) {
@@ -102,7 +127,7 @@ function GeoHeroEditor({ block, onChange }: EditorProps) {
           </div>
         </div>
       )}
-      {tab === "style" && <BlockStyleTab props={p} set={set} />}
+      {tab === "style" && <GeoStyleTab blockType={block.type} p={p} set={set} />}
       {tab === "advanced" && <BlockAdvancedTab props={p} set={set} />}
     </div>
   );
@@ -145,7 +170,7 @@ function GeoContentEditor({ block, onChange }: EditorProps) {
           </label>
         </div>
       )}
-      {tab === "style" && <BlockStyleTab props={p} set={set} />}
+      {tab === "style" && <GeoStyleTab blockType={block.type} p={p} set={set} />}
       {tab === "advanced" && <BlockAdvancedTab props={p} set={set} />}
     </div>
   );
@@ -191,7 +216,7 @@ function GeoRegionNavEditor({ block, onChange }: EditorProps) {
           </label>
         </div>
       )}
-      {tab === "style" && <BlockStyleTab props={p} set={set} />}
+      {tab === "style" && <GeoStyleTab blockType={block.type} p={p} set={set} />}
       {tab === "advanced" && <BlockAdvancedTab props={p} set={set} />}
     </div>
   );
@@ -245,7 +270,7 @@ function GeoListingsEditor({ block, onChange }: EditorProps) {
           </label>
         </div>
       )}
-      {tab === "style" && <BlockStyleTab props={p} set={set} />}
+      {tab === "style" && <GeoStyleTab blockType={block.type} p={p} set={set} />}
       {tab === "advanced" && <BlockAdvancedTab props={p} set={set} />}
     </div>
   );
@@ -267,7 +292,7 @@ function GeoFaqEditor({ block, onChange }: EditorProps) {
           <input type="text" value={(p.heading as string) || ""} onChange={(e) => set({ heading: e.target.value })} placeholder="Frequently asked questions" className={inputCls} />
         </label>
       )}
-      {tab === "style" && <BlockStyleTab props={p} set={set} />}
+      {tab === "style" && <GeoStyleTab blockType={block.type} p={p} set={set} />}
       {tab === "advanced" && <BlockAdvancedTab props={p} set={set} />}
     </div>
   );
@@ -365,7 +390,9 @@ function GeoSidebarEditor({ block, onChange }: EditorProps) {
           </div>
         </div>
       )}
-      {tab === "style" && <BlockStyleTab props={p as Record<string, unknown>} set={set} />}
+      {tab === "style" && (
+        <GeoStyleTab blockType={block.type} p={p as unknown as Record<string, unknown>} set={set} />
+      )}
       {tab === "advanced" && <BlockAdvancedTab props={p as Record<string, unknown>} set={set} />}
     </div>
   );
@@ -405,7 +432,7 @@ function GeoRegionChipsEditor({ block, onChange }: EditorProps) {
           )}
         </div>
       )}
-      {tab === "style" && <BlockStyleTab props={p} set={set} />}
+      {tab === "style" && <GeoStyleTab blockType={block.type} p={p} set={set} />}
       {tab === "advanced" && <BlockAdvancedTab props={p} set={set} />}
     </div>
   );
@@ -427,7 +454,7 @@ function GeoFilterBarEditor({ block, onChange }: EditorProps) {
           automatically on category and city pages.
         </p>
       )}
-      {tab === "style" && <BlockStyleTab props={p} set={set} />}
+      {tab === "style" && <GeoStyleTab blockType={block.type} p={p} set={set} />}
       {tab === "advanced" && <BlockAdvancedTab props={p} set={set} />}
     </div>
   );

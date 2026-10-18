@@ -48,6 +48,7 @@ import ContainerSettingsEditor from "../blog-template-builder/ContainerSettingsE
 import ColumnEditor from "../header-footer-builder/ColumnEditor";
 import { blockLabel } from "@/components/admin/visual-editor/labels";
 import GeoCategoryTemplateVisualPreview, { GEO_PREVIEW_SAMPLE } from "./GeoCategoryTemplateVisualPreview";
+import { SliderPreviewProvider } from "@/components/admin/page-builder/ContentSliderFrontend";
 import { GeoBlockRenderer, GeoDataContext } from "./GeoCategoryTemplateRenderer";
 import GeoCategoryTemplatePalette from "./GeoCategoryTemplatePalette";
 import GeoCategoryTemplateEditor from "./GeoCategoryTemplateEditor";
@@ -581,12 +582,14 @@ export default function GeoCategoryTemplateBuilder({
           <div className="min-w-0 flex-1">
             <div className={viewportCls}>
               {displayMode === "visual" ? (
-                <GeoCategoryTemplateVisualPreview
-                  blocks={blocks}
-                  containerSettings={containerSettings}
-                  viewport={viewport}
-                  categories={previewCategories}
-                />
+                <SliderPreviewProvider>
+                  <GeoCategoryTemplateVisualPreview
+                    blocks={blocks}
+                    containerSettings={containerSettings}
+                    viewport={viewport}
+                    categories={previewCategories}
+                  />
+                </SliderPreviewProvider>
               ) : (
                 <GeoDataContext.Provider value={GEO_PREVIEW_SAMPLE}>
                   <BlogTemplateCanvas

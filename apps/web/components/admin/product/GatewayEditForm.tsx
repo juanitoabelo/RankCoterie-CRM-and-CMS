@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updatePaymentGateway } from "@/app/(admin)/admin/payment-gateways/actions";
-import { GATEWAY_FIELDS } from "./gatewayFields";
+import { GATEWAY_FIELDS, GATEWAY_PURPOSE_OPTIONS } from "./gatewayFields";
 
 const inputCls = "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm";
 const labelCls = "block text-sm font-medium text-zinc-800";
@@ -31,6 +31,7 @@ export default function GatewayEditForm({
   gateway: {
     name: string;
     type: string;
+    purpose?: string;
     isEnabled: boolean;
     isTestMode: boolean;
     config: unknown;
@@ -109,6 +110,28 @@ export default function GatewayEditForm({
             <option value="SQUARE">Square</option>
             <option value="MANUAL">Manual / Cash on Delivery</option>
           </select>
+        </div>
+
+        <div>
+          <label className={labelCls} htmlFor="gw-purpose">
+            Purpose
+          </label>
+          <select
+            id="gw-purpose"
+            name="purpose"
+            defaultValue={gateway.purpose ?? "GENERAL"}
+            className={inputCls}
+          >
+            {GATEWAY_PURPOSE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-zinc-500">
+            Which payments this gateway receives — client billing, storefront orders or listing
+            plans can each use a different account.
+          </p>
         </div>
 
         {fields.map((field) =>

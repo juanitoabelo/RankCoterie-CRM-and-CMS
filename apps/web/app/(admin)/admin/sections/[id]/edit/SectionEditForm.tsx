@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateSection, deleteSection, type ActionResult } from "../../actions";
+import RichTextarea from "@/components/admin/RichTextarea";
 
 interface Section {
   id: string;
@@ -12,6 +13,7 @@ interface Section {
   body?: string | null;
   order: number;
   status: string;
+  category?: { slug: string; title: string } | null;
 }
 
 export default function SectionEditForm({ section }: { section: Section }) {
@@ -19,8 +21,13 @@ export default function SectionEditForm({ section }: { section: Section }) {
   const [message, setMessage] = useState<ActionResult | null>(null);
   const [isPending, startTransition] = useTransition();
   const [title, setTitle] = useState(section.title);
+  const [heading, setHeading] = useState(section.heading ?? "");
+  const [body, setBody] = useState(section.body ?? "");
 
   function onSubmit(formData: FormData) {
+    formData.set("title", title);
+    formData.set("heading", heading);
+    formData.set("body", body);
     setMessage(null);
     startTransition(async () => {
       const res = await updateSection(section.id, formData);
@@ -36,7 +43,9 @@ export default function SectionEditForm({ section }: { section: Section }) {
     });
   }
 
-  const previewUrl = `/feed/${section.slug}`;
+  // Sections are reusable content blocks shown inside their assigned Topic
+  // (category) page — there is no standalone /feed route.
+  const previewUrl = section.category ? `/g/${section.category.slug}` : null;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -56,19 +65,29 @@ export default function SectionEditForm({ section }: { section: Section }) {
         )}
         <input type="hidden" name="id" value={section.id} />
         <input type="hidden" name="slug" value={section.slug} />
+        <input type="hidden" name="status" value={section.status} />
+        <input type="hidden" name="order" value={section.order} />
 
         <div>
           <label className="block text-sm font-medium text-zinc-800">Section Page URL</label>
           <div className="mt-2 flex items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
-            <span className="text-sm text-zinc-600">{previewUrl}/</span>
-            <a
-              href={previewUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-blue-600 hover:underline"
-            >
-              – Preview Section Page 👁
-            </a>
+            {previewUrl ? (
+              <>
+                <span className="text-sm text-zinc-600">{previewUrl}</span>
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 hover:underline"
+                >
+                  – Preview {section.category?.title} page 👁
+                </a>
+              </>
+            ) : (
+              <span className="text-sm text-zinc-500">
+                This section isn&apos;t assigned to a Topic yet, so it has no public page.
+              </span>
+            )}
           </div>
         </div>
 
@@ -83,13 +102,44 @@ export default function SectionEditForm({ section }: { section: Section }) {
           />
         </div>
 
-        <button
-          type="submit"
-          disabled={isPending}
-          className="rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-40"
-        >
-          {isPending ? "Saving..." : `UPDATE/SAVE ${title.toUpperCase()}`}
-        </button>
+        <div>
+          <label className="block text-sm font-medium text-zinc-800">Heading</label>
+          <input
+            name="heading"
+            value={heading}
+            onChange={(e) => setHeading(e.target.value)}
+            placeholder="Optional heading shown above the section body"
+            className="mt-2 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div>
+          <RichTextarea
+            name="_body"
+            label="Content"
+            value={body}
+            onChange={setBody}
+            placeholder="Write the section content..."
+          />
+        </div>
+
+        <div className="flex items-center gap-4">
+          <button
+            type="submit"
+            disabled={isPending}
+            className="rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-40"
+          >
+            {isPending ? "Saving..." : `UPDATE/SAVE ${title.toUpperCase()}`}
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={isPending}
+            className="rounded-lg border border-red-200 px-5 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-40"
+          >
+            Delete
+          </button>
+        </div>
       </form>
     </div>
   );

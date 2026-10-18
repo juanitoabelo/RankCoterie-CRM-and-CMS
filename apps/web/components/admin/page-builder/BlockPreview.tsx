@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { isRowBlock, type Block } from "@/lib/page-builder/types";
+import { isRowBlock, BLOCK_DEFINITIONS, type Block } from "@/lib/page-builder/types";
 import { validateBlock } from "@/lib/page-builder/validate";
 
 /**
@@ -373,6 +373,42 @@ export function BlockPreview({
         </div>
       );
       break;
+    case "blogArticleSlider":
+    case "productSlider":
+    case "listingSlider":
+    case "companySlider":
+    case "geoCategorySlider":
+    case "sectionSlider":
+    case "topicSubTopicSlider":
+    case "imageSlider":
+    case "videoSlider": {
+      const p = block.props;
+      const label = {
+        blogArticleSlider: "📝 Blog/Article slider",
+        productSlider: "🛒 Product slider",
+        listingSlider: "📍 Directory listing slider",
+        companySlider: "🏢 Company listing slider",
+        geoCategorySlider: "🗺 Geo category slider",
+        sectionSlider: "▣ Section slider",
+        topicSubTopicSlider: "🏷 Topic & sub-topic slider",
+        imageSlider: "🖼 Image slider",
+        videoSlider: "📺 Video slider",
+      }[block.type];
+      const source =
+        p.contentSource === "static"
+          ? `${p.slides.length} ${block.type === "videoSlider" ? "video" : "image"}${p.slides.length === 1 ? "" : "s"}`
+          : `live ${p.contentSource} · ${p.limit && p.limit > 0 ? `max ${p.limit}` : "all"}`;
+      body = (
+        <div className="mx-2 mb-2 rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+          <div className="font-medium text-zinc-700">{label}</div>
+          <p className="mt-1 text-zinc-500">
+            {source} · {p.itemsPerView ?? 3} per view · {p.imageFit ?? "cover"} ·{" "}
+            {p.captionLayout ?? "bottom"}
+          </p>
+        </div>
+      );
+      break;
+    }
     case "contentGrid":
       body = (
         <div className="mx-2 mb-2 rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
@@ -477,8 +513,18 @@ export function BlockPreview({
         </div>
       );
       break;
-    default:
-      body = null;
+    default: {
+      const def = BLOCK_DEFINITIONS.find((d) => d.type === block.type);
+      body = def ? (
+        <div className="mx-2 mb-2 rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600" data-shared-preview={block.type}>
+          <div className="font-medium text-zinc-700">
+            {def.icon ? `${def.icon} ` : ""}
+            {def.label}
+          </div>
+        </div>
+      ) : null;
+      break;
+    }
   }
 
   return (

@@ -67,8 +67,10 @@ const NAV_GROUPS: NavGroup[] = [
 {
       title: "Directory",
       items: [
-        { section: "listings", href: "/admin/listings", label: "Listings" },
-        { section: "listings", href: "/admin/listings/bulk", label: "Bulk Actions" },
+      { section: "listings", href: "/admin/listings", label: "Listings" },
+      { section: "listings", href: "/admin/listings/bulk", label: "Bulk Actions" },
+        { section: "listings", href: "/admin/listing-layouts", label: "Listing Custom Layout" },
+        { section: "listings", href: "/admin/listing-layouts/new", label: "Add New Listing Layout" },
         { section: "listings", href: "/admin/listings/payment", label: "Payment Configuration" },
         { section: "reports", href: "/admin/listings/reports", label: "Listing Revenue" },
         { section: "featuredPlacements", href: "/admin/featured-placements", label: "Featured Placements" },
@@ -82,6 +84,12 @@ const NAV_GROUPS: NavGroup[] = [
   {
     title: "Ads / Listing",
     items: [
+      { section: "listings", href: "/admin/company-listings", label: "Company Listings" },
+      { section: "listings", href: "/admin/company-listings/new", label: "Add New Company Page" },
+      { section: "listings", href: "/admin/company-listing-layouts", label: "Company Listing Custom Landing Page Layout" },
+      { section: "listings", href: "/admin/company-listing-layouts/new", label: "Add New Custom Landing Page" },
+      { section: "listings", href: "/admin/company-listings/payment", label: "Payment Configuration" },
+      { section: "reports", href: "/admin/company-listings/reports", label: "Company Listing Revenue" },
       { section: "widgets", href: "/admin/widgets", label: "Widget Builder" },
       { section: "widgets", href: "/admin/widgets/new", label: "Add New Widget" },
     ],
@@ -112,6 +120,7 @@ const NAV_GROUPS: NavGroup[] = [
       { section: "myCompany", href: "/admin/media", label: "Media Library" },
       { section: "headerFooter", href: "/admin/header-footer", label: "Header & Footer Builder" },
       { section: "general", href: "/admin/general", label: "General" },
+      { section: "general", href: "/admin/email-settings", label: "Email Settings" },
       { section: "reading", href: "/admin/reading", label: "Reading" },
       { section: "themeSettings", href: "/admin/theme-settings", label: "Theme Settings" },
       { section: "styleGuide", href: "/admin/style-guide", label: "Style Guide (Legacy)" },
@@ -153,7 +162,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           subscriberOnly={subscriberOnly}
           logoutAction={adminLogout}
         />
-        <main className="ml-60 flex-1 px-6 py-8">{children}</main>
+        <main className="ml-60 min-w-0 flex-1 px-6 py-8">{children}</main>
       </div>
     </CustomFontProvider>
   );

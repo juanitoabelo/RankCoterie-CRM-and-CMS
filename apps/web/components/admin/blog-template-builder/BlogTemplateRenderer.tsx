@@ -12,6 +12,7 @@ import type { ContainerSettings } from "@/lib/blog-template/types";
 import { isRowBlock, isSectionBlock } from "@/lib/page-builder/types";
 import { resolveColumnWidths, renderColumnSpanClass } from "@/lib/page-builder/spans";
 import { styleScopeClass, renderStyleGuide, scopeDynamicStyle } from "@/lib/page-builder/style";
+import { elementStylesNode, renderElementStyles, type ElementStyles } from "@/lib/page-builder/element-style";
 import type { StyleBreakpoints } from "@/lib/page-builder/types";
 import {
   getEntranceAnimationClass,
@@ -40,6 +41,8 @@ import {
 import { BlockAdvancedFrame, DisplayConditionGate } from "../page-builder/advanced-ui";
 import ProductGridFrontend from "../page-builder/ProductGridFrontend";
 import BlogPostGridFrontend from "../page-builder/BlogPostGridFrontend";
+import { ContentSliderBlockBody } from "../page-builder/ContentSliderFrontend";
+import { SHARED_RENDERERS } from "../page-builder/shared-blocks/renderers";
 import { sanitizeHtml } from "@/lib/style-guide";
 import {
   resolveArticleBlockBindings,
@@ -63,12 +66,16 @@ export const BlogDataContext = createContext<BlogDataContextValue>({});
 /* ── Style Scope Helper ─────────────────────────────────────────────────── */
 
 function styleScope(block: Block, inner: React.ReactNode): React.ReactNode {
-  const style = (block.props as { style?: StyleBreakpoints }).style;
-  const css = renderStyleGuide(block.id, style);
-  if (!css) return inner;
+  const props = block.props as { style?: StyleBreakpoints; elementStyles?: ElementStyles };
+  const css = renderStyleGuide(block.id, props.style);
+  const elementCss = renderElementStyles(block.id, props.elementStyles);
+  // Only add the scope wrapper when there is something to scope — avoids an
+  // extra wrapper div that would otherwise change layout.
+  if (!css && !elementCss) return inner;
   return (
     <>
-      <style>{css}</style>
+      {css ? <style>{css}</style> : null}
+      {elementStylesNode(block.id, props.elementStyles)}
       <div className={styleScopeClass(block.id)}>{inner}</div>
     </>
   );
@@ -336,6 +343,7 @@ function HeadingRenderer({ block }: { block: Block }) {
     <Tag
       className={`${HEADING_SIZES[level as keyof typeof HEADING_SIZES] || HEADING_SIZES[2]} ${alignCls} ${widthCls}`}
       style={headingStyle}
+      data-lp-el="content"
     >
       {p.text as string}
     </Tag>
@@ -365,6 +373,7 @@ function TextRenderer({ block }: { block: Block }) {
           textAlign: (p.align as React.CSSProperties["textAlign"]) || undefined,
           color: (p.textColor as string) || undefined,
         }}
+        data-lp-el="content"
         dangerouslySetInnerHTML={{ __html: p.content as string }}
       />
     </BlockAdvancedFrame>
@@ -381,9 +390,9 @@ function ImageRenderer({ block }: { block: Block }) {
   return (
     <BlockAdvancedFrame block={block}>
       <figure className={alignClass}>
-        <img src={p.src as string} alt={(p.alt as string) || ""} className="w-full" />
+        <img src={p.src as string} alt={(p.alt as string) || ""} className="w-full" data-lp-el="image" />
         {(p.caption as string) && (
-          <figcaption className="mt-2 text-center text-sm text-zinc-500">
+          <figcaption className="mt-2 text-center text-sm text-zinc-500" data-lp-el="caption">
             {p.caption as string}
           </figcaption>
         )}
@@ -404,6 +413,7 @@ function ButtonRenderer({ block }: { block: Block }) {
               ? "border-2 border-current"
               : "btn"
           }`}
+          data-lp-el="button"
         >
           {p.text}
         </a>
@@ -424,7 +434,7 @@ function SpacerRenderer({ block }: { block: Block }) {
 function DividerRenderer({ block }: { block: Block }) {
   return (
     <BlockAdvancedFrame block={block}>
-      <hr className="border-zinc-200" />
+      <hr className="border-zinc-200" data-lp-el="rule" />
     </BlockAdvancedFrame>
   );
 }
@@ -433,7 +443,7 @@ function EmbedRenderer({ block }: { block: Block }) {
   const p = block.props as { html: string };
   return (
     <BlockAdvancedFrame block={block}>
-      <div dangerouslySetInnerHTML={{ __html: p.html }} />
+      <div data-lp-el="content" dangerouslySetInnerHTML={{ __html: p.html }} />
     </BlockAdvancedFrame>
   );
 }
@@ -460,19 +470,19 @@ function TestimonialRenderer({ block }: { block: Block }) {
     <BlockAdvancedFrame block={block}>
       <div className="py-4">
         {p.heading && (
-          <h2 className="mb-6 text-center text-2xl font-bold text-zinc-900">
+          <h2 className="mb-6 text-center text-2xl font-bold text-zinc-900" data-lp-el="heading">
             {p.heading}
           </h2>
         )}
         <div className={`mx-auto grid max-w-6xl gap-6 ${colClass}`}>
           {items.map((item, i) => (
-            <figure key={i} className="rounded-2xl bg-zinc-50 px-8 py-10 text-center">
+            <figure key={i} className="rounded-2xl bg-zinc-50 px-8 py-10 text-center" data-lp-el="item">
               {item.rating > 0 && (
                 <div className="text-amber-400">
                   {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
                 </div>
               )}
-              <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800">
+              <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800" data-lp-el="quote">
                 {item.quote}
               </blockquote>
               <figcaption className="mt-4 text-sm text-zinc-500">
@@ -509,8 +519,8 @@ function HeroRenderer({ block }: { block: Block }) {
           color: p.textColor,
         }}
       >
-        <h1 className="text-4xl font-bold">{p.heading}</h1>
-        <p className="mt-4 text-lg opacity-80" dangerouslySetInnerHTML={{ __html: p.subheading }} />
+        <h1 className="text-4xl font-bold" data-lp-el="heading">{p.heading}</h1>
+        <p className="mt-4 text-lg opacity-80" data-lp-el="subheading" dangerouslySetInnerHTML={{ __html: p.subheading }} />
       </div>
     </BlockAdvancedFrame>
   );
@@ -532,9 +542,9 @@ function CtaRenderer({ block }: { block: Block }) {
           backgroundRepeat: (block.props as Record<string, unknown>).bgRepeat as string | undefined,
         }}
       >
-        <h2 className="text-2xl font-bold">{p.heading}</h2>
-        <p className="mt-2 text-zinc-600">{p.body}</p>
-        <a href={p.buttonUrl} className="mt-4 inline-block btn px-6 py-3 text-sm font-medium">
+        <h2 className="text-2xl font-bold" data-lp-el="heading">{p.heading}</h2>
+        <p className="mt-2 text-zinc-600" data-lp-el="body">{p.body}</p>
+        <a href={p.buttonUrl} className="mt-4 inline-block btn px-6 py-3 text-sm font-medium" data-lp-el="button">
           {p.buttonText}
         </a>
       </div>
@@ -548,10 +558,10 @@ function FeaturesRenderer({ block }: { block: Block }) {
   return (
     <BlockAdvancedFrame block={block}>
       <div className="py-8">
-        {p.heading && <h2 className="mb-6 text-center text-2xl font-bold">{p.heading}</h2>}
+        {p.heading && <h2 className="mb-6 text-center text-2xl font-bold" data-lp-el="heading">{p.heading}</h2>}
         <div className={`grid gap-6 ${colClass}`}>
           {p.items.map((item, i) => (
-            <div key={i} className="text-center">
+            <div key={i} className="text-center" data-lp-el="item">
               <div className="text-3xl">{item.icon}</div>
               <h3 className="mt-2 font-semibold">{item.title}</h3>
               <p className="mt-1 text-sm text-zinc-600">{item.description}</p>
@@ -568,10 +578,10 @@ function FaqRenderer({ block }: { block: Block }) {
   return (
     <BlockAdvancedFrame block={block}>
       <div className="py-8">
-        {p.heading && <h2 className="mb-6 text-2xl font-bold">{p.heading}</h2>}
+        {p.heading && <h2 className="mb-6 text-2xl font-bold" data-lp-el="heading">{p.heading}</h2>}
         <div className="space-y-4">
           {p.items.map((item, i) => (
-            <div key={i} className="border-b border-zinc-200 pb-4">
+            <div key={i} className="border-b border-zinc-200 pb-4" data-lp-el="item">
               <h3 className="font-medium">{item.question}</h3>
               <p className="mt-1 text-sm text-zinc-600">{item.answer}</p>
             </div>
@@ -587,9 +597,9 @@ function ListRenderer({ block }: { block: Block }) {
   const Tag = p.ordered ? "ol" : "ul";
   return (
     <BlockAdvancedFrame block={block}>
-      <Tag className="list-inside list-disc space-y-1">
+      <Tag className="list-inside list-disc space-y-1" data-lp-el="list">
         {p.items.map((item, i) => (
-          <li key={i}>{item}</li>
+          <li key={i} data-lp-el="item">{item}</li>
         ))}
       </Tag>
     </BlockAdvancedFrame>
@@ -601,8 +611,8 @@ function ContentGridRenderer({ block }: { block: Block }) {
   return (
     <BlockAdvancedFrame block={block}>
       <div className="py-8">
-        {p.heading && <h2 className="mb-6 text-2xl font-bold">{p.heading}</h2>}
-        <p className="text-sm text-zinc-500">Content grid placeholder</p>
+        {p.heading && <h2 className="mb-6 text-2xl font-bold" data-lp-el="heading">{p.heading}</h2>}
+        <p className="text-sm text-zinc-500" data-lp-el="content">Content grid placeholder</p>
       </div>
     </BlockAdvancedFrame>
   );
@@ -615,9 +625,9 @@ function SliderRenderer({ block }: { block: Block }) {
       <div className="overflow-x-auto">
         <div className="flex gap-4">
           {p.slides.map((slide, i) => (
-            <div key={i} className="flex-shrink-0">
+            <div key={i} className="flex-shrink-0" data-lp-el="item">
               {slide.src && <img src={slide.src} alt={slide.alt} className="h-64 w-auto" />}
-              {slide.title && <p className="mt-2 text-sm font-medium">{slide.title}</p>}
+              {slide.title && <p className="mt-2 text-sm font-medium" data-lp-el="caption">{slide.title}</p>}
             </div>
           ))}
         </div>
@@ -640,7 +650,7 @@ function IconListRenderer({ block }: { block: Block }) {
   const list = (
     <ul className={`space-y-3 ${p.layout === "inline" ? "flex flex-wrap gap-4 space-y-0" : ""}`}>
       {p.items.map((item, index) => (
-        <li key={`${item.text}-${index}`} className="flex items-center gap-2" style={{ color: p.textColor }}>
+        <li key={`${item.text}-${index}`} className="flex items-center gap-2" data-lp-el="item" style={{ color: p.textColor }}>
           <span aria-hidden="true" style={{ color: p.iconColor, fontSize: p.iconSize }}>{item.icon}</span>
           {item.link ? (
             <a href={item.link} target={p.openInNewTab ? "_blank" : undefined} rel={p.linkRel || undefined} className="hover:underline">
@@ -675,6 +685,7 @@ function GoogleMapRenderer({ block }: { block: Block }) {
         referrerPolicy="no-referrer-when-downgrade"
         className="w-full rounded-lg border-0"
         style={{ height: p.height || 400 }}
+        data-lp-el="frame"
       />
     </BlockAdvancedFrame>
   );
@@ -684,7 +695,7 @@ function VideoRenderer({ block }: { block: Block }) {
   const p = block.props as { source: string; link: string; aspectRatio?: string };
   return (
     <BlockAdvancedFrame block={block}>
-      <div className="py-4">
+      <div className="py-4" data-lp-el="frame">
         <p className="text-sm text-zinc-500">Video placeholder ({p.source})</p>
       </div>
     </BlockAdvancedFrame>
@@ -711,12 +722,12 @@ function BlogSidebarRenderer({ block }: { block: Block }) {
     <BlockAdvancedFrame block={block}>
       <aside className="space-y-6">
         {widgets.map((widget, i) => (
-          <div key={i} className="rounded-lg border border-zinc-200 bg-white p-4">
+          <div key={i} className="rounded-lg border border-zinc-200 bg-white p-4" data-lp-el="widget">
             {widget.heading && (
-              <h3 className="mb-3 text-sm font-bold text-zinc-900">{widget.heading}</h3>
+              <h3 className="mb-3 text-sm font-bold text-zinc-900" data-lp-el="widgetHeading">{widget.heading}</h3>
             )}
             {widget.type === "search" && (
-              <div className="flex gap-2">
+              <div className="flex gap-2" data-lp-el="control">
                 <input
                   type="text"
                   placeholder="Search..."
@@ -731,7 +742,7 @@ function BlogSidebarRenderer({ block }: { block: Block }) {
               <ul className="space-y-2 text-sm">
                 {["Technology", "Design", "Business", "Marketing", "Development"].map((cat) => (
                   <li key={cat}>
-                    <a href="#" className="text-zinc-600 hover:text-amber-600 transition-colors">
+                    <a href="#" className="text-zinc-600 hover:text-amber-600 transition-colors" data-lp-el="link">
                       {cat}
                     </a>
                   </li>
@@ -742,7 +753,7 @@ function BlogSidebarRenderer({ block }: { block: Block }) {
               <ul className="space-y-3 text-sm">
                 {["Recent Post One", "Recent Post Two", "Recent Post Three"].map((title) => (
                   <li key={title}>
-                    <a href="#" className="font-medium text-zinc-900 hover:text-amber-600 transition-colors">
+                    <a href="#" className="font-medium text-zinc-900 hover:text-amber-600 transition-colors" data-lp-el="link">
                       {title}
                     </a>
                     <p className="text-xs text-zinc-500">Jan 1, 2025</p>
@@ -757,6 +768,7 @@ function BlogSidebarRenderer({ block }: { block: Block }) {
                     key={tag}
                     href="#"
                     className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-600 hover:bg-zinc-200 transition-colors"
+                    data-lp-el="chip"
                   >
                     {tag}
                   </a>
@@ -800,17 +812,17 @@ function ArticleContentRenderer({ block }: { block: Block }) {
     <BlockAdvancedFrame block={block}>
       <article style={{ maxWidth }} className="mx-auto">
         {showCategory && category && (
-          <span className="inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
+          <span className="inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800" data-lp-el="category">
             {category}
           </span>
         )}
         {showTitle && (
-          <h1 className="mt-4 text-4xl font-bold tracking-tight text-zinc-900">
+          <h1 className="mt-4 text-4xl font-bold tracking-tight text-zinc-900" data-lp-el="title">
             {title}
           </h1>
         )}
         {showMeta && (
-          <div className="mt-4 flex items-center gap-4 text-sm text-zinc-500">
+          <div className="mt-4 flex items-center gap-4 text-sm text-zinc-500" data-lp-el="meta">
             {showAuthor && (
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-full bg-zinc-200" />
@@ -821,17 +833,18 @@ function ArticleContentRenderer({ block }: { block: Block }) {
           </div>
         )}
         {showFeaturedImage && image && (
-          <img src={image} alt={article?.featuredImageAlt || title} className="mt-6 w-full rounded-lg object-cover" style={{ maxHeight: 400 }} />
+          <img src={image} alt={article?.featuredImageAlt || title} className="mt-6 w-full rounded-lg object-cover" style={{ maxHeight: 400 }} data-lp-el="image" />
         )}
         {showFeaturedImage && !image && (
           <div className="mt-6 aspect-video rounded-lg bg-zinc-100" />
         )}
         <div
           className="prose prose-zinc mt-6 max-w-none"
+          data-lp-el="content"
           dangerouslySetInnerHTML={{ __html: body ?? "" }}
         />
         {showSocialShare && (
-          <div className="mt-8 flex items-center gap-4 border-t border-zinc-200 pt-6">
+          <div className="mt-8 flex items-center gap-4 border-t border-zinc-200 pt-6" data-lp-el="share">
             <span className="text-sm font-medium text-zinc-700">Share:</span>
             <div className="flex gap-2">
               {["Twitter", "Facebook", "LinkedIn"].map((platform) => (
@@ -847,7 +860,7 @@ function ArticleContentRenderer({ block }: { block: Block }) {
           </div>
         )}
         {showNavigation && (
-          <div className="mt-8 flex items-center justify-between border-t border-zinc-200 pt-6">
+          <div className="mt-8 flex items-center justify-between border-t border-zinc-200 pt-6" data-lp-el="nav">
             <a href="#" className="text-sm text-zinc-600 hover:text-amber-600 transition-colors">
               ← Previous Article
             </a>
@@ -890,7 +903,7 @@ function ArticleHeroRenderer({ block }: { block: Block }) {
         }}
       >
         {showBreadcrumb && (
-          <nav className="mb-4 text-sm text-zinc-500">
+          <nav className="mb-4 text-sm text-zinc-500" data-lp-el="breadcrumb">
             <a href="/" className="hover:text-amber-600 transition-colors">Home</a>
             <span className="mx-2">/</span>
             <a href="/blog" className="hover:text-amber-600 transition-colors">Blog</a>
@@ -899,15 +912,15 @@ function ArticleHeroRenderer({ block }: { block: Block }) {
           </nav>
         )}
         {showCategory && category && (
-          <span className="inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
+          <span className="inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800" data-lp-el="category">
             {category}
           </span>
         )}
-        <h1 className="mt-4 text-4xl font-bold tracking-tight text-zinc-900">
+        <h1 className="mt-4 text-4xl font-bold tracking-tight text-zinc-900" data-lp-el="title">
           {title}
         </h1>
         {(showAuthor || showDate) && (
-          <div className={`mt-4 flex items-center gap-4 text-sm text-zinc-500 ${layout === "centered" ? "justify-center" : ""}`}>
+          <div className={`mt-4 flex items-center gap-4 text-sm text-zinc-500 ${layout === "centered" ? "justify-center" : ""}`} data-lp-el="meta">
             {showAuthor && (
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-full bg-zinc-200" />
@@ -943,11 +956,26 @@ const BLOCK_RENDERERS: Record<string, React.ComponentType<{ block: Block }>> = {
   iconList: IconListRenderer,
   googleMap: GoogleMapRenderer,
   slider: SliderRenderer,
+  blogArticleSlider: ContentSliderBlockBody,
+  productSlider: ContentSliderBlockBody,
+  listingSlider: ContentSliderBlockBody,
+  companySlider: ContentSliderBlockBody,
+  geoCategorySlider: ContentSliderBlockBody,
+  sectionSlider: ContentSliderBlockBody,
+  topicSubTopicSlider: ContentSliderBlockBody,
+  imageSlider: ContentSliderBlockBody,
+  videoSlider: ContentSliderBlockBody,
   video: VideoRenderer,
   blogPostGrid: BlogPostGridRenderer,
   blogSidebar: BlogSidebarRenderer,
   articleContent: ArticleContentRenderer,
   articleHero: ArticleHeroRenderer,
+  ...Object.fromEntries(
+    Object.entries(SHARED_RENDERERS).map(([type, R]) => [
+      type,
+      ({ block }: { block: Block }) => <R block={block} ctx={{}} />,
+    ]),
+  ),
 };
 
 /* ── Render Blocks ────────────────────────────────────────────────────── */
@@ -1107,13 +1135,13 @@ export function BlogTemplateBlockRenderer({ block: sourceBlock }: { block: Block
       maxWidth: p.width === "boxed" ? `${p.maxWidth || 1200}px` : "100%",
       margin: p.width === "boxed" ? "0 auto" : undefined,
       display: "flex",
-      flexDirection: p.direction === "column" ? "column" : "row",
+      flexDirection: p.direction === "row" ? "row" : "column",
       justifyContent: p.justifyContent,
       alignItems: p.alignItems,
       columnGap: p.gapCol,
       rowGap: p.gapRow,
       flexWrap: p.wrap === "wrap" ? "wrap" : undefined,
-      ...getVerticalAlignStyle(p.verticalAlign, p.direction === "column" ? "column" : "row"),
+      ...getVerticalAlignStyle(p.verticalAlign, p.direction === "row" ? "row" : "column"),
       ...getTypographyScopeStyle({
         headingColor: p.headingColor,
         textColor: p.textColor,

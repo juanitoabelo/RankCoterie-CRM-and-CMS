@@ -16,6 +16,7 @@ import { DEFAULT_CONTAINER_SETTINGS } from "@/lib/header-footer/types";
 import { isRowBlock, isSectionBlock } from "@/lib/page-builder/types";
 import { resolveColumnWidths, renderColumnSpanClass } from "@/lib/page-builder/spans";
 import { styleScopeClass, renderStyleGuide, scopeDynamicStyle } from "@/lib/page-builder/style";
+import { elementStylesNode, renderElementStyles, type ElementStyles } from "@/lib/page-builder/element-style";
 import type { StyleBreakpoints } from "@/lib/page-builder/types";
 import {
   getEntranceAnimationClass,
@@ -42,6 +43,7 @@ import {
   needsClientGate,
 } from "../page-builder/renderHelpers";
 import { BlockAdvancedFrame, DisplayConditionGate } from "../page-builder/advanced-ui";
+import { SHARED_RENDERERS } from "../page-builder/shared-blocks/renderers";
 import { spacingSideWithFallback, spacingToCssParts, type PartialSpacing } from "@/lib/spacing";
 
 /* ── Menu Context ──────────────────────────────────────────────────────── */
@@ -732,12 +734,14 @@ function SearchRenderer({ block }: { block: Block }) {
 /* ── Style Scope Helper ─────────────────────────────────────────────────── */
 
 function styleScope(block: Block, inner: React.ReactNode): React.ReactNode {
-  const style = (block.props as { style?: StyleBreakpoints }).style;
-  const css = renderStyleGuide(block.id, style);
-  if (!css) return inner;
+  const props = block.props as { style?: StyleBreakpoints; elementStyles?: ElementStyles };
+  const css = renderStyleGuide(block.id, props.style);
+  const elementCss = renderElementStyles(block.id, props.elementStyles);
+  if (!css && !elementCss) return inner;
   return (
     <>
-      <style>{css}</style>
+      {css ? <style>{css}</style> : null}
+      {elementStylesNode(block.id, props.elementStyles)}
       <div className={styleScopeClass(block.id)}>{inner}</div>
     </>
   );
@@ -1013,6 +1017,7 @@ function HeadingRenderer({ block }: { block: Block }) {
     <Tag
       className={`${HEADING_SIZES[level as keyof typeof HEADING_SIZES] || HEADING_SIZES[2]} ${alignCls} ${widthCls}`}
       style={headingStyle}
+      data-lp-el="content"
     >
       {p.text as string}
     </Tag>
@@ -1044,6 +1049,7 @@ function TextRenderer({ block }: { block: Block }) {
           color: (p.textColor as string) || undefined,
         }}
         dangerouslySetInnerHTML={{ __html: p.content as string }}
+        data-lp-el="content"
       />
     </BlockAdvancedFrame>
   );
@@ -1087,9 +1093,9 @@ function ImageRenderer({ block }: { block: Block }) {
   return (
     <BlockAdvancedFrame block={block}>
       <figure className={alignClass}>
-        <img src={p.src as string} alt={(p.alt as string) || ""} style={imgStyle} className="hover:opacity-75" />
+        <img src={p.src as string} alt={(p.alt as string) || ""} style={imgStyle} className="hover:opacity-75" data-lp-el="image" />
         {(p.caption as string) && (
-          <figcaption className="mt-2 text-center text-sm text-zinc-500">
+          <figcaption className="mt-2 text-center text-sm text-zinc-500" data-lp-el="caption">
             {p.caption as string}
           </figcaption>
         )}
@@ -1110,6 +1116,7 @@ function ButtonRenderer({ block }: { block: Block }) {
               ? "border-2 border-current"
               : "btn"
           }`}
+          data-lp-el="button"
         >
           {p.text}
         </a>
@@ -1130,7 +1137,7 @@ function SpacerRenderer({ block }: { block: Block }) {
 function DividerRenderer({ block }: { block: Block }) {
   return (
     <BlockAdvancedFrame block={block}>
-      <hr className="border-zinc-200" />
+      <hr className="border-zinc-200" data-lp-el="rule" />
     </BlockAdvancedFrame>
   );
 }
@@ -1139,7 +1146,7 @@ function EmbedRenderer({ block }: { block: Block }) {
   const p = block.props as { html: string };
   return (
     <BlockAdvancedFrame block={block}>
-      <div dangerouslySetInnerHTML={{ __html: p.html }} />
+      <div dangerouslySetInnerHTML={{ __html: p.html }} data-lp-el="content" />
     </BlockAdvancedFrame>
   );
 }
@@ -1172,13 +1179,14 @@ function TestimonialRenderer({ block }: { block: Block }) {
                 key={i}
                 className="flex-shrink-0 rounded-2xl bg-zinc-50 px-8 py-10 text-center"
                 style={{ width: `${100 / (p.itemsPerView ?? 2)}%`, minWidth: "300px" }}
+                data-lp-el="item"
               >
                 {item.rating > 0 && (
                   <div className="text-amber-400">
                     {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
                   </div>
                 )}
-                <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800">
+                <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800" data-lp-el="quote">
                   {item.quote}
                 </blockquote>
                 <figcaption className="mt-4 text-sm text-zinc-500">
@@ -1204,19 +1212,19 @@ function TestimonialRenderer({ block }: { block: Block }) {
     <BlockAdvancedFrame block={block}>
       <div className="py-4">
         {p.heading && (
-          <h2 className="mb-6 text-center text-2xl font-bold text-zinc-900">
+          <h2 className="mb-6 text-center text-2xl font-bold text-zinc-900" data-lp-el="heading">
             {p.heading}
           </h2>
         )}
         <div className={`mx-auto grid max-w-6xl gap-6 ${colClass}`}>
           {items.map((item, i) => (
-            <figure key={i} className="rounded-2xl bg-zinc-50 px-8 py-10 text-center">
+            <figure key={i} className="rounded-2xl bg-zinc-50 px-8 py-10 text-center" data-lp-el="item">
               {item.rating > 0 && (
                 <div className="text-amber-400">
                   {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
                 </div>
               )}
-              <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800">
+              <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800" data-lp-el="quote">
                 {item.quote}
               </blockquote>
               <figcaption className="mt-4 text-sm text-zinc-500">
@@ -1292,7 +1300,7 @@ function IconListRenderer({ block }: { block: Block }) {
           };
 
           const content = (
-            <li key={i} style={itemStyle}>
+            <li key={i} style={itemStyle} data-lp-el="item">
               {item.icon && <span style={iconStyle}>{item.icon}</span>}
               <span style={textStyle}>{item.text}</span>
             </li>
@@ -1311,6 +1319,7 @@ function IconListRenderer({ block }: { block: Block }) {
                 target={p.openInNewTab ? "_blank" : undefined}
                 rel={relAttr}
                 style={{ ...itemStyle, textDecoration: "none", color: "inherit" }}
+                data-lp-el="item"
               >
                 {item.icon && <span style={iconStyle}>{item.icon}</span>}
                 <span style={textStyle}>{item.text}</span>
@@ -1368,6 +1377,7 @@ function GoogleMapRenderer({ block }: { block: Block }) {
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
           title={`Map: ${location}`}
+          data-lp-el="frame"
         />
       </div>
     </BlockAdvancedFrame>
@@ -1484,6 +1494,7 @@ function VideoRenderer({ block }: { block: Block }) {
             allowFullScreen
             loading={(p.lazyLoad as boolean) ? "lazy" : "eager"}
             title="Video"
+            data-lp-el="frame"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-zinc-200">
@@ -1517,6 +1528,12 @@ const RENDERERS: Record<string, React.ComponentType<{ block: Block }>> = {
   iconList: IconListRenderer,
   googleMap: GoogleMapRenderer,
   video: VideoRenderer,
+  ...Object.fromEntries(
+    Object.entries(SHARED_RENDERERS).map(([type, R]) => [
+      type,
+      ({ block }: { block: Block }) => <R block={block} ctx={{}} />,
+    ]),
+  ),
 };
 
 /* ── Section Renderer ───────────────────────────────────────────────────── */
@@ -1657,13 +1674,13 @@ function SectionRenderer({ block }: { block: Block }) {
     maxWidth: p.width === "boxed" ? p.maxWidth : "100%",
     margin: p.width === "boxed" ? "0 auto" : undefined,
     display: "flex",
-    flexDirection: p.direction === "column" ? "column" : "row",
+    flexDirection: p.direction === "row" ? "row" : "column",
     justifyContent: p.justifyContent,
     alignItems: p.alignItems,
     columnGap: p.gapCol,
     rowGap: p.gapRow,
     flexWrap: p.wrap === "wrap" ? "wrap" : undefined,
-    ...getVerticalAlignStyle(p.verticalAlign, p.direction === "column" ? "column" : "row"),
+    ...getVerticalAlignStyle(p.verticalAlign, p.direction === "row" ? "row" : "column"),
     ...getTypographyScopeStyle({
       headingColor: p.headingColor,
       textColor: p.textColor,

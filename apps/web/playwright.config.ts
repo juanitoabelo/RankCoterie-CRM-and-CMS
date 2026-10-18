@@ -1,11 +1,15 @@
 import { defineConfig } from "@playwright/test";
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 const isProd = process.env.PLAYWRIGHT_TEST_PROD === "1";
+const hasExternalServer = Boolean(process.env.PLAYWRIGHT_BASE_URL);
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 
 export default defineConfig({
   testDir: "./tests",
-  timeout: 90_000,
+  // Keep artifacts out of apps/web: Next dev watches the app dir, and writing
+  // traces/error-context files there invalidates route caches mid-run.
+  outputDir: "../.playwright-results",
+  timeout: 300_000,
   expect: {
     timeout: 5000,
   },
@@ -25,12 +29,16 @@ export default defineConfig({
   // `npm run test:e2e` works zero-setup. Locally a dev server already running
   // on the port is reused; CI always boots a fresh one. Set PLAYWRIGHT_TEST_PROD=1
   // after a `next build` to run against `next start` (no on-demand compiles).
-  webServer: baseURL
+  // In prod mode never reuse an existing listener: `next build` leaves its
+  // internal data-collection server bound to the port, which tears down right
+  // after the build, so reusing it makes tests hit a dead server. Instead free
+  // the port first, then boot `next start`.
+  webServer: hasExternalServer
     ? undefined
     : {
-        command: isProd ? "npm run start" : "npm run dev",
+        command: isProd ? `sh -c "node scripts/free-port-3000.mjs; npm run start"` : "npm run dev",
         url: "http://localhost:3000",
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: !isProd && !process.env.CI,
         timeout: isProd ? 120_000 : 300_000,
       },
 });

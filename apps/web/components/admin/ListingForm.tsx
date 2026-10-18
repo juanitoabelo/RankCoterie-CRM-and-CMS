@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import RegionPicker from "@/components/regions/RegionPicker";
 import {
   createListing,
@@ -48,6 +49,7 @@ export interface ListingFormListing {
   feedImage: string | null;
   galleryImages: string | null;
   videoUrl: string | null;
+  googleMapsUrl: string | null;
   hoursOfOperation: string | null;
   specialties: string | null;
   amenities: string | null;
@@ -61,6 +63,7 @@ export interface ListingFormListing {
   canonicalUrl: string | null;
   robotsIndex: boolean;
   robotsFollow: boolean;
+  listingTemplateId: string | null;
 }
 
 const TIERS = ["SUPPRESSED", "FREE", "STANDARD", "PREMIUM"];
@@ -76,11 +79,17 @@ const labelCls = "block text-sm font-medium text-zinc-800";
 
 function parseJsonList(value: string | null): string[] {
   if (!value) return [];
+  let raw: unknown = value;
   try {
-    const parsed = JSON.parse(value);
-    if (Array.isArray(parsed)) return parsed.map(String).map((s) => s.trim()).filter(Boolean);
+    raw = JSON.parse(value);
   } catch {
-    /* ignore */
+    /* not JSON — treat as legacy comma-separated list */
+  }
+  if (Array.isArray(raw)) {
+    return raw.map(String).map((s) => s.trim()).filter(Boolean);
+  }
+  if (typeof raw === "string") {
+    return raw.split(",").map((s) => s.trim()).filter(Boolean);
   }
   return [];
 }
@@ -204,6 +213,49 @@ function ListEditor({ name, value, placeholder }: { name: string; value: string 
   );
 }
 
+const CONTENT_TOKENS: Array<{ token: string; example: string }> = [
+  { token: "{{region}}", example: "Miami, FL" },
+  { token: "{{in region}}", example: "in Miami, FL" },
+  { token: "{{around region}}", example: "around Miami, FL" },
+  { token: "{{near region}}", example: "near Miami, FL" },
+  { token: "{{of region}}", example: "of Miami, FL" },
+  { token: "{{from region}}", example: "from Miami, FL" },
+  { token: "{{in the region area}}", example: "in the Miami, FL area" },
+  { token: "{{from the region area}}", example: "from the Miami, FL area" },
+  { token: "{{regionurlpart}}", example: "region URL slug" },
+  { token: "{{region2inject}}", example: "region's custom content block" },
+  { token: "{{catName}}", example: "Residential Treatment Centers" },
+  { token: "{{in catName}}", example: "in Residential Treatment Centers" },
+  { token: "{{subcat}}", example: "subcategory name" },
+  { token: "{{subcattext}}", example: "subcategory display text" },
+];
+
+function ContentTokensHelp() {
+  return (
+    <details className="rounded-lg border border-blue-200 bg-blue-50/60 p-4 text-sm">
+      <summary className="cursor-pointer font-medium text-blue-900">
+        Available content tokens (click to expand)
+      </summary>
+      <p className="mt-2 text-xs text-blue-800">
+        Write once, render everywhere: paste a token into the fields below and it is replaced with the real value
+        when the listing is displayed — e.g. &quot;programs for families <code className="rounded bg-blue-100 px-1">{"{{in region}}"}</code>&quot;
+        renders as &quot;programs for families in Miami, FL&quot;. Tokens are replaced using the listing&apos;s Areas
+        Served regions; when no region or category applies, the token is removed cleanly from the text.
+      </p>
+      <ul className="mt-3 grid gap-1.5 sm:grid-cols-2">
+        {CONTENT_TOKENS.map((t) => (
+          <li key={t.token} className="flex items-baseline gap-2 text-xs">
+            <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[11px] text-blue-900 ring-1 ring-blue-200">
+              {t.token}
+            </code>
+            <span className="text-blue-800">→ {t.example}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 function parsePricing(value: string | null): Record<string, string> {
   if (!value) return {};
   try {
@@ -295,12 +347,14 @@ export default function ListingForm({
   regions,
   submitLabel,
   ownerMode = false,
+  templates = [],
 }: {
   listing: ListingFormListing | null;
   categories: { id: string; slug: string; title: string }[];
   regions: { id: string; state: string; stateFull: string; city: string | null }[];
   submitLabel: string;
   ownerMode?: boolean;
+  templates?: { id: string; name: string; isPreset: boolean }[];
 }) {
   const [message, setMessage] = useState<
     ActionResult | DuplicateCheckResult | PreviewListingResult | null
@@ -472,6 +526,20 @@ export default function ListingForm({
             <label className={labelCls}>Longitude</label>
             <input name="lng" type="number" step="any" defaultValue={listing?.lng ?? ""} className={inputCls} />
           </div>
+          <div className="sm:col-span-3">
+            <label className={labelCls}>Google Maps URL</label>
+            <input
+              name="googleMapsUrl"
+              type="url"
+              defaultValue={listing?.googleMapsUrl ?? ""}
+              className={inputCls}
+              placeholder="https://www.google.com/maps/place/..."
+            />
+            <p className="mt-1 text-xs text-zinc-500">
+              In Google Maps, open the business location, click Share, and paste the link here. An interactive map is
+              embedded on the public listing page.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -502,7 +570,7 @@ export default function ListingForm({
             <p className="text-xs text-zinc-500 mb-3">Recommended: 1200x800px, 3:2 ratio. Additional photos displayed in the listing gallery. Select multiple images from the Media Library.</p>
             <GalleryImagesUploader
               name="galleryImages"
-              currentAssetIds={listing?.galleryImages ? JSON.parse(listing.galleryImages) : []}
+              currentAssetIds={parseJsonList(listing?.galleryImages ?? null)}
             />
           </div>
           <div>
@@ -515,6 +583,7 @@ export default function ListingForm({
       {/* Descriptions */}
       <section className="rounded-xl border border-zinc-200 bg-white p-6 space-y-6">
         <h2 className="text-lg font-semibold text-zinc-900">Descriptions</h2>
+        <ContentTokensHelp />
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <RichTextarea
@@ -603,6 +672,28 @@ export default function ListingForm({
                 Follow
               </label>
             </div>
+          </div>
+        </section>
+      )}
+
+      {/* Page Layout (custom single-listing template) */}
+      {!ownerMode && (
+        <section className="rounded-xl border border-zinc-200 bg-white p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-zinc-900">Page Layout</h2>
+          <p className="text-sm text-zinc-600">
+            Choose which single-listing template renders this listing&apos;s public page.
+            Manage templates in <Link className="text-blue-600 underline" href="/admin/listing-layouts">Listing Custom Layout</Link>.
+          </p>
+          <div>
+            <label className={labelCls}>Template</label>
+            <select name="listingTemplateId" defaultValue={listing?.listingTemplateId ?? ""} className={inputCls}>
+              <option value="">Default (system layout)</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}{t.isPreset ? " (preset)" : ""}
+                </option>
+              ))}
+            </select>
           </div>
         </section>
       )}

@@ -4,12 +4,17 @@ import { useEffect, useState } from "react";
 import {
   BLOCK_DEFINITIONS,
   LEAF_BLOCK_TYPES,
+  STATIC_SLIDER_TYPES,
   createBlock,
   type Block,
   type BlockType,
   type ColumnData,
+  type ContentSliderBlock,
+  type ContentSliderType,
+  type SliderContentSource,
   type RowBlock,
   type SectionBlock,
+  type SliderBlock,
   type SliderSlide,
   type StyleBreakpoints,
   type IconListItem,
@@ -25,9 +30,10 @@ import {
 } from "./settings";
 import type { SizeValue } from "./settings";
 import RichTextEditor from "./RichTextEditor";
-import BlockStyleTab from "./BlockStyleTab";
 import BlockAdvancedTab from "./BlockAdvancedTab";
+import SchemaStyleTab from "./SchemaStyleTab";
 import MediaLibraryPicker from "./MediaLibraryPicker";
+import { SHARED_EDITORS } from "./shared-blocks/editors";
 
 type EditorProps = {
   block: Block;
@@ -75,7 +81,7 @@ function withStandardTabs(Editor: React.ComponentType<EditorProps>): React.Compo
 
         {activeTab === "style" && (
           <div className="space-y-3">
-            <BlockStyleTab props={block.props as Record<string, unknown>} set={set} />
+            <SchemaStyleTab blockType={block.type} p={block.props as Record<string, unknown>} set={set} />
             {styleFields(block, onChange)}
           </div>
         )}
@@ -220,7 +226,7 @@ function TextEditor({
           <div className="border-t border-zinc-200 pt-3">
             <span className="text-xs font-semibold text-zinc-700">Text Editor</span>
           </div>
-          <BlockStyleTab props={p as Record<string, unknown>} set={set} />
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
         </div>
       )}
 
@@ -312,6 +318,7 @@ function ImageEditor({
       {/* Style Tab */}
       {activeTab === "style" && (
         <div className="space-y-4">
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
           <div>
             <label className={labelCls}>Alignment</label>
             <div className="mt-1 flex gap-1">
@@ -1107,7 +1114,7 @@ function HeadingEditor({
           <div className="border-t border-zinc-200 pt-3">
             <span className="text-xs font-semibold text-zinc-700">Heading</span>
           </div>
-          <BlockStyleTab props={p as Record<string, unknown>} set={set} />
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
         </div>
       )}
 
@@ -1286,8 +1293,8 @@ function SliderEditor({
   block,
   onChange,
 }: {
-  block: Block & { type: "slider" };
-  onChange: (props: Block["props"]) => void;
+  block: SliderBlock;
+  onChange: (props: SliderBlock["props"]) => void;
 }) {
   const updateSlides = (slides: SliderSlide[]) => onChange({ ...block.props, slides });
 
@@ -1334,9 +1341,9 @@ function SliderEditor({
           <input
             type="number"
             min={1}
-            max={8}
+            max={12}
             className={inputCls}
-            value={block.props.itemsPerView ?? 1}
+            value={block.props.itemsPerView ?? 3}
             onChange={(e) => onChange({ ...block.props, itemsPerView: Number(e.target.value) })}
           />
         </div>
@@ -1387,6 +1394,454 @@ function SliderEditor({
         >
           + Add slide
         </button>
+      </div>
+    </>
+  );
+}
+
+/* ── Content Sliders (blog / product / listing / company / geo / section /
+   topic / image / video) ─────────────────────────────────────────────────── */
+
+interface SliderFilterConfig {
+  key: "categoryIds" | "sectionIds" | "topicIds";
+  label: string;
+  url: string;
+  shape: "category" | "productCategory" | "section";
+  hierarchical?: boolean;
+}
+
+const CONTENT_SLIDER_META: Record<
+  ContentSliderType,
+  { itemNoun: string; source: SliderContentSource; staticKind?: "image" | "video" }
+> = {
+  blogArticleSlider: { itemNoun: "articles", source: "articles" },
+  productSlider: { itemNoun: "products", source: "products" },
+  listingSlider: { itemNoun: "listings", source: "listings" },
+  companySlider: { itemNoun: "companies", source: "companies" },
+  geoCategorySlider: { itemNoun: "geo categories", source: "geoCategories" },
+  sectionSlider: { itemNoun: "sections", source: "section" },
+  topicSubTopicSlider: { itemNoun: "topics", source: "topics" },
+  imageSlider: { itemNoun: "images", source: "static", staticKind: "image" },
+  videoSlider: { itemNoun: "videos", source: "static", staticKind: "video" },
+};
+
+const SLIDER_SOURCE_OPTIONS: Array<{ value: SliderContentSource; label: string }> = [
+  { value: "static", label: "Static (hand-picked slides)" },
+  { value: "articles", label: "Articles / Blog" },
+  { value: "products", label: "Products" },
+  { value: "listings", label: "Directory listings" },
+  { value: "companies", label: "Company listings" },
+  { value: "geoCategories", label: "Geo categories" },
+  { value: "section", label: "Sections" },
+  { value: "topics", label: "Topics & sub-topics" },
+];
+
+const SLIDER_SOURCE_NOUNS: Record<string, string> = {
+  articles: "articles",
+  products: "products",
+  listings: "listings",
+  companies: "companies",
+  geoCategories: "geo categories",
+  section: "sections",
+  topics: "topics",
+};
+
+/** Which filter (and its real option list) each live source exposes. */
+const SLIDER_FILTER_CONFIG: Partial<Record<SliderContentSource, SliderFilterConfig>> = {
+  articles: { key: "categoryIds", label: "Blog categories", url: "/api/categories", shape: "category" },
+  products: { key: "categoryIds", label: "Product categories", url: "/api/product-grid?perPage=1", shape: "productCategory" },
+  listings: { key: "categoryIds", label: "Listing categories", url: "/api/categories", shape: "category" },
+  companies: { key: "categoryIds", label: "Company categories", url: "/api/categories", shape: "category" },
+  geoCategories: { key: "categoryIds", label: "Categories & topics", url: "/api/categories", shape: "category", hierarchical: true },
+  section: { key: "sectionIds", label: "Sections", url: "/api/sections", shape: "section" },
+  topics: { key: "topicIds", label: "Topics & sub-topics", url: "/api/categories", shape: "category", hierarchical: true },
+};
+
+type SliderOption = { id: string; label: string; parentId: string | null };
+
+/** Lazily load the real selectable options (categories / sections / topics) for a slider. */
+function useSliderOptions(config?: SliderFilterConfig) {
+  const url = config?.url;
+  const shape = config?.shape;
+  const [options, setOptions] = useState<SliderOption[]>([]);
+  useEffect(() => {
+    if (!url) {
+      setOptions([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(url)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        const rows: Array<Record<string, unknown>> = Array.isArray(data)
+          ? data
+          : Array.isArray(data.categories)
+            ? data.categories
+            : [];
+        setOptions(
+          rows
+            .map((r) => ({
+              id: String(r.id ?? r.slug ?? ""),
+              label: String(
+                (shape === "productCategory"
+                  ? (r.name as string)
+                  : (r.title ?? r.heading ?? r.name)) ?? r.slug ?? r.id ?? "",
+              ),
+              parentId: (r.parentId as string | null) ?? null,
+            }))
+            .filter((o) => o.id),
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [url, shape]);
+  return options;
+}
+
+/** Checkbox multiselect with hierarchy indentation — none selected means "all". */
+function SliderFilterMultiSelect({
+  options,
+  selected,
+  hierarchical,
+  onChange,
+}: {
+  options: SliderOption[];
+  selected: string[];
+  hierarchical?: boolean;
+  onChange: (ids: string[]) => void;
+}) {
+  const parentIds = new Set(options.filter((o) => !o.parentId).map((o) => o.id));
+  const toggle = (id: string, on: boolean) =>
+    onChange(on ? [...selected, id] : selected.filter((x) => x !== id));
+
+  return (
+    <div className="mt-1">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] text-zinc-500">
+          {selected.length === 0 ? "All (no filter)" : `${selected.length} selected`}
+        </span>
+        {selected.length > 0 && (
+          <button
+            type="button"
+            onClick={() => onChange([])}
+            className="text-[11px] font-medium text-zinc-500 hover:text-zinc-800"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+      <div className="mt-1 max-h-44 space-y-0.5 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-1">
+        {options.length === 0 ? (
+          <p className="px-2 py-1.5 text-[11px] text-zinc-400">No options available.</p>
+        ) : (
+          options.map((o) => {
+            const nested = hierarchical && o.parentId && !parentIds.has(o.id);
+            return (
+              <label
+                key={o.id}
+                className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-50 ${
+                  nested ? "pl-6" : ""
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.includes(o.id)}
+                  onChange={(e) => toggle(o.id, e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-zinc-300"
+                />
+                <span className="truncate">{nested ? `↳ ${o.label}` : o.label}</span>
+              </label>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ToggleRow({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className={labelCls}>{label}</span>
+      <button
+        type="button"
+        onClick={() => onChange(!value)}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${value ? "bg-zinc-900" : "bg-zinc-300"}`}
+      >
+        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${value ? "translate-x-6" : "translate-x-1"}`} />
+      </button>
+    </div>
+  );
+}
+
+/** Hand-authored slide list shared by the image + video sliders. */
+function SliderSlidesManager({
+  slides,
+  kind,
+  onChange,
+}: {
+  slides: SliderSlide[];
+  kind: "image" | "video";
+  onChange: (slides: SliderSlide[]) => void;
+}) {
+  const updateSlide = (i: number, patch: Partial<SliderSlide>) =>
+    onChange(slides.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+  const addSlide = () =>
+    onChange([...slides, { src: "", alt: "", title: "", caption: "", url: "", buttonText: "", buttonUrl: "" }]);
+  const removeSlide = (i: number) => {
+    if (slides.length <= 1) return;
+    onChange(slides.filter((_, idx) => idx !== i));
+  };
+  const moveSlide = (i: number, dir: -1 | 1) => {
+    const next = [...slides];
+    const j = i + dir;
+    if (j < 0 || j >= next.length) return;
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+  };
+
+  return (
+    <div>
+      <label className={labelCls}>{kind === "video" ? "Videos" : "Images"}</label>
+      <div className="mt-2 space-y-2">
+        {slides.map((slide, i) => (
+          <SlideCard
+            key={i}
+            slide={slide}
+            index={i}
+            total={slides.length}
+            onChange={(patch) => updateSlide(i, patch)}
+            onRemove={() => removeSlide(i)}
+            onMove={(dir) => moveSlide(i, dir)}
+          />
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={addSlide}
+        className="mt-2 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-500 hover:border-zinc-400 hover:text-zinc-700"
+      >
+        {kind === "video" ? "+ Add video" : "+ Add image"}
+      </button>
+    </div>
+  );
+}
+
+function ContentSliderEditor({
+  block,
+  onChange,
+}: {
+  block: Block & { type: ContentSliderType };
+  onChange: (props: Block["props"]) => void;
+}) {
+  const meta = CONTENT_SLIDER_META[block.type];
+  const p = block.props as ContentSliderBlock["props"];
+  const isStaticType = STATIC_SLIDER_TYPES.includes(block.type);
+  const source: SliderContentSource = isStaticType ? (p.contentSource ?? "static") : meta.source;
+  const isLive = source !== "static";
+  const itemNoun = SLIDER_SOURCE_NOUNS[source] ?? meta.itemNoun;
+  const filterConfig = SLIDER_FILTER_CONFIG[source];
+  const filterOptions = useSliderOptions(filterConfig);
+
+  const set = (patch: Partial<ContentSliderBlock["props"]>) =>
+    onChange({ ...block.props, ...patch } as Block["props"]);
+
+  const selectedIds = filterConfig
+    ? (p[filterConfig.key] as string[] | undefined) ??
+      (() => {
+        const legacy = p[
+          filterConfig.key === "categoryIds"
+            ? "categoryId"
+            : filterConfig.key === "sectionIds"
+              ? "sectionId"
+              : "topicId"
+        ] as string | undefined;
+        return legacy ? [legacy] : [];
+      })()
+    : [];
+
+  return (
+    <>
+      {isStaticType && (
+        <div>
+          <label className={labelCls}>Content source</label>
+          <select
+            className={inputCls}
+            value={source}
+            onChange={(e) => set({ contentSource: e.target.value as SliderContentSource })}
+          >
+            {SLIDER_SOURCE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div>
+        <label className={labelCls}>Image height</label>
+        <select
+          className={inputCls}
+          value={p.height ?? "md"}
+          onChange={(e) => set({ height: e.target.value as "sm" | "md" | "lg" })}
+        >
+          <option value="sm">Small</option>
+          <option value="md">Medium</option>
+          <option value="lg">Large</option>
+        </select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Slides per view</label>
+          <input
+            type="number"
+            min={1}
+            max={8}
+            className={inputCls}
+            value={p.itemsPerView ?? 3}
+            onChange={(e) => set({ itemsPerView: Number(e.target.value) })}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Image fit</label>
+          <select
+            className={inputCls}
+            value={p.imageFit ?? "cover"}
+            onChange={(e) => set({ imageFit: e.target.value as "cover" | "fluid" })}
+          >
+            <option value="cover">Full (cropped)</option>
+            <option value="fluid">Fluid (fit, no crop)</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className={labelCls}>Caption position</label>
+        <select
+          className={inputCls}
+          value={p.captionLayout ?? "bottom"}
+          onChange={(e) => set({ captionLayout: e.target.value as "bottom" | "center" })}
+        >
+          <option value="bottom">Bottom overlay</option>
+          <option value="center">Center over image</option>
+        </select>
+      </div>
+
+      {isLive ? (
+        <div className="space-y-3 rounded-lg border border-zinc-200 bg-zinc-50/60 p-3">
+          <p className="text-[11px] leading-snug text-zinc-500">
+            This slider pulls live {itemNoun} from your content library. Slides update automatically when the page renders.
+          </p>
+          {filterConfig && (
+            <div>
+              <label className={labelCls}>{filterConfig.label}</label>
+              <SliderFilterMultiSelect
+                options={filterOptions}
+                selected={selectedIds}
+                hierarchical={filterConfig.hierarchical}
+                onChange={(ids) =>
+                  set({ [filterConfig.key]: ids } as Partial<ContentSliderBlock["props"]>)
+                }
+              />
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Maximum slides</label>
+              <input
+                type="number"
+                min={0}
+                max={48}
+                className={inputCls}
+                value={p.limit ?? 9}
+                onChange={(e) => set({ limit: Number(e.target.value) })}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Sort</label>
+              <select
+                className={inputCls}
+                value={`${p.orderBy ?? "date"}|${p.sortOrder ?? "desc"}`}
+                onChange={(e) => {
+                  const [orderBy, sortOrder] = e.target.value.split("|");
+                  set({ orderBy: orderBy as ContentSliderBlock["props"]["orderBy"], sortOrder: sortOrder as "asc" | "desc" });
+                }}
+              >
+                <option value="date|desc">Newest first</option>
+                <option value="date|asc">Oldest first</option>
+                <option value="title|asc">Title: A–Z</option>
+                <option value="title|desc">Title: Z–A</option>
+                <option value="popular|desc">Most popular</option>
+                <option value="price|asc">Price: low to high</option>
+                <option value="price|desc">Price: high to low</option>
+                <option value="rating|desc">Highest rated</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <SliderSlidesManager
+          slides={p.slides}
+          kind={meta.staticKind ?? "image"}
+          onChange={(slides) => set({ slides })}
+        />
+      )}
+
+      <div className="space-y-2 border-t border-zinc-200 pt-3">
+        <span className="text-xs font-semibold text-zinc-700">Carousel</span>
+        <ToggleRow label="Autoplay" value={p.autoplay ?? false} onChange={(v) => set({ autoplay: v })} />
+        <ToggleRow label="Show arrows" value={p.showArrows ?? true} onChange={(v) => set({ showArrows: v })} />
+        <ToggleRow label="Show dots" value={p.showDots ?? true} onChange={(v) => set({ showDots: v })} />
+        <ToggleRow
+          label="Show horizontal bar"
+          value={p.showScrollbar ?? true}
+          onChange={(v) => set({ showScrollbar: v })}
+        />
+      </div>
+
+      <div className="space-y-2 border-t border-zinc-200 pt-3">
+        <span className="text-xs font-semibold text-zinc-700">Slide display</span>
+        <ToggleRow label="Show image" value={p.showImage ?? true} onChange={(v) => set({ showImage: v })} />
+        <ToggleRow label="Show title" value={p.showTitle ?? false} onChange={(v) => set({ showTitle: v })} />
+        <ToggleRow label="Show caption" value={p.showCaption ?? true} onChange={(v) => set({ showCaption: v })} />
+        <ToggleRow label="Show button" value={p.showButton ?? false} onChange={(v) => set({ showButton: v })} />
+        {(p.showButton ?? false) && (
+          <div className="space-y-3 rounded-lg border border-zinc-200 bg-zinc-50/60 p-3">
+            <div>
+              <label className={labelCls}>Button label</label>
+              <input
+                className={inputCls}
+                value={p.buttonText ?? "Learn more"}
+                onChange={(e) => set({ buttonText: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Button link (fallback)</label>
+              <input
+                className={inputCls}
+                value={p.buttonUrl ?? ""}
+                onChange={(e) => set({ buttonUrl: e.target.value })}
+                placeholder="https://..."
+              />
+            </div>
+            <p className="text-[11px] leading-snug text-zinc-500">
+              Live slides link to their own page automatically; the fallback link is used only when a slide has no URL.
+            </p>
+          </div>
+        )}
       </div>
     </>
   );
@@ -1802,12 +2257,34 @@ function ProductGridEditor({
         <CheckField id={`pg-rating-${block.id}`} label="Show rating" checked={p.showRating} onChange={(v) => set("showRating", v)} />
         <CheckField id={`pg-excerpt-${block.id}`} label="Show excerpt" checked={p.showExcerpt} onChange={(v) => set("showExcerpt", v)} />
         <CheckField id={`pg-cat-${block.id}`} label="Show category label" checked={p.showCategory} onChange={(v) => set("showCategory", v)} />
-        <CheckField id={`pg-cart-${block.id}`} label="Show add-to-cart button" checked={p.showAddToCart} onChange={(v) => set("showAddToCart", v)} />
+        <CheckField id={`pg-cart-${block.id}`} label="Show add-to-cart button (card)" checked={p.showAddToCart} onChange={(v) => set("showAddToCart", v)} />
+        <CheckField id={`pg-quick-${block.id}`} label="Show quick add-to-cart button (image)" checked={p.showQuickAddToCart ?? p.showAddToCart} onChange={(v) => set("showQuickAddToCart", v)} />
         <CheckField id={`pg-wish-${block.id}`} label="Show wishlist heart" checked={p.showWishlist} onChange={(v) => set("showWishlist", v)} />
         <CheckField id={`pg-search-${block.id}`} label="Show search box" checked={p.showSearch} onChange={(v) => set("showSearch", v)} />
         <CheckField id={`pg-sort-${block.id}`} label="Show sort dropdown" checked={p.showSort ?? true} onChange={(v) => set("showSort", v)} />
         <CheckField id={`pg-page-${block.id}`} label="Show pagination" checked={p.showPagination} onChange={(v) => set("showPagination", v)} />
         <CheckField id={`pg-stock-${block.id}`} label="In-stock products only" checked={p.inStockOnly} onChange={(v) => set("inStockOnly", v)} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>Card button label</label>
+          <input
+            className={inputCls}
+            value={p.addToCartLabel ?? "Add to cart"}
+            onChange={(e) => set("addToCartLabel", e.target.value)}
+            disabled={!p.showAddToCart}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Quick button label</label>
+          <input
+            className={inputCls}
+            value={p.quickAddToCartLabel ?? "Add to cart"}
+            onChange={(e) => set("quickAddToCartLabel", e.target.value)}
+            disabled={!(p.showQuickAddToCart ?? p.showAddToCart)}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
@@ -3403,6 +3880,7 @@ function IconListEditor({
   onChange: (props: Block["props"]) => void;
 }) {
   const p = block.props;
+  const set = (patch: Record<string, unknown>) => onChange({ ...p, ...patch });
   const [activeTab, setActiveTab] = useState<"content" | "style" | "advanced">("content");
 
   const updateItem = (index: number, field: string, value: string) => {
@@ -3614,6 +4092,7 @@ function IconListEditor({
 
       {activeTab === "style" && (
         <div className="space-y-4">
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
           {/* List section */}
           <div className="space-y-3">
             <p className="text-xs font-semibold text-zinc-700">List</p>
@@ -3775,6 +4254,7 @@ function GoogleMapEditor({
   onChange: (props: Block["props"]) => void;
 }) {
   const p = block.props;
+  const set = (patch: Record<string, unknown>) => onChange({ ...p, ...patch });
   const [activeTab, setActiveTab] = useState<"content" | "style" | "advanced">("content");
   const [cssFilterOpen, setCssFilterOpen] = useState(false);
 
@@ -3839,6 +4319,7 @@ function GoogleMapEditor({
 
       {activeTab === "style" && (
         <div className="space-y-3">
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
           <div>
             <div className="flex items-center justify-between">
               <label className={labelCls}>CSS Filters</label>
@@ -3932,6 +4413,7 @@ function VideoEditor({
   onChange: (props: Block["props"]) => void;
 }) {
   const p = block.props;
+  const set = (patch: Record<string, unknown>) => onChange({ ...p, ...patch });
   const [activeTab, setActiveTab] = useState<"content" | "style" | "advanced">("content");
   const [videoOpen, setVideoOpen] = useState(true);
   const [imageOverlayOpen, setImageOverlayOpen] = useState(false);
@@ -4129,6 +4611,7 @@ function VideoEditor({
 
       {activeTab === "style" && (
         <div className="space-y-3">
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
           <div>
             <label className={labelCls}>Aspect Ratio</label>
             <select
@@ -4263,12 +4746,27 @@ const EDITORS: Record<string, React.ComponentType<EditorProps>> = {
   googleMap: GoogleMapEditor as React.ComponentType<EditorProps>,
   video: VideoEditor as React.ComponentType<EditorProps>,
   slider: withStandardTabs(SliderEditor as React.ComponentType<EditorProps>),
+  blogArticleSlider: withStandardTabs(ContentSliderEditor as React.ComponentType<EditorProps>),
+  productSlider: withStandardTabs(ContentSliderEditor as React.ComponentType<EditorProps>),
+  listingSlider: withStandardTabs(ContentSliderEditor as React.ComponentType<EditorProps>),
+  companySlider: withStandardTabs(ContentSliderEditor as React.ComponentType<EditorProps>),
+  geoCategorySlider: withStandardTabs(ContentSliderEditor as React.ComponentType<EditorProps>),
+  sectionSlider: withStandardTabs(ContentSliderEditor as React.ComponentType<EditorProps>),
+  topicSubTopicSlider: withStandardTabs(ContentSliderEditor as React.ComponentType<EditorProps>),
+  imageSlider: withStandardTabs(ContentSliderEditor as React.ComponentType<EditorProps>),
+  videoSlider: withStandardTabs(ContentSliderEditor as React.ComponentType<EditorProps>),
   contentGrid: withStandardTabs(ContentGridEditor as React.ComponentType<EditorProps>),
   productGrid: withStandardTabs(ProductGridEditor as React.ComponentType<EditorProps>),
   blogPostGrid: withStandardTabs(BlogPostGridEditor as React.ComponentType<EditorProps>),
   listingApplyForm: withStandardTabs(ListingApplyFormEditor as React.ComponentType<EditorProps>),
   row: RowEditor as React.ComponentType<EditorProps>,
   section: SectionEditor as React.ComponentType<EditorProps>,
+  ...Object.fromEntries(
+    Object.entries(SHARED_EDITORS).map(([type, Editor]) => [
+      type,
+      withStandardTabs(Editor as React.ComponentType<EditorProps>),
+    ]),
+  ),
 };
 
 export default function BlockEditor({

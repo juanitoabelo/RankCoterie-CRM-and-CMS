@@ -1,28 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-interface PaletteColor {
-  key: string;
-  label: string;
-  color: string;
-}
-
-const DEFAULT_GLOBAL_COLORS: PaletteColor[] = [
-  { key: "background", label: "Background", color: "#ffffff" },
-  { key: "text", label: "Text", color: "#171717" },
-  { key: "accent", label: "Accent", color: "#2563eb" },
-  { key: "headingColor", label: "Heading", color: "#111827" },
-  { key: "linkColor", label: "Link", color: "#2563eb" },
-  { key: "buttonBg", label: "Button BG", color: "#2563eb" },
-  { key: "buttonText", label: "Button Text", color: "#ffffff" },
-  { key: "surface", label: "Surface", color: "#f9fafb" },
-  { key: "border", label: "Border", color: "#e5e7eb" },
-  { key: "muted", label: "Muted", color: "#6b7280" },
-  { key: "success", label: "Success", color: "#16a34a" },
-  { key: "warning", label: "Warning", color: "#d97706" },
-  { key: "error", label: "Error", color: "#dc2626" },
-];
+import { DEFAULT_GLOBAL_COLORS, type PaletteColor } from "@/lib/theme-colors";
 
 export default function GlobalColorPicker({
   value,

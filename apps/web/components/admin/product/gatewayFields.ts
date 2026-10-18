@@ -6,6 +6,14 @@ export type GatewayField = {
   checkbox?: boolean;
 };
 
+/** What a gateway is FOR — client billing, storefront, listings, or shared. */
+export const GATEWAY_PURPOSE_OPTIONS = [
+  { value: "GENERAL", label: "General (any use)" },
+  { value: "CLIENT_BILLING", label: "Client billing (invoice payments)" },
+  { value: "ECOMMERCE", label: "E-commerce (storefront orders)" },
+  { value: "LISTING", label: "Listing plans (paid listings)" },
+] as const;
+
 export const GATEWAY_FIELDS: Record<string, GatewayField[]> = {
   STRIPE: [
     { name: "publishableKey", label: "Publishable Key", type: "text", placeholder: "pk_test_…" },

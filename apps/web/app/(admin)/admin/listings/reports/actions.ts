@@ -18,7 +18,53 @@ import {
   type TierAmountMap,
 } from "@/lib/billing/listing-revenue";
 import { fetchListingInvoices } from "@/lib/billing/stripe-listing-report";
-import type { ListingReportsData, RenewalRow, SubscriptionRow } from "./types";
+import type { ListingReportsData, RenewalRow, SubscriptionRow, PaginationParams, PaginatedResponse } from "./types";
+
+const DEFAULT_PAGE_SIZE = 25;
+const MAX_PAGE_SIZE = 100;
+
+function applyPagination<T extends Record<string, any>>(
+  data: T[],
+  params: PaginationParams,
+): PaginatedResponse<T> {
+  let result = [...data];
+
+  if (params.search) {
+    const searchLower = params.search.toLowerCase();
+    result = result.filter(
+      (item) =>
+        item.title?.toLowerCase().includes(searchLower) ||
+        item.tier?.toLowerCase().includes(searchLower) ||
+        item.status?.toLowerCase().includes(searchLower) ||
+        item.stripeSubId?.toLowerCase().includes(searchLower),
+    );
+  }
+
+  if (params.sortField) {
+    result.sort((a, b) => {
+      const aVal = a[params.sortField!];
+      const bVal = b[params.sortField!];
+      if (aVal === null || aVal === undefined) return 1;
+      if (bVal === null || bVal === undefined) return -1;
+      const comparison = String(aVal).localeCompare(String(bVal), undefined, { numeric: true });
+      return params.sortDirection === "asc" ? comparison : -comparison;
+    });
+  }
+
+  const total = result.length;
+  const pageSize = Math.min(params.pageSize || DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+  const page = Math.max(params.page || 1, 1);
+  const start = (page - 1) * pageSize;
+  const paginatedData = result.slice(start, start + pageSize);
+
+  return {
+    data: paginatedData,
+    total,
+    page,
+    pageSize,
+    totalPages: Math.ceil(total / pageSize),
+  };
+}
 
 /**
  * Listing subscription revenue report.
@@ -27,7 +73,9 @@ import type { ListingReportsData, RenewalRow, SubscriptionRow } from "./types";
  * churn); Stripe supplies the actual money in/out. If Stripe is unconfigured or
  * errors, the local metrics still render and the money fields read as zero.
  */
-export async function getListingReportsData(): Promise<ListingReportsData> {
+export async function getListingReportsData(
+  params: PaginationParams = { page: 1, pageSize: DEFAULT_PAGE_SIZE, sortField: "createdAt", sortDirection: "desc" },
+): Promise<ListingReportsData> {
   await requireSection("reports");
 
   const [tenant, subscriptions] = await Promise.all([
@@ -105,6 +153,8 @@ export async function getListingReportsData(): Promise<ListingReportsData> {
     .map(([status, count]) => ({ status, count }))
     .sort((a, b) => b.count - a.count);
 
+  const paginatedSubscriptions = applyPagination(rows, params);
+
   return {
     generatedAt: new Date().toISOString(),
     stripeConfigured: stripeResult.configured,
@@ -136,7 +186,7 @@ export async function getListingReportsData(): Promise<ListingReportsData> {
     byTier,
     byStatus,
     monthly,
-    subscriptions: rows,
+    subscriptions: paginatedSubscriptions,
     renewals,
   };
 }

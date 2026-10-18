@@ -1,7 +1,28 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import RegionPage, { generateMetadata as regionGenerateMetadata } from "@/app/(site)/g/[category]/[region]/page";
 import CategoryPage from "@/app/(site)/g/[category]/page";
 import { generateMetadata as pageGenerateMetadata } from "@/app/(site)/g/[category]/[region]/page/[pageNum]/page";
+
+/**
+ * Hermetic guard: RegionPage/CategoryPage resolve the tenant's real
+ * GeoCategoryTemplate through Prisma (the vitest env loads apps/web/.env, so
+ * the client reaches the live DB and finds the tenant default template). That
+ * routes rendering through GeoCategoryTemplateRenderer instead of the legacy
+ * layout these wiring tests exercise against the mock catalog repo. Stub the
+ * template resolution to null so the pages always take the legacy path.
+ */
+vi.mock("@/modules/geo-category-template", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/modules/geo-category-template")>();
+  return {
+    ...mod,
+    resolveGeoCategoryTemplate: async () => null,
+    resolveGeoCategoryContainerStyle: async () => ({
+      width: "100%",
+      maxWidth: "1200px",
+      margin: "0 auto",
+    }),
+  };
+});
 
 /**
  * Wiring tests: prove the page-level generateMetadata functions actually feed

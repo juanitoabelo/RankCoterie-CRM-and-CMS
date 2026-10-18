@@ -5,13 +5,13 @@
  * Matches Prisma schema exactly for type safety.
  */
 
-import type { ProductType, ProductStatus, ProductVisibility, StockStatus, OrderStatus, PaymentStatus, PaymentGatewayType, CouponType, ShippingMethodType, TaxCalculationMethod } from "@prisma/client";
+import type { ProductType, ProductStatus, ProductVisibility, StockStatus, OrderStatus, PaymentStatus, PaymentGatewayType, PaymentGatewayPurpose, CouponType, ShippingMethodType, TaxCalculationMethod } from "@prisma/client";
 
 // ============================================================================
 // Enums (re-exported from Prisma for convenience)
 // ============================================================================
 
-export type { ProductType, ProductStatus, ProductVisibility, StockStatus, OrderStatus, PaymentStatus, PaymentGatewayType, CouponType, ShippingMethodType, TaxCalculationMethod };
+export type { ProductType, ProductStatus, ProductVisibility, StockStatus, OrderStatus, PaymentStatus, PaymentGatewayType, PaymentGatewayPurpose, CouponType, ShippingMethodType, TaxCalculationMethod };
 
 // ============================================================================
 // Core Entity Types
@@ -466,6 +466,7 @@ export interface PaymentGatewayWithRelations {
   id: string;
   tenantId: string;
   type: PaymentGatewayType;
+  purpose: PaymentGatewayPurpose;
   name: string;
   slug: string;
   isEnabled: boolean;

@@ -19,6 +19,9 @@ export async function listSections() {
   return prisma.section.findMany({
     where: { tenantId: TENANT_ID },
     orderBy: [{ order: "asc" }, { title: "asc" }],
+    include: {
+      category: { select: { id: true, slug: true, title: true } },
+    },
   });
 }
 
@@ -52,15 +55,25 @@ export async function createSectionForm(formData: FormData): Promise<void> {
 
 export async function updateSection(id: string, formData: FormData): Promise<ActionResult> {
   const actor = await actorId();
-  const slug = String(formData.get("slug") ?? "").trim();
   const title = String(formData.get("title") ?? "").trim();
-  const heading = String(formData.get("heading") ?? "").trim();
-  const body = sanitizeHtml(String(formData.get("body") ?? ""));
-  const status = String(formData.get("status") ?? "LIVE");
-  const order = Number(formData.get("order") ?? 0) || 0;
+  if (!title) return { ok: false, error: "Title is required." };
 
-  if (!slug || !title) return { ok: false, error: "Slug and title are required." };
   try {
+    const existing = await prisma.section.findFirst({ where: { id, tenantId: TENANT_ID } });
+    if (!existing) return { ok: false, error: "Section not found." };
+
+    // Only overwrite optional fields when the form actually supplies them, so a
+    // partial save never wipes existing content.
+    const has = (key: string) => formData.get(key) !== null;
+    const slug =
+      String(formData.get("slug") ?? "").trim() ||
+      existing.slug ||
+      title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const heading = has("heading") ? String(formData.get("heading") ?? "").trim() : existing.heading;
+    const body = has("body") ? sanitizeHtml(String(formData.get("body") ?? "")) : existing.body;
+    const status = has("status") ? String(formData.get("status") ?? "").trim() || existing.status : existing.status;
+    const order = has("order") ? Number(formData.get("order") ?? 0) || 0 : existing.order;
+
     const clash = await prisma.section.findFirst({
       where: { tenantId: TENANT_ID, slug, NOT: { id } },
     });

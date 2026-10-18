@@ -6,6 +6,7 @@ import {
 } from "@/lib/blog-template/types";
 import {
   BLOCK_DEFINITIONS,
+  SHARED_BLOCK_TYPES,
 } from "@/lib/page-builder/types";
 
 const PALETTE_PREFIX = "palette:";
@@ -146,9 +147,9 @@ export default function BlogTemplatePalette({
           Media
         </h3>
         <div className="grid grid-cols-3 gap-1.5">
-          {BLOCK_DEFINITIONS.filter((d) =>
-            ["video", "embed", "slider", "googleMap"].includes(d.type),
-          ).map((def) => (
+{BLOCK_DEFINITIONS.filter((d) =>
+      ["video", "embed", "slider", "blogArticleSlider", "productSlider", "listingSlider", "companySlider", "geoCategorySlider", "sectionSlider", "topicSubTopicSlider", "imageSlider", "videoSlider", "googleMap"].includes(d.type),
+    ).map((def) => (
             <DraggableItem
               key={def.type}
               id={`${PALETTE_PREFIX}${def.type}`}
@@ -167,7 +168,7 @@ export default function BlogTemplatePalette({
         </h3>
         <div className="grid grid-cols-3 gap-1.5">
           {BLOCK_DEFINITIONS.filter((d) =>
-            ["cta", "features", "faq", "testimonial", "contentGrid", "productGrid"].includes(d.type),
+            ["cta", "features", "faq", "testimonial", "contentGrid", "productGrid", ...SHARED_BLOCK_TYPES].includes(d.type),
           ).map((def) => (
             <DraggableItem
               key={def.type}

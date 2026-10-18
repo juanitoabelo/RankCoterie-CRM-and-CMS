@@ -127,7 +127,7 @@ export const DEFAULT_CONTAINER_SETTINGS: ContainerSettings = {
   width: "boxed",
   maxWidth: 1200,
   minHeight: 0,
-  direction: "row",
+  direction: "column",
   justifyContent: "flex-start",
   alignItems: "stretch",
   gapCol: 20,

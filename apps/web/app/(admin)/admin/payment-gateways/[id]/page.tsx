@@ -42,6 +42,7 @@ export default async function EditPaymentGatewayPage({
         gateway={{
           name: gateway.name,
           type: gateway.type,
+          purpose: gateway.purpose,
           isEnabled: gateway.isEnabled,
           isTestMode: gateway.isTestMode,
           config: gateway.config,

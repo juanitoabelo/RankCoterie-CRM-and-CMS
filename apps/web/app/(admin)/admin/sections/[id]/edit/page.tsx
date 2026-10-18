@@ -13,7 +13,10 @@ export default async function SectionEditPage({
 }) {
   await requireSection("sections");
   const { id } = await params;
-  const section = await prisma.section.findFirst({ where: { id, tenantId: TENANT_ID } });
+  const section = await prisma.section.findFirst({
+    where: { id, tenantId: TENANT_ID },
+    include: { category: { select: { slug: true, title: true } } },
+  });
   if (!section) return notFound();
 
   return <SectionEditForm section={section} />;

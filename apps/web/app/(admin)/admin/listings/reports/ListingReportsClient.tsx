@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import {
   BarChart,
@@ -20,7 +20,7 @@ import {
 import type {
   TooltipContentProps,
 } from "recharts";
-import type { ListingReportsData } from "./types";
+import type { ListingReportsData, SubscriptionSortField, SortDirection, PaginationParams } from "./types";
 
 const COLORS = ["#2563eb", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
 
@@ -96,12 +96,86 @@ function revenueTooltip({ active, payload, label }: TooltipContentProps) {
   );
 }
 
+const SORTABLE_FIELDS: { key: SubscriptionSortField; label: string }[] = [
+  { key: "title", label: "Listing" },
+  { key: "tier", label: "Tier" },
+  { key: "status", label: "Status" },
+  { key: "currentPeriodEnd", label: "Period End" },
+  { key: "mrr", label: "Est. MRR" },
+  { key: "createdAt", label: "Created" },
+];
+
+const DEFAULT_PAGE_SIZE = 25;
+
 export default function ListingReportsClient({ initialData }: { initialData: ListingReportsData }) {
   const { summary, byTier, byStatus, monthly, subscriptions, renewals, amounts } = initialData;
 
+  const [pagination, setPagination] = useState<PaginationParams>({
+    page: 1,
+    pageSize: DEFAULT_PAGE_SIZE,
+    sortField: "createdAt",
+    sortDirection: "desc",
+    search: "",
+  });
+
   const tierData = byTier.filter((t) => t.count > 0).map((t) => ({ name: t.tier, value: t.count, mrr: t.mrr }));
   const monthlyData = monthly.map((m) => ({ ...m, label: prettyMonth(m.month) }));
-  const recent = subscriptions.slice(0, 50);
+
+  const handleSort = useCallback((field: SubscriptionSortField) => {
+    setPagination((prev) => ({
+      ...prev,
+      sortField: field,
+      sortDirection: prev.sortField === field && prev.sortDirection === "asc" ? "desc" : "asc",
+      page: 1,
+    }));
+  }, []);
+
+  const handleSearch = useCallback((search: string) => {
+    setPagination((prev) => ({ ...prev, search, page: 1 }));
+  }, []);
+
+  const handlePageChange = useCallback((page: number) => {
+    setPagination((prev) => ({ ...prev, page }));
+  }, []);
+
+  const handlePageSizeChange = useCallback((pageSize: number) => {
+    setPagination((prev) => ({ ...prev, pageSize, page: 1 }));
+  }, []);
+
+  const sortedAndFilteredSubscriptions = useMemo(() => {
+    let result = [...subscriptions.data];
+
+    if (pagination.search) {
+      const searchLower = pagination.search.toLowerCase();
+      result = result.filter(
+        (s) =>
+          s.title.toLowerCase().includes(searchLower) ||
+          s.tier.toLowerCase().includes(searchLower) ||
+          s.status.toLowerCase().includes(searchLower) ||
+          (s.stripeSubId?.toLowerCase().includes(searchLower) ?? false),
+      );
+    }
+
+    if (pagination.sortField) {
+      result.sort((a, b) => {
+        const aVal = a[pagination.sortField!];
+        const bVal = b[pagination.sortField!];
+        if (aVal === null || aVal === undefined) return 1;
+        if (bVal === null || bVal === undefined) return -1;
+        const comparison = String(aVal).localeCompare(String(bVal), undefined, { numeric: true });
+        return pagination.sortDirection === "asc" ? comparison : -comparison;
+      });
+    }
+
+    return result;
+  }, [subscriptions.data, pagination.search, pagination.sortField, pagination.sortDirection]);
+
+  const paginatedSubscriptions = useMemo(() => {
+    const start = (pagination.page - 1) * pagination.pageSize;
+    return sortedAndFilteredSubscriptions.slice(start, start + pagination.pageSize);
+  }, [sortedAndFilteredSubscriptions, pagination.page, pagination.pageSize]);
+
+  const totalPages = Math.ceil(subscriptions.total / pagination.pageSize);
 
   return (
     <div className="space-y-8">
@@ -324,58 +398,120 @@ export default function ListingReportsClient({ initialData }: { initialData: Lis
 
       {/* All subscriptions */}
       <div className="rounded-xl border border-zinc-200 bg-white p-5">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-zinc-400">
-          Subscriptions {subscriptions.length > recent.length && `(latest ${recent.length} of ${subscriptions.length})`}
-        </h2>
-        {subscriptions.length === 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
+            Subscriptions ({subscriptions.total} total)
+          </h2>
+          <div className="flex items-center gap-3">
+            <input
+              type="text"
+              placeholder="Search listings, tier, status, Stripe ID..."
+              value={pagination.search}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 w-64"
+            />
+            <select
+              value={pagination.pageSize}
+              onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+              className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value={10}>10 per page</option>
+              <option value={25}>25 per page</option>
+              <option value={50}>50 per page</option>
+              <option value={100}>100 per page</option>
+            </select>
+          </div>
+        </div>
+        {subscriptions.total === 0 ? (
           <p className="text-sm text-zinc-400">No subscriptions yet.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-zinc-200">
-                  <th className="pb-2 text-zinc-500">Listing</th>
-                  <th className="pb-2 text-zinc-500">Tier</th>
-                  <th className="pb-2 text-zinc-500">Status</th>
-                  <th className="pb-2 text-zinc-500">Period End</th>
-                  <th className="pb-2 text-right text-zinc-500">Est. MRR</th>
-                  <th className="pb-2 text-zinc-500">Stripe Sub</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {recent.map((s) => (
-                  <tr key={s.id} className="hover:bg-zinc-50">
-                    <td className="py-3 font-medium text-zinc-900">
-                      <Link href={`/admin/listings/${s.listingId}`} className="hover:underline">
-                        {s.title}
-                      </Link>
-                    </td>
-                    <td className="py-3 text-zinc-600">{s.tier}</td>
-                    <td className="py-3">
-                      <span
-                        className="inline-flex rounded-full px-2 py-0.5 text-xs font-medium text-white"
-                        style={{ backgroundColor: STATUS_COLORS[s.status] ?? "#8b5cf6" }}
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-200">
+                    {SORTABLE_FIELDS.map((field) => (
+                      <th
+                        key={field.key}
+                        className={`pb-2 text-zinc-500 cursor-pointer select-none hover:text-zinc-700 ${
+                          field.key === "mrr" || field.key === "currentPeriodEnd" ? "text-right" : ""
+                        }`}
+                        onClick={() => handleSort(field.key)}
                       >
-                        {s.status}
-                      </span>
-                    </td>
-                    <td className="py-3 text-zinc-600">
-                      {s.currentPeriodEnd ? new Date(s.currentPeriodEnd).toLocaleDateString() : "—"}
-                      {s.paymentGraceUntil && (
-                        <span className="ml-2 text-xs text-amber-600">
-                          grace to {new Date(s.paymentGraceUntil).toLocaleDateString()}
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 text-right font-medium text-zinc-900">
-                      {s.mrr > 0 ? money(s.mrr) : "—"}
-                    </td>
-                    <td className="py-3 text-xs text-zinc-400">{s.stripeSubId ?? "—"}</td>
+                        <div className="flex items-center gap-1">
+                          {field.label}
+                          {pagination.sortField === field.key && (
+                            <span className="inline-flex">
+                              {pagination.sortDirection === "asc" ? "▲" : "▼"}
+                            </span>
+                          )}
+                        </div>
+                      </th>
+                    ))}
+                    <th className="pb-2 text-zinc-500">Stripe Sub</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                  {paginatedSubscriptions.map((s) => (
+                    <tr key={s.id} className="hover:bg-zinc-50">
+                      <td className="py-3 font-medium text-zinc-900">
+                        <Link href={`/admin/listings/${s.listingId}`} className="hover:underline">
+                          {s.title}
+                        </Link>
+                      </td>
+                      <td className="py-3 text-zinc-600">{s.tier}</td>
+                      <td className="py-3">
+                        <span
+                          className="inline-flex rounded-full px-2 py-0.5 text-xs font-medium text-white"
+                          style={{ backgroundColor: STATUS_COLORS[s.status] ?? "#8b5cf6" }}
+                        >
+                          {s.status}
+                        </span>
+                      </td>
+                      <td className="py-3 text-right text-zinc-600">
+                        {s.currentPeriodEnd ? new Date(s.currentPeriodEnd).toLocaleDateString() : "—"}
+                        {s.paymentGraceUntil && (
+                          <span className="ml-2 text-xs text-amber-600">
+                            grace to {new Date(s.paymentGraceUntil).toLocaleDateString()}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 text-right font-medium text-zinc-900">
+                        {s.mrr > 0 ? money(s.mrr) : "—"}
+                      </td>
+                      <td className="py-3 text-xs text-zinc-400">{s.stripeSubId ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {totalPages > 1 && (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-zinc-500">
+                  Page {pagination.page} of {totalPages} · Showing{" "}
+                  {(pagination.page - 1) * pagination.pageSize + 1}–{" "}
+                  {Math.min(pagination.page * pagination.pageSize, subscriptions.total)} of{" "}
+                  {subscriptions.total} subscriptions
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handlePageChange(pagination.page - 1)}
+                    disabled={pagination.page === 1}
+                    className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-zinc-50 transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => handlePageChange(pagination.page + 1)}
+                    disabled={pagination.page === totalPages}
+                    className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-zinc-50 transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

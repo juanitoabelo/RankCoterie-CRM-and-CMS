@@ -456,6 +456,12 @@ export interface ProductGridBlock extends BlockBase {
     showPrice: boolean;
     showRating: boolean;
     showAddToCart: boolean;
+    /** Show the quick add-to-cart button overlaid on the product image. */
+    showQuickAddToCart?: boolean;
+    /** Label for the add-to-cart button inside the card body. */
+    addToCartLabel?: string;
+    /** Label for the quick add-to-cart button on the image. */
+    quickAddToCartLabel?: string;
     showWishlist: boolean;
     showCategory: boolean;
     showPagination: boolean;
@@ -563,6 +569,79 @@ export interface SliderBlock extends BlockBase {
     itemsPerView: number;
     imageFit: SliderFit;
     captionLayout: SliderCaptionLayout;
+    style?: StyleBreakpoints;
+  };
+}
+
+/**
+ * Content-driven slider block types. Unlike the plain `slider` (a hand-built
+ * slideshow), each of these pulls its slides from a specific data source and
+ * exposes content settings tailored to that source.
+ */
+export type ContentSliderType =
+  | "blogArticleSlider"
+  | "productSlider"
+  | "listingSlider"
+  | "companySlider"
+  | "geoCategorySlider"
+  | "sectionSlider"
+  | "topicSubTopicSlider"
+  | "imageSlider"
+  | "videoSlider";
+
+/** Data source a content slider pulls from. */
+export type SliderContentSource =
+  | "articles"
+  | "products"
+  | "listings"
+  | "companies"
+  | "geoCategories"
+  | "section"
+  | "topics"
+  | "static";
+
+/** Sliders whose slides are entered by hand rather than pulled from a data source. */
+export const STATIC_SLIDER_TYPES: ContentSliderType[] = ["imageSlider", "videoSlider"];
+
+export interface ContentSliderBlock extends BlockBase {
+  type: ContentSliderType;
+  props: {
+    slides: SliderSlide[];
+    height: "sm" | "md" | "lg";
+    itemsPerView: number;
+    imageFit: SliderFit;
+    captionLayout: SliderCaptionLayout;
+    /** Which content collection to pull slides from. */
+    contentSource: SliderContentSource;
+    /** Selected filter ids (multi-select). Empty/undefined = all. */
+    categoryIds?: string[];
+    sectionIds?: string[];
+    topicIds?: string[];
+    /** Legacy single-value filters (read for backwards compatibility). */
+    categoryId?: string;
+    regionId?: string;
+    sectionId?: string;
+    topicId?: string;
+    /** Max slides to pull. 0 = all. */
+    limit?: number;
+    orderBy?: "date" | "title" | "popular" | "price" | "rating";
+    sortOrder?: "asc" | "desc";
+    // Carousel behaviour
+    autoplay?: boolean;
+    showArrows?: boolean;
+    showDots?: boolean;
+    /** Show the horizontal scroll bar on the slide track. */
+    showScrollbar?: boolean;
+    // Per-slide display toggles
+    showImage?: boolean;
+    showTitle?: boolean;
+    showCaption?: boolean;
+    showMeta?: boolean;
+    showButton?: boolean;
+    /** Default button label for slides that do not define their own (live sources). */
+    buttonText?: string;
+    /** Default button link used when a slide has no url of its own. */
+    buttonUrl?: string;
     style?: StyleBreakpoints;
   };
 }
@@ -802,6 +881,356 @@ export interface SectionBlock extends BlockBase {
   };
 }
 
+/* ── Shared content blocks ───────────────────────────────────────────────────
+   These are defined once here and reused by every builder (page builder, blog,
+   geo, listing, product, header/footer, page layout) so a single implementation
+   powers them everywhere. */
+
+export interface PricingBlock extends BlockBase {
+  type: "pricing";
+  props: {
+    heading: string;
+    subheading: string;
+    currency: string;
+    period: string;
+    columns: 2 | 3 | 4;
+    plans: Array<{
+      id: string;
+      name: string;
+      price: string;
+      description: string;
+      features: string;
+      ctaText: string;
+      ctaUrl: string;
+      featured: boolean;
+    }>;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface LeadFormBlock extends BlockBase {
+  type: "leadForm";
+  props: {
+    heading: string;
+    subheading: string;
+    showPhone: boolean;
+    showCompany: boolean;
+    showMessage: boolean;
+    submitLabel: string;
+    successMessage: string;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface StatsBlock extends BlockBase {
+  type: "stats";
+  props: {
+    heading: string;
+    columns: 2 | 3 | 4;
+    items: Array<{ id: string; value: string; label: string }>;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface LogosBlock extends BlockBase {
+  type: "logos";
+  props: {
+    heading: string;
+    columns: 3 | 4 | 5 | 6;
+    grayscale: boolean;
+    items: Array<{ id: string; src: string; alt: string; url: string }>;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface TabsBlock extends BlockBase {
+  type: "tabs";
+  props: {
+    items: Array<{ id: string; label: string; content: string }>;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface SearchHeroBlock extends BlockBase {
+  type: "searchHero";
+  props: {
+    heading: string;
+    subheading: string;
+    placeholder: string;
+    buttonLabel: string;
+    searchUrl: string;
+    showCategory: boolean;
+    showLocation: boolean;
+    bgColor: string;
+    textColor: string;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface ListingCategoriesBlock extends BlockBase {
+  type: "listingCategories";
+  props: {
+    heading: string;
+    columns: 2 | 3 | 4;
+    showCounts: boolean;
+    limit: number;
+    basePath: string;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface FeaturedListingsBlock extends BlockBase {
+  type: "featuredListings";
+  props: {
+    heading: string;
+    columns: 2 | 3 | 4;
+    limit: number;
+    categoryId: string;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface MapListingsBlock extends BlockBase {
+  type: "mapListings";
+  props: {
+    heading: string;
+    location: string;
+    zoom: number;
+    height: number;
+    limit: number;
+    columns: 1 | 2 | 3;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface TocBlock extends BlockBase {
+  type: "toc";
+  props: {
+    heading: string;
+    maxDepth: 2 | 3 | 4;
+    sticky: boolean;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface RelatedPostsBlock extends BlockBase {
+  type: "relatedPosts";
+  props: {
+    heading: string;
+    columns: 2 | 3 | 4;
+    limit: number;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface AuthorBioBlock extends BlockBase {
+  type: "authorBio";
+  props: {
+    name: string;
+    role: string;
+    bio: string;
+    avatar: string;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface ShareButtonsBlock extends BlockBase {
+  type: "shareButtons";
+  props: {
+    heading: string;
+    networks: string[];
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface PostMetaBlock extends BlockBase {
+  type: "postMeta";
+  props: {
+    showAuthor: boolean;
+    showDate: boolean;
+    showReadTime: boolean;
+    showCategory: boolean;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface NewsletterBlock extends BlockBase {
+  type: "newsletter";
+  props: {
+    heading: string;
+    subheading: string;
+    placeholder: string;
+    buttonLabel: string;
+    successMessage: string;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface ProductCategoriesBlock extends BlockBase {
+  type: "productCategories";
+  props: {
+    heading: string;
+    columns: 2 | 3 | 4;
+    showCounts: boolean;
+    limit: number;
+    basePath: string;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface ProductSpotlightBlock extends BlockBase {
+  type: "productSpotlight";
+  props: {
+    heading: string;
+    productId: string;
+    buttonLabel: string;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface AnnouncementBlock extends BlockBase {
+  type: "announcement";
+  props: {
+    text: string;
+    linkText: string;
+    linkUrl: string;
+    marquee: boolean;
+    bgColor: string;
+    textColor: string;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface BreadcrumbsBlock extends BlockBase {
+  type: "breadcrumbs";
+  props: {
+    separator: string;
+    showHome: boolean;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface SocialLinksBlock extends BlockBase {
+  type: "socialLinks";
+  props: {
+    heading: string;
+    size: "sm" | "md" | "lg";
+    items: Array<{ id: string; network: string; url: string }>;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface CountdownBlock extends BlockBase {
+  type: "countdown";
+  props: {
+    heading: string;
+    targetDate: string;
+    expiredText: string;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface GalleryBlock extends BlockBase {
+  type: "gallery";
+  props: {
+    columns: 2 | 3 | 4;
+    masonry: boolean;
+    images: Array<{ id: string; src: string; alt: string; caption: string }>;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface StepsBlock extends BlockBase {
+  type: "steps";
+  props: {
+    heading: string;
+    items: Array<{ id: string; title: string; description: string }>;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface ShapeDividerBlock extends BlockBase {
+  type: "shapeDivider";
+  props: {
+    shape: "wave" | "tilt" | "curve" | "triangle" | "zigzag";
+    color: string;
+    height: number;
+    flip: boolean;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface ReviewsBlock extends BlockBase {
+  type: "reviews";
+  props: {
+    heading: string;
+    subheading: string;
+    showSummary: boolean;
+    columns: 1 | 2 | 3;
+    items: Array<{ id: string; author: string; rating: number; date: string; text: string; avatar: string }>;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface RelatedListingsBlock extends BlockBase {
+  type: "relatedListings";
+  props: {
+    heading: string;
+    subheading: string;
+    columns: 2 | 3 | 4;
+    items: Array<{ id: string; title: string; image: string; location: string; rating: number; url: string }>;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface BusinessInfoBlock extends BlockBase {
+  type: "businessInfo";
+  props: {
+    heading: string;
+    name: string;
+    tagline: string;
+    image: string;
+    address: string;
+    phone: string;
+    email: string;
+    website: string;
+    hours: Array<{ id: string; day: string; time: string }>;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface FacetBarBlock extends BlockBase {
+  type: "facetBar";
+  props: {
+    heading: string;
+    sticky: boolean;
+    groups: Array<{ id: string; label: string; options: string[] }>;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface ComparisonTableBlock extends BlockBase {
+  type: "comparisonTable";
+  props: {
+    heading: string;
+    highlightCol: number;
+    rows: Array<{ id: string; label: string }>;
+    columns: Array<{ id: string; name: string; price: string; values: boolean[] }>;
+    style?: StyleBreakpoints;
+  };
+}
+
+export interface TeamBlock extends BlockBase {
+  type: "team";
+  props: {
+    heading: string;
+    subheading: string;
+    columns: 2 | 3 | 4;
+    members: Array<{ id: string; name: string; role: string; image: string; bio: string; link: string }>;
+    style?: StyleBreakpoints;
+  };
+}
+
 export type Block =
   | HeroBlock
   | TextBlock
@@ -820,6 +1249,7 @@ export type Block =
   | GoogleMapBlock
   | VideoBlock
   | SliderBlock
+  | ContentSliderBlock
   | ContentGridBlock
   | BlogPostGridBlock
   | ProductGridBlock
@@ -827,6 +1257,36 @@ export type Block =
   | ArticleContentBlock
   | ArticleHeroBlock
   | ListingApplyFormBlock
+  | PricingBlock
+  | LeadFormBlock
+  | StatsBlock
+  | LogosBlock
+  | TabsBlock
+  | SearchHeroBlock
+  | ListingCategoriesBlock
+  | FeaturedListingsBlock
+  | MapListingsBlock
+  | TocBlock
+  | RelatedPostsBlock
+  | AuthorBioBlock
+  | ShareButtonsBlock
+  | PostMetaBlock
+  | NewsletterBlock
+  | ProductCategoriesBlock
+  | ProductSpotlightBlock
+  | AnnouncementBlock
+  | BreadcrumbsBlock
+  | SocialLinksBlock
+  | CountdownBlock
+  | GalleryBlock
+  | StepsBlock
+  | ShapeDividerBlock
+  | ReviewsBlock
+  | RelatedListingsBlock
+  | BusinessInfoBlock
+  | FacetBarBlock
+  | ComparisonTableBlock
+  | TeamBlock
   | RowBlock
   | SectionBlock;
 
@@ -859,6 +1319,15 @@ export const LEAF_BLOCK_TYPES: BlockType[] = [
   "googleMap",
   "video",
   "slider",
+  "blogArticleSlider",
+  "productSlider",
+  "listingSlider",
+  "companySlider",
+  "geoCategorySlider",
+  "sectionSlider",
+  "topicSubTopicSlider",
+  "imageSlider",
+  "videoSlider",
   "contentGrid",
   "blogPostGrid",
   "productGrid",
@@ -866,6 +1335,70 @@ export const LEAF_BLOCK_TYPES: BlockType[] = [
   "articleContent",
   "articleHero",
   "listingApplyForm",
+  "pricing",
+  "leadForm",
+  "stats",
+  "logos",
+  "tabs",
+  "searchHero",
+  "listingCategories",
+  "featuredListings",
+  "mapListings",
+  "toc",
+  "relatedPosts",
+  "authorBio",
+  "shareButtons",
+  "postMeta",
+  "newsletter",
+  "productCategories",
+  "productSpotlight",
+  "announcement",
+  "breadcrumbs",
+  "socialLinks",
+  "countdown",
+  "gallery",
+  "steps",
+  "shapeDivider",
+  "reviews",
+  "relatedListings",
+  "businessInfo",
+  "facetBar",
+  "comparisonTable",
+  "team",
+];
+
+/** Blocks shared across every builder — defined once, reused everywhere. */
+export const SHARED_BLOCK_TYPES: BlockType[] = [
+  "pricing",
+  "leadForm",
+  "stats",
+  "logos",
+  "tabs",
+  "searchHero",
+  "listingCategories",
+  "featuredListings",
+  "mapListings",
+  "toc",
+  "relatedPosts",
+  "authorBio",
+  "shareButtons",
+  "postMeta",
+  "newsletter",
+  "productCategories",
+  "productSpotlight",
+  "announcement",
+  "breadcrumbs",
+  "socialLinks",
+  "countdown",
+  "gallery",
+  "steps",
+  "shapeDivider",
+  "reviews",
+  "relatedListings",
+  "businessInfo",
+  "facetBar",
+  "comparisonTable",
+  "team",
 ];
 
 /** Id prefix used by draggable palette items so drag events can be distinguished from real blocks. */
@@ -1136,6 +1669,234 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     },
   },
   {
+    type: "blogArticleSlider",
+    label: "Blog/Article Slider",
+    icon: "📝",
+    defaults: {
+      slides: [],
+      height: "md",
+      itemsPerView: 3,
+      imageFit: "cover",
+      captionLayout: "bottom",
+      contentSource: "articles",
+      categoryIds: [],
+      limit: 9,
+      orderBy: "date",
+      sortOrder: "desc",
+      autoplay: true,
+      showArrows: true,
+      showDots: true,
+      showImage: true,
+      showTitle: true,
+      showCaption: true,
+      showMeta: true,
+      showButton: false,
+      style: {},
+    },
+  },
+  {
+    type: "productSlider",
+    label: "Product Slider",
+    icon: "🛒",
+    defaults: {
+      slides: [],
+      height: "md",
+      itemsPerView: 4,
+      imageFit: "cover",
+      captionLayout: "bottom",
+      contentSource: "products",
+      categoryIds: [],
+      limit: 12,
+      orderBy: "date",
+      sortOrder: "desc",
+      autoplay: true,
+      showArrows: true,
+      showDots: true,
+      showImage: true,
+      showTitle: true,
+      showCaption: false,
+      showMeta: true,
+      showButton: true,
+      style: {},
+    },
+  },
+  {
+    type: "listingSlider",
+    label: "Directory Listing Slider",
+    icon: "📍",
+    defaults: {
+      slides: [],
+      height: "md",
+      itemsPerView: 3,
+      imageFit: "cover",
+      captionLayout: "bottom",
+      contentSource: "listings",
+      categoryIds: [],
+      limit: 9,
+      orderBy: "popular",
+      sortOrder: "desc",
+      autoplay: true,
+      showArrows: true,
+      showDots: true,
+      showImage: true,
+      showTitle: true,
+      showCaption: true,
+      showMeta: true,
+      showButton: false,
+      style: {},
+    },
+  },
+  {
+    type: "companySlider",
+    label: "Company Listing Slider",
+    icon: "🏢",
+    defaults: {
+      slides: [],
+      height: "md",
+      itemsPerView: 2,
+      imageFit: "cover",
+      captionLayout: "bottom",
+      contentSource: "companies",
+      categoryIds: [],
+      limit: 6,
+      orderBy: "title",
+      sortOrder: "asc",
+      autoplay: true,
+      showArrows: true,
+      showDots: true,
+      showImage: true,
+      showTitle: true,
+      showCaption: true,
+      showMeta: true,
+      showButton: true,
+      style: {},
+    },
+  },
+  {
+    type: "geoCategorySlider",
+    label: "Geo Category Slider",
+    icon: "🗺",
+    defaults: {
+      slides: [],
+      height: "md",
+      itemsPerView: 3,
+      imageFit: "cover",
+      captionLayout: "bottom",
+      contentSource: "geoCategories",
+      categoryIds: [],
+      limit: 9,
+      orderBy: "title",
+      sortOrder: "asc",
+      autoplay: true,
+      showArrows: true,
+      showDots: true,
+      showImage: true,
+      showTitle: true,
+      showCaption: true,
+      showMeta: false,
+      showButton: false,
+      style: {},
+    },
+  },
+  {
+    type: "sectionSlider",
+    label: "Section Slider",
+    icon: "▣",
+    defaults: {
+      slides: [],
+      height: "md",
+      itemsPerView: 3,
+      imageFit: "cover",
+      captionLayout: "bottom",
+      contentSource: "section",
+      sectionIds: [],
+      limit: 9,
+      orderBy: "title",
+      sortOrder: "asc",
+      autoplay: true,
+      showArrows: true,
+      showDots: true,
+      showImage: true,
+      showTitle: true,
+      showCaption: true,
+      showMeta: false,
+      showButton: true,
+      style: {},
+    },
+  },
+  {
+    type: "topicSubTopicSlider",
+    label: "Topic and Sub Topic Slider",
+    icon: "🏷",
+    defaults: {
+      slides: [],
+      height: "md",
+      itemsPerView: 3,
+      imageFit: "cover",
+      captionLayout: "bottom",
+      contentSource: "topics",
+      topicIds: [],
+      limit: 9,
+      orderBy: "title",
+      sortOrder: "asc",
+      autoplay: true,
+      showArrows: true,
+      showDots: true,
+      showImage: true,
+      showTitle: true,
+      showCaption: true,
+      showMeta: false,
+      showButton: false,
+      style: {},
+    },
+  },
+  {
+    type: "imageSlider",
+    label: "Image Slider",
+    icon: "🖼",
+    defaults: {
+      slides: [],
+      height: "md",
+      itemsPerView: 5,
+      imageFit: "cover",
+      captionLayout: "bottom",
+      contentSource: "static",
+      limit: 0,
+      autoplay: true,
+      showArrows: true,
+      showDots: true,
+      showImage: true,
+      showTitle: false,
+      showCaption: true,
+      showMeta: false,
+      showButton: false,
+      style: {},
+    },
+  },
+  {
+    type: "videoSlider",
+    label: "Video Slider",
+    icon: "📺",
+    defaults: {
+      slides: [],
+      height: "md",
+      itemsPerView: 3,
+      imageFit: "cover",
+      captionLayout: "bottom",
+      contentSource: "static",
+      limit: 0,
+      autoplay: false,
+      showArrows: true,
+      showDots: true,
+      showImage: true,
+      showTitle: true,
+      showCaption: true,
+      showMeta: false,
+      showButton: false,
+      style: {},
+    },
+  },
+  {
     type: "contentGrid",
     label: "Article / Feed grid",
     icon: "▦",
@@ -1200,6 +1961,9 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       showPrice: true,
       showRating: true,
       showAddToCart: true,
+      showQuickAddToCart: true,
+      addToCartLabel: "Add to cart",
+      quickAddToCartLabel: "Add to cart",
       showWishlist: true,
       showCategory: true,
       showPagination: true,
@@ -1274,6 +2038,459 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
         "Get your program listed in the directory with a local SEO page per region. Pay a one-time setup fee plus a monthly subscription after review.",
       showHeading: true,
       submitLabel: "Continue to payment",
+    },
+  },
+  {
+    type: "pricing",
+    label: "Pricing Table",
+    icon: "💳",
+    defaults: {
+      heading: "Simple, transparent pricing",
+      subheading: "Choose the plan that fits your needs.",
+      currency: "$",
+      period: "/mo",
+      columns: 3,
+      plans: [
+        {
+          id: "plan-1",
+          name: "Starter",
+          price: "19",
+          description: "For individuals getting started.",
+          features: "1 project\nEmail support\nBasic analytics",
+          ctaText: "Get started",
+          ctaUrl: "#",
+          featured: false,
+        },
+        {
+          id: "plan-2",
+          name: "Pro",
+          price: "49",
+          description: "For growing teams.",
+          features: "10 projects\nPriority support\nAdvanced analytics\nCustom domain",
+          ctaText: "Get started",
+          ctaUrl: "#",
+          featured: true,
+        },
+        {
+          id: "plan-3",
+          name: "Business",
+          price: "99",
+          description: "For large organisations.",
+          features: "Unlimited projects\n24/7 support\nSSO & audit logs\nDedicated manager",
+          ctaText: "Contact sales",
+          ctaUrl: "#",
+          featured: false,
+        },
+      ],
+      style: {},
+    },
+  },
+  {
+    type: "leadForm",
+    label: "Contact / Lead Form",
+    icon: "✉️",
+    defaults: {
+      heading: "Get in touch",
+      subheading: "Fill out the form and we will get back to you shortly.",
+      showPhone: true,
+      showCompany: true,
+      showMessage: true,
+      submitLabel: "Send message",
+      successMessage: "Thanks! We will be in touch soon.",
+      style: {},
+    },
+  },
+  {
+    type: "stats",
+    label: "Stats / Counters",
+    icon: "🔢",
+    defaults: {
+      heading: "",
+      columns: 4,
+      items: [
+        { id: "stat-1", value: "500+", label: "Listings" },
+        { id: "stat-2", value: "12k", label: "Happy customers" },
+        { id: "stat-3", value: "48", label: "States covered" },
+        { id: "stat-4", value: "4.9", label: "Average rating" },
+      ],
+      style: {},
+    },
+  },
+  {
+    type: "logos",
+    label: "Logo Cloud",
+    icon: "🏷",
+    defaults: {
+      heading: "Trusted by teams everywhere",
+      columns: 5,
+      grayscale: true,
+      items: [
+        { id: "logo-1", src: "", alt: "Partner logo", url: "" },
+        { id: "logo-2", src: "", alt: "Partner logo", url: "" },
+        { id: "logo-3", src: "", alt: "Partner logo", url: "" },
+        { id: "logo-4", src: "", alt: "Partner logo", url: "" },
+        { id: "logo-5", src: "", alt: "Partner logo", url: "" },
+      ],
+      style: {},
+    },
+  },
+  {
+    type: "tabs",
+    label: "Tabs",
+    icon: "🗂",
+    defaults: {
+      items: [
+        { id: "tab-1", label: "Overview", content: "Overview content goes here." },
+        { id: "tab-2", label: "Features", content: "Feature details go here." },
+        { id: "tab-3", label: "Pricing", content: "Pricing details go here." },
+      ],
+      style: {},
+    },
+  },
+  {
+    type: "searchHero",
+    label: "Directory Search Hero",
+    icon: "🔍",
+    defaults: {
+      heading: "Find what you need",
+      subheading: "Search thousands of verified listings near you.",
+      placeholder: "Search by name or keyword…",
+      buttonLabel: "Search",
+      searchUrl: "/search",
+      showCategory: true,
+      showLocation: true,
+      bgColor: "#111827",
+      textColor: "#ffffff",
+      style: {},
+    },
+  },
+  {
+    type: "listingCategories",
+    label: "Listing Categories Grid",
+    icon: "🗺",
+    defaults: {
+      heading: "Browse by category",
+      columns: 3,
+      showCounts: true,
+      limit: 9,
+      basePath: "/g/",
+      style: {},
+    },
+  },
+  {
+    type: "featuredListings",
+    label: "Featured Listings",
+    icon: "⭐",
+    defaults: {
+      heading: "Featured listings",
+      columns: 3,
+      limit: 6,
+      categoryId: "",
+      style: {},
+    },
+  },
+  {
+    type: "mapListings",
+    label: "Map + Listings",
+    icon: "📍",
+    defaults: {
+      heading: "Find us on the map",
+      location: "",
+      zoom: 11,
+      height: 420,
+      limit: 6,
+      columns: 2,
+      style: {},
+    },
+  },
+  {
+    type: "toc",
+    label: "Table of Contents",
+    icon: "📑",
+    defaults: {
+      heading: "On this page",
+      maxDepth: 3,
+      sticky: false,
+      style: {},
+    },
+  },
+  {
+    type: "relatedPosts",
+    label: "Related Posts",
+    icon: "🧩",
+    defaults: {
+      heading: "Related posts",
+      columns: 3,
+      limit: 3,
+      style: {},
+    },
+  },
+  {
+    type: "authorBio",
+    label: "Author Bio",
+    icon: "🧑",
+    defaults: {
+      name: "Jane Doe",
+      role: "Author",
+      bio: "Jane writes about local services and how to find the best providers near you.",
+      avatar: "",
+      style: {},
+    },
+  },
+  {
+    type: "shareButtons",
+    label: "Share Buttons",
+    icon: "🔗",
+    defaults: {
+      heading: "Share this",
+      networks: ["facebook", "x", "linkedin", "email"],
+      style: {},
+    },
+  },
+  {
+    type: "postMeta",
+    label: "Post Meta",
+    icon: "🗓",
+    defaults: {
+      showAuthor: true,
+      showDate: true,
+      showReadTime: true,
+      showCategory: true,
+      style: {},
+    },
+  },
+  {
+    type: "newsletter",
+    label: "Newsletter Signup",
+    icon: "📧",
+    defaults: {
+      heading: "Subscribe to our newsletter",
+      subheading: "Get the latest updates straight to your inbox.",
+      placeholder: "you@example.com",
+      buttonLabel: "Subscribe",
+      successMessage: "Thanks for subscribing!",
+      style: {},
+    },
+  },
+  {
+    type: "productCategories",
+    label: "Product Categories Grid",
+    icon: "🛍",
+    defaults: {
+      heading: "Shop by category",
+      columns: 3,
+      showCounts: true,
+      limit: 9,
+      basePath: "/g/",
+      style: {},
+    },
+  },
+  {
+    type: "productSpotlight",
+    label: "Product Spotlight",
+    icon: "✨",
+    defaults: {
+      heading: "Featured product",
+      productId: "",
+      buttonLabel: "View product",
+      style: {},
+    },
+  },
+  {
+    type: "announcement",
+    label: "Announcement Bar",
+    icon: "📣",
+    defaults: {
+      text: "🎉 New: Save 20% on annual plans this month.",
+      linkText: "Learn more",
+      linkUrl: "#",
+      marquee: false,
+      bgColor: "#111827",
+      textColor: "#ffffff",
+      style: {},
+    },
+  },
+  {
+    type: "breadcrumbs",
+    label: "Breadcrumbs",
+    icon: "🧭",
+    defaults: {
+      separator: "/",
+      showHome: true,
+      style: {},
+    },
+  },
+  {
+    type: "socialLinks",
+    label: "Social Links",
+    icon: "📱",
+    defaults: {
+      heading: "",
+      size: "md",
+      items: [
+        { id: "social-1", network: "facebook", url: "#" },
+        { id: "social-2", network: "x", url: "#" },
+        { id: "social-3", network: "instagram", url: "#" },
+        { id: "social-4", network: "linkedin", url: "#" },
+      ],
+      style: {},
+    },
+  },
+  {
+    type: "countdown",
+    label: "Countdown Timer",
+    icon: "⏳",
+    defaults: {
+      heading: "Offer ends soon",
+      targetDate: "",
+      expiredText: "This offer has ended.",
+      style: {},
+    },
+  },
+  {
+    type: "gallery",
+    label: "Gallery",
+    icon: "🖼",
+    defaults: {
+      columns: 3,
+      masonry: false,
+      images: [
+        { id: "img-1", src: "", alt: "Gallery image", caption: "" },
+        { id: "img-2", src: "", alt: "Gallery image", caption: "" },
+        { id: "img-3", src: "", alt: "Gallery image", caption: "" },
+        { id: "img-4", src: "", alt: "Gallery image", caption: "" },
+      ],
+      style: {},
+    },
+  },
+  {
+    type: "steps",
+    label: "Steps / Timeline",
+    icon: "🪜",
+    defaults: {
+      heading: "How it works",
+      items: [
+        { id: "step-1", title: "Search", description: "Browse listings by category and location." },
+        { id: "step-2", title: "Compare", description: "Review ratings, photos and pricing." },
+        { id: "step-3", title: "Connect", description: "Reach out and get the job done." },
+      ],
+      style: {},
+    },
+  },
+  {
+    type: "shapeDivider",
+    label: "Decorative Divider",
+    icon: "🌊",
+    defaults: {
+      shape: "wave",
+      color: "#e4e4e7",
+      height: 80,
+      flip: false,
+      style: {},
+    },
+  },
+  {
+    type: "reviews",
+    label: "Reviews / Rating Summary",
+    icon: "⭐",
+    defaults: {
+      heading: "What our customers say",
+      subheading: "",
+      showSummary: true,
+      columns: 3,
+      items: [
+        { id: "rev-1", author: "Jane Doe", rating: 5, date: "", text: "Fantastic service — highly recommended.", avatar: "" },
+        { id: "rev-2", author: "John Smith", rating: 4, date: "", text: "Great experience overall.", avatar: "" },
+        { id: "rev-3", author: "Alex Lee", rating: 5, date: "", text: "Quick, friendly and professional.", avatar: "" },
+      ],
+      style: {},
+    },
+  },
+  {
+    type: "relatedListings",
+    label: "Related / Nearby Listings",
+    icon: "🧭",
+    defaults: {
+      heading: "Related listings",
+      subheading: "",
+      columns: 3,
+      items: [
+        { id: "rel-1", title: "Listing one", image: "", location: "", rating: 0, url: "#" },
+        { id: "rel-2", title: "Listing two", image: "", location: "", rating: 0, url: "#" },
+        { id: "rel-3", title: "Listing three", image: "", location: "", rating: 0, url: "#" },
+      ],
+      style: {},
+    },
+  },
+  {
+    type: "businessInfo",
+    label: "Business Info / Contact Card",
+    icon: "🏢",
+    defaults: {
+      heading: "",
+      name: "Your business name",
+      tagline: "",
+      image: "",
+      address: "123 Main Street, City",
+      phone: "",
+      email: "",
+      website: "",
+      hours: [
+        { id: "hr-1", day: "Mon – Fri", time: "9:00 – 17:00" },
+        { id: "hr-2", day: "Saturday", time: "10:00 – 14:00" },
+        { id: "hr-3", day: "Sunday", time: "Closed" },
+      ],
+      style: {},
+    },
+  },
+  {
+    type: "facetBar",
+    label: "Filters / Facet Bar",
+    icon: "🎛",
+    defaults: {
+      heading: "",
+      sticky: false,
+      groups: [
+        { id: "facet-1", label: "Category", options: ["All", "Service", "Retail", "Food"] },
+        { id: "facet-2", label: "Location", options: ["Any", "Downtown", "Uptown"] },
+      ],
+      style: {},
+    },
+  },
+  {
+    type: "comparisonTable",
+    label: "Comparison Table",
+    icon: "📊",
+    defaults: {
+      heading: "Compare plans",
+      highlightCol: 1,
+      rows: [
+        { id: "row-1", label: "Price" },
+        { id: "row-2", label: "Support" },
+        { id: "row-3", label: "Custom domain" },
+      ],
+      columns: [
+        { id: "col-1", name: "Basic", price: "$9", values: [true, false, false] },
+        { id: "col-2", name: "Pro", price: "$29", values: [true, true, true] },
+        { id: "col-3", name: "Business", price: "$99", values: [true, true, true] },
+      ],
+      style: {},
+    },
+  },
+  {
+    type: "team",
+    label: "Team Grid",
+    icon: "👥",
+    defaults: {
+      heading: "Meet the team",
+      subheading: "",
+      columns: 3,
+      members: [
+        { id: "tm-1", name: "Jane Doe", role: "Founder", image: "", bio: "", link: "" },
+        { id: "tm-2", name: "John Smith", role: "Operations", image: "", bio: "", link: "" },
+        { id: "tm-3", name: "Alex Lee", role: "Support", image: "", bio: "", link: "" },
+      ],
+      style: {},
     },
   },
 ];

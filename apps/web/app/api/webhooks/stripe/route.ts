@@ -2,6 +2,8 @@
  * Canopy V2 — Stripe webhook: paid-listing fulfillment + billing lifecycle (§6.7.3.2, legacy §4.6).
  *
  * checkout.session.completed  → activate listing (LIVE) + create ListingSubscription
+ *                              → order paid (metadata.orderId) / client invoice paid (metadata.invoiceId)
+ * checkout.session.expired    → invoice payment link expired (responseMsg note)
  * invoice.payment_failed      → dunning: SUSPENDED but visible through payment grace
  * invoice.payment_succeeded   → dunning recovery: restore LIVE + clear grace
  * customer.subscription.deleted → expire: SUSPENDED, no grace
@@ -13,9 +15,14 @@
  */
 import Stripe from "stripe";
 import { prisma, TENANT_ID } from "@/modules/shared";
-import { readStripeConfig, readListingPaymentConfig } from "@/lib/billing/checkout";
+import {
+  readStripeConfig,
+  readListingPaymentConfig,
+  readCompanyListingPaymentConfig,
+} from "@/lib/billing/checkout";
 import { logAudit } from "@/lib/audit";
 import { markOrderPaid } from "@/lib/billing/payment-events";
+import { applyCheckoutSessionToInvoice, markInvoiceLinkExpired } from "@/lib/billing/client-payments";
 import { sendPaymentFailedEmail } from "@/lib/email/orders";
 // Dunning grace: listing stays visible for N days after the failed charge
 // (README design decision #3: dunning → suspend → expire).
@@ -45,6 +52,11 @@ async function loadStripeCredentialsCandidates(): Promise<{ secretKey: string; w
   const listingCfg = readListingPaymentConfig(tenant?.theme ?? {});
   if (listingCfg?.secretKey && listingCfg?.webhookSecret) {
     candidates.push({ secretKey: listingCfg.secretKey, webhookSecret: listingCfg.webhookSecret });
+  }
+  const companyCfg = readCompanyListingPaymentConfig(tenant?.theme ?? {});
+  if (companyCfg.secretKey && companyCfg.webhookSecret) {
+    const dup = candidates.some((c) => c.secretKey === companyCfg.secretKey);
+    if (!dup) candidates.push({ secretKey: companyCfg.secretKey, webhookSecret: companyCfg.webhookSecret });
   }
   if (candidates.length === 0) {
     const secretKey = process.env.STRIPE_SECRET_KEY ?? null;
@@ -93,6 +105,13 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     return;
   }
 
+  // Client invoice payment link — mark the invoice APPROVED.
+  if (session.metadata?.invoiceId) {
+    const applied = await applyCheckoutSessionToInvoice(session);
+    if (!applied) throw new Error(`Invoice not found: ${session.metadata.invoiceId}`);
+    return;
+  }
+
   const listingId = session.metadata?.listingId ?? session.client_reference_id;
   if (!listingId) throw new Error("Checkout session without listingId metadata");
 
@@ -106,8 +125,13 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   // Pull the subscription period so the listing knows its paid-until date.
   let periodEnd: Date | null = null;
   if (subscriptionId) {
-    const sub = await stripe().subscriptions.retrieve(subscriptionId);
-    periodEnd = currentPeriodEnd(sub);
+    try {
+      const sub = await stripe().subscriptions.retrieve(subscriptionId);
+      periodEnd = currentPeriodEnd(sub);
+    } catch {
+      // Cross-account lookup failure must never block activation.
+      periodEnd = null;
+    }
   }
 
   await prisma.$transaction(async (tx) => {
@@ -277,6 +301,12 @@ export async function POST(req: Request) {
       case "checkout.session.completed":
         await handleCheckoutCompleted(event.data.object);
         break;
+      case "checkout.session.expired": {
+        // Payment link expired without payment — note it on the invoice.
+        const invoiceId = event.data.object.metadata?.invoiceId;
+        if (invoiceId) await markInvoiceLinkExpired(invoiceId);
+        break;
+      }
       case "invoice.payment_failed":
         await handlePaymentFailed(event.data.object);
         break;

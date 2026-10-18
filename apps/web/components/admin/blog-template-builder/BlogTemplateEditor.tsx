@@ -6,7 +6,7 @@ import type { BlogTemplateBlock } from "@/lib/blog-template/types";
 import GlobalColorPicker from "../header-footer-builder/GlobalColorPicker";
 import RichTextEditor from "../page-builder/RichTextEditor";
 import { inputCls, labelCls } from "../page-builder/settings";
-import BlockStyleTab from "../page-builder/BlockStyleTab";
+import SchemaStyleTab from "../page-builder/SchemaStyleTab";
 import BlockAdvancedTab from "../page-builder/BlockAdvancedTab";
 import BlockEditor from "../page-builder/BlockEditor";
 import ArticleBindingsEditor from "./ArticleBindingsEditor";
@@ -237,7 +237,7 @@ function BlogPostGridEditor({ block, onChange }: EditorProps) {
               </select>
             </label>
           </div>
-          <BlockStyleTab props={p} set={set} />
+          <SchemaStyleTab blockType={block.type} p={p} set={set} />
         </div>
       )}
 
@@ -323,7 +323,7 @@ function BlogSidebarEditor({ block, onChange }: EditorProps) {
 
       {activeTab === "style" && (
         <div className="space-y-3">
-          <BlockStyleTab props={p as Record<string, unknown>} set={set} />
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
         </div>
       )}
 
@@ -380,7 +380,7 @@ function ArticleContentEditor({ block, onChange }: EditorProps) {
 
       {activeTab === "style" && (
         <div className="space-y-3">
-          <BlockStyleTab props={p} set={set} />
+          <SchemaStyleTab blockType={block.type} p={p} set={set} />
         </div>
       )}
 
@@ -441,7 +441,7 @@ function ArticleHeroEditor({ block, onChange, themeColors }: EditorProps) {
             <GlobalColorPicker label="Background" value={(p.bgColor as string) || ""} onChange={(c) => set({ bgColor: c })} paletteOverride={themeColors} />
             <GlobalColorPicker label="Text Color" value={(p.textColor as string) || ""} onChange={(c) => set({ textColor: c })} paletteOverride={themeColors} />
           </div>
-          <BlockStyleTab props={p} set={set} />
+          <SchemaStyleTab blockType={block.type} p={p} set={set} />
         </div>
       )}
 

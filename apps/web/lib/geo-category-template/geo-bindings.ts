@@ -110,6 +110,15 @@ const TARGETS_BY_BLOCK: Record<string, Record<string, { label: string; valueType
   testimonial: { heading: { label: "Heading", valueType: "text" } },
   list: {},
   slider: {},
+  blogArticleSlider: {},
+  productSlider: {},
+  listingSlider: {},
+  companySlider: {},
+  geoCategorySlider: {},
+  sectionSlider: {},
+  topicSubTopicSlider: {},
+  imageSlider: {},
+  videoSlider: {},
   iconList: {},
   contentGrid: { heading: { label: "Heading", valueType: "text" } },
   productGrid: { heading: { label: "Heading", valueType: "text" } },
@@ -138,6 +147,29 @@ const TARGETS_BY_BLOCK: Record<string, Record<string, { label: string; valueType
   geoFilterBar: {},
 };
 
+/** Bindable slide fields shared by the plain and content-slider blocks. */
+const SLIDER_ARRAY_TARGETS: Record<string, { label: string; valueType: GeoBindingValueType }> = {
+  src: { label: "Image", valueType: "image" },
+  alt: { label: "Alt text", valueType: "text" },
+  title: { label: "Title", valueType: "text" },
+  caption: { label: "Caption", valueType: "text" },
+  url: { label: "Link URL", valueType: "url" },
+};
+
+/** Block types whose array collection is `slides` (not `items`). */
+const SLIDE_COLLECTION_BLOCKS = new Set<string>([
+  "slider",
+  "blogArticleSlider",
+  "productSlider",
+  "listingSlider",
+  "companySlider",
+  "geoCategorySlider",
+  "sectionSlider",
+  "topicSubTopicSlider",
+  "imageSlider",
+  "videoSlider",
+]);
+
 const ARRAY_TARGETS_BY_BLOCK: Record<string, Record<string, { label: string; valueType: GeoBindingValueType }>> = {
   faq: {
     question: { label: "Question", valueType: "text" },
@@ -160,6 +192,15 @@ const ARRAY_TARGETS_BY_BLOCK: Record<string, Record<string, { label: string; val
     title: { label: "Title", valueType: "text" },
     url: { label: "Link URL", valueType: "url" },
   },
+  blogArticleSlider: SLIDER_ARRAY_TARGETS,
+  productSlider: SLIDER_ARRAY_TARGETS,
+  listingSlider: SLIDER_ARRAY_TARGETS,
+  companySlider: SLIDER_ARRAY_TARGETS,
+  geoCategorySlider: SLIDER_ARRAY_TARGETS,
+  sectionSlider: SLIDER_ARRAY_TARGETS,
+  topicSubTopicSlider: SLIDER_ARRAY_TARGETS,
+  imageSlider: SLIDER_ARRAY_TARGETS,
+  videoSlider: SLIDER_ARRAY_TARGETS,
   iconList: {
     text: { label: "Text", valueType: "text" },
     link: { label: "Link URL", valueType: "url" },
@@ -174,7 +215,7 @@ export function geoBindingTargets(blockType: string, props?: Record<string, unkn
   const arrayConfig = ARRAY_TARGETS_BY_BLOCK[blockType];
   if (!arrayConfig || !props) return targets;
 
-  const collectionName = blockType === "slider" ? "slides" : "items";
+  const collectionName = SLIDE_COLLECTION_BLOCKS.has(blockType) ? "slides" : "items";
   const collection = props[collectionName];
   if (!Array.isArray(collection)) return targets;
 

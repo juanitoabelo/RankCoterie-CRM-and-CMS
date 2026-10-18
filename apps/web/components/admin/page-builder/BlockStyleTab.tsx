@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { inputCls, labelCls } from "./settings";
 import { useFontFamilyOptions } from "../CustomFontProvider";
+import GlobalColorPicker from "../header-footer-builder/GlobalColorPicker";
+import type { PaletteColor } from "@/lib/theme-colors";
+import { useThemeColors } from "./ThemeColorsProvider";
 import type { FontFamilyOption } from "@/lib/custom-fonts";
 
 /* ── Types ───────────────────────────────────────────────────────────────── */
@@ -14,8 +17,8 @@ export interface StyleTabProps {
   set: (patch: Record<string, unknown>) => void;
   /** Which sections to show. Defaults to all. */
   show?: StyleSection[];
-  /** Optional global color palette override */
-  themeColors?: string[];
+  /** Optional global color palette override (defaults to the provider). */
+  themeColors?: PaletteColor[];
 }
 
 export type StyleSection =
@@ -56,6 +59,8 @@ export default function BlockStyleTab({ props: p, set, show, themeColors }: Styl
   const [activeColorTab, setActiveColorTab] = useState<"normal" | "hover">("normal");
   const sections = show ?? (["alignment", "typography", "textShadow", "paragraphSpacing", "textColor", "linkColor"] as StyleSection[]);
   const fontFamilies = useFontFamilyOptions(FONT_FAMILIES);
+  const providerColors = useThemeColors();
+  const palette = themeColors ?? providerColors;
 
   return (
     <div className="space-y-4">
@@ -207,39 +212,43 @@ export default function BlockStyleTab({ props: p, set, show, themeColors }: Styl
           {activeColorTab === "normal" ? (
             <div className="space-y-3">
               {sections.includes("textColor") && (
-                <label className={labelCls}>Text Color
-                  <div className="flex items-center gap-2">
-                    <input type="color" className="h-10 w-12 rounded-lg border border-zinc-300" value={(p.textColor as string) || "#000000"} onChange={(e) => set({ textColor: e.target.value })} />
-                    <input className={inputCls} value={(p.textColor as string) || ""} onChange={(e) => set({ textColor: e.target.value })} placeholder="#000000" />
-                  </div>
-                </label>
+                <GlobalColorPicker
+                  label="Text Color"
+                  value={(p.textColor as string) || undefined}
+                  onChange={(c) => set({ textColor: c || undefined })}
+                  allowClear
+                  paletteOverride={palette}
+                />
               )}
               {sections.includes("linkColor") && (
-                <label className={labelCls}>Link Color
-                  <div className="flex items-center gap-2">
-                    <input type="color" className="h-10 w-12 rounded-lg border border-zinc-300" value={(p.linkColor as string) || "#000000"} onChange={(e) => set({ linkColor: e.target.value })} />
-                    <input className={inputCls} value={(p.linkColor as string) || ""} onChange={(e) => set({ linkColor: e.target.value })} placeholder="#000000" />
-                  </div>
-                </label>
+                <GlobalColorPicker
+                  label="Link Color"
+                  value={(p.linkColor as string) || undefined}
+                  onChange={(c) => set({ linkColor: c || undefined })}
+                  allowClear
+                  paletteOverride={palette}
+                />
               )}
             </div>
           ) : (
             <div className="space-y-3">
               {sections.includes("textColor") && (
-                <label className={labelCls}>Hover Text Color
-                  <div className="flex items-center gap-2">
-                    <input type="color" className="h-10 w-12 rounded-lg border border-zinc-300" value={(p.hoverColor as string) || "#000000"} onChange={(e) => set({ hoverColor: e.target.value })} />
-                    <input className={inputCls} value={(p.hoverColor as string) || ""} onChange={(e) => set({ hoverColor: e.target.value })} placeholder="#000000" />
-                  </div>
-                </label>
+                <GlobalColorPicker
+                  label="Hover Text Color"
+                  value={(p.hoverColor as string) || undefined}
+                  onChange={(c) => set({ hoverColor: c || undefined })}
+                  allowClear
+                  paletteOverride={palette}
+                />
               )}
               {sections.includes("linkColor") && (
-                <label className={labelCls}>Hover Link Color
-                  <div className="flex items-center gap-2">
-                    <input type="color" className="h-10 w-12 rounded-lg border border-zinc-300" value={(p.hoverLinkColor as string) || "#000000"} onChange={(e) => set({ hoverLinkColor: e.target.value })} />
-                    <input className={inputCls} value={(p.hoverLinkColor as string) || ""} onChange={(e) => set({ hoverLinkColor: e.target.value })} placeholder="#000000" />
-                  </div>
-                </label>
+                <GlobalColorPicker
+                  label="Hover Link Color"
+                  value={(p.hoverLinkColor as string) || undefined}
+                  onChange={(c) => set({ hoverLinkColor: c || undefined })}
+                  allowClear
+                  paletteOverride={palette}
+                />
               )}
             </div>
           )}

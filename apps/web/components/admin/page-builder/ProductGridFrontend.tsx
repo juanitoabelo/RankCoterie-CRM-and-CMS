@@ -138,6 +138,9 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
     showPrice = true,
     showRating = true,
     showAddToCart = true,
+    showQuickAddToCart,
+    addToCartLabel = "Add to cart",
+    quickAddToCartLabel = "Add to cart",
     showWishlist = false,
     showCategory = true,
     showPagination = true,
@@ -159,6 +162,7 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
   } = props;
 
   const gridStyle = columnStyle(props);
+  const showQuickAdd = showQuickAddToCart ?? showAddToCart;
 
   const [activeCategory, setActiveCategory] = useState(categoryId);
   const [page, setPage] = useState(1);
@@ -482,7 +486,7 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
                           </svg>
                         </button>
                       ) : null}
-                      {showAddToCart && !out ? (
+                      {showQuickAdd && !out ? (
                         <div className="pg-quick">
                           <button
                             type="button"
@@ -490,7 +494,11 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
                             onClick={() => addToCart(item.id)}
                             disabled={adding[item.id]}
                           >
-                            {added[item.id] ? "Added ✓" : adding[item.id] ? "Adding…" : "Add to cart"}
+                            {added[item.id]
+                              ? `${quickAddToCartLabel} ✓`
+                              : adding[item.id]
+                                ? "Adding…"
+                                : quickAddToCartLabel}
                           </button>
                         </div>
                       ) : null}
@@ -533,7 +541,11 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
                         onClick={() => addToCart(item.id)}
                         disabled={adding[item.id]}
                       >
-                        {added[item.id] ? "Added to cart ✓" : adding[item.id] ? "Adding…" : "Add to cart"}
+                        {added[item.id]
+                          ? `${addToCartLabel} ✓`
+                          : adding[item.id]
+                            ? "Adding…"
+                            : addToCartLabel}
                       </button>
                     ) : null}
                   </div>

@@ -8,11 +8,12 @@ import BuilderImageUploader from "./BuilderImageUploader";
 import RichTextEditor from "../page-builder/RichTextEditor";
 import { SizeInput, SpacingInput } from "../page-builder/settings";
 import type { SizeValue, SpacingValues } from "../page-builder/settings";
-import BlockStyleTab from "../page-builder/BlockStyleTab";
+import SchemaStyleTab from "../page-builder/SchemaStyleTab";
 import BlockAdvancedTab from "../page-builder/BlockAdvancedTab";
 import { useFontFamilyOptions } from "../CustomFontProvider";
 import type { FontFamilyOption } from "@/lib/custom-fonts";
 import MediaLibraryPicker from "../page-builder/MediaLibraryPicker";
+import { SHARED_EDITORS } from "../page-builder/shared-blocks/editors";
 import RowEditor from "./RowEditor";
 import SectionEditor from "./SectionEditor";
 
@@ -840,7 +841,7 @@ function TextEditor({ block, onChange }: EditorProps) {
           <div className="border-t border-zinc-200 pt-3">
             <span className="text-xs font-semibold text-zinc-700">Text Editor</span>
           </div>
-          <BlockStyleTab props={p as Record<string, unknown>} set={set} />
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
         </div>
       )}
 
@@ -917,6 +918,7 @@ function ImageEditor({ block, onChange }: EditorProps) {
       {/* Style Tab */}
       {activeTab === "style" && (
         <div className="space-y-4">
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
           <div>
             <span className={labelCls}>Alignment</span>
             <div className="mt-1 flex gap-1">
@@ -1402,7 +1404,7 @@ function HeadingEditor({ block, onChange }: EditorProps) {
           <div className="border-t border-zinc-200 pt-3">
             <span className="text-xs font-semibold text-zinc-700">Heading</span>
           </div>
-          <BlockStyleTab props={p} set={set} />
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
         </div>
       )}
 
@@ -1743,6 +1745,7 @@ function IconListEditor({ block, onChange }: EditorProps) {
 
       {activeTab === "style" && (
         <div className="space-y-4">
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
           <div className="space-y-3">
             <p className="text-xs font-semibold text-zinc-700">List</p>
             <div>
@@ -1889,6 +1892,7 @@ function GoogleMapEditor({ block, onChange }: EditorProps) {
 
       {activeTab === "style" && (
         <div className="space-y-3">
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
           <div>
             <div className="flex items-center justify-between">
               <label className={labelCls}>CSS Filters</label>
@@ -2072,6 +2076,7 @@ function VideoEditor({ block, onChange }: EditorProps) {
 
       {activeTab === "style" && (
         <div className="space-y-3">
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
           <div>
             <label className={labelCls}>Aspect Ratio</label>
             <select className={inputCls} value={(p.aspectRatio as string) || "16:9"} onChange={(e) => set({ aspectRatio: e.target.value })}>
@@ -2164,7 +2169,22 @@ const EDITORS: Record<string, React.ComponentType<EditorProps>> = {
   contentGrid: ContentGridEditor,
   row: InlineRowEditor,
   section: InlineSectionEditor,
+  ...Object.fromEntries(
+    Object.keys(SHARED_EDITORS).map((type) => [type, SharedHeaderFooterEditorAdapter]),
+  ),
 };
+
+function SharedHeaderFooterEditorAdapter(props: EditorProps) {
+  const { block, onChange } = props;
+  const Editor = SHARED_EDITORS[block.type];
+  if (!Editor) return <GenericEditor {...props} />;
+  return (
+    <Editor
+      block={block as unknown as Block}
+      onChange={onChange as unknown as (props: Block["props"]) => void}
+    />
+  );
+}
 
 export default function HeaderFooterEditor({
   block,

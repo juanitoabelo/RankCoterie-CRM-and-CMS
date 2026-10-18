@@ -57,6 +57,7 @@ export default async function MyListingEditPage({
     feedImage: listing.feedImage,
     galleryImages: jsonString(listing.galleryImages),
     videoUrl: listing.videoUrl,
+    googleMapsUrl: listing.googleMapsUrl,
     hoursOfOperation: jsonString(listing.hoursOfOperation),
     specialties: jsonString(listing.specialties),
     amenities: jsonString(listing.amenities),
@@ -70,6 +71,7 @@ export default async function MyListingEditPage({
     canonicalUrl: listing.canonicalUrl,
     robotsIndex: listing.robotsIndex,
     robotsFollow: listing.robotsFollow,
+    listingTemplateId: listing.listingTemplateId,
   };
 
   return (

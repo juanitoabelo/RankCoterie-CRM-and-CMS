@@ -17,6 +17,7 @@ import { isRowBlock, isSectionBlock } from "@/lib/page-builder/types";
 import { resolveColumnWidths, renderColumnSpanClass } from "@/lib/page-builder/spans";
 import { styleScopeClass, renderStyleGuide, scopeDynamicStyle } from "@/lib/page-builder/style";
 import type { StyleBreakpoints } from "@/lib/page-builder/types";
+import { elementStylesNode, renderElementStyles, type ElementStyles } from "@/lib/page-builder/element-style";
 import {
   getEntranceAnimationClass,
   getVisibilityClasses,
@@ -44,6 +45,8 @@ import {
 import { BlockAdvancedFrame, DisplayConditionGate } from "../page-builder/advanced-ui";
 import { sanitizeHtml } from "@/lib/style-guide";
 import { BlogTemplateBlockRenderer } from "../blog-template-builder/BlogTemplateRenderer";
+import { SliderRegionProvider } from "../page-builder/ContentSliderFrontend";
+import type { RegionContext } from "@/lib/localization/render";
 import type { ContainerSettings, GeoSidebarWidget } from "@/lib/geo-category-template/types";
 import {
   resolveGeoBlockBindings,
@@ -101,12 +104,16 @@ export const GeoDataContext = createContext<GeoTemplateContextValue>({});
 /* ── Style Scope Helper ───────────────────────────────────────────────────── */
 
 function styleScope(block: Block, inner: React.ReactNode): React.ReactNode {
-  const style = (block.props as { style?: StyleBreakpoints }).style;
-  const css = renderStyleGuide(block.id, style);
-  if (!css) return inner;
+  const props = block.props as { style?: StyleBreakpoints; elementStyles?: ElementStyles };
+  const css = renderStyleGuide(block.id, props.style);
+  const elementCss = renderElementStyles(block.id, props.elementStyles);
+  // Only add the scope wrapper when there is something to scope — avoids an
+  // extra flex child around rows/sections that would otherwise change layout.
+  if (!css && !elementCss) return inner;
   return (
     <>
-      <style>{css}</style>
+      {css ? <style>{css}</style> : null}
+      {elementStylesNode(block.id, props.elementStyles)}
       <div className={styleScopeClass(block.id)}>{inner}</div>
     </>
   );
@@ -341,7 +348,7 @@ function GeoHeroRenderer({ block }: { block: Block }) {
         {heroScoped.node}
         <div className="p-6 sm:p-8">
           {p.showBreadcrumb !== false && (
-            <nav className={`mb-3 text-xs text-zinc-500 ${centered ? "text-center" : ""}`} aria-label="Breadcrumb">
+            <nav className={`mb-3 text-xs text-zinc-500 ${centered ? "text-center" : ""}`} aria-label="Breadcrumb" data-lp-el="breadcrumb">
               <Link href="/" className="hover:text-zinc-800">
                 Directory
               </Link>
@@ -357,17 +364,18 @@ function GeoHeroRenderer({ block }: { block: Block }) {
               )}
             </nav>
           )}
-          <h1 className={`text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl ${centered ? "mx-auto" : ""}`}>
+          <h1 className={`text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl ${centered ? "mx-auto" : ""}`} data-lp-el="heading">
             {heading}
           </h1>
           {p.showDescription !== false && descriptionHtml && (
             <div
               className={`prose-sm mt-3 max-w-3xl text-zinc-700 ${centered ? "mx-auto" : ""}`}
+              data-lp-el="description"
               dangerouslySetInnerHTML={{ __html: descriptionHtml }}
             />
           )}
           {p.showImage !== false && imageSrc && (
-            <figure className={`mt-5 ${centered ? "mx-auto max-w-3xl" : "max-w-3xl"}`}>
+            <figure className={`mt-5 ${centered ? "mx-auto max-w-3xl" : "max-w-3xl"}`} data-lp-el="image">
               <div className="relative aspect-[16/9] overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -406,9 +414,9 @@ function GeoContentRenderer({ block }: { block: Block }) {
       <div className={widthScoped.className || undefined}>
         {widthScoped.node}
         {p.showHeading && p.heading && (
-          <h2 className="mb-3 text-xl font-semibold text-zinc-900">{p.heading}</h2>
+          <h2 className="mb-3 text-xl font-semibold text-zinc-900" data-lp-el="heading">{p.heading}</h2>
         )}
-        <div className="prose-sm text-zinc-700" dangerouslySetInnerHTML={{ __html: html }} />
+        <div className="prose-sm text-zinc-700" data-lp-el="content" dangerouslySetInnerHTML={{ __html: html }} />
       </div>
     </BlockAdvancedFrame>
   );
@@ -422,7 +430,7 @@ function GeoRegionNavRenderer({ block }: { block: Block }) {
     return (
       <BlockAdvancedFrame block={block}>
         <div className="py-4">
-          <h2 className="mb-4 text-xl font-semibold text-zinc-900">{p.heading || "Programs by state"}</h2>
+          <h2 className="mb-4 text-xl font-semibold text-zinc-900" data-lp-el="heading">{p.heading || "Programs by state"}</h2>
           <p className="text-sm text-zinc-500">{p.emptyMessage}</p>
         </div>
       </BlockAdvancedFrame>
@@ -439,7 +447,7 @@ function GeoRegionNavRenderer({ block }: { block: Block }) {
   return (
     <BlockAdvancedFrame block={block}>
       <div className="py-4">
-        <h2 className="mb-4 text-xl font-semibold text-zinc-900">
+        <h2 className="mb-4 text-xl font-semibold text-zinc-900" data-lp-el="heading">
           {p.heading || "Programs by state"}
           {p.showCount && (
             <span className="ml-2 text-sm font-normal text-zinc-500">({states.length})</span>
@@ -451,6 +459,7 @@ function GeoRegionNavRenderer({ block }: { block: Block }) {
               <Link
                 href={s.url}
                 className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-4 py-3 hover:border-zinc-300"
+                data-lp-el="link"
               >
                 <span className="font-medium text-zinc-800">{s.stateFull}</span>
                 <span className="text-sm text-zinc-400">›</span>
@@ -468,9 +477,10 @@ function GeoListingCard({ listing }: { listing: GeoTemplateListing }) {
     <a
       href={listing.href}
       className="flex h-full flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white transition hover:border-zinc-300 hover:shadow-sm"
+      data-lp-el="card"
     >
       {listing.image && (
-        <div className="relative aspect-[16/9] bg-zinc-100">
+        <div className="relative aspect-[16/9] bg-zinc-100" data-lp-el="image">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={listing.image} alt={listing.title} className="h-full w-full object-cover" />
         </div>
@@ -534,14 +544,14 @@ function GeoListingsRenderer({ block }: { block: Block }) {
     <BlockAdvancedFrame block={block}>
       <div className="py-4">
         {showHeading && (
-          <h2 className="mb-4 text-xl font-semibold text-zinc-900">
+          <h2 className="mb-4 text-xl font-semibold text-zinc-900" data-lp-el="heading">
             {p.heading || "Listings"}
             {showCount && (
               <span className="ml-2 text-sm font-normal text-zinc-500">({total})</span>
             )}
           </h2>
         )}
-        <div className={`grid grid-cols-1 gap-4 ${colClass}`}>
+        <div className={`grid grid-cols-1 gap-4 ${colClass}`} data-lp-el="grid">
           {items.map((listing) => (
             <GeoListingCard key={listing.id} listing={listing} />
           ))}
@@ -559,12 +569,12 @@ function GeoFaqRenderer({ block }: { block: Block }) {
   return (
     <BlockAdvancedFrame block={block}>
       <section className="py-4" aria-label="Frequently asked questions">
-        <h2 className="mb-4 text-xl font-semibold text-zinc-900">
+        <h2 className="mb-4 text-xl font-semibold text-zinc-900" data-lp-el="heading">
           {p.heading || "Frequently asked questions"}
         </h2>
         <dl className="space-y-4">
           {faq.map((f) => (
-            <div key={f.q} className="rounded-lg border border-zinc-200 bg-white p-4">
+            <div key={f.q} className="rounded-lg border border-zinc-200 bg-white p-4" data-lp-el="item">
               <dt className="font-medium text-zinc-900">{f.q}</dt>
               <dd
                 className="prose-sm mt-1 text-sm text-zinc-600"
@@ -592,7 +602,7 @@ function GeoRegionChipsRenderer({ block }: { block: Block }) {
     <BlockAdvancedFrame block={block}>
       <div className="mt-8">
         {p.showHeading !== false && (
-          <h2 className="text-lg font-semibold text-zinc-900">{heading}</h2>
+          <h2 className="text-lg font-semibold text-zinc-900" data-lp-el="heading">{heading}</h2>
         )}
         <ul className="mt-3 flex flex-wrap gap-2">
           {cities.map((c) => (
@@ -600,6 +610,7 @@ function GeoRegionChipsRenderer({ block }: { block: Block }) {
               <Link
                 href={c.url}
                 className="inline-block rounded-full border border-zinc-200 px-3 py-1 text-sm text-zinc-700 hover:border-zinc-300"
+                data-lp-el="chip"
               >
                 {c.name}
               </Link>
@@ -622,13 +633,15 @@ function GeoFilterBarRenderer({ block }: { block: Block }) {
 
   return (
     <BlockAdvancedFrame block={block}>
-      <RegionFilterBar
-        categorySlug={categorySlug}
-        regionSlug={regionSlug}
-        currentSort={searchParams.get("sort") ?? "featured"}
-        currentTier={searchParams.get("tier") ?? ""}
-        currentRating={searchParams.get("rating") ?? ""}
-      />
+      <div data-lp-el="control">
+        <RegionFilterBar
+          categorySlug={categorySlug}
+          regionSlug={regionSlug}
+          currentSort={searchParams.get("sort") ?? "featured"}
+          currentTier={searchParams.get("tier") ?? ""}
+          currentRating={searchParams.get("rating") ?? ""}
+        />
+      </div>
     </BlockAdvancedFrame>
   );
 }
@@ -696,9 +709,9 @@ function GeoSidebarWidgetView({ widget }: { widget: GeoSidebarWidget }) {
   }
 
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4">
+    <div className="rounded-lg border border-zinc-200 bg-white p-4" data-lp-el="widget">
       {widget.heading && (
-        <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-zinc-500">
+        <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-zinc-500" data-lp-el="widgetHeading">
           {widget.heading}
         </h3>
       )}
@@ -828,13 +841,13 @@ export function GeoBlockRenderer({ block: sourceBlock }: { block: Block }) {
       maxWidth: p.width === "boxed" ? `${(p.maxWidth as number) || 1200}px` : "100%",
       margin: p.width === "boxed" ? "0 auto" : undefined,
       display: "flex",
-      flexDirection: p.direction === "column" ? "column" : "row",
+      flexDirection: p.direction === "row" ? "row" : "column",
       justifyContent: p.justifyContent as React.CSSProperties["justifyContent"],
       alignItems: p.alignItems as React.CSSProperties["alignItems"],
       columnGap: p.gapCol as number,
       rowGap: p.gapRow as number,
       flexWrap: p.wrap === "wrap" ? "wrap" : undefined,
-      ...getVerticalAlignStyle(p.verticalAlign as string, p.direction === "column" ? "column" : "row"),
+      ...getVerticalAlignStyle(p.verticalAlign as string, p.direction === "row" ? "row" : "column"),
       ...getTypographyScopeStyle({
         headingColor: p.headingColor as string,
         textColor: p.textColor as string,
@@ -921,6 +934,14 @@ export default function GeoCategoryTemplateRenderer({
     width: "100%",
   };
 
+  const regionCtx: RegionContext = geo
+    ? {
+        regionName: geo.region?.displayName ?? geo.region?.stateFull ?? null,
+        regionUrlPart: geo.region?.url ?? undefined,
+        categoryName: geo.category?.title ?? undefined,
+      }
+    : {};
+
   if (containerSettings) {
     outerStyle.backgroundColor = containerSettings.bgColor;
     outerStyle.backgroundImage = containerSettings.bgImage ? `url(${containerSettings.bgImage})` : undefined;
@@ -967,17 +988,19 @@ export default function GeoCategoryTemplateRenderer({
 
   return (
     <GeoDataContext.Provider value={{ geo, states, faq, listings, cities, listingsSlot, viewport }}>
-      <div className={outerScoped.className || undefined}>
-        {outerScoped.node}
-        {overlayScoped.node}
-        {overlayScoped.className ? (
-          <div className={overlayScoped.className} aria-hidden="true" />
-        ) : null}
-        <div className={innerScoped.className || undefined}>
-          {innerScoped.node}
-          <RenderGeoBlocks blocks={blocks} />
+      <SliderRegionProvider value={regionCtx}>
+        <div className={outerScoped.className || undefined}>
+          {outerScoped.node}
+          {overlayScoped.node}
+          {overlayScoped.className ? (
+            <div className={overlayScoped.className} aria-hidden="true" />
+          ) : null}
+          <div className={innerScoped.className || undefined}>
+            {innerScoped.node}
+            <RenderGeoBlocks blocks={blocks} />
+          </div>
         </div>
-      </div>
+      </SliderRegionProvider>
     </GeoDataContext.Provider>
   );
 }

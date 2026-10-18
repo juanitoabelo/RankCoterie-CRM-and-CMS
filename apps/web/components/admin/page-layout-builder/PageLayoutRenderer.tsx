@@ -13,6 +13,7 @@ import type { PageLayoutBlock, ContainerSettings } from "@/lib/page-layout/types
 import { isRowBlock, isSectionBlock } from "@/lib/page-builder/types";
 import { resolveColumnWidths, renderColumnSpanClass } from "@/lib/page-builder/spans";
 import { styleScopeClass, renderStyleGuide, scopeDynamicStyle } from "@/lib/page-builder/style";
+import { elementStylesNode, renderElementStyles, type ElementStyles } from "@/lib/page-builder/element-style";
 import type { StyleBreakpoints } from "@/lib/page-builder/types";
 import {
   getEntranceAnimationClass,
@@ -39,16 +40,21 @@ import {
   needsClientGate,
 } from "../page-builder/renderHelpers";
 import { BlockAdvancedFrame, DisplayConditionGate } from "../page-builder/advanced-ui";
+import { SHARED_RENDERERS } from "../page-builder/shared-blocks/renderers";
 
 /* ── Style Scope Helper ─────────────────────────────────────────────────── */
 
 function styleScope(block: Block, inner: React.ReactNode): React.ReactNode {
-  const style = (block.props as { style?: StyleBreakpoints }).style;
-  const css = renderStyleGuide(block.id, style);
-  if (!css) return inner;
+  const props = block.props as { style?: StyleBreakpoints; elementStyles?: ElementStyles };
+  const css = renderStyleGuide(block.id, props.style);
+  const elementCss = renderElementStyles(block.id, props.elementStyles);
+  // Only add the scope wrapper when there is something to scope — avoids an
+  // extra wrapper div that would otherwise change layout.
+  if (!css && !elementCss) return inner;
   return (
     <>
-      <style>{css}</style>
+      {css ? <style>{css}</style> : null}
+      {elementStylesNode(block.id, props.elementStyles)}
       <div className={styleScopeClass(block.id)}>{inner}</div>
     </>
   );
@@ -324,6 +330,7 @@ function HeadingRenderer({ block }: { block: Block }) {
   const headingContent = (
     <Tag
       className={`${HEADING_SIZES[level as keyof typeof HEADING_SIZES] || HEADING_SIZES[2]} ${alignCls} ${widthCls} ${headingScoped.className}`.trim()}
+      data-lp-el="content"
     >
       {headingScoped.node}
       {p.text as string}
@@ -365,6 +372,7 @@ function TextRenderer({ block }: { block: Block }) {
         {textScoped.node}
         <div
           className={textScoped.className || undefined}
+          data-lp-el="content"
           dangerouslySetInnerHTML={{ __html: p.content as string }}
         />
       </>
@@ -413,9 +421,9 @@ function ImageRenderer({ block }: { block: Block }) {
     <BlockAdvancedFrame block={block}>
       <figure className={alignClass}>
         {imgScoped.node}
-        <img src={p.src as string} alt={(p.alt as string) || ""} className={`hover:opacity-75 ${imgScoped.className}`.trim()} />
+        <img src={p.src as string} alt={(p.alt as string) || ""} className={`hover:opacity-75 ${imgScoped.className}`.trim()} data-lp-el="image" />
         {(p.caption as string) && (
-          <figcaption className="mt-2 text-center text-sm text-zinc-500">
+          <figcaption className="mt-2 text-center text-sm text-zinc-500" data-lp-el="caption">
             {p.caption as string}
           </figcaption>
         )}
@@ -440,6 +448,7 @@ function ButtonRenderer({ block }: { block: Block }) {
               ? "border-2 border-current"
               : "btn"
           }`}
+          data-lp-el="button"
         >
           {p.text}
         </a>
@@ -464,7 +473,7 @@ function SpacerRenderer({ block }: { block: Block }) {
 function DividerRenderer({ block }: { block: Block }) {
   return (
     <BlockAdvancedFrame block={block}>
-      <hr className="border-zinc-200" />
+      <hr className="border-zinc-200" data-lp-el="rule" />
     </BlockAdvancedFrame>
   );
 }
@@ -473,7 +482,7 @@ function EmbedRenderer({ block }: { block: Block }) {
   const p = block.props as { html: string };
   return (
     <BlockAdvancedFrame block={block}>
-      <div dangerouslySetInnerHTML={{ __html: p.html }} />
+      <div dangerouslySetInnerHTML={{ __html: p.html }} data-lp-el="content" />
     </BlockAdvancedFrame>
   );
 }
@@ -512,6 +521,7 @@ function TestimonialRenderer({ block }: { block: Block }) {
                 <figure
                   key={i}
                   className={`flex-shrink-0 rounded-2xl bg-zinc-50 px-8 py-10 text-center ${itemScoped.className}`.trim()}
+                  data-lp-el="item"
                 >
                   {itemScoped.node}
                   {item.rating > 0 && (
@@ -519,7 +529,7 @@ function TestimonialRenderer({ block }: { block: Block }) {
                       {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
                     </div>
                   )}
-                  <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800">
+                  <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800" data-lp-el="quote">
                     {item.quote}
                   </blockquote>
                   <figcaption className="mt-4 text-sm text-zinc-500">
@@ -546,19 +556,19 @@ function TestimonialRenderer({ block }: { block: Block }) {
     <BlockAdvancedFrame block={block}>
       <div className="py-4">
         {p.heading && (
-          <h2 className="mb-6 text-center text-2xl font-bold text-zinc-900">
+          <h2 className="mb-6 text-center text-2xl font-bold text-zinc-900" data-lp-el="heading">
             {p.heading}
           </h2>
         )}
         <div className={`mx-auto grid max-w-6xl gap-6 ${colClass}`}>
           {items.map((item, i) => (
-            <figure key={i} className="rounded-2xl bg-zinc-50 px-8 py-10 text-center">
+            <figure key={i} className="rounded-2xl bg-zinc-50 px-8 py-10 text-center" data-lp-el="item">
               {item.rating > 0 && (
                 <div className="text-amber-400">
                   {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
                 </div>
               )}
-              <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800">
+              <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800" data-lp-el="quote">
                 {item.quote}
               </blockquote>
               <figcaption className="mt-4 text-sm text-zinc-500">
@@ -588,8 +598,8 @@ function HeroRenderer({ block }: { block: Block }) {
         className="py-16 text-center"
         style={{ backgroundColor: p.bgColor, color: p.textColor }}
       >
-        <h1 className="text-4xl font-bold">{p.heading}</h1>
-        <p className="mt-4 text-lg opacity-80" dangerouslySetInnerHTML={{ __html: p.subheading }} />
+        <h1 className="text-4xl font-bold" data-lp-el="heading">{p.heading}</h1>
+        <p className="mt-4 text-lg opacity-80" data-lp-el="subheading" dangerouslySetInnerHTML={{ __html: p.subheading }} />
       </div>
     </BlockAdvancedFrame>
   );
@@ -600,9 +610,9 @@ function CtaRenderer({ block }: { block: Block }) {
   return (
     <BlockAdvancedFrame block={block}>
       <div className="py-12 text-center" style={{ backgroundColor: p.bgColor }}>
-        <h2 className="text-2xl font-bold">{p.heading}</h2>
-        <p className="mt-2 text-zinc-600">{p.body}</p>
-        <a href={p.buttonUrl} className="mt-4 inline-block btn px-6 py-3 text-sm font-medium">
+        <h2 className="text-2xl font-bold" data-lp-el="heading">{p.heading}</h2>
+        <p className="mt-2 text-zinc-600" data-lp-el="body">{p.body}</p>
+        <a href={p.buttonUrl} className="mt-4 inline-block btn px-6 py-3 text-sm font-medium" data-lp-el="button">
           {p.buttonText}
         </a>
       </div>
@@ -616,10 +626,10 @@ function FeaturesRenderer({ block }: { block: Block }) {
   return (
     <BlockAdvancedFrame block={block}>
       <div className="py-8">
-        {p.heading && <h2 className="mb-6 text-center text-2xl font-bold">{p.heading}</h2>}
+        {p.heading && <h2 className="mb-6 text-center text-2xl font-bold" data-lp-el="heading">{p.heading}</h2>}
         <div className={`grid gap-6 ${colClass}`}>
           {p.items.map((item, i) => (
-            <div key={i} className="text-center">
+            <div key={i} className="text-center" data-lp-el="item">
               <div className="text-3xl">{item.icon}</div>
               <h3 className="mt-2 font-semibold">{item.title}</h3>
               <p className="mt-1 text-sm text-zinc-600">{item.description}</p>
@@ -636,10 +646,10 @@ function FaqRenderer({ block }: { block: Block }) {
   return (
     <BlockAdvancedFrame block={block}>
       <div className="py-8">
-        {p.heading && <h2 className="mb-6 text-2xl font-bold">{p.heading}</h2>}
+        {p.heading && <h2 className="mb-6 text-2xl font-bold" data-lp-el="heading">{p.heading}</h2>}
         <div className="space-y-4">
           {p.items.map((item, i) => (
-            <div key={i} className="border-b border-zinc-200 pb-4">
+            <div key={i} className="border-b border-zinc-200 pb-4" data-lp-el="item">
               <h3 className="font-medium">{item.question}</h3>
               <p className="mt-1 text-sm text-zinc-600">{item.answer}</p>
             </div>
@@ -655,9 +665,9 @@ function ListRenderer({ block }: { block: Block }) {
   const Tag = p.ordered ? "ol" : "ul";
   return (
     <BlockAdvancedFrame block={block}>
-      <Tag className="list-inside list-disc space-y-1">
+      <Tag className="list-inside list-disc space-y-1" data-lp-el="list">
         {p.items.map((item, i) => (
-          <li key={i}>{item}</li>
+          <li key={i} data-lp-el="item">{item}</li>
         ))}
       </Tag>
     </BlockAdvancedFrame>
@@ -669,8 +679,8 @@ function ContentGridRenderer({ block }: { block: Block }) {
   return (
     <BlockAdvancedFrame block={block}>
       <div className="py-8">
-        {p.heading && <h2 className="mb-6 text-2xl font-bold">{p.heading}</h2>}
-        <p className="text-sm text-zinc-500">Content grid placeholder</p>
+        {p.heading && <h2 className="mb-6 text-2xl font-bold" data-lp-el="heading">{p.heading}</h2>}
+        <p className="text-sm text-zinc-500" data-lp-el="content">Content grid placeholder</p>
       </div>
     </BlockAdvancedFrame>
   );
@@ -683,9 +693,9 @@ function SliderRenderer({ block }: { block: Block }) {
       <div className="overflow-x-auto">
         <div className="flex gap-4">
           {p.slides.map((slide, i) => (
-            <div key={i} className="flex-shrink-0">
+            <div key={i} className="flex-shrink-0" data-lp-el="item">
               {slide.src && <img src={slide.src} alt={slide.alt} className="h-64 w-auto" />}
-              {slide.title && <p className="mt-2 text-sm font-medium">{slide.title}</p>}
+              {slide.title && <p className="mt-2 text-sm font-medium" data-lp-el="caption">{slide.title}</p>}
             </div>
           ))}
         </div>
@@ -712,6 +722,12 @@ const BLOCK_RENDERERS: Record<string, React.ComponentType<{ block: Block }>> = {
   list: ListRenderer,
   contentGrid: ContentGridRenderer,
   slider: SliderRenderer,
+  ...Object.fromEntries(
+    Object.entries(SHARED_RENDERERS).map(([type, R]) => [
+      type,
+      ({ block }: { block: Block }) => <R block={block} ctx={{}} />,
+    ]),
+  ),
 };
 
 /* ── Render Blocks ────────────────────────────────────────────────────── */
@@ -865,13 +881,13 @@ export function PageLayoutBlockRenderer({ block }: { block: Block }) {
       maxWidth: p.width === "boxed" ? p.maxWidth : "100%",
       margin: p.width === "boxed" ? "0 auto" : undefined,
       display: "flex",
-      flexDirection: p.direction === "column" ? "column" : "row",
+      flexDirection: p.direction === "row" ? "row" : "column",
       justifyContent: p.justifyContent,
       alignItems: p.alignItems,
       columnGap: p.gapCol,
       rowGap: p.gapRow,
       flexWrap: p.wrap === "wrap" ? "wrap" : undefined,
-      ...getVerticalAlignStyle(p.verticalAlign, p.direction === "column" ? "column" : "row"),
+      ...getVerticalAlignStyle(p.verticalAlign, p.direction === "row" ? "row" : "column"),
       ...getTypographyScopeStyle({
         headingColor: p.headingColor,
         textColor: p.textColor,

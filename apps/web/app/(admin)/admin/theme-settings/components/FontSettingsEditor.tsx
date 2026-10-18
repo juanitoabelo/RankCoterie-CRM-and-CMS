@@ -9,6 +9,8 @@ const FONT_SIZE_FIELDS = [
   { key: "h2" as const, label: "H2" },
   { key: "h3" as const, label: "H3" },
   { key: "h4" as const, label: "H4" },
+  { key: "h5" as const, label: "H5" },
+  { key: "h6" as const, label: "H6" },
   { key: "body" as const, label: "Body" },
   { key: "small" as const, label: "Small" },
 ];
@@ -102,7 +104,7 @@ export default function FontSettingsEditor({ fonts }: { fonts: FontSettings }) {
               <span className="block text-[10px] font-medium uppercase tracking-wide text-zinc-400">
                 {device.icon} {device.label}
               </span>
-              <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
+              <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-8">
                 {FONT_SIZE_FIELDS.map((field) => (
                   <label key={field.key} className="block text-[10px] text-zinc-500">
                     {field.label}

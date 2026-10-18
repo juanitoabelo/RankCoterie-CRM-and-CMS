@@ -66,6 +66,21 @@ function fixCharset(val: unknown): string | null {
   }
 }
 
+/** Trimmed text from a legacy column, or null when empty. */
+function text(val: unknown): string | null {
+  const s = fixCharset(val);
+  return s && s.trim() ? s.trim() : null;
+}
+
+/** First present column from a legacy row (tolerates naming variants / missing columns). */
+function col(row: Record<string, unknown>, ...names: string[]): unknown {
+  for (const name of names) {
+    const value = row[name];
+    if (value !== undefined && value !== null) return value;
+  }
+  return null;
+}
+
 /** Generate a URL-safe slug from a title. */
 function slugify(s: string): string {
   return s
@@ -797,14 +812,27 @@ async function migrate() {
     ClickID: string | null;
     LandingPageID: string | null;
     CreatedAt: string | null;
-    // Clinical intake fields
-    Insurance: string | null;
-    Diagnosis: string | null;
-    ChildAge: number | null;
-    ProgramsInterested: string | null;
-    Budget: string | null;
-    TraumaHistory: string | null;
-    CourtInvolvement: number;
+    // Intake + contact columns (read via col(); absent columns are skipped)
+    Insurance?: string | null;
+    Diagnosis?: string | null;
+    ChildAge?: number | null;
+    ProgramsInterested?: string | null;
+    Budget?: string | null;
+    TraumaHistory?: string | null;
+    CourtInvolvement?: number | null;
+    HomePhone?: string | null;
+    WorkPhone?: string | null;
+    CellPhone?: string | null;
+    AdditionalPhone?: string | null;
+    ShippingAddress1?: string | null;
+    ShippingAddress2?: string | null;
+    ShippingCity?: string | null;
+    ShippingState?: string | null;
+    ShippingZip?: string | null;
+    ShippingCountry?: string | null;
+    BestContact?: string | null;
+    HowHeard?: string | null;
+    Comments?: string | null;
   }>("SELECT * FROM tblLeads ORDER BY LeadID").catch(() => []);
 
   if (!DRY_RUN) {
@@ -815,14 +843,66 @@ async function migrate() {
 
   let leadCount = 0;
   for (const l of legacyLeads) {
+    const row = l as unknown as Record<string, unknown>;
+    // Intake keys follow the V2 schema (modules/leads/types.ts LEAD_INTAKE_FIELDS).
     const intake: Record<string, unknown> = {};
-    if (l.Insurance) intake.insurance = fixCharset(l.Insurance);
-    if (l.Diagnosis) intake.diagnosis = fixCharset(l.Diagnosis);
-    if (l.ChildAge) intake.childAge = l.ChildAge;
-    if (l.ProgramsInterested) intake.programs = fixCharset(l.ProgramsInterested)?.split(",");
-    if (l.Budget) intake.budget = fixCharset(l.Budget);
-    if (l.TraumaHistory) intake.traumaHistory = fixCharset(l.TraumaHistory);
-    if (l.CourtInvolvement) intake.courtInvolvement = true;
+    const insurance = text(col(row, "Insurance", "InsuranceProvider", "InsuranceName"));
+    if (insurance) intake.insuranceProvider = insurance;
+    const diagnosis = text(col(row, "Diagnosis", "DiagnosisDescription"));
+    if (diagnosis) intake.mentalIllnessDescription = diagnosis;
+    const childAge = col(row, "ChildAge", "PatientAge");
+    if (childAge != null && String(childAge).trim() !== "") {
+      const asNumber = Number(childAge);
+      intake.patientAge = Number.isFinite(asNumber) ? asNumber : String(childAge).trim();
+    }
+    const programs = text(col(row, "ProgramsInterested"));
+    if (programs) {
+      intake.programs = programs.split(",").map((p) => p.trim()).filter(Boolean);
+    }
+    const budget = text(col(row, "Budget", "MonthlyBudget"));
+    if (budget) intake.monthlyBudget = budget;
+    const trauma = text(col(row, "TraumaHistory"));
+    if (trauma) intake.pastTrauma = trauma;
+    const court = col(row, "CourtInvolvement");
+    if (court != null) {
+      intake.hasCourtAppointment = court === true || Number(court) === 1;
+    }
+    const bestContact = text(col(row, "BestContact", "BestTimeToContact"));
+    if (bestContact) intake.bestContact = bestContact;
+    const howHeard = text(col(row, "HowHeard", "Source", "HowDidYouHear"));
+    if (howHeard) intake.howHeard = howHeard;
+    const comments = text(col(row, "Comments", "LeadComments"));
+    if (comments) intake.comments = comments;
+
+    // Phones — legacy Home/Work/Cell + the generic Phone column (kind "home").
+    const phones: { number: string; kind: string }[] = [];
+    const addPhone = (value: unknown, kind: string) => {
+      const number = text(value);
+      if (number && !phones.some((p) => p.number === number)) phones.push({ number, kind });
+    };
+    addPhone(col(row, "HomePhone", "Phone", "PhoneNumber"), "home");
+    addPhone(col(row, "WorkPhone", "Work"), "work");
+    addPhone(col(row, "CellPhone", "MobilePhone", "Mobile"), "cell");
+    addPhone(col(row, "AdditionalPhone", "AltPhone", "OtherPhone", "Phone2"), "other");
+
+    // Shipping address (legacy Shipping* columns) — kind "shipping" like the V2 form.
+    const addresses: Record<string, unknown>[] = [];
+    const line1 = text(col(row, "ShippingAddress1", "ShipAddress1", "Address1", "Address"));
+    const line2 = text(col(row, "ShippingAddress2", "ShipAddress2", "Address2"));
+    const city = text(col(row, "ShippingCity", "ShipCity", "City"));
+    const state = text(col(row, "ShippingState", "ShipState", "State"));
+    const zip = text(col(row, "ShippingZip", "ShipZip", "Zip", "ZipCode"));
+    if (line1 || city || state || zip) {
+      addresses.push({
+        line1,
+        line2,
+        city,
+        state,
+        zip,
+        country: text(col(row, "ShippingCountry", "ShipCountry")) ?? "US",
+        kind: "shipping",
+      });
+    }
 
     if (!DRY_RUN) {
       await prisma.lead.create({
@@ -832,20 +912,22 @@ async function migrate() {
           firstName: MASK_PII ? mask(l.FirstName) : fixCharset(l.FirstName),
           lastName: MASK_PII ? mask(l.LastName) : fixCharset(l.LastName),
           email: MASK_PII ? mask(l.Email) : fixCharset(l.Email),
-          phones: l.Phone ? [{ number: fixCharset(l.Phone), kind: "unknown" }] : [],
+          phones: phones as unknown as Prisma.InputJsonValue,
+          addresses: addresses as unknown as Prisma.InputJsonValue,
           status: fixCharset(l.Status) ?? "NEW",
           disposition: fixCharset(l.Disposition),
           initialDisposition: fixCharset(l.InitialDisposition),
           statusDate: l.StatusDate ? new Date(l.StatusDate) : null,
-          assignedToId: l.CSUserID ? String(l.CSUserID) : null,
-          closeUserId: l.CloseUserID ? String(l.CloseUserID) : null,
-          campaignId: l.CampaignID ? String(l.CampaignID) : null,
-          productId: l.ProductID ? String(l.ProductID) : null,
-          publisherId: l.PublisherID ? String(l.PublisherID) : null,
+          // User refs must point at the migrated user ids (legacy-users-{id}).
+          assignedToId: l.CSUserID != null ? legacyId("users", l.CSUserID) : null,
+          closeUserId: l.CloseUserID != null ? legacyId("users", l.CloseUserID) : null,
+          campaignId: l.CampaignID != null ? String(l.CampaignID) : null,
+          productId: l.ProductID != null ? String(l.ProductID) : null,
+          publisherId: l.PublisherID != null ? String(l.PublisherID) : null,
           subId: fixCharset(l.SubID),
           clickId: fixCharset(l.ClickID),
           landingPageId: fixCharset(l.LandingPageID),
-          intake,
+          intake: intake as Prisma.InputJsonValue,
           createdAt: l.CreatedAt ? new Date(l.CreatedAt) : new Date(),
         },
       });
@@ -872,7 +954,7 @@ async function migrate() {
           id: legacyId("leadnotes", n.NoteID),
           leadId: legacyId("leads", n.LeadID),
           note: fixCharset(n.Note) ?? "",
-          userId: n.UserID ? String(n.UserID) : null,
+          userId: n.UserID != null ? legacyId("users", n.UserID) : null,
           createdAt: n.CreatedAt ? new Date(n.CreatedAt) : new Date(),
         },
       }).catch(() => {});
@@ -880,6 +962,46 @@ async function migrate() {
     noteCount++;
   }
   console.log(`   ✓ ${noteCount} lead notes migrated`);
+
+  // ---- 12b. To-do items (tblToDos) ----
+  // Table name is best-effort: if the source dump has no matching table the
+  // query fails and the section migrates zero rows (reported by verify-migration).
+  console.log("12b. Migrating To-do items (tblToDos)...");
+  const legacyTodos = await query<{
+    ToDoID: number;
+    LeadID: number | null;
+    Text: string | null;
+    Note: string | null;
+    UserID: number | null;
+    AssignedUserID: number | null;
+    DueDate: string | null;
+    CompletedAt: string | null;
+    Status: string | null;
+    CreatedAt: string | null;
+  }>("SELECT * FROM tblToDos ORDER BY ToDoID").catch(() => []);
+
+  let todoCount = 0;
+  for (const t of legacyTodos) {
+    const row = t as unknown as Record<string, unknown>;
+    const todoText = text(col(row, "Text", "Note", "TodoText", "ToDoText"));
+    if (!todoText) continue;
+    if (!DRY_RUN) {
+      await prisma.toDo.create({
+        data: {
+          id: legacyId("todos", t.ToDoID),
+          leadId: t.LeadID != null ? legacyId("leads", t.LeadID) : null,
+          assigneeId: t.UserID != null ? legacyId("users", t.UserID) : t.AssignedUserID != null ? legacyId("users", t.AssignedUserID) : null,
+          text: todoText,
+          dueAt: t.DueDate ? new Date(t.DueDate) : null,
+          finishedAt: t.CompletedAt ? new Date(t.CompletedAt) : null,
+          status: t.Status ? fixCharset(t.Status) : t.CompletedAt ? "DONE" : "OPEN",
+          createdAt: t.CreatedAt ? new Date(t.CreatedAt) : new Date(),
+        },
+      }).catch(() => {});
+    }
+    todoCount++;
+  }
+  console.log(`   ✓ ${todoCount} to-do items migrated`);
 
   // ---- 13. Pages (tblPages) ----
   console.log("13. Migrating Pages (tblPages)...");

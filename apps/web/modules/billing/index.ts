@@ -24,6 +24,8 @@ export type { ClientWithRelations } from "./types";
 export type { MerchantWithRelations } from "./types";
 /** Billing filter options */
 export type { BillingFilter } from "./types";
+/** Client filter options */
+export type { ClientFilter } from "./types";
 /** Paginated billing response */
 export type { PaginatedBilling } from "./types";
 /** Invoice status badge configuration */

@@ -21,6 +21,8 @@ export interface ColorPalette {
   linkHoverColor: string;
   buttonBg: string;
   buttonText: string;
+  buttonBgHover: string;
+  buttonTextHover: string;
   surface: string;
   border: string;
   muted: string;
@@ -38,6 +40,8 @@ export interface FontSizeSet {
   h2: number;
   h3: number;
   h4: number;
+  h5: number;
+  h6: number;
   body: number;
   small: number;
 }
@@ -113,6 +117,8 @@ export const DEFAULT_COLOR_PALETTE: ColorPalette = {
   linkHoverColor: "#1d4ed8",
   buttonBg: "#2563eb",
   buttonText: "#ffffff",
+  buttonBgHover: "#1d4ed8",
+  buttonTextHover: "#ffffff",
   surface: "#f9fafb",
   border: "#e5e7eb",
   muted: "#6b7280",
@@ -122,9 +128,9 @@ export const DEFAULT_COLOR_PALETTE: ColorPalette = {
 };
 
 export const DEFAULT_FONT_SIZES: Record<"mobile" | "tablet" | "desktop", FontSizeSet> = {
-  mobile: { h1: 28, h2: 24, h3: 20, h4: 18, body: 16, small: 14 },
-  tablet: { h1: 36, h2: 30, h3: 24, h4: 20, body: 16, small: 14 },
-  desktop: { h1: 48, h2: 36, h3: 28, h4: 22, body: 16, small: 14 },
+  mobile: { h1: 28, h2: 24, h3: 20, h4: 18, h5: 16, h6: 14, body: 16, small: 14 },
+  tablet: { h1: 36, h2: 30, h3: 24, h4: 20, h5: 18, h6: 16, body: 16, small: 14 },
+  desktop: { h1: 48, h2: 36, h3: 28, h4: 22, h5: 18, h6: 16, body: 16, small: 14 },
 };
 
 export const DEFAULT_FONT_SETTINGS: FontSettings = {
@@ -198,6 +204,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       ...DEFAULT_COLOR_PALETTE,
       accent: "#111827",
       buttonBg: "#111827",
+      buttonBgHover: "#000000",
       linkColor: "#111827",
       linkHoverColor: "#374151",
       surface: "#ffffff",
@@ -218,6 +225,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       ...DEFAULT_COLOR_PALETTE,
       accent: "#dc2626",
       buttonBg: "#dc2626",
+      buttonBgHover: "#b91c1c",
       linkColor: "#dc2626",
       linkHoverColor: "#b91c1c",
       headingColor: "#000000",
@@ -238,6 +246,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       ...DEFAULT_COLOR_PALETTE,
       accent: "#1e40af",
       buttonBg: "#1e40af",
+      buttonBgHover: "#1e3a8a",
       linkColor: "#1e40af",
       linkHoverColor: "#1e3a8a",
       surface: "#eff6ff",
@@ -259,6 +268,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       accent: "#d97706",
       buttonBg: "#d97706",
       buttonText: "#ffffff",
+      buttonBgHover: "#b45309",
       linkColor: "#d97706",
       linkHoverColor: "#b45309",
       headingColor: "#78350f",
@@ -280,6 +290,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       ...DEFAULT_COLOR_PALETTE,
       accent: "#7c3aed",
       buttonBg: "#7c3aed",
+      buttonBgHover: "#6d28d9",
       linkColor: "#7c3aed",
       linkHoverColor: "#6d28d9",
       surface: "#f5f3ff",
@@ -381,20 +392,22 @@ export function renderThemeSettingsCSS(
   // any other rule, so it is kept outside the layer block.
   return `${fontLink}@layer base {
 :root {
-  --theme-bg: "${esc(colors.background)}";
-  --theme-text: "${esc(colors.text)}";
-  --theme-accent: "${esc(colors.accent)}";
-  --theme-heading: "${esc(colors.headingColor)}";
-  --theme-link: "${esc(colors.linkColor)}";
-  --theme-link-hover: "${esc(colors.linkHoverColor)}";
-  --theme-btn-bg: "${esc(colors.buttonBg)}";
-  --theme-btn-text: "${esc(colors.buttonText)}";
-  --theme-surface: "${esc(colors.surface)}";
-  --theme-border: "${esc(colors.border)}";
-  --theme-muted: "${esc(colors.muted)}";
-  --theme-success: "${esc(colors.success)}";
-  --theme-warning: "${esc(colors.warning)}";
-  --theme-error: "${esc(colors.error)}";
+  --theme-bg: ${esc(colors.background)};
+  --theme-text: ${esc(colors.text)};
+  --theme-accent: ${esc(colors.accent)};
+  --theme-heading: ${esc(colors.headingColor)};
+  --theme-link: ${esc(colors.linkColor)};
+  --theme-link-hover: ${esc(colors.linkHoverColor)};
+  --theme-btn-bg: ${esc(colors.buttonBg)};
+  --theme-btn-text: ${esc(colors.buttonText)};
+  --theme-btn-bg-hover: ${esc(colors.buttonBgHover)};
+  --theme-btn-text-hover: ${esc(colors.buttonTextHover)};
+  --theme-surface: ${esc(colors.surface)};
+  --theme-border: ${esc(colors.border)};
+  --theme-muted: ${esc(colors.muted)};
+  --theme-success: ${esc(colors.success)};
+  --theme-warning: ${esc(colors.warning)};
+  --theme-error: ${esc(colors.error)};
   --theme-heading-font: ${esc(fonts.heading)};
   --theme-body-font: ${esc(fonts.body)};
   --theme-mono-font: ${esc(fonts.mono)};
@@ -424,6 +437,10 @@ a:hover { color: var(--theme-link-hover, #1d4ed8); }
   background-color: var(--theme-btn-bg, #2563eb);
   color: var(--theme-btn-text, #ffffff);
 }
+.btn:hover, .sg-btn:hover {
+  background-color: var(--theme-btn-bg-hover, var(--theme-btn-bg, #2563eb));
+  color: var(--theme-btn-text-hover, var(--theme-btn-text, #ffffff));
+}
 .theme-container {
   max-width: var(--theme-max-width, 1200px);
   margin-left: auto;
@@ -440,6 +457,8 @@ a:hover { color: var(--theme-link-hover, #1d4ed8); }
   h2 { font-size: ${fonts.sizes.mobile.h2}px; }
   h3 { font-size: ${fonts.sizes.mobile.h3}px; }
   h4 { font-size: ${fonts.sizes.mobile.h4}px; }
+  h5 { font-size: ${fonts.sizes.mobile.h5}px; }
+  h6 { font-size: ${fonts.sizes.mobile.h6}px; }
   body { font-size: ${fonts.sizes.mobile.body}px; }
   small { font-size: ${fonts.sizes.mobile.small}px; }
 }
@@ -452,6 +471,8 @@ a:hover { color: var(--theme-link-hover, #1d4ed8); }
   h2 { font-size: ${fonts.sizes.tablet.h2}px; }
   h3 { font-size: ${fonts.sizes.tablet.h3}px; }
   h4 { font-size: ${fonts.sizes.tablet.h4}px; }
+  h5 { font-size: ${fonts.sizes.tablet.h5}px; }
+  h6 { font-size: ${fonts.sizes.tablet.h6}px; }
   body { font-size: ${fonts.sizes.tablet.body}px; }
   small { font-size: ${fonts.sizes.tablet.small}px; }
 }
@@ -464,6 +485,8 @@ a:hover { color: var(--theme-link-hover, #1d4ed8); }
   h2 { font-size: ${fonts.sizes.desktop.h2}px; }
   h3 { font-size: ${fonts.sizes.desktop.h3}px; }
   h4 { font-size: ${fonts.sizes.desktop.h4}px; }
+  h5 { font-size: ${fonts.sizes.desktop.h5}px; }
+  h6 { font-size: ${fonts.sizes.desktop.h6}px; }
   body { font-size: ${fonts.sizes.desktop.body}px; }
   small { font-size: ${fonts.sizes.desktop.small}px; }
 }

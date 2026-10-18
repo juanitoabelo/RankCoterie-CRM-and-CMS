@@ -10,6 +10,7 @@ import {
 } from "../../actions";
 import { getThemeSettings } from "../../../theme-settings/actions";
 import PageLayoutBuilder from "@/components/admin/page-layout-builder/PageLayoutBuilder";
+import { ThemeColorsProvider } from "@/components/admin/page-builder/ThemeColorsProvider";
 import { parsePageLayoutData } from "@/modules/page-layout";
 
 export const revalidate = 0;
@@ -70,20 +71,22 @@ export default async function PageLayoutEditPage({
         <span className="text-zinc-700">{template.name}</span>
       </p>
 
-      <PageLayoutBuilder
-        templateId={template.id}
-        templateName={template.name}
-        initialBlocks={blocks}
-        initialContainerSettings={containerSettings}
-        isDefault={template.isDefault}
-        initialAssignments={assignments}
-        themeColors={themeColors}
-        onSave={saveBlocks}
-        onListRevisions={loadRevisions}
-        onRestoreRevision={restore}
-        onSaveMeta={updatePageLayoutMetaAction}
-        onSaveAssignments={saveAssignmentsAction}
-      />
+      <ThemeColorsProvider colors={themeColors}>
+        <PageLayoutBuilder
+          templateId={template.id}
+          templateName={template.name}
+          initialBlocks={blocks}
+          initialContainerSettings={containerSettings}
+          isDefault={template.isDefault}
+          initialAssignments={assignments}
+          themeColors={themeColors}
+          onSave={saveBlocks}
+          onListRevisions={loadRevisions}
+          onRestoreRevision={restore}
+          onSaveMeta={updatePageLayoutMetaAction}
+          onSaveAssignments={saveAssignmentsAction}
+        />
+      </ThemeColorsProvider>
     </div>
   );
 }

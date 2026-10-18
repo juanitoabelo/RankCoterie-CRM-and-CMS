@@ -217,6 +217,7 @@ model Listing {
   isArticlePage Boolean      @default(false)
   articleTemplate String?
   isLandingPage Boolean      @default(false)
+  spiderIgnore  Boolean      @default(false) // legacy "Spider Ignore Content" — noindex company pages
   freeGraceUntil DateTime? // FREE listings stay visible until this migration grace end
 
   companyId    String?       // profile-owned listing
@@ -230,6 +231,9 @@ model Listing {
   zip          String?
   lat          Float?        // for map/geo search
   lng          Float?        // for map/geo search
+  googleMapsUrl String?      // shared Google Maps link, embedded on the public listing page
+  listingTemplateId      String?  // custom single-listing template (null = system default)
+  companyListingTemplateId String? // custom single-company-landing-page template (null = system default)
 
   avatarImage  String?
   feedImage    String?
@@ -303,22 +307,69 @@ model Listing {
   // Badges/Verification
   badges       Json @default("[]") // earned badges: verified, top_rated, years_in_business, etc.
 
-  categories   ListingCategory[]
+categories   ListingCategory[]
   regions      ListingRegion[]
+  sectionLinks ListingSection[]
+  subTopicLinks ListingSubTopic[]
   subscription ListingSubscription?
   articles     SearchArticle[]
   merchants    Merchant[]
   reviews      Review[]
   leads        ListingLead[]
   analytics    ListingAnalytic[]
+  listingTemplate      ListingTemplate?      @relation(fields: [listingTemplateId], references: [id], onDelete: SetNull)
+  companyListingTemplate CompanyListingTemplate? @relation(fields: [companyListingTemplateId], references: [id], onDelete: SetNull)
   featuredPlacementPurchases FeaturedPlacementPurchase[]
   leadCredits  LeadCredit[]
   webhookDeliveries WebhookDelivery[]
   verificationRequests VerificationRequest[]
+
   @@index([tenantId, tier, status])
   @@index([tenantId, slug])
   @@index([tenantId, city, state])
   @@index([tenantId, claimedById])
+}
+
+/// Custom single-listing page templates (block-composed layouts).
+model ListingTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  layout      String   @default("sidebar") // "single" | "sidebar"
+  heroVariant String   @default("default") // default|minimal|bold|corporate|warm|modern
+  isPreset    Boolean  @default(false)
+  isDefault   Boolean  @default(false) // site-wide default for listings without an explicit template
+  blocks      Json     @default("[]") // main content blocks
+  sidebar     Json     @default("[]") // sidebar widgets
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  listings Listing[]
+
+  @@index([isPreset])
+  @@index([isDefault])
+}
+
+/// Custom single-company-landing-page templates (block-composed layouts).
+model CompanyListingTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  layout      String   @default("sidebar") // "single" | "sidebar"
+  heroVariant String   @default("default") // default|minimal|bold|corporate|warm|modern
+  isPreset    Boolean  @default(false)
+  isDefault   Boolean  @default(false) // site-wide default for company landing pages without an explicit template
+  blocks      Json     @default("[]") // main content blocks
+  sidebar     Json     @default("[]") // sidebar widgets
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  listings Listing[]
+
+  @@index([isPreset])
+  @@index([isDefault])
 }
 
 model ListingCategory {
@@ -336,6 +387,28 @@ model ListingRegion {
   listing   Listing @relation(fields: [listingId], references: [id])
   regionId  String // legacy "Nearby Areas" — recommend 3–5 per listing
   @@unique([listingId, regionId])
+}
+
+/// Company listing ↔ Section membership (legacy company page "Section List").
+model ListingSection {
+  id        String   @id @default(cuid())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  sectionId String
+  section   Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  order     Int      @default(0)
+  @@unique([listingId, sectionId])
+}
+
+/// Company listing ↔ SubTopic (ContentTemplate) membership (legacy "SubTopic List").
+model ListingSubTopic {
+  id         String          @id @default(cuid())
+  listingId  String
+  listing    Listing         @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  templateId String
+  template   ContentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  order      Int             @default(0)
+  @@unique([listingId, templateId])
 }
 
 model ExcludedCompany {
@@ -426,6 +499,8 @@ model ListingLead {
   source      String   @default("listing") // listing, contact_form, claim, etc.
   status      String   @default("NEW") // NEW, CONTACTED, QUALIFIED, CONVERTED, LOST
   assignedToId String?
+  leadId      String?  // CRM Lead created for this capture (public form → /admin/leads)
+  lead        Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
   metadata    Json     @default("{}") // form data, utm params, etc.
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -433,6 +508,7 @@ model ListingLead {
   @@index([tenantId, listingId])
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
+  @@index([leadId])
 }
 
 // ---------------------------------------------------------------------------
@@ -474,6 +550,7 @@ model ContentTemplate {
   jsonSchema      String? // JSON-LD schema
   variants    ContentVariant[]
   sectionLinks SubTopicSection[]
+  listingLinks ListingSubTopic[]
   @@unique([tenantId, slug])
 }
 
@@ -575,6 +652,8 @@ model Lead {
   createdAt     DateTime @default(now())
   notes         LeadNote[]
   todos         ToDo[]
+  client        Client?
+  listingLeads  ListingLead[]
   @@index([tenantId, status])
 }
 
@@ -608,7 +687,9 @@ model Client {
   phones    Json     @default("{}")
   addresses Json     @default("{}")
   maskedCard String? // legacy First4/Last4/MaskedCard
-  leadId    String?
+  assignedToId String? // legacy CSUserID
+  leadId    String?  @unique // one client per converted lead
+  lead      Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
   campaignId String?
   productId String?
   publisherId String?
@@ -618,13 +699,26 @@ model Client {
   isPartial Boolean  @default(false)
   createdAt DateTime @default(now())
   invoices  Invoice[]
+  notes     ClientNote[]
   @@index([tenantId])
+}
+
+model ClientNote {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  note      String
+  userId    String?
+  createdAt DateTime @default(now())
+  @@index([clientId])
 }
 
 model Invoice {
   id            String  @id @default(cuid())
   clientId      String
   client        Client  @relation(fields: [clientId], references: [id])
+  merchantId    String?
+  merchant      Merchant? @relation(fields: [merchantId], references: [id])
   amount        Decimal
   chargeDate    DateTime?
   status        String // ATTEMPTED/APPROVED/DECLINED/ERROR/REFUNDED/CHARGEDBACK
@@ -632,9 +726,19 @@ model Invoice {
   interval      String? // legacy BillInterval
   retries       Int     @default(0)
   stripePaymentId String?
+  gatewayId     String? // gateway that took/should take the payment (separate client-billing account)
+  gateway       PaymentGateway? @relation(fields: [gatewayId], references: [id], onDelete: SetNull)
+  listingId     String? // company listing this invoice settles (setup fee / tier) — paid ⇒ page LIVE
+  payUrl        String? // hosted payment link (Stripe Payment Link) for this invoice
+  stripePaymentLinkId String? // Stripe payment link id — deactivated once paid
+  paidAt        DateTime? // when the invoice was actually paid (manual or via link)
+  emailSentAt   DateTime? // last time a payment email was sent to the client
   responseMsg   String?
   createdAt     DateTime @default(now())
   @@index([clientId])
+  @@index([merchantId])
+  @@index([gatewayId])
+  @@index([listingId])
 }
 
 // ---------------------------------------------------------------------------
@@ -654,6 +758,7 @@ model Merchant {
   payoutMethod    String? // CHECK | ACH | CARD | STRIPE_CONNECT (legacy method)
   feePercent      Decimal  @default(0)
   createdAt       DateTime @default(now())
+  invoices        Invoice[]
 }
 
 // ---------------------------------------------------------------------------
@@ -978,6 +1083,7 @@ model Section {
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id])
   subTopicLinks SubTopicSection[]
+  listingLinks ListingSection[]
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   @@unique([tenantId, slug])
@@ -1192,6 +1298,15 @@ enum PaymentGatewayType {
   PAYPAL
   SQUARE
   MANUAL
+}
+
+// What a gateway account is FOR — lets Client billing, E-commerce and Listing
+// payments use separate Stripe/PayPal accounts (or the same one, on purpose).
+enum PaymentGatewayPurpose {
+  GENERAL
+  CLIENT_BILLING
+  ECOMMERCE
+  LISTING
 }
 
 enum CouponType {
@@ -1682,6 +1797,7 @@ model PaymentGateway {
   id                       String              @id @default(cuid())
   tenantId                 String
   type                     PaymentGatewayType  @default(STRIPE)
+  purpose                  PaymentGatewayPurpose @default(GENERAL)
   name                     String
   slug                     String
   isEnabled                Boolean             @default(false)
@@ -1702,8 +1818,10 @@ model PaymentGateway {
   transactions  PaymentTransaction[]
   orders        Order[]
   subscriptions Subscription[]
+  invoices      Invoice[]
   @@unique([tenantId, slug])
   @@index([tenantId, isEnabled])
+  @@index([tenantId, purpose])
 }
 
 model PaymentTransaction {

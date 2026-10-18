@@ -116,6 +116,61 @@ export function getSetupFeeId(config?: ListingPaymentConfig | null): string | nu
   return config?.setupFeeId ?? process.env.STRIPE_SETUP_FEE_ID ?? null;
 }
 
+// ---------------------------------------------------------------------------
+// Company Listing Payment Configuration (ADS / Listing → Payment Configuration)
+// ---------------------------------------------------------------------------
+
+export type CompanyListingPaymentConfig = {
+  secretKey: string | null;
+  publishableKey: string | null;
+  webhookSecret: string | null;
+  standardPriceId: string | null;
+  premiumPriceId: string | null;
+  setupFeeId: string | null;
+  /** Display amount of the one-time page fee — default for generated invoices. */
+  setupFeeAmount: string | null;
+  standardLabel: string | null;
+  standardAmount: string | null;
+  premiumLabel: string | null;
+  premiumAmount: string | null;
+};
+
+/**
+ * Company listing payment settings (tenant theme.companyListingPayment).
+ * Per field resolution: company block → directory listingPayment block → env,
+ * so a fresh tenant inherits the directory defaults until company-specific
+ * values are configured.
+ */
+export function readCompanyListingPaymentConfig(config: unknown): CompanyListingPaymentConfig {
+  const root = (config ?? {}) as Record<string, unknown>;
+  const company = (root.companyListingPayment ?? {}) as Record<string, unknown>;
+  const listing = (root.listingPayment ?? {}) as Record<string, unknown>;
+  const pick = (key: string, envKey?: string): string | null =>
+    clean(company[key]) ?? clean(listing[key]) ?? (envKey ? clean(process.env[envKey]) : null);
+  return {
+    secretKey: pick("secretKey", "STRIPE_SECRET_KEY"),
+    publishableKey: pick("publishableKey", "STRIPE_PUBLISHABLE_KEY"),
+    webhookSecret: pick("webhookSecret", "STRIPE_WEBHOOK_SECRET"),
+    standardPriceId: pick("standardPriceId", "STRIPE_PRICE_STANDARD"),
+    premiumPriceId: pick("premiumPriceId", "STRIPE_PRICE_PREMIUM"),
+    setupFeeId: pick("setupFeeId", "STRIPE_SETUP_FEE_ID"),
+    setupFeeAmount: clean(company.setupFeeAmount),
+    standardLabel: pick("standardLabel", "STRIPE_STANDARD_LABEL") ?? "Standard",
+    standardAmount: pick("standardAmount", "STRIPE_STANDARD_AMOUNT") ?? "97",
+    premiumLabel: pick("premiumLabel", "STRIPE_PREMIUM_LABEL") ?? "Premium",
+    premiumAmount: pick("premiumAmount", "STRIPE_PREMIUM_AMOUNT") ?? "197",
+  };
+}
+
+/**
+ * Company payment settings reshaped as a `listingPayment` block so
+ * buildCheckoutParams/readListingPaymentConfig consume them unchanged —
+ * one-time setup fee + recurring tier, same as the directory apply flow.
+ */
+export function companyCheckoutConfig(theme: unknown): { listingPayment: Record<string, unknown> } {
+  return { listingPayment: { ...readCompanyListingPaymentConfig(theme) } };
+}
+
 /** Default public-visibility window (days) for FREE-tier listings after approval. */
 export const DEFAULT_FREE_GRACE_DAYS = 90;
 

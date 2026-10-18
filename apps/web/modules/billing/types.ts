@@ -32,9 +32,35 @@ export interface ClientWithRelations {
   lastName: string | null;
   email: string | null;
   phones: unknown;
-  createdAt: Date;
+  maskedCard: string | null;
+  assignedToId: string | null;
+  leadId: string | null;
+  campaignId: string | null;
   isPartial: boolean;
+  createdAt: Date;
+  invoices?: Array<{
+    id: string;
+    amount: unknown; // Prisma.Decimal at runtime
+    status: string;
+    isRecurring: boolean;
+    interval: string | null;
+    chargeDate: Date | null;
+  }>;
   _count?: { invoices: number };
+}
+
+/** Client query filters */
+export interface ClientFilter {
+  search?: string;
+  /** Only partial (incomplete billing) clients. */
+  partial?: boolean;
+  /** Only clients with at least one recurring invoice. */
+  recurring?: boolean;
+  /** Created-at range (ISO date strings, inclusive). */
+  from?: string;
+  to?: string;
+  page?: number;
+  pageSize?: number;
 }
 
 /** Merchant with relations */
@@ -57,6 +83,11 @@ export interface BillingFilter {
   status?: InvoiceStatus | "ALL";
   clientId?: string;
   search?: string;
+  /** Client text search (name/email) applied through the relation. */
+  client?: string;
+  /** Created-at range (ISO date strings, inclusive). */
+  from?: string;
+  to?: string;
   page?: number;
   pageSize?: number;
 }

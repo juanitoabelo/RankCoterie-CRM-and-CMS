@@ -31,6 +31,32 @@ export type RenewalRow = {
   value: number;
 };
 
+export type SortDirection = "asc" | "desc";
+
+export type SubscriptionSortField =
+  | "title"
+  | "tier"
+  | "status"
+  | "currentPeriodEnd"
+  | "mrr"
+  | "createdAt";
+
+export type PaginationParams = {
+  page: number;
+  pageSize: number;
+  sortField?: SubscriptionSortField;
+  sortDirection?: SortDirection;
+  search?: string;
+};
+
+export type PaginatedResponse<T> = {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
 export type ListingReportsData = {
   generatedAt: string;
   /** Whether a Stripe secret key was found (config/gateway/env). */
@@ -66,6 +92,6 @@ export type ListingReportsData = {
   byTier: { tier: string; count: number; mrr: number }[];
   byStatus: { status: string; count: number }[];
   monthly: MonthlyFlow[];
-  subscriptions: SubscriptionRow[];
+  subscriptions: PaginatedResponse<SubscriptionRow>;
   renewals: RenewalRow[];
 };

@@ -9,7 +9,7 @@ export async function GET() {
   try {
   const rows = await prisma.category.findMany({
     where: { tenantId: TENANT_ID, status: "LIVE" },
-    select: { id: true, title: true, slug: true },
+    select: { id: true, title: true, slug: true, parentId: true },
     orderBy: { title: "asc" },
   });
   return NextResponse.json(rows);

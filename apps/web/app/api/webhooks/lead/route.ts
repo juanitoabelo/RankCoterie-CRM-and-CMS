@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/modules/shared";
 import { TENANT_ID } from "@/modules/shared";
 import crypto from "crypto";
+import { consumeLeadCredit, enqueueLeadCreatedDeliveries } from "@/lib/billing/lead-credit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,74 +25,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check lead credits for the listing
+    // Count the lead against the listing's monthly credits (shared ledger logic).
     const listingId = data.listingId;
-    if (listingId) {
-      const credit = await prisma.leadCredit.findUnique({
-        where: { tenantId_listingId: { tenantId: TENANT_ID, listingId } },
-      });
-
-      if (credit) {
-        // Check monthly limit
-        const now = new Date();
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        
-        // Reset monthly counter if new month
-        if (credit.monthStart < monthStart) {
-          await prisma.leadCredit.update({
-            where: { id: credit.id },
-            data: { usedThisMonth: 0, monthStart },
-          });
-        }
-
-        // Check if over limit
-        if (credit.usedThisMonth >= credit.monthlyLimit) {
-          credit.overageCount += 1;
-          await prisma.leadCredit.update({
-            where: { id: credit.id },
-            data: { overageCount: credit.overageCount },
-          });
-        }
-
-        // Increment counters
-        await prisma.leadCredit.update({
-          where: { id: credit.id },
-          data: {
-            usedThisMonth: { increment: 1 },
-            leadCount: { increment: 1 },
-          },
-        });
-      } else {
-        // Create credit record if doesn't exist
-        await prisma.leadCredit.create({
-          data: {
-            tenantId: TENANT_ID,
-            listingId,
-            balance: 0,
-            usedThisMonth: 1,
-            monthlyLimit: 10, // default
-          },
-        });
-      }
+    if (typeof listingId === "string" && listingId) {
+      await consumeLeadCredit(listingId);
     }
 
-    // Create webhook delivery records for all active endpoints
-    const endpoints = await prisma.webhookEndpoint.findMany({
-      where: { tenantId: TENANT_ID, isActive: true, events: { has: "lead.created" } },
-    });
-
-    for (const endpoint of endpoints) {
-      await prisma.webhookDelivery.create({
-        data: {
-          tenantId: TENANT_ID,
-          endpointId: endpoint.id,
-          event: "lead.created",
-          payload: data,
-          attempt: 1,
-          status: "PENDING",
-        },
-      });
-    }
+    // Queue delivery records for all subscribed endpoints.
+    await enqueueLeadCreatedDeliveries(data);
 
     return NextResponse.json({ ok: true });
   } catch (error) {

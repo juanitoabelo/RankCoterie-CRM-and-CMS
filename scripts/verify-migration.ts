@@ -60,6 +60,27 @@ async function verify() {
     results.push({ table: label, legacyCount, v2Count: v2, match, delta, note });
   }
 
+  /** Like compare(), but tolerates a missing legacy table (recorded as a note). */
+  async function tryCompare(
+    label: string,
+    legacySql: string,
+    v2Count: () => Promise<number>
+  ) {
+    try {
+      await compare(label, legacySql, v2Count);
+    } catch {
+      const v2 = await v2Count();
+      results.push({
+        table: label,
+        legacyCount: 0,
+        v2Count: v2,
+        match: v2 === 0,
+        delta: v2,
+        note: "legacy table not found — check the source dump for the real table name",
+      });
+    }
+  }
+
   // Regions
   await compare(
     "tblRegions → Region",
@@ -114,6 +135,20 @@ async function verify() {
     "tblLeads → Lead",
     "SELECT COUNT(*) as count FROM tblLeads",
     () => prisma.lead.count({ where: { tenantId: TENANT_ID } })
+  );
+
+  // Lead notes
+  await tryCompare(
+    "tblLeadNotes → LeadNote",
+    "SELECT COUNT(*) as count FROM tblLeadNotes",
+    () => prisma.leadNote.count({ where: { lead: { tenantId: TENANT_ID } } })
+  );
+
+  // To-do items (legacy table name is best-effort)
+  await tryCompare(
+    "tblToDos → ToDo",
+    "SELECT COUNT(*) as count FROM tblToDos",
+    () => prisma.toDo.count({ where: { lead: { tenantId: TENANT_ID } } })
   );
 
   // Pages
@@ -172,12 +207,57 @@ async function verify() {
     () => prisma.company.count({ where: { tenantId: TENANT_ID } })
   );
 
+  // --- Referential integrity + intake vocabulary (not row-count parity) ---
+  const integrity: { label: string; count: number; note: string }[] = [];
+  const leads = await prisma.lead.findMany({
+    where: { tenantId: TENANT_ID },
+    select: { id: true, assignedToId: true, closeUserId: true, intake: true },
+  });
+  const userIds = new Set(
+    (
+      await prisma.user.findMany({ where: { tenantId: TENANT_ID }, select: { id: true } })
+    ).map((u) => u.id)
+  );
+  integrity.push({
+    label: "Lead.assignedToId → User",
+    count: leads.filter((l) => l.assignedToId && !userIds.has(l.assignedToId)).length,
+    note: "assigned rep ids must use the migrated legacy-users-{id} form",
+  });
+  integrity.push({
+    label: "Lead.closeUserId → User",
+    count: leads.filter((l) => l.closeUserId && !userIds.has(l.closeUserId)).length,
+    note: "closer ids must use the migrated legacy-users-{id} form",
+  });
+  const noteRows = await prisma.leadNote.findMany({
+    where: { lead: { tenantId: TENANT_ID } },
+    select: { id: true, userId: true },
+  });
+  integrity.push({
+    label: "LeadNote.userId → User",
+    count: noteRows.filter((n) => n.userId && !userIds.has(n.userId)).length,
+    note: "note authors must use the migrated legacy-users-{id} form",
+  });
+  // Keys written by older migration versions — re-run migrate-legacy to normalize.
+  const STALE_INTAKE_KEYS = [
+    "insurance", "diagnosis", "childAge", "budget", "traumaHistory", "courtInvolvement",
+    "patientName", "behaviors", "pastTreatments", "treatmentResponse", "grades",
+    "isDrugUse", "isViolent", "isCourtOrdered", "criminalRecord",
+  ];
+  integrity.push({
+    label: "Lead.intake uses current field keys",
+    count: leads.filter((l) => {
+      const intake = (l.intake ?? {}) as Record<string, unknown>;
+      return STALE_INTAKE_KEYS.some((k) => k in intake);
+    }).length,
+    note: "leads still carrying pre-alignment intake keys",
+  });
+
   await src.end();
   await prisma.$disconnect();
 
   // Output
   if (JSON_OUTPUT) {
-    console.log(JSON.stringify(results, null, 2));
+    console.log(JSON.stringify({ results, integrity }, null, 2));
   } else {
     console.log(`\n=== Migration Parity Report ===`);
     console.log(`Tenant: ${TENANT_ID}\n`);
@@ -192,9 +272,20 @@ async function verify() {
       console.log(`  ${icon} ${r.table}: legacy=${r.legacyCount} v2=${r.v2Count}${deltaStr}${noteStr}`);
     }
 
+    console.log(`\n=== Integrity ===`);
+    let integrityFailed = 0;
+    for (const i of integrity) {
+      const icon = i.count === 0 ? "✓" : "✗";
+      if (i.count !== 0) integrityFailed++;
+      const countStr = i.count === 0 ? "0 issues" : `${i.count} issue${i.count === 1 ? "" : "s"}`;
+      console.log(`  ${icon} ${i.label}: ${countStr} — ${i.note}`);
+    }
+
     console.log(`\n  Passed: ${passed.length}/${results.length}`);
-    if (failed.length > 0) {
-      console.log(`  FAILED: ${failed.length} tables have count mismatches`);
+    if (failed.length > 0 || integrityFailed > 0) {
+      console.log(
+        `  FAILED: ${failed.length} table mismatches, ${integrityFailed} integrity checks`
+      );
       process.exitCode = 1;
     } else {
       console.log(`  All tables match ✓`);

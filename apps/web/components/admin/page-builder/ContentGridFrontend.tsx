@@ -98,7 +98,7 @@ export default function ContentGridFrontend({
     <section className="px-6 py-10">
       <div className="mx-auto max-w-6xl">
         {heading && (
-          <h2 className="text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">
+          <h2 className="text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl" data-lp-el="heading">
             {heading}
           </h2>
         )}
@@ -123,7 +123,7 @@ export default function ContentGridFrontend({
 
         {!loading && data && (
           <>
-            <div className={`mt-6 grid gap-6 ${gridCls}`}>
+            <div className={`mt-6 grid gap-6 ${gridCls}`} data-lp-el="content">
               {data.items.map((item) => (
                 <GridCard key={item.id} item={item} showExcerpt={showExcerpt} />
               ))}

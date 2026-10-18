@@ -8,4 +8,5 @@ dist/
 *.log
 .DS_Store
 coverage/
+.playwright-results/
 prisma/migrations/dev-*.sql

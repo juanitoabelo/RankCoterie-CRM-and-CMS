@@ -21,7 +21,9 @@ const COLOR_GROUPS = [
       { key: "linkColor" as const, label: "Link Color" },
       { key: "linkHoverColor" as const, label: "Link Hover" },
       { key: "buttonBg" as const, label: "Button Background" },
+      { key: "buttonBgHover" as const, label: "Button Background Hover" },
       { key: "buttonText" as const, label: "Button Text" },
+      { key: "buttonTextHover" as const, label: "Button Text Hover" },
     ],
   },
   {

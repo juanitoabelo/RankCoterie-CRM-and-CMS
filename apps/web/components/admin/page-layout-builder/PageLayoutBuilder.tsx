@@ -15,8 +15,8 @@ import {
   type CollisionDetection,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import type { Block, RowBlock } from "@/lib/page-builder/types";
-import { createLayoutBlock, createSingleColumnRow } from "@/lib/page-builder/types";
+import type { Block } from "@/lib/page-builder/types";
+import { createLayoutBlock, createSingleColumnRow, isRowBlock } from "@/lib/page-builder/types";
 import {
   createPageLayoutBlock,
   type PageLayoutBlock,
@@ -28,6 +28,8 @@ import {
   mapBlocks,
   findBlock,
   findColumnForBlock,
+  columnById,
+  rowIdForColumn,
   moveBlock,
   addBlockFromPalette,
   insertLayoutBlock,
@@ -171,6 +173,10 @@ export default function PageLayoutBuilder({
   /* ── Selection ──────────────────────────────────────────────────── */
   const selectedBlock = selectedId ? findBlock(blocks, selectedId) : null;
 
+  const selectedColumnRow = selectedColumnId
+    ? findBlock(blocks, rowIdForColumn(blocks, selectedColumnId) ?? "")
+    : null;
+
   const onSelect = useCallback((id: string | null) => {
     setSelectedId(id);
     setSelectedColumnId(null);
@@ -236,21 +242,34 @@ export default function PageLayoutBuilder({
 
   const removeColumn = useCallback(
     (columnId: string) => {
-      const block = selectedBlock as RowBlock | undefined;
-      if (!block || block.type !== "row") return;
-      const col = block.props.columns.find((c) => c.id === columnId);
-      if (!col || block.props.columns.length <= 1) return;
-      commit((present) => removeColumnFromRow(present, block.id, columnId));
+      const row = selectedColumnRow;
+      if (!row || !isRowBlock(row)) return;
+      if (row.props.columns.length <= 1) return;
+      commit((present) => {
+        const rid = rowIdForColumn(present, columnId);
+        if (!rid) return present;
+        return removeColumnFromRow(present, rid, columnId);
+      });
       setSelectedColumnId(null);
+      setSelectedId(row.id);
     },
-    [selectedBlock, commit],
+    [commit, selectedColumnRow],
   );
 
   const duplicateSelectedColumn = useCallback(
     (columnId: string) => {
-      commit((present) => duplicateColumn(present, "", columnId));
+      const row = selectedColumnRow;
+      if (!row || !isRowBlock(row)) return;
+      if (row.props.columns.length >= 6) return;
+      const newId = crypto.randomUUID();
+      commit((present) => {
+        const rid = rowIdForColumn(present, columnId);
+        if (!rid) return present;
+        return duplicateColumn(present, rid, columnId, 6, newId);
+      });
+      setSelectedColumnId(newId);
     },
-    [commit],
+    [commit, selectedColumnRow],
   );
 
   const addRowToSectionHandler = useCallback(
@@ -585,14 +604,7 @@ export default function PageLayoutBuilder({
             />
 
             {selectedColumnId && !selectedBlock && (() => {
-              let selectedCol: import("@/lib/page-builder/types").ColumnData | undefined;
-              for (const block of blocks) {
-                if (block.type === "row") {
-                  const row = block as import("@/lib/page-builder/types").RowBlock;
-                  const found = row.props.columns.find((c) => c.id === selectedColumnId);
-                  if (found) { selectedCol = found; break; }
-                }
-              }
+              const selectedCol = columnById(blocks, selectedColumnId);
               if (!selectedCol) return null;
               return (
                 <ColumnEditor

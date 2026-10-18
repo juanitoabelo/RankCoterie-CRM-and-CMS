@@ -50,6 +50,13 @@ export async function saveGeneralSettings(formData: FormData): Promise<GeneralAc
       return Number.isFinite(n) && n >= 0 ? n : null;
     })(),
     pricesIncludeTax: bool("pricesIncludeTax"),
+    recaptchaEnabled: bool("recaptchaEnabled"),
+    recaptchaSiteKey: str("recaptchaSiteKey"),
+    recaptchaSecretKey: str("recaptchaSecretKey"),
+    recaptchaMinScore: (() => {
+      const n = Number(str("recaptchaMinScore"));
+      return Number.isFinite(n) && n >= 0 && n <= 1 ? n : DEFAULT_GENERAL_SETTINGS.recaptchaMinScore;
+    })(),
   };
 
   try {

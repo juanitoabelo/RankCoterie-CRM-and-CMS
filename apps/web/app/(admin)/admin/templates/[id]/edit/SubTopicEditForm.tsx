@@ -17,6 +17,7 @@ interface SubTopic {
   title: string;
   slug: string;
   body: string;
+  status?: string | null;
   author?: string | null;
   featuredImageAssetId?: string | null;
   displaySections?: unknown;
@@ -59,6 +60,7 @@ export default function SubTopicEditForm({
   );
   const [categoryId, setCategoryId] = useState(subtopic.categoryId ?? "");
   const [author, setAuthor] = useState(subtopic.author ?? "");
+  const [status, setStatus] = useState(subtopic.status ?? "DRAFT");
 
   // Parse displaySections from JSON
   const initialDisplay: boolean[] = (() => {
@@ -78,9 +80,7 @@ export default function SubTopicEditForm({
   );
   const [newSectionId, setNewSectionId] = useState("");
 
-  const previewUrl = subtopic.category?.slug
-    ? `/g/${subtopic.category.slug}`
-    : `/g/${subtopic.slug}`;
+  const previewUrl = `/${subtopic.slug}`;
 
   function onSubmit(formData: FormData) {
     const slug = title
@@ -93,6 +93,7 @@ export default function SubTopicEditForm({
     formData.set("author", author);
     formData.set("featuredImageAssetId", featuredImage);
     formData.set("displaySections", JSON.stringify(displaySections));
+    formData.set("status", status);
     setMessage(null);
     startTransition(async () => {
       const res = await updateSubTopic(subtopic.id, formData);
@@ -227,6 +228,22 @@ export default function SubTopicEditForm({
         {/* Topic Details */}
         <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-4">
           <h2 className="text-sm font-semibold text-zinc-900">Topic Details</h2>
+
+          {/* Status */}
+          <div>
+            <label className="block text-sm font-medium text-zinc-800">Status</label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="mt-2 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+            >
+              <option value="DRAFT">Draft</option>
+              <option value="LIVE">Live</option>
+            </select>
+            <p className="mt-1 text-xs text-zinc-400">
+              Only <span className="font-medium">Live</span> SubTopics render at /{subtopic.slug}.
+            </p>
+          </div>
 
           {/* Related Topic */}
           <div>

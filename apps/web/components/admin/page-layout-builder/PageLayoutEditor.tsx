@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import type { PageLayoutBlock } from "@/lib/page-layout/types";
-import type { ColumnData } from "@/lib/page-builder/types";
+import type { ColumnData, Block } from "@/lib/page-builder/types";
 import GlobalColorPicker from "../header-footer-builder/GlobalColorPicker";
 import BuilderImageUploader from "../header-footer-builder/BuilderImageUploader";
 import RichTextEditor from "../page-builder/RichTextEditor";
 import { SizeInput, SpacingInput } from "../page-builder/settings";
+import { SHARED_EDITORS } from "../page-builder/shared-blocks/editors";
 import type { SizeValue, SpacingValues } from "../page-builder/settings";
-import BlockStyleTab from "../page-builder/BlockStyleTab";
+import SchemaStyleTab from "../page-builder/SchemaStyleTab";
 import BlockAdvancedTab from "../page-builder/BlockAdvancedTab";
 import MediaLibraryPicker from "../page-builder/MediaLibraryPicker";
 import RowEditor from "../header-footer-builder/RowEditor";
@@ -67,7 +68,7 @@ function HeroEditor({ block, onChange, themeColors }: EditorProps) {
 
       {activeTab === "style" && (
         <div className="space-y-3">
-          <BlockStyleTab props={p as Record<string, unknown>} set={set} />
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
         </div>
       )}
 
@@ -107,7 +108,7 @@ function TextEditor({ block, onChange }: EditorProps) {
 
       {activeTab === "style" && (
         <div className="space-y-3">
-          <BlockStyleTab props={p as Record<string, unknown>} set={set} />
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
         </div>
       )}
 
@@ -156,7 +157,7 @@ function ImageEditor({ block, onChange }: EditorProps) {
 
       {activeTab === "style" && (
         <div className="space-y-3">
-          <BlockStyleTab props={p} set={set} />
+          <SchemaStyleTab blockType={block.type} p={p} set={set} />
         </div>
       )}
 
@@ -212,7 +213,7 @@ function ButtonEditor({ block, onChange, themeColors }: EditorProps) {
 
       {activeTab === "style" && (
         <div className="space-y-3">
-          <BlockStyleTab props={p as Record<string, unknown>} set={set} />
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
         </div>
       )}
 
@@ -266,7 +267,7 @@ function HeadingEditor({ block, onChange }: EditorProps) {
 
       {activeTab === "style" && (
         <div className="space-y-3">
-          <BlockStyleTab props={p} set={set} />
+          <SchemaStyleTab blockType={block.type} p={p} set={set} />
         </div>
       )}
 
@@ -306,7 +307,7 @@ function SpacerEditor({ block, onChange }: EditorProps) {
 
       {activeTab === "style" && (
         <div className="space-y-3">
-          <BlockStyleTab props={p as Record<string, unknown>} set={set} />
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
         </div>
       )}
 
@@ -344,7 +345,7 @@ function DividerEditor({ block, onChange }: EditorProps) {
 
       {activeTab === "style" && (
         <div className="space-y-3">
-          <BlockStyleTab props={p} set={set} />
+          <SchemaStyleTab blockType={block.type} p={p} set={set} />
         </div>
       )}
 
@@ -384,7 +385,7 @@ function EmbedEditor({ block, onChange }: EditorProps) {
 
       {activeTab === "style" && (
         <div className="space-y-3">
-          <BlockStyleTab props={p as Record<string, unknown>} set={set} />
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
         </div>
       )}
 
@@ -448,7 +449,7 @@ function FeaturesEditor({ block, onChange }: EditorProps) {
 
       {activeTab === "style" && (
         <div className="space-y-3">
-          <BlockStyleTab props={p as Record<string, unknown>} set={set} />
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
         </div>
       )}
 
@@ -504,7 +505,7 @@ function FaqEditor({ block, onChange }: EditorProps) {
 
       {activeTab === "style" && (
         <div className="space-y-3">
-          <BlockStyleTab props={p as Record<string, unknown>} set={set} />
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
         </div>
       )}
 
@@ -571,7 +572,7 @@ function TestimonialEditor({ block, onChange }: EditorProps) {
 
       {activeTab === "style" && (
         <div className="space-y-3">
-          <BlockStyleTab props={p as Record<string, unknown>} set={set} />
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
         </div>
       )}
 
@@ -621,7 +622,7 @@ function CtaEditor({ block, onChange, themeColors }: EditorProps) {
 
       {activeTab === "style" && (
         <div className="space-y-3">
-          <BlockStyleTab props={p as Record<string, unknown>} set={set} />
+          <SchemaStyleTab blockType={block.type} p={p as Record<string, unknown>} set={set} />
         </div>
       )}
 
@@ -649,7 +650,23 @@ const EDITOR_MAP: Record<string, React.ComponentType<EditorProps>> = {
   faq: FaqEditor,
   testimonial: TestimonialEditor,
   cta: CtaEditor,
+  ...Object.fromEntries(
+    Object.keys(SHARED_EDITORS).map((type) => [type, SharedLayoutEditorAdapter]),
+  ),
 };
+
+function SharedLayoutEditorAdapter({ block, onChange }: EditorProps) {
+  const Editor = SHARED_EDITORS[block.type];
+  if (!Editor) {
+    return <p className="text-xs text-zinc-400">No editor available for this block type.</p>;
+  }
+  return (
+    <Editor
+      block={block as unknown as Block}
+      onChange={onChange as unknown as (props: Block["props"]) => void}
+    />
+  );
+}
 
 /* ── Main Editor ──────────────────────────────────────────────────────── */
 

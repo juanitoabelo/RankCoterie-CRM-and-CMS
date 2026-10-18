@@ -57,6 +57,7 @@ import BuilderCanvas from "./BuilderCanvas";
 import BlockEditor from "./BlockEditor";
 import ColumnEditor from "./ColumnEditor";
 import BlockRenderer from "./BlockRenderer";
+import { SliderPreviewProvider } from "./ContentSliderFrontend";
 import VisualEditorCanvas from "@/components/admin/visual-editor/VisualEditorCanvas";
 import { BlockPreview } from "./BlockPreview";
 
@@ -782,7 +783,11 @@ export default function PageBuilder({
               {viewMode === "visual" ? (
                 <VisualEditorCanvas
                   blocks={blocks}
-                  renderLive={<BlockRenderer blocks={blocks} />}
+                  renderLive={
+                    <SliderPreviewProvider>
+                      <BlockRenderer blocks={blocks} />
+                    </SliderPreviewProvider>
+                  }
                   emptyHint="Drag blocks from the palette on the right to build your page"
                   selectedId={selectedId}
                   selectedColumnId={selectedColumnId}
@@ -828,40 +833,26 @@ export default function PageBuilder({
             />
 
             {selectedColumnId && selectedColumn && !selectedBlock && (
-              <div className="rounded-xl border border-zinc-200 bg-white p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                    Edit Column
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedColumnId(null)}
-                    className="text-xs text-zinc-400 hover:text-zinc-600"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <p className="mt-1 text-[11px] text-zinc-400">
+              <div className="space-y-2">
+                <p className="px-1 text-[11px] text-zinc-400">
                   New blocks added from the palette will drop into this column.
                 </p>
-                <div className="mt-3 space-y-3">
-                  <ColumnEditor
-                    column={selectedColumn}
-                    canRemove={
-                      !!selectedColumnRow &&
-                      isRowBlock(selectedColumnRow) &&
-                      selectedColumnRow.props.columns.length > 1
-                    }
-                    onChange={(patch) => updateColumn(selectedColumnId, patch)}
-                    onRemove={() => removeColumn(selectedColumnId)}
-                    onDuplicate={() => duplicateSelectedColumn(selectedColumnId)}
-                    canDuplicate={
-                      !!selectedColumnRow &&
-                      isRowBlock(selectedColumnRow) &&
-                      selectedColumnRow.props.columns.length < 6
-                    }
-                  />
-                </div>
+                <ColumnEditor
+                  column={selectedColumn}
+                  canRemove={
+                    !!selectedColumnRow &&
+                    isRowBlock(selectedColumnRow) &&
+                    selectedColumnRow.props.columns.length > 1
+                  }
+                  onChange={(patch) => updateColumn(selectedColumnId, patch)}
+                  onRemove={() => removeColumn(selectedColumnId)}
+                  onDuplicate={() => duplicateSelectedColumn(selectedColumnId)}
+                  canDuplicate={
+                    !!selectedColumnRow &&
+                    isRowBlock(selectedColumnRow) &&
+                    selectedColumnRow.props.columns.length < 6
+                  }
+                />
               </div>
             )}
 

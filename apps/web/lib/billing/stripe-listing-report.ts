@@ -8,7 +8,11 @@
  */
 import Stripe from "stripe";
 import { prisma, TENANT_ID } from "@/modules/shared";
-import { readListingPaymentConfig, readStripeConfig } from "@/lib/billing/checkout";
+import {
+  readCompanyListingPaymentConfig,
+  readListingPaymentConfig,
+  readStripeConfig,
+} from "@/lib/billing/checkout";
 import type { InvoiceLike } from "@/lib/billing/listing-revenue";
 
 const MAX_INVOICES = 1000;
@@ -55,6 +59,19 @@ export async function getListingStripe(): Promise<Stripe | null> {
   return envKey ? new Stripe(envKey) : null;
 }
 
+/**
+ * Stripe client for company-listing payments — company config first, then the
+ * regular listing-payment chain (listing config → gateway → env).
+ */
+export async function getCompanyListingStripe(): Promise<Stripe | null> {
+  const tenant = await prisma.tenant
+    .findUnique({ where: { id: TENANT_ID } })
+    .catch(() => null);
+  const companyCfg = readCompanyListingPaymentConfig(tenant?.theme ?? {});
+  if (companyCfg.secretKey) return new Stripe(companyCfg.secretKey);
+  return getListingStripe();
+}
+
 export type StripeInvoiceResult = {
   configured: boolean;
   error: string | null;
@@ -66,14 +83,17 @@ export type StripeInvoiceResult = {
  * Fetch invoices + refunds for the given listing subscription ids.
  * Never throws — returns `error` so the report can degrade gracefully.
  */
-export async function fetchListingInvoices(stripeSubIds: string[]): Promise<StripeInvoiceResult> {
+export async function fetchListingInvoices(
+  stripeSubIds: string[],
+  resolveStripe: () => Promise<Stripe | null> = getListingStripe,
+): Promise<StripeInvoiceResult> {
   const empty: StripeInvoiceResult = { configured: false, error: null, currency: "usd", invoices: [] };
   const idSet = new Set(stripeSubIds.filter((id): id is string => Boolean(id)));
   if (idSet.size === 0) return { ...empty, configured: true };
 
   let stripe: Stripe | null;
   try {
-    stripe = await getListingStripe();
+    stripe = await resolveStripe();
   } catch (e) {
     return { ...empty, error: e instanceof Error ? e.message : "Stripe unavailable." };
   }

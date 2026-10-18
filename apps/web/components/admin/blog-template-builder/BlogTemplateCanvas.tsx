@@ -27,18 +27,22 @@ function SortableBlock({
   onDuplicate,
   onAddRowToSection,
   renderBlock,
+  /** Parent column ID for "Select Column" button */
+  columnId,
 }: {
   block: Block;
   viewport: "desktop" | "tablet" | "mobile";
   selectedId: string | null;
   selectedColumnId: string | null;
   onSelect: (id: string | null) => void;
-  onSelectColumn: (columnId: string | null) => void;
+  onSelectColumn: (id: string | null) => void;
   onRemove: (id: string) => void;
   onDuplicate: (id: string) => void;
   onAddRowToSection: (sectionId: string) => void;
   /** Override the leaf live preview (e.g. geo category blocks render their own preview). */
   renderBlock?: (block: Block) => React.ReactNode;
+  /** Parent column ID for "Select Column" button */
+  columnId?: string;
 }) {
   const {
     attributes,
@@ -288,6 +292,19 @@ function SortableBlock({
             </span>
           )}
           <div className="ml-auto flex gap-1 opacity-0 group-hover:opacity-100">
+            {columnId && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectColumn(columnId);
+                }}
+                className="rounded px-1.5 py-0.5 text-[10px] text-blue-500 hover:bg-blue-100"
+                title="Select parent column for background/layout styling"
+              >
+                ⬛ Column
+              </button>
+            )}
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -385,6 +402,7 @@ function ColumnCell({
               onDuplicate={onDuplicate}
               onAddRowToSection={onAddRowToSection}
               renderBlock={renderBlock}
+              columnId={column.id}
             />
           ))}
         </div>

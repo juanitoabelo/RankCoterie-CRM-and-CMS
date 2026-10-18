@@ -2,7 +2,7 @@
 
 import { useDraggable } from "@dnd-kit/core";
 import { GEO_TEMPLATE_ROW_LAYOUTS } from "@/lib/geo-category-template/types";
-import { BLOCK_DEFINITIONS } from "@/lib/page-builder/types";
+import { BLOCK_DEFINITIONS, SHARED_BLOCK_TYPES } from "@/lib/page-builder/types";
 
 const PALETTE_PREFIX = "palette:";
 const LAYOUT_PREFIX = "layout:";
@@ -110,9 +110,9 @@ export default function GeoCategoryTemplatePalette({
           Content
         </h3>
         <div className="grid grid-cols-3 gap-1.5">
-          {BLOCK_DEFINITIONS.filter((d) =>
-            ["hero", "text", "image", "button", "heading", "list", "iconList", "spacer", "divider"].includes(d.type),
-          ).map((def) => (
+{BLOCK_DEFINITIONS.filter((d) =>
+      ["hero", "text", "image", "button", "heading", "list", "iconList", "spacer", "divider", "blogArticleSlider", "productSlider", "listingSlider", "companySlider", "geoCategorySlider", "sectionSlider", "topicSubTopicSlider", "imageSlider", "videoSlider"].includes(d.type),
+    ).map((def) => (
             <DraggableItem
               key={def.type}
               id={`${PALETTE_PREFIX}${def.type}`}
@@ -130,9 +130,9 @@ export default function GeoCategoryTemplatePalette({
           Media
         </h3>
         <div className="grid grid-cols-3 gap-1.5">
-          {BLOCK_DEFINITIONS.filter((d) =>
-            ["video", "embed", "slider", "googleMap"].includes(d.type),
-          ).map((def) => (
+{BLOCK_DEFINITIONS.filter((d) =>
+      ["video", "embed", "slider", "blogArticleSlider", "productSlider", "listingSlider", "companySlider", "geoCategorySlider", "sectionSlider", "topicSubTopicSlider", "imageSlider", "videoSlider", "googleMap"].includes(d.type),
+    ).map((def) => (
             <DraggableItem
               key={def.type}
               id={`${PALETTE_PREFIX}${def.type}`}
@@ -151,7 +151,7 @@ export default function GeoCategoryTemplatePalette({
         </h3>
         <div className="grid grid-cols-3 gap-1.5">
           {BLOCK_DEFINITIONS.filter((d) =>
-            ["cta", "features", "faq", "testimonial", "contentGrid", "productGrid"].includes(d.type),
+            ["cta", "features", "faq", "testimonial", "contentGrid", "productGrid", ...SHARED_BLOCK_TYPES].includes(d.type),
           ).map((def) => (
             <DraggableItem
               key={def.type}

@@ -14,7 +14,8 @@ export async function getListings(filter: ListingsFilter = {}): Promise<Paginate
   const { status = "ALL", page = 1, pageSize = DEFAULT_PAGE_SIZE } = filter;
   const skip = (page - 1) * pageSize;
   
-  const where = status === "ALL" ? {} : { status };
+  // Company landing pages are managed under /admin/company-listings — keep them out.
+  const where = { isLandingPage: false, ...(status === "ALL" ? {} : { status }) };
   
   const [listings, total] = await Promise.all([
     prisma.listing.findMany({

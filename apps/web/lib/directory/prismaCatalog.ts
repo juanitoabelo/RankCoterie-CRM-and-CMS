@@ -205,6 +205,7 @@ export const prismaCatalogRepo: CatalogRepo = {
     const rows = await prisma.listing.findMany({
       where: {
         tenantId: TENANT_ID,
+        isLandingPage: false, // company landing pages are not directory results
         categories: { some: { categoryId } },
         ...(regionId === "ALL" ? {} : { regions: { some: { regionId } } }),
       },
@@ -218,6 +219,7 @@ export const prismaCatalogRepo: CatalogRepo = {
     const rows = await prisma.listing.findMany({
       where: {
         tenantId: TENANT_ID,
+        isLandingPage: false, // company landing pages are not directory results
         categories: { some: { categoryId } },
       },
       include: {

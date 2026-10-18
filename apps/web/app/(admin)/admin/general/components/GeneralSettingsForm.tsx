@@ -60,6 +60,10 @@ export default function GeneralSettingsForm({ settings }: { settings: GeneralSet
     fd.set("shippingFlatRate", String(form.shippingFlatRate));
     fd.set("shippingFreeOver", form.shippingFreeOver === null ? "" : String(form.shippingFreeOver));
     fd.set("pricesIncludeTax", form.pricesIncludeTax ? "on" : "off");
+    fd.set("recaptchaEnabled", form.recaptchaEnabled ? "on" : "off");
+    fd.set("recaptchaSiteKey", form.recaptchaSiteKey);
+    fd.set("recaptchaSecretKey", form.recaptchaSecretKey);
+    fd.set("recaptchaMinScore", String(form.recaptchaMinScore));
 
     const result = await saveGeneralSettings(fd);
     setSaving(false);
@@ -389,7 +393,7 @@ export default function GeneralSettingsForm({ settings }: { settings: GeneralSet
       </div>
 
       {/* ── Shipping & Tax ─────────────────────────────────────────── */}
-      <div className="rounded-b-lg border border-zinc-200 bg-white px-6 py-5">
+      <div className="border-x border-b border-zinc-200 bg-white px-6 py-5">
         <h2 className="mb-1 text-base font-semibold text-zinc-900">Shipping &amp; Tax</h2>
         <p className="mb-4 text-sm text-zinc-500">
           Flat-rate shipping shown in the cart and applied at checkout. Coupons with free
@@ -453,6 +457,69 @@ export default function GeneralSettingsForm({ settings }: { settings: GeneralSet
           When enabled, the tax rate is extracted from the entered price instead of added on top
           (tax-inclusive pricing). Use this when your listed prices already contain VAT/sales tax.
         </p>
+      </div>
+
+      {/* ── Spam Protection (reCAPTCHA v3) ────────────────────────── */}
+      <div className="rounded-b-lg border-x border-b border-zinc-200 bg-white px-6 py-5">
+        <h2 className="mb-1 text-base font-semibold text-zinc-900">Spam Protection</h2>
+        <p className="mb-4 text-sm text-zinc-500">
+          Invisible Google reCAPTCHA v3 for public forms (contact/lead, apply, newsletter). Get keys
+          from the{" "}
+          <a
+            href="https://www.google.com/recaptcha/admin/create"
+            target="_blank"
+            rel="noreferrer"
+            className="text-zinc-700 underline"
+          >
+            reCAPTCHA admin console
+          </a>
+          .
+        </p>
+        <label className="flex items-center gap-2 text-sm text-zinc-700">
+          <input
+            type="checkbox"
+            checked={form.recaptchaEnabled}
+            onChange={(e) => set("recaptchaEnabled", e.target.checked)}
+            className="h-4 w-4 rounded border-zinc-400"
+          />
+          Enable reCAPTCHA v3 on public forms
+        </label>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className={labelCls}>Site key</label>
+            <input
+              type="text"
+              className={inputCls}
+              value={form.recaptchaSiteKey}
+              onChange={(e) => set("recaptchaSiteKey", e.target.value)}
+              placeholder="6Lc…"
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Secret key</label>
+            <input
+              type="password"
+              className={inputCls}
+              value={form.recaptchaSecretKey}
+              onChange={(e) => set("recaptchaSecretKey", e.target.value)}
+              placeholder="6Lc…"
+              autoComplete="off"
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Minimum score</label>
+            <input
+              type="number"
+              min="0"
+              max="1"
+              step="0.1"
+              className={inputCls}
+              value={form.recaptchaMinScore}
+              onChange={(e) => set("recaptchaMinScore", Number(e.target.value))}
+            />
+            <p className={hintCls}>0 = allow all, 1 = most strict. Google recommends 0.5.</p>
+          </div>
+        </div>
       </div>
 
       {/* ── Save ──────────────────────────────────────────────────── */}

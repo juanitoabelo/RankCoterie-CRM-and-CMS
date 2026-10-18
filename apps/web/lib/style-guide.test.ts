@@ -61,8 +61,8 @@ describe("renderGlobalStyleGuide", () => {
       fonts: { heading: "Poppins, sans-serif", body: "Lato, sans-serif" },
     };
     const css = renderGlobalStyleGuide(custom);
-    expect(css).toContain('--sg-accent: "#e11d48";');
-    expect(css).toContain('--sg-background: "#0f172a";');
+    expect(css).toContain('--sg-accent: #e11d48;');
+    expect(css).toContain('--sg-background: #0f172a;');
     expect(css).toContain("font-family: var(--sg-body-font, Arial, Helvetica, sans-serif)");
   });
 });

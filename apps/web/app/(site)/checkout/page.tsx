@@ -58,7 +58,7 @@ export default async function CheckoutPage() {
               <li key={item.id} className="flex items-center gap-3 py-3">
                 {item.imageAssetId ? (
                   <img
-                    src={`/api/assets/${item.imageAssetId}`}
+                    src={`/api/assets/${item.imageAssetId}/`}
                     alt=""
                     className="h-10 w-10 rounded border border-zinc-200 bg-zinc-50 object-cover"
                   />

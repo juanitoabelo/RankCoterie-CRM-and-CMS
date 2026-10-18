@@ -49,6 +49,7 @@ export default async function PaymentGatewayConfigPage() {
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Type</th>
+                <th className="px-4 py-3 font-medium">Purpose</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 text-right font-medium">Actions</th>
               </tr>
@@ -60,6 +61,21 @@ export default async function PaymentGatewayConfigPage() {
                   <td className="px-4 py-3">
                     <span className="rounded border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs text-zinc-700">
                       {gw.type}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`rounded px-2 py-0.5 text-xs font-medium ${
+                        gw.purpose === "CLIENT_BILLING"
+                          ? "bg-indigo-50 text-indigo-700"
+                          : gw.purpose === "ECOMMERCE"
+                            ? "bg-emerald-50 text-emerald-700"
+                            : gw.purpose === "LISTING"
+                              ? "bg-sky-50 text-sky-700"
+                              : "bg-zinc-100 text-zinc-600"
+                      }`}
+                    >
+                      {gw.purpose}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -90,7 +106,7 @@ export default async function PaymentGatewayConfigPage() {
               ))}
               {gateways.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-12 text-center text-sm text-zinc-500">
+                  <td colSpan={5} className="px-4 py-12 text-center text-sm text-zinc-500">
                     No payment gateways yet — add your first one on the right.
                   </td>
                 </tr>

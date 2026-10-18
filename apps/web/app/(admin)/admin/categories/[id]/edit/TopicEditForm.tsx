@@ -116,6 +116,7 @@ export default function TopicEditForm({
           </p>
         )}
         <input type="hidden" name="id" value={category.id} />
+        <input type="hidden" name="slug" value={category.slug} />
 
         {/* Topic Page URL */}
         <div className="rounded-xl border border-zinc-200 bg-white p-5">

@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/modules/auth";
 import { TENANT_ID } from "@/modules/shared";
 import { GATEWAY_FIELDS } from "@/components/admin/product/gatewayFields";
+import { isGatewayPurpose } from "@/lib/billing/gateways";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -34,9 +35,11 @@ export async function createPaymentGateway(formData: FormData): Promise<ActionRe
   const actor = await requireSection("products");
   const name = String(formData.get("name") ?? "").trim();
   const type = String(formData.get("type") ?? "STRIPE").trim();
+  const purposeRaw = String(formData.get("purpose") ?? "GENERAL").trim();
   const isEnabled = formData.get("isEnabled") === "on";
 
   if (!name) return { ok: false, error: "Name is required." };
+  if (!isGatewayPurpose(purposeRaw)) return { ok: false, error: `Unknown gateway purpose "${purposeRaw}".` };
 
   try {
     const slug = slugify(name);
@@ -51,11 +54,12 @@ export async function createPaymentGateway(formData: FormData): Promise<ActionRe
         name,
         slug,
         type: type as "STRIPE" | "PAYPAL" | "SQUARE" | "MANUAL",
+        purpose: purposeRaw,
         isEnabled,
         config: buildConfig(type, formData),
       },
     });
-    await logAudit({ action: "PAYMENT_GATEWAY_CREATE", entity: "PaymentGateway", entityId: slug, meta: { name, type }, actorId: actor.id });
+    await logAudit({ action: "PAYMENT_GATEWAY_CREATE", entity: "PaymentGateway", entityId: slug, meta: { name, type, purpose: purposeRaw }, actorId: actor.id });
     revalidatePath("/admin/products/payment-gateway");
     return { ok: true };
   } catch (e) {
@@ -67,9 +71,11 @@ export async function updatePaymentGateway(id: string, formData: FormData): Prom
   const actor = await requireSection("products");
   const name = String(formData.get("name") ?? "").trim();
   const type = String(formData.get("type") ?? "STRIPE").trim();
+  const purposeRaw = String(formData.get("purpose") ?? "GENERAL").trim();
   const isEnabled = formData.get("isEnabled") === "on";
 
   if (!name) return { ok: false, error: "Name is required." };
+  if (!isGatewayPurpose(purposeRaw)) return { ok: false, error: `Unknown gateway purpose "${purposeRaw}".` };
 
   try {
     const slug = slugify(name);
@@ -84,11 +90,12 @@ export async function updatePaymentGateway(id: string, formData: FormData): Prom
         name,
         slug,
         type: type as "STRIPE" | "PAYPAL" | "SQUARE" | "MANUAL",
+        purpose: purposeRaw,
         isEnabled,
         config: buildConfig(type, formData),
       },
     });
-    await logAudit({ action: "PAYMENT_GATEWAY_UPDATE", entity: "PaymentGateway", entityId: id, meta: { name, type }, actorId: actor.id });
+    await logAudit({ action: "PAYMENT_GATEWAY_UPDATE", entity: "PaymentGateway", entityId: id, meta: { name, type, purpose: purposeRaw }, actorId: actor.id });
     revalidatePath("/admin/products/payment-gateway");
     return { ok: true };
   } catch (e) {

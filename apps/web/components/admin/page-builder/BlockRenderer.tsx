@@ -1,12 +1,14 @@
 import React from "react";
-import { type Block, type RowBlock, type SectionBlock, type StyleBreakpoints, type IconListBlock, type VideoBlock } from "@/lib/page-builder/types";
+import { type Block, type RowBlock, type SectionBlock, type StyleBreakpoints, type IconListBlock, type VideoBlock, type ContentSliderBlock, type ContentSliderType } from "@/lib/page-builder/types";
 import {
   renderColumnSpanClass,
   resolveColumnWidths,
 } from "@/lib/page-builder/spans";
 import { renderStyleGuide, styleScopeClass, scopeDynamicStyle } from "@/lib/page-builder/style";
+import { elementStylesNode, renderElementStyles, type ElementStyles } from "@/lib/page-builder/element-style";
 import { renderLocalizedContent, type RegionContext } from "@/lib/localization/render";
 import SliderCarousel from "./SliderCarousel";
+import ContentSliderFrontend from "./ContentSliderFrontend";
 import ContentGridFrontend from "./ContentGridFrontend";
 import ProductGridFrontend from "./ProductGridFrontend";
 import BlogPostGridFrontend from "./BlogPostGridFrontend";
@@ -39,14 +41,18 @@ import {
   needsClientGate,
 } from "./renderHelpers";
 import { BlockAdvancedFrame, DisplayConditionGate } from "./advanced-ui";
+import { SHARED_RENDERERS } from "./shared-blocks/renderers";
 
 /** Wrap a block's markup so per-breakpoint style-guide CSS applies to it. */
 function styleScope(block: Block, inner: React.ReactNode): React.ReactNode {
-  const css = renderStyleGuide(block.id, (block.props as { style?: StyleBreakpoints }).style);
-  if (!css) return inner;
+  const props = block.props as { style?: StyleBreakpoints; elementStyles?: ElementStyles };
+  const css = renderStyleGuide(block.id, props.style);
+  const elementCss = renderElementStyles(block.id, props.elementStyles);
+  if (!css && !elementCss) return inner;
   return (
     <>
-      <style>{css}</style>
+      {css ? <style>{css}</style> : null}
+      {elementStylesNode(block.id, props.elementStyles)}
       <div className={styleScopeClass(block.id)}>{inner}</div>
     </>
   );
@@ -76,11 +82,11 @@ function HeroBlock({ block, ctx }: { block: Block & { type: "hero" }; ctx: Regio
         <section className={`px-6 py-12 text-center ${heroScoped.className}`.trim()}>
           {heroScoped.node}
           <div className="mx-auto max-w-4xl">
-            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
+            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl" data-lp-el="heading">
               {renderLocalizedContent(block.props.heading, ctx)}
             </h1>
             {block.props.subheading && (
-              <p className="mt-4 text-lg opacity-80">
+              <p className="mt-4 text-lg opacity-80" data-lp-el="subheading">
                 {renderLocalizedContent(block.props.subheading, ctx)}
               </p>
             )}
@@ -124,6 +130,7 @@ function TextBlock({ block, ctx }: { block: Block & { type: "text" }; ctx: Regio
                   .join(" ") || undefined
               }
               dangerouslySetInnerHTML={{ __html: renderLocalizedContent(p.content, ctx) }}
+              data-lp-el="content"
             />
           </>
         </section>,
@@ -175,34 +182,38 @@ function ImageBlock({ block }: { block: Block & { type: "image" } }) {
 
   return (
     <BlockAdvancedFrame block={block}>
-      <div className={containerScoped.className || undefined}>
-        {containerScoped.node}
-        <figure className={[alignmentClass, figureScoped.className].filter(Boolean).join(" ") || undefined}>
-          {figureScoped.node}
-          {p.src ? (
-            <>
-              {imgScoped.node}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={p.src}
-                alt={p.alt}
-                loading="lazy"
-                referrerPolicy="no-referrer"
-                className={`hover:opacity-75 ${imgScoped.className}`.trim()}
-              />
-            </>
-          ) : (
-            <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-zinc-300 text-sm text-zinc-400">
-              Image placeholder
-            </div>
-          )}
-          {p.caption && (
-            <figcaption className="mt-2 text-center text-sm text-zinc-500">
-              {p.caption}
-            </figcaption>
-          )}
-        </figure>
-      </div>
+      {styleScope(
+        block,
+        <div className={containerScoped.className || undefined}>
+          {containerScoped.node}
+          <figure className={[alignmentClass, figureScoped.className].filter(Boolean).join(" ") || undefined}>
+            {figureScoped.node}
+            {p.src ? (
+              <>
+                {imgScoped.node}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={p.src}
+                  alt={p.alt}
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  className={`hover:opacity-75 ${imgScoped.className}`.trim()}
+                  data-lp-el="image"
+                />
+              </>
+            ) : (
+              <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-zinc-300 text-sm text-zinc-400">
+                Image placeholder
+              </div>
+            )}
+            {p.caption && (
+              <figcaption className="mt-2 text-center text-sm text-zinc-500" data-lp-el="caption">
+                {p.caption}
+              </figcaption>
+            )}
+          </figure>
+        </div>,
+      )}
     </BlockAdvancedFrame>
   );
 }
@@ -217,19 +228,21 @@ function CtaBlock({ block, ctx }: { block: Block & { type: "cta" }; ctx: RegionC
           style={{ ...sectionPadding(block), backgroundColor: block.props.bgColor }}
         >
           <div className="mx-auto max-w-2xl">
-            <h2 className="text-3xl font-bold text-zinc-900">
+            <h2 className="text-3xl font-bold text-zinc-900" data-lp-el="heading">
               {renderLocalizedContent(block.props.heading, ctx)}
             </h2>
             {block.props.body && (
               <div
                 className="mt-3 text-zinc-600 rte-content"
                 dangerouslySetInnerHTML={{ __html: renderLocalizedContent(block.props.body, ctx) }}
+                data-lp-el="body"
               />
             )}
             {block.props.buttonText && (
               <a
                 href={block.props.buttonUrl}
                 className="mt-6 inline-block rounded-lg bg-zinc-900 px-6 py-3 text-sm font-medium text-white hover:bg-zinc-700"
+                data-lp-el="button"
               >
                 {renderLocalizedContent(block.props.buttonText, ctx)}
               </a>
@@ -256,13 +269,13 @@ function FeaturesBlock({ block, ctx }: { block: Block & { type: "features" }; ct
         <section className="px-6 py-8" style={sectionPadding(block)}>
           <div className="mx-auto max-w-5xl">
             {block.props.heading && (
-              <h2 className="text-center text-2xl font-bold text-zinc-900">
+              <h2 className="text-center text-2xl font-bold text-zinc-900" data-lp-el="heading">
                 {renderLocalizedContent(block.props.heading, ctx)}
               </h2>
             )}
             <div className={`mt-10 grid gap-8 ${cols}`}>
               {block.props.items.map((item, i) => (
-                <div key={i} className="text-center">
+                <div key={i} className="text-center" data-lp-el="item">
                   <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-xl text-zinc-700">
                     {item.icon}
                   </div>
@@ -307,6 +320,7 @@ function ButtonBlock({ block, ctx }: { block: Block & { type: "button" }; ctx: R
                   ? "border border-zinc-900 text-zinc-900 hover:bg-zinc-100"
                   : "bg-zinc-900 text-white hover:bg-zinc-700"
               }`}
+              data-lp-el="button"
             >
               {renderLocalizedContent(block.props.text, ctx)}
             </a>
@@ -320,12 +334,16 @@ function ButtonBlock({ block, ctx }: { block: Block & { type: "button" }; ctx: R
 function EmbedBlock({ block }: { block: Block & { type: "embed" } }) {
   return (
     <BlockAdvancedFrame block={block}>
-      <section className="px-6 py-3" style={sectionPadding(block)}>
-        <div
-          className="mx-auto max-w-6xl"
-          dangerouslySetInnerHTML={{ __html: block.props.html }}
-        />
-      </section>
+      {styleScope(
+        block,
+        <section className="px-6 py-3" style={sectionPadding(block)}>
+          <div
+            className="mx-auto max-w-6xl"
+            dangerouslySetInnerHTML={{ __html: block.props.html }}
+            data-lp-el="content"
+          />
+        </section>,
+      )}
     </BlockAdvancedFrame>
   );
 }
@@ -338,7 +356,7 @@ function FaqBlock({ block, ctx }: { block: Block & { type: "faq" }; ctx: RegionC
         <section className="px-6 py-8" style={sectionPadding(block)}>
           <div className="mx-auto max-w-3xl">
             {block.props.heading && (
-              <h2 className="text-center text-2xl font-bold text-zinc-900">
+              <h2 className="text-center text-2xl font-bold text-zinc-900" data-lp-el="heading">
                 {renderLocalizedContent(block.props.heading, ctx)}
               </h2>
             )}
@@ -347,6 +365,7 @@ function FaqBlock({ block, ctx }: { block: Block & { type: "faq" }; ctx: RegionC
                 <details
                   key={i}
                   className="group rounded-lg border border-zinc-200 bg-white open:shadow-sm"
+                  data-lp-el="item"
                 >
                   <summary className="flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-medium text-zinc-900">
                     {renderLocalizedContent(item.question, ctx)}
@@ -382,51 +401,52 @@ function TestimonialBlock({ block, ctx }: { block: Block & { type: "testimonial"
         : "grid-cols-1 sm:grid-cols-2";
 
   if (display === "slider") {
+    const perView = Math.max(1, Math.min(4, Number(block.props.itemsPerView) || 2));
+    const itemWidth = `${Math.floor(100 / perView)}%`;
     return (
       <BlockAdvancedFrame block={block}>
         {styleScope(
           block,
           <section className="px-6 py-6" style={sectionPadding(block)}>
             {block.props.heading && (
-              <h2 className="mb-8 text-center text-3xl font-bold text-zinc-900">
+              <h2 className="mb-8 text-center text-3xl font-bold text-zinc-900" data-lp-el="heading">
                 {renderLocalizedContent(block.props.heading, ctx)}
               </h2>
             )}
-            <div className="overflow-x-auto">
-              <div className="flex gap-6" style={{ minWidth: "min-content" }}>
-                {items.map((item: { quote: string; author: string; role: string; rating: number; avatar?: string }, i: number) => (
-                  <figure
-                    key={i}
-                    className="flex-shrink-0 rounded-2xl bg-zinc-50 px-8 py-10 text-center"
-                    style={{ width: `${100 / (block.props.itemsPerView ?? 2)}%`, minWidth: "300px" }}
-                  >
-                    {item.rating > 0 && (
-                      <div className="text-amber-400">
-                        {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
-                      </div>
-                    )}
-                    <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800">
-                      <div
-                        className="rte-content"
-                        dangerouslySetInnerHTML={{
-                          __html: renderLocalizedContent(item.quote, ctx),
-                        }}
+            <div className="flex snap-x snap-mandatory gap-6 overflow-x-auto pb-2">
+              {items.map((item: { quote: string; author: string; role: string; rating: number; avatar?: string }, i: number) => (
+                <figure
+                  key={i}
+                  className="shrink-0 snap-start rounded-2xl bg-zinc-50 px-8 py-10 text-center"
+                  style={{ width: itemWidth }}
+                  data-lp-el="item"
+                >
+                  {item.rating > 0 && (
+                    <div className="text-amber-400">
+                      {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
+                    </div>
+                  )}
+                  <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800" data-lp-el="quote">
+                    <div
+                      className="rte-content"
+                      dangerouslySetInnerHTML={{
+                        __html: renderLocalizedContent(item.quote, ctx),
+                      }}
+                    />
+                  </blockquote>
+                  <figcaption className="mt-4 text-sm text-zinc-500">
+                    {item.avatar && (
+                      <img
+                        src={item.avatar}
+                        alt={item.author}
+                        className="mx-auto mb-2 h-10 w-10 rounded-full object-cover"
                       />
-                    </blockquote>
-                    <figcaption className="mt-4 text-sm text-zinc-500">
-                      {item.avatar && (
-                        <img
-                          src={item.avatar}
-                          alt={item.author}
-                          className="mx-auto mb-2 h-10 w-10 rounded-full object-cover"
-                        />
-                      )}
-                      — {item.author}
-                      {item.role ? `, ${item.role}` : ""}
-                    </figcaption>
-                  </figure>
-                ))}
-              </div>
+                    )}
+                    — {item.author}
+                    {item.role ? `, ${item.role}` : ""}
+                  </figcaption>
+                </figure>
+              ))}
             </div>
           </section>,
         )}
@@ -440,19 +460,19 @@ function TestimonialBlock({ block, ctx }: { block: Block & { type: "testimonial"
         block,
         <section className="px-6 py-6" style={sectionPadding(block)}>
           {block.props.heading && (
-            <h2 className="mb-8 text-center text-3xl font-bold text-zinc-900">
+            <h2 className="mb-8 text-center text-3xl font-bold text-zinc-900" data-lp-el="heading">
               {renderLocalizedContent(block.props.heading, ctx)}
             </h2>
           )}
           <div className={`mx-auto grid max-w-6xl gap-6 ${colClass}`}>
             {items.map((item: { quote: string; author: string; role: string; rating: number; avatar?: string }, i: number) => (
-              <figure key={i} className="rounded-2xl bg-zinc-50 px-8 py-10 text-center">
+              <figure key={i} className="rounded-2xl bg-zinc-50 px-8 py-10 text-center" data-lp-el="item">
                 {item.rating > 0 && (
                   <div className="text-amber-400">
                     {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
                   </div>
                 )}
-                <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800">
+                <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800" data-lp-el="quote">
                   <div
                     className="rte-content"
                     dangerouslySetInnerHTML={{
@@ -483,7 +503,7 @@ function TestimonialBlock({ block, ctx }: { block: Block & { type: "testimonial"
 function SpacerBlock({ block }: { block: Block & { type: "spacer" } }) {
   return (
     <BlockAdvancedFrame block={block}>
-      <div style={{ height: block.props.height }} />
+      {styleScope(block, <div style={{ height: block.props.height }} />)}
     </BlockAdvancedFrame>
   );
 }
@@ -491,9 +511,12 @@ function SpacerBlock({ block }: { block: Block & { type: "spacer" } }) {
 function DividerBlock({ block }: { block: Block & { type: "divider" } }) {
   return (
     <BlockAdvancedFrame block={block}>
-      <div className="px-6 py-2" style={sectionPadding(block)}>
-        <hr className="mx-auto max-w-3xl border-zinc-200" />
-      </div>
+      {styleScope(
+        block,
+        <div className="px-6 py-2" style={sectionPadding(block)}>
+          <hr className="mx-auto max-w-3xl border-zinc-200" data-lp-el="rule" />
+        </div>,
+      )}
     </BlockAdvancedFrame>
   );
 }
@@ -577,6 +600,7 @@ function HeadingBlock({ block, ctx }: { block: Block & { type: "heading" }; ctx:
     <Tag
       className={`${HEADING_SIZES[p.level]} ${alignCls}`}
       style={headingStyle}
+      data-lp-el="content"
     >
       {renderLocalizedContent(p.text, ctx)}
     </Tag>
@@ -609,17 +633,17 @@ function ListBlock({ block, ctx }: { block: Block & { type: "list" }; ctx: Regio
         <section className="px-6 py-3" style={sectionPadding(block)}>
           <div className="mx-auto max-w-3xl text-zinc-700">
             {block.props.ordered ? (
-              <ol className="list-decimal space-y-1.5 pl-5 marker:font-medium marker:text-zinc-900">
+              <ol className="list-decimal space-y-1.5 pl-5 marker:font-medium marker:text-zinc-900" data-lp-el="list">
                 {items.map((item, i) => (
-                  <li key={i} className="leading-relaxed">
+                  <li key={i} className="leading-relaxed" data-lp-el="item">
                     {item}
                   </li>
                 ))}
               </ol>
             ) : (
-              <ul className="list-disc space-y-1.5 pl-5 marker:text-zinc-400">
+              <ul className="list-disc space-y-1.5 pl-5 marker:text-zinc-400" data-lp-el="list">
                 {items.map((item, i) => (
-                  <li key={i} className="leading-relaxed">
+                  <li key={i} className="leading-relaxed" data-lp-el="item">
                     {item}
                   </li>
                 ))}
@@ -646,6 +670,22 @@ function SliderBlock({ block }: { block: Block & { type: "slider" } }) {
               imageFit={block.props.imageFit ?? "cover"}
               captionLayout={block.props.captionLayout ?? "bottom"}
             />
+          </div>
+        </section>,
+      )}
+    </BlockAdvancedFrame>
+  );
+}
+
+function ContentSliderBlockView({ block, ctx }: { block: Block & { type: ContentSliderType }; ctx: RegionContext }) {
+  const p = block.props as ContentSliderBlock["props"];
+  return (
+    <BlockAdvancedFrame block={block}>
+      {styleScope(
+        block,
+        <section className="px-6 py-3" style={sectionPadding(block)}>
+          <div className="mx-auto max-w-6xl">
+            <ContentSliderFrontend props={p} ctx={ctx} />
           </div>
         </section>,
       )}
@@ -1048,7 +1088,9 @@ function IconListBlock({ block }: { block: Block; ctx: RegionContext }) {
 
   return (
     <BlockAdvancedFrame block={block}>
-      <ul style={listStyle}>
+      {styleScope(
+        block,
+        <ul style={listStyle}>
       {p.items.map((item, i) => {
         const iconStyle: React.CSSProperties = {
           color: p.iconColor || "#1e40af",
@@ -1058,7 +1100,7 @@ function IconListBlock({ block }: { block: Block; ctx: RegionContext }) {
         };
 
         const content = (
-          <li key={i} style={itemStyle}>
+          <li key={i} style={itemStyle} data-lp-el="item">
             {item.icon && <span style={iconStyle}>{item.icon}</span>}
             <span style={textStyle}>{item.text}</span>
           </li>
@@ -1078,6 +1120,7 @@ function IconListBlock({ block }: { block: Block; ctx: RegionContext }) {
               rel={relAttr}
               style={{ ...itemStyle, textDecoration: "none", color: "inherit" }}
               className="group"
+              data-lp-el="item"
             >
               {item.icon && <span style={iconStyle}>{item.icon}</span>}
               <span
@@ -1095,7 +1138,8 @@ function IconListBlock({ block }: { block: Block; ctx: RegionContext }) {
 
         return content;
       })}
-    </ul>
+        </ul>,
+      )}
     </BlockAdvancedFrame>
   );
 }
@@ -1133,16 +1177,20 @@ function GoogleMapBlock({ block }: { block: Block; ctx: RegionContext }) {
 
   return (
     <BlockAdvancedFrame block={block}>
-      <div style={containerStyle}>
-        <iframe
-          src={mapUrl}
-          style={iframeStyle}
-          allowFullScreen
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-          title={`Map: ${location}`}
-        />
-      </div>
+      {styleScope(
+        block,
+        <div style={containerStyle}>
+          <iframe
+            src={mapUrl}
+            style={iframeStyle}
+            allowFullScreen
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            title={`Map: ${location}`}
+            data-lp-el="frame"
+          />
+        </div>,
+      )}
     </BlockAdvancedFrame>
   );
 }
@@ -1240,7 +1288,9 @@ function VideoBlock({ block }: { block: Block; ctx: RegionContext }) {
 
   return (
     <BlockAdvancedFrame block={block}>
-      <div style={containerStyle}>
+      {styleScope(
+        block,
+        <div style={containerStyle}>
         {p.imageOverlay && p.overlayImage ? (
         <div className="relative h-full w-full">
           <img
@@ -1263,6 +1313,7 @@ function VideoBlock({ block }: { block: Block; ctx: RegionContext }) {
           allowFullScreen
           loading={p.lazyLoad ? "lazy" : "eager"}
           title="Video"
+          data-lp-el="frame"
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center bg-zinc-200">
@@ -1272,7 +1323,8 @@ function VideoBlock({ block }: { block: Block; ctx: RegionContext }) {
           </div>
         </div>
       )}
-      </div>
+        </div>,
+      )}
     </BlockAdvancedFrame>
   );
 }
@@ -1320,12 +1372,22 @@ const RENDERERS: Record<string, React.ComponentType<{ block: Block; ctx: RegionC
   googleMap: GoogleMapBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   video: VideoBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   slider: SliderBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  blogArticleSlider: ContentSliderBlockView as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  productSlider: ContentSliderBlockView as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  listingSlider: ContentSliderBlockView as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  companySlider: ContentSliderBlockView as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  geoCategorySlider: ContentSliderBlockView as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  sectionSlider: ContentSliderBlockView as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  topicSubTopicSlider: ContentSliderBlockView as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  imageSlider: ContentSliderBlockView as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  videoSlider: ContentSliderBlockView as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   contentGrid: ContentGridBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   productGrid: ProductGridBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   blogPostGrid: BlogPostGridBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   listingApplyForm: ListingApplyFormBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   row: RowBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   section: SectionBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  ...SHARED_RENDERERS,
 };
 
 function RenderBlocks({

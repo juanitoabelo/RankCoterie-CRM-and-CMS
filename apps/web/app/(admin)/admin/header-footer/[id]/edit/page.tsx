@@ -11,6 +11,7 @@ import {
 import { getThemeSettings } from "../../../theme-settings/actions";
 import { getMenus } from "@/modules/menus";
 import HeaderFooterBuilder from "@/components/admin/header-footer-builder/HeaderFooterBuilder";
+import { ThemeColorsProvider } from "@/components/admin/page-builder/ThemeColorsProvider";
 import { parseHeaderFooterData } from "@/modules/header-footer";
 
 export const revalidate = 0;
@@ -79,22 +80,24 @@ export default async function HeaderFooterEditPage({
         <span className="text-zinc-700">{template.name}</span>
       </p>
 
-      <HeaderFooterBuilder
-        templateId={template.id}
-        templateName={template.name}
-        templateType={template.type as "HEADER" | "FOOTER"}
-        initialBlocks={blocks}
-        initialContainerSettings={containerSettings}
-        isDefault={template.isDefault}
-        initialAssignments={assignments}
-        themeColors={themeColors}
-        menus={menus}
-        onSave={saveBlocks}
-        onListRevisions={loadRevisions}
-        onRestoreRevision={restore}
-        onSaveMeta={updateHeaderFooterMetaAction}
-        onSaveAssignments={saveAssignmentsAction}
-      />
+      <ThemeColorsProvider colors={themeColors}>
+        <HeaderFooterBuilder
+          templateId={template.id}
+          templateName={template.name}
+          templateType={template.type as "HEADER" | "FOOTER"}
+          initialBlocks={blocks}
+          initialContainerSettings={containerSettings}
+          isDefault={template.isDefault}
+          initialAssignments={assignments}
+          themeColors={themeColors}
+          menus={menus}
+          onSave={saveBlocks}
+          onListRevisions={loadRevisions}
+          onRestoreRevision={restore}
+          onSaveMeta={updateHeaderFooterMetaAction}
+          onSaveAssignments={saveAssignmentsAction}
+        />
+      </ThemeColorsProvider>
     </div>
   );
 }

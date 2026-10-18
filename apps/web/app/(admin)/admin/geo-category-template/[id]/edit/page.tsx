@@ -9,6 +9,7 @@ import {
 } from "../../actions";
 import { getThemeSettings } from "../../../theme-settings/actions";
 import GeoCategoryTemplateBuilder from "@/components/admin/geo-category-template-builder/GeoCategoryTemplateBuilder";
+import { ThemeColorsProvider } from "@/components/admin/page-builder/ThemeColorsProvider";
 import { parseGeoCategoryTemplateData } from "@/modules/geo-category-template";
 import { getCatalogRepo } from "@/lib/directory/catalog";
 import type { GeoPreviewData } from "@/lib/geo-category-template/geo-bindings";
@@ -90,20 +91,22 @@ export default async function GeoCategoryTemplateEditPage({
         <span className="text-zinc-700">{template.name}</span>
       </p>
 
-      <GeoCategoryTemplateBuilder
-        templateId={template.id}
-        templateName={template.name}
-        templateLayout={template.layout === "SIDEBAR" ? "SIDEBAR" : "FULLWIDTH"}
-        initialBlocks={blocks as unknown as Block[]}
-        initialContainerSettings={containerSettings}
-        isDefault={template.isDefault}
-        previewCategories={previewCategories}
-        themeColors={themeColors}
-        onSave={saveBlocks}
-        onListRevisions={loadRevisions}
-        onRestoreRevision={restore}
-        onSaveMeta={updateGeoCategoryTemplateMetaAction}
-      />
+      <ThemeColorsProvider colors={themeColors}>
+        <GeoCategoryTemplateBuilder
+          templateId={template.id}
+          templateName={template.name}
+          templateLayout={template.layout === "SIDEBAR" ? "SIDEBAR" : "FULLWIDTH"}
+          initialBlocks={blocks as unknown as Block[]}
+          initialContainerSettings={containerSettings}
+          isDefault={template.isDefault}
+          previewCategories={previewCategories}
+          themeColors={themeColors}
+          onSave={saveBlocks}
+          onListRevisions={loadRevisions}
+          onRestoreRevision={restore}
+          onSaveMeta={updateGeoCategoryTemplateMetaAction}
+        />
+      </ThemeColorsProvider>
     </div>
   );
 }

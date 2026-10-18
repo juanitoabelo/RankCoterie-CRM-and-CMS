@@ -16,6 +16,12 @@ const nextConfig: NextConfig = {
   // proxy 301s and the legacy /g/ URLs; links and sitemap emit trailing slashes).
   trailingSlash: true,
   serverExternalPackages: ["@prisma/client"],
+  // Seed/media assets include SVGs; the optimizer rejects them by default.
+  // The sandboxing CSP neutralizes any script inside served SVGs.
+  images: {
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+  },
   // Pre-existing type debt must not block production builds — CI enforces types
   // separately with `tsc --noEmit`. Revisit once the baseline errors are cleared.
   typescript: {

@@ -239,7 +239,7 @@ export default async function RegionPage({ params, searchParams }: Props) {
         <figure className="mt-4 max-w-3xl">
           <div className="relative aspect-[16/9] overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100">
             <Image
-              src={`/api/assets/${heroImage.imageAssetId}`}
+              src={`/api/assets/${heroImage.imageAssetId}/`}
               alt={heroImage.alt || heroImage.title || ""}
               title={heroImage.title || undefined}
               fill

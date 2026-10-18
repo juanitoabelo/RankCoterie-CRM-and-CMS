@@ -1,5 +1,8 @@
-import { prisma } from "@/modules/shared";
+import { prisma, TENANT_ID } from "@/modules/shared";
 import PageBuilder from "@/components/admin/page-builder/PageBuilder";
+import { ThemeColorsProvider } from "@/components/admin/page-builder/ThemeColorsProvider";
+import { DEFAULT_THEME_SETTINGS, type ThemeSettings } from "@/lib/theme-settings";
+import { paletteToThemeColors } from "@/lib/theme-colors";
 import PageMetaEditor from "./PageMetaEditor";
 import {
   listPageRevisions,
@@ -43,6 +46,16 @@ export default async function PageEditPage({
   }
 
   const blocks = page.data ? JSON.parse(page.data) : [];
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: TENANT_ID },
+    select: { theme: true },
+  });
+  const savedTheme = (tenant?.theme ?? {}) as { themeSettings?: Partial<ThemeSettings> };
+  const themeColors = paletteToThemeColors({
+    ...DEFAULT_THEME_SETTINGS.colors,
+    ...savedTheme.themeSettings?.colors,
+  });
 
   const saveBlocks = async (
     pageId: string,
@@ -97,15 +110,17 @@ export default async function PageEditPage({
 
       <div className="mt-6">
         <h2 className="mb-3 text-sm font-medium text-zinc-900">Page content</h2>
-        <PageBuilder
-          pageId={page.id}
-          initialBlocks={blocks}
-          initialStatus={page.status}
-          onSave={saveBlocks}
-          onSetStatus={setStatus}
-          onListRevisions={listRevisions}
-          onRestoreRevision={restore}
-        />
+        <ThemeColorsProvider colors={themeColors}>
+          <PageBuilder
+            pageId={page.id}
+            initialBlocks={blocks}
+            initialStatus={page.status}
+            onSave={saveBlocks}
+            onSetStatus={setStatus}
+            onListRevisions={listRevisions}
+            onRestoreRevision={restore}
+          />
+        </ThemeColorsProvider>
       </div>
     </div>
   );

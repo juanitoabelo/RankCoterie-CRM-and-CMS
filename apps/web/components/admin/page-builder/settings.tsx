@@ -7,6 +7,8 @@ import { FONT_FAMILY_PRESETS, STYLE_BREAKPOINTS } from "@/lib/page-builder/style
 import { useFontFamilyOptions } from "../CustomFontProvider";
 import MediaLibraryPicker from "./MediaLibraryPicker";
 import GlobalColorPicker from "../header-footer-builder/GlobalColorPicker";
+import { useThemeColors } from "./ThemeColorsProvider";
+import type { PaletteColor } from "@/lib/theme-colors";
 
 export const inputCls = "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm";
 export const labelCls = "block text-sm font-medium text-zinc-800";
@@ -321,44 +323,17 @@ export function BackgroundFields({
   onOverlayColor?: (value: string) => void;
   onOverlayOpacity?: (value: number) => void;
 }) {
+  const providerColors = useThemeColors();
+  const palette = themeColors ?? providerColors;
   return (
     <div className="space-y-3">
-      {themeColors ? (
-        <GlobalColorPicker
-          label={`${label} Color`}
-          value={color}
-          onChange={onColor}
-          allowClear
-          paletteOverride={themeColors}
-        />
-      ) : (
-        <div>
-          <label className={labelCls}>{label} color</label>
-          <div className="mt-1 flex items-center gap-2">
-            <input
-              type="color"
-              className="h-10 w-12 rounded-lg border border-zinc-300"
-              value={color || "#ffffff"}
-              onChange={(e) => onColor(e.target.value)}
-            />
-            <input
-              className={inputCls}
-              value={color ?? ""}
-              onChange={(e) => onColor(e.target.value)}
-              placeholder="No background color"
-            />
-          </div>
-          {color && (
-            <button
-              type="button"
-              onClick={() => onColor("")}
-              className="mt-1 text-[11px] text-zinc-400 underline underline-offset-2 hover:text-zinc-600"
-            >
-              Clear color
-            </button>
-          )}
-        </div>
-      )}
+      <GlobalColorPicker
+        label={`${label} Color`}
+        value={color}
+        onChange={onColor}
+        allowClear
+        paletteOverride={palette}
+      />
 
       <MediaLibraryPicker
         value={image || ""}
@@ -420,7 +395,7 @@ export function BackgroundFields({
               label="Color"
               value={overlayColor || "#000000"}
               onChange={onOverlayColor}
-              paletteOverride={themeColors}
+              paletteOverride={palette}
             />
             <div>
               <label className={labelCls}>Opacity</label>
@@ -449,12 +424,17 @@ export function BackgroundFields({
 export function StyleGuideEditor({
   style,
   onChange,
+  themeColors,
 }: {
   style?: StyleBreakpoints;
   onChange: (style: StyleBreakpoints) => void;
+  /** Optional global color palette override (defaults to the provider). */
+  themeColors?: PaletteColor[];
 }) {
   const current: StyleBreakpoints = style ?? {};
   const fontOptions = useFontFamilyOptions(FONT_FAMILY_PRESETS);
+  const providerColors = useThemeColors();
+  const palette = themeColors ?? providerColors;
 
   const setBreakpoint = (key: keyof StyleBreakpoints, patch: Partial<TypographyStyle>) => {
     const merged = { ...current[key], ...patch } as TypographyStyle;
@@ -498,6 +478,22 @@ export function StyleGuideEditor({
                   value={value.color ?? "#000000"}
                   onChange={(e) => setBreakpoint(bp.key, { color: e.target.value })}
                 />
+                {palette.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {palette.map((c) => (
+                      <button
+                        key={c.key}
+                        type="button"
+                        title={c.label}
+                        onClick={() => setBreakpoint(bp.key, { color: c.color })}
+                        className={`h-4 w-4 rounded-full border ${
+                          value.color === c.color ? "border-zinc-900 ring-1 ring-zinc-900" : "border-black/10"
+                        }`}
+                        style={{ backgroundColor: c.color }}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-[10px] text-zinc-500">Font</label>

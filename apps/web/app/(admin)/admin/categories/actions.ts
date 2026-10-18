@@ -86,16 +86,21 @@ export async function createCategoryForm(formData: FormData): Promise<void> {
 
 export async function updateCategory(id: string, formData: FormData): Promise<ActionResult> {
   const actor = await requireSection("topics");
+  const has = (key: string) => formData.get(key) !== null;
   const title = String(formData.get("title") ?? "").trim();
   const slug = String(formData.get("slug") ?? "").trim();
   const author = String(formData.get("author") ?? "").trim() || null;
   const description = String(formData.get("description") ?? "").trim() || null;
   const sectionsRaw = formData.get("sections");
+  const featuredImageAssetId = String(formData.get("featuredImageAssetId") ?? "").trim() || null;
 
   if (!title) return { ok: false, error: "Title is required." };
   if (!slug) return { ok: false, error: "Slug is required." };
 
   try {
+    const existing = await prisma.category.findFirst({ where: { id, tenantId: TENANT_ID } });
+    if (!existing) return { ok: false, error: "Topic not found." };
+
     const clash = await prisma.category.findFirst({
       where: { tenantId: TENANT_ID, slug, NOT: { id } },
     });
@@ -108,16 +113,47 @@ export async function updateCategory(id: string, formData: FormData): Promise<Ac
       } catch { /* ignore parse errors */ }
     }
 
+    // Only touch description when the form actually supplies it, so editing a
+    // topic from a form that omits the field can't wipe the page intro.
+    const nextDescription = has("description")
+      ? description
+        ? sanitizeHtml(description)
+        : null
+      : existing.description;
+
     await prisma.category.update({
       where: { id },
       data: {
         title,
         slug,
         author,
-        description: description ? sanitizeHtml(description) : null,
+        description: nextDescription,
         ...(sections !== undefined ? { sections } : {}),
       },
     });
+
+    // Persist the featured (PRIMARY) image when the form supplies one.
+    if (featuredImageAssetId) {
+      const existingImage = await prisma.categoryImage.findFirst({
+        where: { tenantId: TENANT_ID, categoryId: id, position: "PRIMARY" },
+      });
+      if (existingImage) {
+        await prisma.categoryImage.update({
+          where: { id: existingImage.id },
+          data: { imageAssetId: featuredImageAssetId },
+        });
+      } else {
+        await prisma.categoryImage.create({
+          data: {
+            tenantId: TENANT_ID,
+            categoryId: id,
+            imageAssetId: featuredImageAssetId,
+            position: "PRIMARY",
+            isPrimary: true,
+          },
+        });
+      }
+    }
 
     await logAudit({ action: "CATEGORY_UPDATE", entity: "Category", entityId: id, meta: { slug, title }, actorId: actor.id });
     revalidatePath("/admin/categories");

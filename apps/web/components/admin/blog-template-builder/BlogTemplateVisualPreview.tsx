@@ -5,6 +5,7 @@ import type { Block } from "@/lib/page-builder/types";
 import type { ContainerSettings } from "@/lib/blog-template/types";
 import type { ArticlePreviewData } from "@/lib/blog-template/article-bindings";
 import BlogTemplateRenderer from "./BlogTemplateRenderer";
+import { SliderPreviewProvider } from "../page-builder/ContentSliderFrontend";
 
 export default function BlogTemplateVisualPreview({
   blocks,
@@ -65,13 +66,15 @@ export default function BlogTemplateVisualPreview({
           </select>
         </div>
       )}
-      <BlogTemplateRenderer
-        blocks={blocks}
-        containerSettings={containerSettings}
-        templateType="single"
-        viewport={viewport}
-        article={article}
-      />
+      <SliderPreviewProvider>
+        <BlogTemplateRenderer
+          blocks={blocks}
+          containerSettings={containerSettings}
+          templateType="single"
+          viewport={viewport}
+          article={article}
+        />
+      </SliderPreviewProvider>
     </div>
   );
 }

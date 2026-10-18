@@ -1,9 +1,17 @@
 /**
- * Order lifecycle emails (confirmation, status change, refund).
- * All sends are best-effort: failures are logged, never thrown, so they can't
- * block checkout or admin actions.
+ * Order lifecycle emails (confirmation, paid, status change, refund) + listing
+ * dunning. Content comes from the editable templates (Admin → Client Email
+ * Settings) with the built-in defaults as fallback. The order item/total table
+ * stays dynamic (generated per order). All sends are best-effort: failures are
+ * logged, never thrown, so they can't block checkout or admin actions.
  */
+import type Stripe from "stripe";
 import { sendEmail } from "./send";
+import {
+  loadEmailTemplate,
+  renderTemplate,
+  type TemplateKey,
+} from "./templates";
 
 export type OrderEmailData = {
   orderNumber: string;
@@ -51,15 +59,26 @@ function siteUrl(): string {
   return (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 }
 
-function esc(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+function orderUrl(order: OrderEmailData): string {
+  return `${siteUrl()}/orders?order=${encodeURIComponent(order.orderNumber)}`;
 }
 
-function layout(title: string, bodyHtml: string): string {
+/** Placeholder values for the order template family. */
+function orderValues(order: OrderEmailData, extra: Record<string, string> = {}): Record<string, string> {
+  return {
+    "{order_number}": order.orderNumber,
+    "{status_label}": STATUS_LABELS[order.status] ?? order.status,
+    "{total}": order.total.toFixed(2),
+    "{payment_method}": order.paymentMethodTitle ?? "—",
+    "{order_link}": orderUrl(order),
+    ...extra,
+  };
+}
+
+function layout(bodyHtml: string): string {
   return `<!doctype html><html><body style="margin:0;background:#f4f4f5;font-family:system-ui,-apple-system,sans-serif;">
   <div style="max-width:560px;margin:0 auto;padding:32px 16px;">
     <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:28px;">
-      <h1 style="font-size:18px;margin:0 0 16px;color:#18181b;">${esc(title)}</h1>
       ${bodyHtml}
       <p style="color:#71717a;font-size:12px;margin-top:24px;">This is a transactional message from Canopy.</p>
     </div>
@@ -67,6 +86,8 @@ function layout(title: string, bodyHtml: string): string {
 }
 
 function orderRows(order: OrderEmailData): string {
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   return order.items
     .map(
       (item) =>
@@ -101,9 +122,23 @@ function totalsRows(order: OrderEmailData): string {
   return rows.join("");
 }
 
-async function send(order: OrderEmailData, subject: string, title: string, body: string): Promise<void> {
+function esc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/** Order email: templated message + dynamic items/totals table + status footer. */
+async function sendOrderEmail(
+  order: OrderEmailData,
+  key: TemplateKey,
+  extraValues: Record<string, string> = {},
+): Promise<void> {
   if (!order.email) return;
-  const html = layout(title, `${body}
+  const values = orderValues(order, extraValues);
+  const { subject, html: bodyHtml, text: bodyText } = renderTemplate(
+    await loadEmailTemplate(key),
+    values,
+  );
+  const html = layout(`${bodyHtml}
     <table style="width:100%;margin-top:16px;font-size:14px;border-collapse:collapse;">
       ${orderRows(order)}
       ${totalsRows(order)}
@@ -111,9 +146,9 @@ async function send(order: OrderEmailData, subject: string, title: string, body:
     <p style="font-size:14px;color:#3f3f46;margin-top:16px;">
       Order <strong>${esc(order.orderNumber)}</strong> — ${esc(STATUS_LABELS[order.status] ?? order.status)}
       · paid via ${esc(order.paymentMethodTitle ?? "—")} ·
-      <a href="${siteUrl()}/orders?order=${encodeURIComponent(order.orderNumber)}" style="color:#2563eb;">view order status</a>
+      <a href="${esc(orderUrl(order))}" style="color:#2563eb;">view order status</a>
     </p>`);
-  const text = `${title}\nOrder ${order.orderNumber} — ${STATUS_LABELS[order.status] ?? order.status}\nTotal $${order.total.toFixed(2)}\n${siteUrl()}/orders?order=${encodeURIComponent(order.orderNumber)}`;
+  const text = `${bodyText}\nOrder ${order.orderNumber} — ${STATUS_LABELS[order.status] ?? order.status}\nTotal $${order.total.toFixed(2)}\n${orderUrl(order)}`;
   const result = await sendEmail({ to: order.email, subject, html, text });
   if (!result.ok) console.warn(`[email] ${subject} → ${order.email} failed: ${result.error}`);
 }
@@ -121,13 +156,7 @@ async function send(order: OrderEmailData, subject: string, title: string, body:
 /** Sent when order is first created (PENDING) — confirmation with payment link. */
 export async function sendOrderConfirmationEmail(order: OrderEmailData): Promise<void> {
   try {
-    await send(
-      order,
-      `Order placed — order ${order.orderNumber}`,
-      "Thank you for your order!",
-      `<p style="font-size:14px;color:#3f3f46;">Your order <strong>${esc(order.orderNumber)}</strong> has been received and is awaiting payment.</p>
-<p style="font-size:14px;color:#3f3f46;">Please complete payment <a href="${siteUrl()}/orders?order=${encodeURIComponent(order.orderNumber)}">here</a> to confirm your order.</p>`,
-    );
+    await sendOrderEmail(order, "orderConfirmation");
   } catch (e) {
     console.warn("[email] order confirmation email failed:", e);
   }
@@ -136,12 +165,7 @@ export async function sendOrderConfirmationEmail(order: OrderEmailData): Promise
 /** Payment received / order confirmation. */
 export async function sendOrderPaidEmail(order: OrderEmailData): Promise<void> {
   try {
-    await send(
-      order,
-      `Payment received — order ${order.orderNumber}`,
-      "Thanks for your order!",
-      `<p style="font-size:14px;color:#3f3f46;">We've received your payment and your order is being prepared.</p>`,
-    );
+    await sendOrderEmail(order, "orderPaid");
   } catch (e) {
     console.warn("[email] order paid email failed:", e);
   }
@@ -150,13 +174,9 @@ export async function sendOrderPaidEmail(order: OrderEmailData): Promise<void> {
 /** Generic status-change email from the admin or webhooks. */
 export async function sendOrderStatusEmail(order: OrderEmailData, status: string): Promise<void> {
   try {
-    const label = STATUS_LABELS[status] ?? status;
-    await send(
-      order,
-      `Order ${order.orderNumber} — ${label}`,
-      `Order update: ${label}`,
-      `<p style="font-size:14px;color:#3f3f46;">The status of your order <strong>${esc(order.orderNumber)}</strong> is now <strong>${esc(label)}</strong>.</p>`,
-    );
+    await sendOrderEmail(order, "orderStatus", {
+      "{status_label}": STATUS_LABELS[status] ?? status,
+    });
   } catch (e) {
     console.warn("[email] order status email failed:", e);
   }
@@ -164,54 +184,32 @@ export async function sendOrderStatusEmail(order: OrderEmailData, status: string
 
 /** Refund confirmation (pass `amount` for a partial refund). */
 export async function sendOrderRefundEmail(order: OrderEmailData, amount?: number): Promise<void> {
-  const isPartial = amount !== undefined && amount + 0.01 < order.total;
-  const body = isPartial
-    ? `<p style="font-size:14px;color:#3f3f46;">A partial refund of <strong>$${(amount as number).toFixed(2)}</strong> of <strong>$${order.total.toFixed(2)}</strong> for order <strong>${esc(order.orderNumber)}</strong> has been issued to your original payment method.</p>`
-    : `<p style="font-size:14px;color:#3f3f46;">A full refund of <strong>$${order.total.toFixed(2)}</strong> for order <strong>${esc(order.orderNumber)}</strong> has been issued to your original payment method.</p>`;
+  const refundAmount = (amount ?? order.total).toFixed(2);
   try {
-    await send(
-      order,
-      `Refund processed — order ${order.orderNumber}`,
-      "Your refund has been processed",
-      body,
-    );
+    await sendOrderEmail(order, "orderRefund", { "{refund_amount}": refundAmount });
   } catch (e) {
     console.warn("[email] refund email failed:", e);
   }
 }
 
-/** Sent when a customer's payment fails — notification with retry reminder. */
+/** Sent when a customer's listing payment fails — retry reminder with grace warning. */
 export async function sendPaymentFailedEmail(
   invoice: Stripe.Invoice,
   subscription: Stripe.Subscription,
   listingId: string,
 ): Promise<void> {
-  // Use Stripe's billing email if available, otherwise skip
-  const email = invoice.billing_email ?? null;
+  // Use Stripe's customer billing email if available, otherwise skip
+  const email = invoice.customer_email ?? null;
   if (!email) return;
 
   const DUNNING_GRACE_DAYS = 7;
-  const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
-
   const graceDays = Math.ceil(DUNNING_GRACE_DAYS / 7);
-  const html = `<!doctype html><html><body style="margin:0;background:#f4f4f5;font-family:system-ui,-apple-system,sans-serif;">
-  <div style="max-width:560px;margin:0 auto;padding:32px 16px;">
-    <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:28px;">
-      <h1 style="font-size:18px;margin:0 0 16px;color:#18181b;">Payment Failed — Action Required</h1>
-      <p style="font-size:14px;color:#3f3f46;">
-        Unfortunately, the payment for your listing <strong>${listingId}</strong> failed.
-      </p>
-      <p style="font-size:14px;color:#3f3f46;">
-        Your listing is currently suspended and will be <strong>expired</strong> <span style="font-variant-numeric:lining-nums;">${graceDays}</span> day(s) from now if payment is not recovered.
-      </p>
-      <p style="font-size:14px;color:#3f3f46;">
-        <a href="${siteUrl}/checkout?listing=${listingId}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6;text-decoration:none;font-size:14px;display:inline-block;">Retry Payment</a>
-      </p>
-      <p style="font-size:12px;color:#71717a;font-size:12px;margin-top:24px;">This is a transactional message from Canopy.</p>
-    </div></body></html>`;
-
-  const text = `Payment failed for listing ${listingId}. Your listing is suspended and will expire in ${graceDays} day(s). Retry payment at ${siteUrl}/checkout?listing=${listingId}`;
-
-  const result = await sendEmail({ to: email, subject: `Payment failed — listing ${listingId}`, html, text });
+  const values = {
+    "{listing_id}": listingId,
+    "{retry_link}": `${siteUrl()}/checkout?listing=${listingId}`,
+    "{grace_days}": String(graceDays),
+  };
+  const { subject, html, text } = renderTemplate(await loadEmailTemplate("paymentFailed"), values);
+  const result = await sendEmail({ to: email, subject, html, text });
   if (!result.ok) console.warn(`[email] payment failed email → ${email} failed: ${result.error}`);
 }

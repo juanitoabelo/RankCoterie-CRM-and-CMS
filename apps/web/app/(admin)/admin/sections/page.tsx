@@ -79,14 +79,18 @@ export default async function SectionsAdminPage({
                 </td>
                 <td className="px-4 py-3 font-medium text-zinc-900">{s.title}</td>
                 <td className="px-4 py-3">
-                  <a
-                    href={`/feed/${s.slug}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline"
-                  >
-                    View page
-                  </a>
+                  {s.category ? (
+                    <a
+                      href={`/g/${s.category.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline"
+                    >
+                      View page
+                    </a>
+                  ) : (
+                    <span className="text-zinc-400">—</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-right font-mono text-xs text-zinc-500">
                   {s.id.slice(0, 8)}

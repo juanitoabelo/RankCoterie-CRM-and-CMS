@@ -12,6 +12,7 @@ import { resolvePageLayout, parsePageLayoutData } from "@/modules/page-layout";
 import type { PageLayoutBlock } from "@/lib/page-layout/types";
 import PageLayoutRenderer from "@/components/admin/page-layout-builder/PageLayoutRenderer";
 import CartIcon from "@/components/storefront/CartIcon";
+import RecaptchaProvider from "@/components/site/RecaptchaProvider";
 
 // Cache for layout data (tenant, menu, company) - avoids repeated DB hits
 interface LayoutCache {
@@ -168,6 +169,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
     styleGuide?: Partial<StyleGuide>;
     themeSettings?: Partial<ThemeSettings>;
     readingSettings?: { searchEngineVisibility?: string };
+    generalSettings?: { recaptchaEnabled?: boolean; recaptchaSiteKey?: string };
   };
   const guide: StyleGuide = { ...DEFAULT_STYLE_GUIDE, ...theme.styleGuide };
   const themeSettings: ThemeSettings = {
@@ -201,6 +203,10 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   const gtm = company?.gtm;
   const fbPixel = company?.fbPixel;
   const gscVerificationTag = company?.gscVerificationTag;
+  const recaptchaSiteKey =
+    theme.generalSettings?.recaptchaEnabled && theme.generalSettings?.recaptchaSiteKey
+      ? theme.generalSettings.recaptchaSiteKey
+      : "";
 
   return (
     <div className="min-h-full flex flex-col">
@@ -307,6 +313,9 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           }}
         />
       )}
+
+      {/* ── reCAPTCHA v3 ──────────────────────────────────────────── */}
+      {recaptchaSiteKey && <RecaptchaProvider siteKey={recaptchaSiteKey} />}
 
       {/* ── Main Content ──────────────────────────────────────────── */}
       <main className="flex-1">

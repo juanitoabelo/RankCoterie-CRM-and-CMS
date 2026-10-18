@@ -1,4 +1,4 @@
-import { type Block } from "./types";
+import { STATIC_SLIDER_TYPES, type Block } from "./types";
 
 /** Strip HTML tags from a string (used when converting between block types). */
 export function stripHtml(value: string): string {
@@ -107,6 +107,33 @@ export function validateBlock(block: Block): string[] {
       });
       break;
     }
+    case "blogArticleSlider":
+    case "productSlider":
+    case "listingSlider":
+    case "companySlider":
+    case "geoCategorySlider":
+    case "sectionSlider":
+    case "topicSubTopicSlider":
+    case "imageSlider":
+    case "videoSlider": {
+      const perView = block.props.itemsPerView ?? 3;
+      if (!(perView >= 1 && perView <= 8)) {
+        errors.push("Slides per view must be between 1 and 8.");
+      }
+      if (STATIC_SLIDER_TYPES.includes(block.type)) {
+        const withSrc = block.props.slides.filter((s) => s.src.trim());
+        if (withSrc.length === 0) {
+          errors.push(block.type === "videoSlider" ? "Add at least one video." : "Add at least one image.");
+        }
+        block.props.slides.forEach((s, i) => {
+          if (s.src.trim() && block.type === "imageSlider" && !s.alt?.trim()) {
+            errors.push(`Slide ${i + 1} is missing alt text (SEO).`);
+          }
+          if (s.url?.trim() && !isValidUrl(s.url)) errors.push(`Slide ${i + 1} link is invalid.`);
+        });
+      }
+      break;
+    }
     case "contentGrid":
       if (block.props.heading.trim() && block.props.source !== "articles" && block.props.source !== "feeds") {
         errors.push("Choose a content source.");
@@ -159,6 +186,43 @@ export function validateBlock(block: Block): string[] {
       if (block.props.showHeading && !block.props.heading.trim()) {
         errors.push("Heading is required when the heading is shown.");
       }
+      break;
+    case "pricing":
+      if (block.props.plans.length === 0) errors.push("Add at least one pricing plan.");
+      break;
+    case "stats":
+      if (block.props.items.length === 0) errors.push("Add at least one stat.");
+      break;
+    case "tabs":
+      if (block.props.items.length === 0) errors.push("Add at least one tab.");
+      break;
+    case "gallery":
+      if (block.props.images.length === 0) errors.push("Add at least one image.");
+      break;
+    case "steps":
+      if (block.props.items.length === 0) errors.push("Add at least one step.");
+      break;
+    case "socialLinks":
+      if (block.props.items.length === 0) errors.push("Add at least one social link.");
+      break;
+    case "reviews":
+      if (block.props.items.length === 0) errors.push("Add at least one review.");
+      break;
+    case "relatedListings":
+      if (block.props.items.length === 0) errors.push("Add at least one listing.");
+      break;
+    case "businessInfo":
+      if (!block.props.name.trim()) errors.push("Business name is required.");
+      break;
+    case "facetBar":
+      if (block.props.groups.length === 0) errors.push("Add at least one filter group.");
+      break;
+    case "comparisonTable":
+      if (block.props.columns.length === 0) errors.push("Add at least one column.");
+      if (block.props.rows.length === 0) errors.push("Add at least one feature row.");
+      break;
+    case "team":
+      if (block.props.members.length === 0) errors.push("Add at least one team member.");
       break;
     case "divider":
     case "spacer":

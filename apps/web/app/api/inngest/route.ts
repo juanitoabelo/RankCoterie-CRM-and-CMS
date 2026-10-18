@@ -3,9 +3,10 @@ import { inngest } from "jobs";
 import { variantPublishJob } from "jobs/variantPublish";
 import { feedSyncAllJob, feedSyncOneJob } from "jobs/feedSync";
 import { dunningJob } from "jobs/dunning";
+import { invoiceRebillingJob } from "jobs/invoiceRebilling";
 import { abandonedOrdersJob } from "jobs/abandonedOrders";
 
 export const { GET, POST } = serve({
   client: inngest,
-  functions: [variantPublishJob, feedSyncAllJob, feedSyncOneJob, dunningJob, abandonedOrdersJob],
+  functions: [variantPublishJob, feedSyncAllJob, feedSyncOneJob, dunningJob, invoiceRebillingJob, abandonedOrdersJob],
 });

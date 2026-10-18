@@ -13,8 +13,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const listing = await prisma.listing.findUnique({
-      where: { slug },
+    const listing = await prisma.listing.findFirst({
+      where: { slug, isLandingPage: false },
       select: {
         id: true,
         slug: true,
