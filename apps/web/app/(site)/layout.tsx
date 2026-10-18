@@ -198,6 +198,9 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   const footerMenu = layoutData.footerMenu;
   const useHeaderBuilder = layoutData.headerBlocks.length > 0;
   const useFooterBuilder = layoutData.footerBlocks.length > 0;
+  // Only headers may be pinned to the top; footers are always static.
+  const headerSticky =
+    useHeaderBuilder && layoutData.headerContainerSettings.sticky === "top";
 
   const ga4 = company?.ga4;
   const gtm = company?.gtm;
@@ -212,7 +215,10 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
     <div className="min-h-full flex flex-col">
 
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <header className={useHeaderBuilder ? "" : "border-b border-zinc-200 bg-white"}>
+      <header
+        className={useHeaderBuilder ? "" : "border-b border-zinc-200 bg-white"}
+        style={headerSticky ? { position: "sticky", top: 0, zIndex: 40 } : undefined}
+      >
         {useHeaderBuilder ? (
           <div className="relative">
             <HeaderFooterRenderer

@@ -629,6 +629,7 @@ export default function HeaderFooterBuilder({
                 settings={containerSettings}
                 onChange={setContainerSettings}
                 themeColors={themeColors}
+                kind={templateType}
               />
             )}
 

@@ -1763,13 +1763,22 @@ export default function HeaderFooterRenderer({
 }) {
   const containerMargin = spacingToCssParts(containerSettings.margin);
   const containerPad = spacingToCssParts(containerSettings.padding);
+  const isSticky = Boolean(containerSettings.sticky && containerSettings.sticky !== "none");
   const outerStyle: React.CSSProperties = {
     width: "100%",
-    backgroundColor: containerSettings.bgColor,
-    backgroundImage: containerSettings.bgImage ? `url(${containerSettings.bgImage})` : undefined,
-    backgroundPosition: containerSettings.bgImage ? (containerSettings.bgPosition || "center center") : undefined,
-    backgroundSize: containerSettings.bgImage ? (containerSettings.bgSize || "cover") : undefined,
-    backgroundRepeat: containerSettings.bgImage ? (containerSettings.bgRepeat || "no-repeat") : undefined,
+    // Supports solid, image and gradient backgrounds (presets rely on gradients).
+    ...getBackgroundStyle({
+      bgType: containerSettings.bgType,
+      bgColor: containerSettings.bgColor,
+      bgImage: containerSettings.bgImage,
+      bgSize: containerSettings.bgSize,
+      bgPosition: containerSettings.bgPosition,
+      bgRepeat: containerSettings.bgRepeat,
+      bgGradientStart: containerSettings.bgGradientStart,
+      bgGradientEnd: containerSettings.bgGradientEnd,
+      bgGradientAngle: containerSettings.bgGradientAngle,
+    }),
+    color: containerSettings.textColor,
     borderStyle: containerSettings.borderStyle,
     borderWidth: containerSettings.borderWidth,
     borderColor: containerSettings.borderColor,
@@ -1783,7 +1792,18 @@ export default function HeaderFooterRenderer({
     paddingBottom: containerPad.bottom,
     paddingLeft: containerPad.left,
     position: "relative",
-    overflow: "hidden",
+    // Respect the configured overflow; default to hidden for the legacy look.
+    // A pinned (sticky) container must not clip its own descendants, so force
+    // visible when sticky is requested.
+    overflow: isSticky
+      ? "visible"
+      : containerSettings.overflow && containerSettings.overflow !== "default"
+        ? containerSettings.overflow
+        : "hidden",
+    ...getStickyStyle(containerSettings.sticky),
+    // Keep the pinned container just above page content but below in-header
+    // overlays (e.g. cart / wishlist chips) that live in sibling wrappers.
+    ...(isSticky ? { zIndex: containerSettings.zindex || 10 } : {}),
   };
 
   const innerStyle: React.CSSProperties = {

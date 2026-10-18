@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/modules/auth";
+import { getPresetById, serializePreset } from "@/lib/header-footer/presets";
 import {
   listHeaderFooters as listQuery,
   getHeaderFooter as getQuery,
@@ -41,10 +42,11 @@ export async function getHeaderFooter(id: string) {
 export async function createHeaderFooterAction(
   name: string,
   type: string,
+  data?: string,
 ): Promise<ActionResult & { id?: string }> {
   const actor = await requireSection("headerFooter");
   try {
-    const template = await createQuery(name, type);
+    const template = await createQuery(name, type, data);
     await logAudit({
       action: "HEADER_FOOTER_CREATE",
       entity: "HeaderFooter",
@@ -60,6 +62,26 @@ export async function createHeaderFooterAction(
       error: e instanceof Error ? e.message : "Failed to create template.",
     };
   }
+}
+
+/* ── CREATE FROM PRESET ───────────────────────────────────────────────── */
+
+/**
+ * Seed a brand-new template from one of the built-in starter presets and
+ * return its id so the client can jump straight into the builder.
+ */
+export async function createHeaderFooterFromPresetAction(
+  presetId: string,
+): Promise<ActionResult & { id?: string }> {
+  const preset = getPresetById(presetId);
+  if (!preset) {
+    return { ok: false, error: "Starter template not found." };
+  }
+  return createHeaderFooterAction(
+    preset.name,
+    preset.type,
+    serializePreset(preset),
+  );
 }
 
 /* ── UPDATE DATA (autosave) ──────────────────────────────────────────── */

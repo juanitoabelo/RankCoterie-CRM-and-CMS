@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listHeaderFooters } from "./actions";
 import CreateHeaderFooterButton from "./components/CreateHeaderFooterButton";
+import StarterTemplates from "./components/StarterTemplates";
 import { SetDefaultForm, DeleteForm } from "./components/TemplateActions";
 
 export const revalidate = 0;
@@ -27,6 +28,18 @@ export default async function HeaderFooterListPage() {
         Design custom headers and footers using the drag-and-drop builder.
         Assign templates globally, per page type, or to individual pages.
       </p>
+
+      {/* ── STARTER TEMPLATES ────────────────────────────────────── */}
+      <section className="mt-8">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500">
+          Starter Templates
+        </h2>
+        <p className="mt-1 max-w-2xl text-xs text-zinc-500">
+          Five ready-made headers (some pin to the top) and five futuristic
+          footers. Pick one to clone it into an editable template.
+        </p>
+        <StarterTemplates />
+      </section>
 
       {/* ── HEADERS ──────────────────────────────────────────────── */}
       <section className="mt-8">

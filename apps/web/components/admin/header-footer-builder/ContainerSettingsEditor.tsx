@@ -12,6 +12,8 @@ type Props = {
   settings: ContainerSettings;
   onChange: (settings: ContainerSettings) => void;
   themeColors?: Array<{ key: string; label: string; color: string }>;
+  /** Header/footer kind — fixed positioning is only offered for headers. */
+  kind?: "HEADER" | "FOOTER";
 };
 
 const inputCls = "w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm";
@@ -417,7 +419,7 @@ const ENTRANCE_ANIMATIONS = [
   "zoomIn", "zoomInUp", "bounceIn", "slideInUp", "slideInDown",
 ];
 
-function AdvancedTab({ settings, onChange }: Props) {
+function AdvancedTab({ settings, onChange, kind }: Props) {
   const [marginLinked, setMarginLinked] = useState(true);
   const [paddingLinked, setPaddingLinked] = useState(true);
   const [openSection, setOpenSection] = useState<string | null>("advanced");
@@ -472,14 +474,27 @@ function AdvancedTab({ settings, onChange }: Props) {
             </button>
           </div>
 
-          <div>
-            <span className={labelCls}>Sticky</span>
-            <select value={settings.sticky ?? "none"} onChange={(e) => onChange({ ...settings, sticky: e.target.value as "none" | "top" | "bottom" })} className={inputCls}>
-              <option value="none">None</option>
-              <option value="top">Top</option>
-              <option value="bottom">Bottom</option>
-            </select>
-          </div>
+          {/* Fixed positioning is a header-only capability. */}
+          {kind === "HEADER" && (
+            <div className="flex items-center justify-between">
+              <div className="pr-3">
+                <span className={labelCls}>Fixed Header</span>
+                <p className="mt-0.5 text-[10px] leading-snug text-zinc-400">
+                  Pin this header to the top of the viewport while scrolling.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => onChange({ ...settings, sticky: settings.sticky === "top" ? "none" : "top" })}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${settings.sticky === "top" ? "bg-zinc-900" : "bg-zinc-300"}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.sticky === "top" ? "translate-x-6" : "translate-x-1"}`} />
+                <span className={`absolute text-[9px] font-medium ${settings.sticky === "top" ? "right-1 text-white" : "left-1.5 text-zinc-600"}`}>
+                  {settings.sticky === "top" ? "On" : "Off"}
+                </span>
+              </button>
+            </div>
+          )}
 
           <div>
             <div className="flex items-center justify-between">
@@ -585,7 +600,7 @@ function AdvancedTab({ settings, onChange }: Props) {
 
 type Tab = "layout" | "style" | "advanced";
 
-export default function ContainerSettingsEditor({ settings, onChange, themeColors }: Props) {
+export default function ContainerSettingsEditor({ settings, onChange, themeColors, kind }: Props) {
   const [tab, setTab] = useState<Tab>("layout");
 
   const tabs: Array<{ id: Tab; label: string }> = [
@@ -621,9 +636,9 @@ export default function ContainerSettingsEditor({ settings, onChange, themeColor
 
       {/* Tab Content */}
       <div className="p-4">
-        {tab === "layout" && <LayoutTab settings={settings} onChange={onChange} themeColors={themeColors} />}
-        {tab === "style" && <StyleTab settings={settings} onChange={onChange} themeColors={themeColors} />}
-        {tab === "advanced" && <AdvancedTab settings={settings} onChange={onChange} />}
+        {tab === "layout" && <LayoutTab settings={settings} onChange={onChange} themeColors={themeColors} kind={kind} />}
+        {tab === "style" && <StyleTab settings={settings} onChange={onChange} themeColors={themeColors} kind={kind} />}
+        {tab === "advanced" && <AdvancedTab settings={settings} onChange={onChange} kind={kind} />}
       </div>
     </div>
   );

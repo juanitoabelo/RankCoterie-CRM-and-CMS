@@ -80,7 +80,29 @@ export async function getHeaderFooter(id: string): Promise<HeaderFooterRow | nul
   return prisma.headerFooter.findUnique({ where: { id } }) as Promise<HeaderFooterRow | null>;
 }
 
-/** Create a new header/footer template. */
+/**
+ * Resolve a tenant-unique template name. `HeaderFooter` is uniquely keyed on
+ * `(tenantId, name)`, so cloning a preset (or reusing a name) would otherwise
+ * throw a unique-constraint error. Appends " (2)", " (3)", … as needed.
+ */
+async function resolveUniqueName(base: string): Promise<string> {
+  const trimmed = base.trim() || "Untitled";
+  let candidate = trimmed;
+  let suffix = 2;
+  // Bounded loop; the suffix space is effectively unlimited in practice.
+  while (
+    await prisma.headerFooter.findFirst({
+      where: { tenantId: TENANT_ID, name: candidate },
+      select: { id: true },
+    })
+  ) {
+    candidate = `${trimmed} (${suffix})`;
+    suffix += 1;
+  }
+  return candidate;
+}
+
+/** Create a new header/footer template with an auto-uniquified name. */
 export async function createHeaderFooter(
   name: string,
   type: string,
@@ -89,7 +111,7 @@ export async function createHeaderFooter(
   return prisma.headerFooter.create({
     data: {
       tenantId: TENANT_ID,
-      name,
+      name: await resolveUniqueName(name),
       type,
       data: data ?? "[]",
     },
