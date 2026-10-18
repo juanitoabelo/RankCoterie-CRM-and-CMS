@@ -506,47 +506,39 @@ function TestimonialRenderer({ block }: { block: Block }) {
         : "grid-cols-1 sm:grid-cols-2";
 
   if (p.display === "slider") {
-    const trackScoped = scopeDynamicStyle(`${block.id}-testimonial-track`, { minWidth: "min-content" });
+    const perView = Math.max(1, Math.min(4, Number(p.itemsPerView) || 2));
+    const itemWidth = `${Math.floor(100 / perView)}%`;
     return (
       <BlockAdvancedFrame block={block}>
-        <div className="overflow-x-auto py-4">
-          <div className={`flex gap-6 ${trackScoped.className}`.trim()}>
-            {trackScoped.node}
-            {items.map((item, i) => {
-              const itemScoped = scopeDynamicStyle(`${block.id}-testimonial-item-${i}`, {
-                width: `${100 / (p.itemsPerView ?? 2)}%`,
-                minWidth: "300px",
-              });
-              return (
-                <figure
-                  key={i}
-                  className={`flex-shrink-0 rounded-2xl bg-zinc-50 px-8 py-10 text-center ${itemScoped.className}`.trim()}
-                  data-lp-el="item"
-                >
-                  {itemScoped.node}
-                  {item.rating > 0 && (
-                    <div className="text-amber-400">
-                      {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
-                    </div>
-                  )}
-                  <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800" data-lp-el="quote">
-                    {item.quote}
-                  </blockquote>
-                  <figcaption className="mt-4 text-sm text-zinc-500">
-                    {item.avatar && (
-                      <img
-                        src={item.avatar}
-                        alt={item.author}
-                        className="mx-auto mb-2 h-10 w-10 rounded-full object-cover"
-                      />
-                    )}
-                    — {item.author}
-                    {item.role ? `, ${item.role}` : ""}
-                  </figcaption>
-                </figure>
-              );
-            })}
-          </div>
+        <div className="flex snap-x snap-mandatory gap-6 overflow-x-auto py-4 pb-2">
+          {items.map((item, i) => (
+            <figure
+              key={i}
+              className="shrink-0 snap-start rounded-2xl bg-zinc-50 px-8 py-10 text-center"
+              style={{ width: itemWidth }}
+              data-lp-el="item"
+            >
+              {item.rating > 0 && (
+                <div className="text-amber-400">
+                  {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
+                </div>
+              )}
+              <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800" data-lp-el="quote">
+                {item.quote}
+              </blockquote>
+              <figcaption className="mt-4 text-sm text-zinc-500">
+                {item.avatar && (
+                  <img
+                    src={item.avatar}
+                    alt={item.author}
+                    className="mx-auto mb-2 h-10 w-10 rounded-full object-cover"
+                  />
+                )}
+                — {item.author}
+                {item.role ? `, ${item.role}` : ""}
+              </figcaption>
+            </figure>
+          ))}
         </div>
       </BlockAdvancedFrame>
     );
