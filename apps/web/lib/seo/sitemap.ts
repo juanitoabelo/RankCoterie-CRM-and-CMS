@@ -68,6 +68,7 @@ export async function buildSitemapReport(): Promise<SitemapReport> {
   ];
 
   const categoryUrls: string[] = [];
+  const topicUrls: string[] = [];
   const regionUrls: string[] = [];
 
   for (const cat of categories) {
@@ -78,6 +79,14 @@ export async function buildSitemapReport(): Promise<SitemapReport> {
     categoryUrls.push(categoryUrl);
     entries.push({
       url: categoryUrl,
+      changeFrequency: "weekly",
+      priority: 0.8,
+    });
+    // /topic/* is the dedicated content view of the same Category row.
+    const topicUrl = `${SITE_URL}/topic/${cat.slug}/`;
+    topicUrls.push(topicUrl);
+    entries.push({
+      url: topicUrl,
       changeFrequency: "weekly",
       priority: 0.8,
     });
@@ -110,6 +119,7 @@ export async function buildSitemapReport(): Promise<SitemapReport> {
   // Single posts: base URL, the token-stripped original (?region=all), and one
   // URL per published region variant — a post with N variants becomes N+1 pages.
   const articleUrls: string[] = [];
+  const subtopicUrls: string[] = [];
   const articleRegionUrls: string[] = [];
   const regionSlugById = new Map(allRegions.map((r) => [r.id, r.slug]));
   for (const article of articles) {
@@ -117,6 +127,15 @@ export async function buildSitemapReport(): Promise<SitemapReport> {
     articleUrls.push(baseUrl);
     entries.push({
       url: baseUrl,
+      lastModified: article.updatedAt,
+      changeFrequency: "weekly",
+      priority: 0.7,
+    });
+    // /subtopic/* is the dedicated content view of the same ContentTemplate row.
+    const subtopicUrl = `${SITE_URL}/subtopic/${article.slug}/`;
+    subtopicUrls.push(subtopicUrl);
+    entries.push({
+      url: subtopicUrl,
       lastModified: article.updatedAt,
       changeFrequency: "weekly",
       priority: 0.7,
@@ -160,9 +179,11 @@ export async function buildSitemapReport(): Promise<SitemapReport> {
   const groups: SitemapGroup[] = [
     { key: "home", label: "Homepage", urls: [`${SITE_URL}/`] },
     { key: "categories", label: "Categories", urls: categoryUrls },
+    { key: "topics", label: "Topics", urls: topicUrls },
     { key: "regions", label: "Category × Region", urls: regionUrls },
     { key: "products", label: "Products", urls: productUrls },
     { key: "articles", label: "Articles", urls: articleUrls },
+    { key: "subtopics", label: "SubTopics", urls: subtopicUrls },
     { key: "articleRegions", label: "Article Region Variants", urls: articleRegionUrls },
     { key: "pages", label: "Standalone Pages", urls: pageUrls },
   ];

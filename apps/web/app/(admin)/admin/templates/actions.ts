@@ -84,6 +84,7 @@ export async function createSubTopic(formData: FormData): Promise<ActionResult> 
     });
     await logAudit({ action: "TEMPLATE_CREATE", entity: "ContentTemplate", entityId: slug, meta: { slug, title }, actorId: actor.id });
     revalidatePath("/admin/templates");
+    revalidatePath(`/subtopic/${slug}`);
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to create subtopic." };
@@ -121,6 +122,11 @@ export async function updateSubTopic(id: string, formData: FormData): Promise<Ac
     });
     if (clash) return { ok: false, error: "A subtopic with that slug already exists." };
 
+    const before = await prisma.contentTemplate.findFirst({
+      where: { id, tenantId: TENANT_ID },
+      select: { slug: true },
+    });
+
     await prisma.contentTemplate.update({
       where: { id },
       data: {
@@ -138,6 +144,8 @@ export async function updateSubTopic(id: string, formData: FormData): Promise<Ac
     await logAudit({ action: "TEMPLATE_UPDATE", entity: "ContentTemplate", entityId: id, meta: { slug, title }, actorId: actor.id });
     revalidatePath("/admin/templates");
     revalidatePath(`/admin/templates/${id}/edit`);
+    revalidatePath(`/subtopic/${slug}`);
+    if (before && before.slug !== slug) revalidatePath(`/subtopic/${before.slug}`);
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to update subtopic." };
@@ -161,6 +169,8 @@ export async function updateSubTopicSections(id: string, sectionIds: string[]): 
     }
     await logAudit({ action: "TEMPLATE_UPDATE", entity: "ContentTemplate", entityId: id, meta: { field: "sectionLinks" }, actorId: actor.id });
     revalidatePath(`/admin/templates/${id}/edit`);
+    const row = await prisma.contentTemplate.findFirst({ where: { id }, select: { slug: true } });
+    if (row?.slug) revalidatePath(`/subtopic/${row.slug}`);
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to save sections." };

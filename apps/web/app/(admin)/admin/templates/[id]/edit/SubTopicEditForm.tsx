@@ -80,7 +80,7 @@ export default function SubTopicEditForm({
   );
   const [newSectionId, setNewSectionId] = useState("");
 
-  const previewUrl = `/${subtopic.slug}`;
+  const previewUrl = `/subtopic/${subtopic.slug}`;
 
   function onSubmit(formData: FormData) {
     const slug = title
@@ -241,7 +241,7 @@ export default function SubTopicEditForm({
               <option value="LIVE">Live</option>
             </select>
             <p className="mt-1 text-xs text-zinc-400">
-              Only <span className="font-medium">Live</span> SubTopics render at /{subtopic.slug}.
+              Only <span className="font-medium">Live</span> SubTopics render at /subtopic/{subtopic.slug}.
             </p>
           </div>
 

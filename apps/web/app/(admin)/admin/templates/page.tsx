@@ -77,7 +77,7 @@ export default async function SubTopicsListPage({
                 <td className="px-4 py-3 font-medium text-zinc-900">{st.title}</td>
                 <td className="px-4 py-3">
                   <a
-                    href={`/g/${st.category?.slug ?? st.slug}`}
+                    href={`/subtopic/${st.slug}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:underline"

@@ -251,7 +251,7 @@ export function SinglePost({
           <p className="mt-2 text-sm text-zinc-500">
             in{" "}
             <a
-              href={`/g/${article.category.slug}/`}
+              href={`/topic/${article.category.slug}/`}
               className="underline underline-offset-2 hover:text-zinc-700"
             >
               {article.category.title}

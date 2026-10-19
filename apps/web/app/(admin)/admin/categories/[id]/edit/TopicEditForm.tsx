@@ -25,6 +25,7 @@ interface TopicCategory {
   description?: string | null;
   author?: string | null;
   sections?: { title: string; content: string }[] | null;
+  geoCategoryId?: string | null;
   images: TopicImage[];
 }
 
@@ -94,7 +95,7 @@ export default function TopicEditForm({
     setMessage(res);
   }
 
-  const previewUrl = `/g/${category.slug}`;
+  const previewUrl = `/topic/${category.slug}`;
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -212,7 +213,7 @@ export default function TopicEditForm({
           </label>
           <select
             name="geoCategoryWidget"
-            defaultValue=""
+            defaultValue={category.geoCategoryId ?? ""}
             className="mt-2 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
           >
             <option value="">None</option>

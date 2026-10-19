@@ -79,7 +79,7 @@ export default async function TopicsListPage({
                   <td className="px-4 py-3 font-medium text-zinc-900">{cat.title}</td>
                   <td className="px-4 py-3">
                     <a
-                      href={`/g/${cat.slug}`}
+                      href={`/topic/${cat.slug}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:underline"

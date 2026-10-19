@@ -54,6 +54,7 @@ export async function createCategory(formData: FormData): Promise<ActionResult> 
   const slug = String(formData.get("slug") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
   const author = String(formData.get("author") ?? "").trim() || null;
+  const geoCategoryId = String(formData.get("geoCategoryWidget") ?? "").trim() || null;
 
   if (!title) return { ok: false, error: "Title is required." };
   if (!slug) return { ok: false, error: "Slug is required." };
@@ -69,11 +70,13 @@ export async function createCategory(formData: FormData): Promise<ActionResult> 
         title,
         description: description ? sanitizeHtml(description) : null,
         author,
+        geoCategoryId,
         status: "LIVE",
       },
     });
     await logAudit({ action: "CATEGORY_CREATE", entity: "Category", entityId: slug, meta: { slug, title }, actorId: actor.id });
     revalidatePath("/admin/categories");
+    revalidatePath(`/topic/${slug}`);
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to create topic." };
@@ -93,6 +96,9 @@ export async function updateCategory(id: string, formData: FormData): Promise<Ac
   const description = String(formData.get("description") ?? "").trim() || null;
   const sectionsRaw = formData.get("sections");
   const featuredImageAssetId = String(formData.get("featuredImageAssetId") ?? "").trim() || null;
+  const geoCategoryId = has("geoCategoryWidget")
+    ? String(formData.get("geoCategoryWidget") ?? "").trim() || null
+    : undefined;
 
   if (!title) return { ok: false, error: "Title is required." };
   if (!slug) return { ok: false, error: "Slug is required." };
@@ -128,6 +134,7 @@ export async function updateCategory(id: string, formData: FormData): Promise<Ac
         slug,
         author,
         description: nextDescription,
+        ...(geoCategoryId !== undefined ? { geoCategoryId } : {}),
         ...(sections !== undefined ? { sections } : {}),
       },
     });
@@ -158,6 +165,8 @@ export async function updateCategory(id: string, formData: FormData): Promise<Ac
     await logAudit({ action: "CATEGORY_UPDATE", entity: "Category", entityId: id, meta: { slug, title }, actorId: actor.id });
     revalidatePath("/admin/categories");
     revalidatePath(`/admin/categories/${id}/edit`);
+    revalidatePath(`/topic/${slug}`);
+    if (existing.slug !== slug) revalidatePath(`/topic/${existing.slug}`);
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to update topic." };
@@ -184,12 +193,14 @@ export async function deleteCategoryForm(id: string): Promise<void> {
 export async function updateCategorySections(id: string, sections: unknown[]): Promise<ActionResult> {
   const actor = await requireSection("topics");
   try {
-    await prisma.category.update({
+    const row = await prisma.category.update({
       where: { id },
       data: { sections: sections as unknown as Prisma.InputJsonValue },
+      select: { slug: true },
     });
     await logAudit({ action: "CATEGORY_UPDATE", entity: "Category", entityId: id, meta: { field: "sections" }, actorId: actor.id });
     revalidatePath(`/admin/categories/${id}/edit`);
+    revalidatePath(`/topic/${row.slug}`);
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to save sections." };

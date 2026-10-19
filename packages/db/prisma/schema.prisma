@@ -135,6 +135,9 @@ model Category {
   parentId    String? // legacy tblSearchCategoryParent / Sub hierarchy
   parent      Category? @relation("CatTree", fields: [parentId], references: [id])
   children    Category[] @relation("CatTree")
+  geoCategoryId String? // GeoCategory widget a Topic page embeds ("Choose a GeoCategory widget")
+  geoCategory   Category?  @relation("CategoryGeoWidget", fields: [geoCategoryId], references: [id])
+  geoWidgetFor  Category[] @relation("CategoryGeoWidget")
   stateInit   String? // state intro, {{region}} tokens allowed
   stateDesc   String?
   cityInit    String?

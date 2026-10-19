@@ -226,25 +226,64 @@ export async function getSliderItems(query: SliderQuery): Promise<SliderItem[]> 
     }
 
     case "topics": {
-      const rows = await prisma.category.findMany({
-        where: {
-          tenantId: TENANT_ID,
-          status: "LIVE",
-          ...(topicIds.length
-            ? { OR: [{ id: { in: topicIds } }, { parentId: { in: topicIds } }] }
-            : {}),
-        },
-        orderBy: { title: "asc" },
-        take: limit,
-      });
-      return rows.map((row) => ({
+      const [topics, subtopics] = await Promise.all([
+        prisma.category.findMany({
+          where: {
+            tenantId: TENANT_ID,
+            status: "LIVE",
+            ...(topicIds.length ? { id: { in: topicIds } } : {}),
+          },
+          include: {
+            images: {
+              where: { position: "PRIMARY" },
+              take: 1,
+              select: { imageAssetId: true },
+            },
+          },
+          orderBy: { title: "asc" },
+          take: limit,
+        }),
+        prisma.contentTemplate.findMany({
+          where: {
+            tenantId: TENANT_ID,
+            status: ContentStatus.LIVE,
+            slug: { not: "" },
+            ...(topicIds.length ? { categoryId: { in: topicIds } } : {}),
+          },
+          orderBy: { title: "asc" },
+          take: limit,
+        }),
+      ]);
+
+      const topicItems: SliderItem[] = topics.map((row) => ({
         id: row.id,
         title: row.title,
         subtitle: row.description ?? null,
-        image: row.ogImage ?? null,
-        url: `/g/${row.slug}`,
-        badge: row.parentId ? "Sub-topic" : "Topic",
+        image: row.images[0]?.imageAssetId
+          ? `/api/assets/${row.images[0].imageAssetId}`
+          : row.ogImage ?? null,
+        url: `/topic/${row.slug}`,
+        badge: "Topic",
       }));
+      const subTopicItems: SliderItem[] = subtopics.map((row) => ({
+        id: row.id,
+        title: row.title,
+        subtitle: excerpt(row.body, row.metaDesc),
+        image: row.featuredImageAssetId
+          ? `/api/assets/${row.featuredImageAssetId}`
+          : row.ogImage ?? null,
+        url: `/subtopic/${row.slug}`,
+        badge: "SubTopic",
+      }));
+
+      // Alternate topics and sub-topics so a small `limit` still shows both.
+      const merged: SliderItem[] = [];
+      const max = Math.max(topicItems.length, subTopicItems.length);
+      for (let i = 0; i < max && merged.length < limit; i += 1) {
+        if (topicItems[i]) merged.push(topicItems[i]);
+        if (merged.length < limit && subTopicItems[i]) merged.push(subTopicItems[i]);
+      }
+      return merged;
     }
 
     default:
