@@ -45,6 +45,36 @@ export const STYLE_BREAKPOINTS: Array<{
 ];
 
 /**
+ * Upper bound for a single font-size value, per unit. Anything above the bound
+ * (or ≤ 0 / non-finite) is treated as misconfigured and ignored, so one bad
+ * value can't blow up an entire block's layout.
+ */
+export const MAX_FONT_SIZE_BY_UNIT: Record<
+  NonNullable<TypographyStyle["fontSizeUnit"]>,
+  number
+> = {
+  px: 400,
+  em: 25,
+  rem: 25,
+  "%": 1000,
+};
+
+/**
+ * Validate and serialize a font size, returning `""` when the value is missing
+ * or out of range. Keeps a stray value like `12121` from rendering 10000px text.
+ */
+export function fontSizeDeclaration(
+  size: number | undefined,
+  unit?: TypographyStyle["fontSizeUnit"],
+): string {
+  if (typeof size !== "number" || !Number.isFinite(size) || size <= 0) return "";
+  const resolvedUnit = unit ?? "px";
+  const max = MAX_FONT_SIZE_BY_UNIT[resolvedUnit] ?? MAX_FONT_SIZE_BY_UNIT.px;
+  if (size > max) return "";
+  return `font-size: ${size}${resolvedUnit};`;
+}
+
+/**
  * Map a `StyleBreakpoints` value to the CSS declarations that apply per
  * breakpoint. Missing per-breakpoint values fall through to the next larger
  * breakpoint; `mobile` applies to all sizes unless overridden.
@@ -54,7 +84,8 @@ export function cssForBreakpoint(style: TypographyStyle | undefined): string {
   const parts: string[] = [];
   if (style.color) parts.push(`color: ${style.color} !important;`);
   if (style.fontFamily) parts.push(`font-family: ${style.fontFamily};`);
-  if (style.fontSize) parts.push(`font-size: ${style.fontSize}${style.fontSizeUnit ?? "px"};`);
+  const fontDecl = fontSizeDeclaration(style.fontSize, style.fontSizeUnit);
+  if (fontDecl) parts.push(fontDecl);
   return parts.join(" ");
 }
 

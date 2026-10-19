@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { FULL_COLUMN_SPANS } from "@/lib/page-builder/types";
 import type { StyleBreakpoints, TypographyStyle } from "@/lib/page-builder/types";
-import { FONT_FAMILY_PRESETS, STYLE_BREAKPOINTS } from "@/lib/page-builder/style";
+import { FONT_FAMILY_PRESETS, MAX_FONT_SIZE_BY_UNIT, STYLE_BREAKPOINTS } from "@/lib/page-builder/style";
 import { useFontFamilyOptions } from "../CustomFontProvider";
 import MediaLibraryPicker from "./MediaLibraryPicker";
 import GlobalColorPicker from "../header-footer-builder/GlobalColorPicker";
@@ -516,23 +516,33 @@ export function StyleGuideEditor({
                   <input
                     type="number"
                     min={1}
-                    max={999}
+                    max={MAX_FONT_SIZE_BY_UNIT[value.fontSizeUnit ?? "px"]}
                     className={`${inputCls} mt-0 min-w-0 flex-1`}
                     value={value.fontSize ?? ""}
-                    onChange={(e) =>
-                      setBreakpoint(bp.key, {
-                        fontSize: e.target.value ? Number(e.target.value) : undefined,
-                      })
-                    }
+                    onChange={(e) => {
+                      const max = MAX_FONT_SIZE_BY_UNIT[value.fontSizeUnit ?? "px"];
+                      const raw = e.target.value;
+                      if (raw === "") {
+                        setBreakpoint(bp.key, { fontSize: undefined });
+                        return;
+                      }
+                      const n = Number(raw);
+                      if (!Number.isFinite(n)) return;
+                      setBreakpoint(bp.key, { fontSize: Math.min(max, Math.max(1, n)) });
+                    }}
                   />
                   <select
                     className={`${inputCls} mt-0 w-16 shrink-0`}
                     value={value.fontSizeUnit ?? "px"}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const unit = e.target.value as TypographyStyle["fontSizeUnit"];
+                      const max = MAX_FONT_SIZE_BY_UNIT[unit ?? "px"];
+                      const current = value.fontSize;
                       setBreakpoint(bp.key, {
-                        fontSizeUnit: e.target.value as TypographyStyle["fontSizeUnit"],
-                      })
-                    }
+                        fontSizeUnit: unit,
+                        ...(typeof current === "number" && current > max ? { fontSize: max } : {}),
+                      });
+                    }}
                   >
                     {FONT_SIZE_UNITS.map((u) => (
                       <option key={u.value} value={u.value}>

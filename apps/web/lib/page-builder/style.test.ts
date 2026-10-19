@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   renderStyleGuide,
   styleScopeClass,
+  fontSizeDeclaration,
+  MAX_FONT_SIZE_BY_UNIT,
   STYLE_BREAKPOINTS,
   FONT_FAMILY_PRESETS,
 } from "./style";
@@ -57,6 +59,36 @@ describe("renderStyleGuide", () => {
     expect(css).not.toContain("min-width: 640px");
     expect(css).not.toContain("min-width: 1024px");
     expect(css).toContain("@media (min-width: 768px)");
+  });
+});
+
+describe("fontSizeDeclaration", () => {
+  it("serializes a valid size with its unit", () => {
+    expect(fontSizeDeclaration(18, "px")).toBe("font-size: 18px;");
+    expect(fontSizeDeclaration(1.5, "em")).toBe("font-size: 1.5em;");
+    expect(fontSizeDeclaration(16)).toBe("font-size: 16px;");
+  });
+
+  it("rejects non-finite, non-positive, and out-of-range sizes", () => {
+    expect(fontSizeDeclaration(12121, "px")).toBe("");
+    expect(fontSizeDeclaration(0)).toBe("");
+    expect(fontSizeDeclaration(-4)).toBe("");
+    expect(fontSizeDeclaration(Number.NaN)).toBe("");
+    expect(fontSizeDeclaration(undefined)).toBe("");
+  });
+
+  it("enforces a distinct ceiling per unit", () => {
+    expect(fontSizeDeclaration(MAX_FONT_SIZE_BY_UNIT.px, "px")).not.toBe("");
+    expect(fontSizeDeclaration(MAX_FONT_SIZE_BY_UNIT.px + 1, "px")).toBe("");
+    expect(fontSizeDeclaration(MAX_FONT_SIZE_BY_UNIT.em + 1, "em")).toBe("");
+  });
+
+  it("drops the font-size but keeps other declarations when a breakpoint has a bad size", () => {
+    const css = renderStyleGuide("bad", {
+      mobile: { color: "#111111", fontSize: 12121 },
+    });
+    expect(css).toContain("color: #111111 !important;");
+    expect(css).not.toContain("font-size");
   });
 });
 
