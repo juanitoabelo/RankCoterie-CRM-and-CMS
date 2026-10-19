@@ -5,6 +5,9 @@ import type { Metadata } from "next";
 import { prisma, TENANT_ID } from "@/modules/shared";
 import { renderLocalizedContent } from "@/lib/localization/render";
 import { sanitizeHtml } from "@/lib/style-guide";
+import { resolveContentPageTemplate, parseContentPageTemplateData } from "@/modules/content-page-template";
+import ContentPageTemplateRenderer from "@/components/admin/content-page-template-builder/ContentPageTemplateRenderer";
+import type { ContentPageRenderData } from "@/lib/content-page-template/bindings";
 
 export const revalidate = 3600;
 
@@ -93,6 +96,74 @@ export default async function SubTopicPage({ params }: Props) {
   const sections = subtopic.sectionLinks
     .filter((link) => link.section.status === "LIVE")
     .filter((_, i) => (anyToggle ? display[i] === true : true));
+
+  const template = await resolveContentPageTemplate("subtopic", subtopic.id);
+  const { blocks: templateBlocks, containerSettings } = parseContentPageTemplateData(template?.data ?? null);
+
+  if (templateBlocks.length > 0) {
+    const renderData: ContentPageRenderData = {
+      kind: "subtopic",
+      binding: {
+        page: {
+          title: subtopic.title,
+          slug: subtopic.slug,
+          body,
+          author: subtopic.author,
+          metaDesc: subtopic.metaDesc,
+          seoTitle: subtopic.seoTitle,
+        },
+        pageUrl: `/subtopic/${subtopic.slug}/`,
+        heroImage: image ? `/api/assets/${image.id}/` : null,
+        heroImageAlt: image?.alt ?? image?.title ?? null,
+        heroImageCaption: image?.caption ?? null,
+        topic: subtopic.category
+          ? {
+              title: subtopic.category.title,
+              slug: subtopic.category.slug,
+              url: `/topic/${subtopic.category.slug}/`,
+            }
+          : null,
+        sectionsCount: sections.length,
+      },
+      sections: sections.map((link) => ({
+        title: link.section.heading || link.section.title,
+        content: link.section.body ? renderLocalizedContent(link.section.body, ctx) : "",
+      })),
+      geo: null,
+      subtopics: [],
+      topic: subtopic.category
+        ? {
+            title: subtopic.category.title,
+            slug: subtopic.category.slug,
+            url: `/topic/${subtopic.category.slug}/`,
+            description: null,
+          }
+        : null,
+    };
+
+    return (
+      <div className="pt-[50px] pb-[50px]">
+        <div className="mx-auto max-w-[1200px]">
+          <ContentPageTemplateRenderer
+            blocks={templateBlocks}
+            containerSettings={containerSettings}
+            kind="subtopic"
+            binding={renderData.binding}
+            sections={renderData.sections}
+            geo={renderData.geo}
+            subtopics={renderData.subtopics}
+            topic={renderData.topic}
+          />
+        </div>
+        {subtopic.jsonSchema && (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: subtopic.jsonSchema }}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <article className="pt-[50px] pb-[50px]">

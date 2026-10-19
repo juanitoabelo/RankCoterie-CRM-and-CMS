@@ -11,6 +11,7 @@ import {
 import RichTextarea from "@/components/admin/RichTextarea";
 import ImageUploader from "@/components/admin/ImageUploader";
 import WordCounter from "@/components/admin/WordCounter";
+import ContentPageTemplateAssignmentCard from "@/components/admin/content-page-template-builder/ContentPageTemplateAssignmentCard";
 
 interface SubTopic {
   id: string;
@@ -45,10 +46,14 @@ export default function SubTopicEditForm({
   subtopic,
   topicOptions,
   sectionOptions,
+  contentPageTemplates,
+  assignedContentPageTemplateId,
 }: {
   subtopic: SubTopic;
   topicOptions: TopicOption[];
   sectionOptions: SectionOption[];
+  contentPageTemplates: { id: string; name: string; layout: string; isDefault: boolean }[];
+  assignedContentPageTemplateId: string | null;
 }) {
   const router = useRouter();
   const [message, setMessage] = useState<ActionResult | null>(null);
@@ -288,6 +293,14 @@ export default function SubTopicEditForm({
             />
           </div>
         </div>
+
+        {/* Custom Single Page Template Assignment */}
+        <ContentPageTemplateAssignmentCard
+          kind="subtopic"
+          pageId={subtopic.id}
+          templates={contentPageTemplates}
+          assignedTemplateId={assignedContentPageTemplateId}
+        />
 
         <div className="flex items-center gap-4">
           <button

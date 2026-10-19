@@ -3,6 +3,8 @@ import type { Prisma } from "@prisma/client";
 import { getCategory, getCategoryOptions } from "../../actions";
 import { prisma } from "@/modules/shared";
 import { TENANT_ID } from "@/modules/shared";
+import { listContentPageTemplatesAction } from "@/modules/content-page-template/actions";
+import { getContentPageTemplateAssignment } from "@/modules/content-page-template";
 import TopicEditForm from "./TopicEditForm";
 
 type TopicSection = { title: string; content: string };
@@ -46,11 +48,18 @@ export default async function TopicEditPage({
     }),
   ]);
 
+  const [contentPageTemplates, assignment] = await Promise.all([
+    listContentPageTemplatesAction("topic"),
+    getContentPageTemplateAssignment(id),
+  ]);
+
   return (
     <TopicEditForm
       category={{ ...category, sections: toSections(category.sections) }}
       allCategories={allCategories}
       geoCategoryOptions={geoCategoryOptions}
+      contentPageTemplates={contentPageTemplates}
+      assignedContentPageTemplateId={assignment?.contentPageTemplateId ?? null}
     />
   );
 }

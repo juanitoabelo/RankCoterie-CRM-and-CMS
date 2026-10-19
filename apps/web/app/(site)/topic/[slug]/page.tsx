@@ -7,6 +7,9 @@ import { renderLocalizedContent } from "@/lib/localization/render";
 import { sanitizeHtml } from "@/lib/style-guide";
 import { getCatalogRepo } from "@/lib/directory/catalog";
 import { filterIndexableRegions } from "@/lib/directory/indexGate";
+import { resolveContentPageTemplate, parseContentPageTemplateData } from "@/modules/content-page-template";
+import ContentPageTemplateRenderer from "@/components/admin/content-page-template-builder/ContentPageTemplateRenderer";
+import type { ContentPageRenderData } from "@/lib/content-page-template/bindings";
 
 export const revalidate = 3600;
 
@@ -45,7 +48,7 @@ async function getTopic(slug: string) {
       contentTemplates: {
         where: { status: "LIVE" },
         orderBy: { title: "asc" },
-        select: { id: true, slug: true, title: true, metaDesc: true },
+        select: { id: true, slug: true, title: true, metaDesc: true, featuredImageAssetId: true },
       },
     },
   });
@@ -106,6 +109,91 @@ export default async function TopicPage({ params }: Props) {
       repo,
       topic.geoCategory.id,
       allRegions.filter((r) => r.city === null),
+    );
+  }
+
+  const template = await resolveContentPageTemplate("topic", topic.id);
+  const { blocks, containerSettings } = parseContentPageTemplateData(template?.data ?? null);
+
+  if (blocks.length > 0) {
+    const renderData: ContentPageRenderData = {
+      kind: "topic",
+      binding: {
+        page: {
+          title: topic.title,
+          slug: topic.slug,
+          description: intro,
+          author: topic.author,
+          metaDesc: topic.metaDesc,
+          seoTitle: topic.seoTitle,
+        },
+        pageUrl: `/topic/${topic.slug}/`,
+        heroImage: hero ? `/api/assets/${hero.id}/` : null,
+        heroImageAlt: hero?.alt ?? hero?.title ?? null,
+        heroImageCaption: hero?.caption ?? null,
+        geo: topic.geoCategory
+          ? {
+              title: topic.geoCategory.title,
+              slug: topic.geoCategory.slug,
+              description: topic.geoCategory.description,
+              url: `/g/${topic.geoCategory.slug}/`,
+            }
+          : null,
+        sectionsCount: sections.length,
+        subtopicsCount: topic.contentTemplates.length,
+        geoStatesCount: geoStates.length,
+      },
+      sections: sections.map((s) => ({
+        title: s.title,
+        content: renderLocalizedContent(s.content, ctx),
+      })),
+      geo: topic.geoCategory
+        ? {
+            title: topic.geoCategory.title,
+            slug: topic.geoCategory.slug,
+            description: topic.geoCategory.description
+              ? renderLocalizedContent(topic.geoCategory.description, {})
+              : null,
+            url: `/g/${topic.geoCategory.slug}/`,
+            states: geoStates.map((s) => ({
+              slug: s.slug,
+              stateFull: s.stateFull,
+              url: `/g/${topic.geoCategory!.slug}/${s.slug}/`,
+            })),
+          }
+        : null,
+      subtopics: topic.contentTemplates.map((st) => ({
+        id: st.id,
+        title: st.title,
+        slug: st.slug,
+        url: `/subtopic/${st.slug}/`,
+        excerpt: st.metaDesc,
+        image: st.featuredImageAssetId ? `/api/assets/${st.featuredImageAssetId}/` : null,
+      })),
+      topic: null,
+    };
+
+    return (
+      <div className="pt-[50px] pb-[50px]">
+        <div className="mx-auto max-w-[1200px]">
+          <ContentPageTemplateRenderer
+            blocks={blocks}
+            containerSettings={containerSettings}
+            kind="topic"
+            binding={renderData.binding}
+            sections={renderData.sections}
+            geo={renderData.geo}
+            subtopics={renderData.subtopics}
+            topic={renderData.topic}
+          />
+        </div>
+        {topic.jsonSchema && (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: topic.jsonSchema }}
+          />
+        )}
+      </div>
     );
   }
 

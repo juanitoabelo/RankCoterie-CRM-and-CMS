@@ -11,6 +11,7 @@ import {
 import RichTextarea from "@/components/admin/RichTextarea";
 import ImageUploader from "@/components/admin/ImageUploader";
 import WordCounter from "@/components/admin/WordCounter";
+import ContentPageTemplateAssignmentCard from "@/components/admin/content-page-template-builder/ContentPageTemplateAssignmentCard";
 
 interface TopicImage {
   id: string;
@@ -40,10 +41,14 @@ export default function TopicEditForm({
   category,
   allCategories,
   geoCategoryOptions,
+  contentPageTemplates,
+  assignedContentPageTemplateId,
 }: {
   category: TopicCategory;
   allCategories: { id: string; title: string; slug: string }[];
   geoCategoryOptions: GeoCategoryOption[];
+  contentPageTemplates: { id: string; name: string; layout: string; isDefault: boolean }[];
+  assignedContentPageTemplateId: string | null;
 }) {
   const router = useRouter();
   const [message, setMessage] = useState<ActionResult | null>(null);
@@ -222,6 +227,14 @@ export default function TopicEditForm({
             ))}
           </select>
         </div>
+
+        {/* Custom Single Page Template Assignment */}
+        <ContentPageTemplateAssignmentCard
+          kind="topic"
+          pageId={category.id}
+          templates={contentPageTemplates}
+          assignedTemplateId={assignedContentPageTemplateId}
+        />
 
         <div className="flex items-center gap-4">
           <button

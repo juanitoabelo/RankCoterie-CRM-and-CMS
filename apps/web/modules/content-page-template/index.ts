@@ -1,0 +1,25 @@
+export {
+  parseContentPageTemplateData,
+  serializeContentPageTemplateData,
+  listContentPageTemplates,
+  getContentPageTemplate,
+  createContentPageTemplate,
+  ensureDefaultContentPageTemplates,
+  updateContentPageTemplateData,
+  updateContentPageTemplateMeta,
+  setDefaultContentPageTemplate,
+  deleteContentPageTemplate,
+  snapshotContentPageTemplateRevision,
+  listContentPageTemplateRevisions,
+  restoreContentPageTemplateRevision,
+  resolveContentPageTemplate,
+  getContentPageTemplateAssignment,
+  assignContentPageTemplate,
+} from "./queries";
+export type {
+  CpTemplateLayoutTag,
+  ContentPageTemplateData,
+  ContentPageTemplateRow,
+  ContentPageTemplateRevisionRow,
+  ContentPageTemplateAssignmentRow,
+} from "./queries";
