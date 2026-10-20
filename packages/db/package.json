@@ -12,6 +12,7 @@
     "db:seed": "node --env-file=.env prisma/seed.mts",
     "db:seed:articles": "node --env-file=.env prisma/seed-articles.mts",
     "db:seed:header-footers": "node --env-file=.env prisma/seed-header-footers.mts",
+    "db:seed:site": "node --env-file=.env prisma/seed-site.mts",
     "db:reset": "prisma migrate reset"
   },
   "dependencies": {

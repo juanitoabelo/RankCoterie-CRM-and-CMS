@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import { type Block, type RowBlock, type SectionBlock, type StyleBreakpoints, type IconListBlock, type VideoBlock, type ContentSliderBlock, type ContentSliderType } from "@/lib/page-builder/types";
 import {

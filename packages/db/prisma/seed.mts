@@ -6,6 +6,7 @@
  */
 
 import { PrismaClient, Prisma } from "@prisma/client";
+import { seedSite } from "./seed-site.mts";
 
 const prisma = new PrismaClient();
 
@@ -411,6 +412,10 @@ async function main() {
   },
     { timeout: 120_000 },
   );
+
+  // Default "Abelo Creative" marketing site (pages, blog, header/footer, menus,
+  // brand theme). Additive + idempotent; runs after the base reset.
+  await seedSite();
 }
 
 main()

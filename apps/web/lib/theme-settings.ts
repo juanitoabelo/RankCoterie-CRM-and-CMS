@@ -303,6 +303,33 @@ export const THEME_PRESETS: ThemePreset[] = [
     },
     layout: { ...DEFAULT_LAYOUT_SETTINGS, maxWidth: "1200px", headerStyle: "minimal" },
   },
+  {
+    id: "abelo-creative",
+    name: "Abelo Creative",
+    description: "Agency look with Montserrat + Roboto, deep blue and orange",
+    colors: {
+      ...DEFAULT_COLOR_PALETTE,
+      background: "#ffffff",
+      text: "#000000",
+      accent: "#F3361F",
+      headingColor: "#11467B",
+      linkColor: "#11467B",
+      linkHoverColor: "#F3361F",
+      buttonBg: "#11467B",
+      buttonText: "#ffffff",
+      buttonBgHover: "#F3361F",
+      buttonTextHover: "#ffffff",
+      surface: "#F4F6F9",
+      border: "#E2E8F0",
+      muted: "#5B6670",
+    },
+    fonts: {
+      heading: "'Montserrat', system-ui, sans-serif",
+      body: "'Roboto', system-ui, sans-serif",
+      mono: "'Roboto Mono', ui-monospace, monospace",
+    },
+    layout: { ...DEFAULT_LAYOUT_SETTINGS, maxWidth: "1200px" },
+  },
 ];
 
 /* ──────────────────────────────────────────────────────────────────────────── */
