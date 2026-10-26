@@ -104,12 +104,20 @@ function Heading({ text, ctx, center }: { text: string; ctx: RegionContext; cent
   if (!text) return null;
   return (
     <h2
-      className={`text-2xl font-bold text-zinc-900 ${center ? "text-center" : ""}`}
+      className={`text-3xl font-bold tracking-tight sm:text-4xl ${center ? "text-center" : ""}`}
       data-lp-el="heading"
     >
       {renderLocalizedContent(text, ctx)}
     </h2>
   );
+}
+
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "";
+  const first = parts[0][0] ?? "";
+  const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "";
+  return `${first}${last}`.toUpperCase();
 }
 
 function cols(count: number): string {
@@ -170,7 +178,7 @@ function PricingView({ block, ctx }: { block: PricingBlock; ctx: RegionContext }
                   </span>
                 ) : null}
                 <h3 className="text-lg font-semibold text-zinc-900">{plan.name}</h3>
-                {plan.description ? <p className="mt-1 text-xs text-zinc-500">{plan.description}</p> : null}
+                {plan.description ? <p className="mt-2 text-sm text-zinc-600">{plan.description}</p> : null}
                 <div className="mt-4 flex items-baseline gap-1">
                   <span className="text-3xl font-bold text-zinc-900">
                     {p.currency}
@@ -235,7 +243,7 @@ function LeadFormView({ block, ctx }: { block: LeadFormBlock; ctx: RegionContext
           {p.showMessage ? (
             <textarea name="message" required rows={4} placeholder="How can we help?" className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
           ) : null}
-          <button type="submit" className="w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700" data-lp-el="button">
+          <button type="submit" className="btn w-full rounded-lg px-4 py-2.5 text-sm font-semibold" data-lp-el="button">
             {renderLocalizedContent(p.submitLabel, ctx) || "Send"}
           </button>
         </form>
@@ -252,11 +260,14 @@ function StatsView({ block, ctx }: { block: StatsBlock; ctx: RegionContext }) {
     <Leaf block={block}>
       <div className="mx-auto max-w-6xl">
         <Heading text={p.heading} ctx={ctx} center />
-        <div className={`mt-8 grid grid-cols-2 gap-6 ${cols(p.columns)}`}>
+        <div className={`mt-10 grid grid-cols-2 gap-x-6 gap-y-10 ${cols(p.columns)}`}>
           {(p.items ?? []).map((item) => (
             <div key={item.id} className="text-center" data-lp-el="item">
-              <div className="text-3xl font-bold text-zinc-900 sm:text-4xl">{item.value}</div>
-              <div className="mt-1 text-sm text-zinc-500">{item.label}</div>
+              <div className="mx-auto mb-4 h-1 w-9 rounded-full bg-current opacity-30" />
+              <div className="text-4xl font-bold tracking-tight sm:text-5xl">{item.value}</div>
+              <div className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] opacity-70">
+                {item.label}
+              </div>
             </div>
           ))}
         </div>
@@ -274,13 +285,18 @@ function LogosView({ block, ctx }: { block: LogosBlock; ctx: RegionContext }) {
     <Leaf block={block}>
       <div className="mx-auto max-w-6xl text-center">
         <Heading text={p.heading} ctx={ctx} center />
-        <div className={`mt-8 grid grid-cols-2 items-center gap-8 ${cols(p.columns)}`}>
+        <div className={`mt-10 grid grid-cols-2 items-center gap-x-10 gap-y-8 ${cols(p.columns)}`}>
           {items.length === 0 ? (
             <p className="col-span-full text-sm text-zinc-400">Add partner logos in the block settings.</p>
           ) : (
             items.map((item) => {
+              const mono = p.monochrome
+                ? "opacity-60 [filter:brightness(0)] transition duration-300 hover:opacity-90"
+                : p.grayscale
+                  ? "opacity-60 grayscale transition duration-300 hover:opacity-100 hover:grayscale-0"
+                  : "opacity-90 transition duration-300 hover:opacity-100";
               // eslint-disable-next-line @next/next/no-img-element
-              const img = <img src={item.src} alt={item.alt} className={`mx-auto h-10 w-auto object-contain ${p.grayscale ? "opacity-60 grayscale transition hover:opacity-100 hover:grayscale-0" : ""}`} />;
+              const img = <img src={item.src} alt={item.alt} className={`mx-auto h-11 w-auto max-w-[180px] object-contain ${mono}`} />;
               return item.url ? (
                 <a key={item.id} href={item.url} data-lp-el="item">
                   {img}
@@ -406,7 +422,7 @@ function CategoryGridView({
     <Leaf block={block}>
       <div className="mx-auto max-w-6xl">
         <Heading text={p.heading} ctx={ctx} center />
-        <div className={`mt-8 grid grid-cols-2 gap-4 ${cols(p.columns)}`}>
+        <div className={`mt-8 grid grid-cols-2 gap-6 ${cols(p.columns)}`}>
           {shown.length === 0 ? (
             <p className="col-span-full text-sm text-zinc-400">No categories published yet.</p>
           ) : (
@@ -1010,8 +1026,8 @@ function GalleryView({ block }: { block: GalleryBlock }) {
           images.map((img) => (
             <figure key={img.id} className="mb-4 break-inside-avoid" data-lp-el="item">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img.src} alt={img.alt} className="w-full rounded-lg" />
-              {img.caption ? <figcaption className="mt-1 text-xs text-zinc-500">{img.caption}</figcaption> : null}
+              <img src={img.src} alt={img.alt} className="w-full rounded-xl" />
+              {img.caption ? <figcaption className="mt-2 text-sm text-zinc-600">{img.caption}</figcaption> : null}
             </figure>
           ))
         ) : (
@@ -1019,8 +1035,8 @@ function GalleryView({ block }: { block: GalleryBlock }) {
             {images.map((img) => (
               <figure key={img.id} data-lp-el="item">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={img.src} alt={img.alt} className="aspect-square w-full rounded-lg object-cover" />
-                {img.caption ? <figcaption className="mt-1 text-xs text-zinc-500">{img.caption}</figcaption> : null}
+                <img src={img.src} alt={img.alt} className="aspect-square w-full rounded-xl object-cover" />
+                {img.caption ? <figcaption className="mt-2 text-sm text-zinc-600">{img.caption}</figcaption> : null}
               </figure>
             ))}
           </div>
@@ -1034,19 +1050,36 @@ function GalleryView({ block }: { block: GalleryBlock }) {
 
 function StepsView({ block, ctx }: { block: StepsBlock; ctx: RegionContext }) {
   const p = block.props;
+  const items = p.items ?? [];
   return (
     <Leaf block={block}>
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto max-w-6xl">
         <Heading text={p.heading} ctx={ctx} center />
-        <ol className="mt-8 space-y-6">
-          {(p.items ?? []).map((item, i) => (
-            <li key={item.id} className="flex gap-4" data-lp-el="item">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-sm font-semibold text-white">
-                {i + 1}
+        <ol className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
+          {items.map((item, i) => (
+            <li key={item.id} className="relative flex flex-col">
+              <div className="flex items-center gap-3">
+                <span
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-white shadow-sm"
+                  data-lp-el="badge"
+                >
+                  <span className="text-[15px] font-semibold tracking-wide" data-lp-el="number">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                </span>
+                {i < items.length - 1 ? (
+                  <span className="hidden h-px flex-1 bg-zinc-300 lg:block" data-lp-el="connector" />
+                ) : null}
               </div>
-              <div>
-                <div className="text-sm font-semibold text-zinc-900">{renderLocalizedContent(item.title, ctx)}</div>
-                {item.description ? <p className="mt-1 text-sm text-zinc-600">{renderLocalizedContent(item.description, ctx)}</p> : null}
+              <div className="mt-5 flex-1 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm" data-lp-el="item">
+                <h3 className="text-base font-semibold text-zinc-900" data-lp-el="title">
+                  {renderLocalizedContent(item.title, ctx)}
+                </h3>
+                {item.description ? (
+                  <p className="mt-2 text-sm leading-relaxed text-zinc-600" data-lp-el="description">
+                    {renderLocalizedContent(item.description, ctx)}
+                  </p>
+                ) : null}
               </div>
             </li>
           ))}
@@ -1357,19 +1390,21 @@ function TeamView({ block, ctx }: { block: TeamBlock; ctx: RegionContext }) {
         ) : null}
         <div className={`mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 ${cols(p.columns ?? 3)}`}>
           {members.map((m) => (
-            <div key={m.id} className="rounded-2xl border border-zinc-200 bg-white p-6 text-center" data-lp-el="item">
+            <div key={m.id} className="rounded-2xl border border-zinc-200 bg-white p-7 text-center shadow-sm" data-lp-el="item">
               {m.image ? (
                 <img src={m.image} alt={m.name} className="mx-auto h-24 w-24 rounded-full object-cover" />
               ) : (
-                <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-zinc-100 text-3xl">👤</div>
+                <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-[color:var(--theme-surface,#f4f4f5)] text-2xl font-bold tracking-wide text-[color:var(--theme-heading,#11467B)]">
+                  {initialsOf(m.name)}
+                </div>
               )}
-              <h3 className="mt-4 font-semibold text-zinc-900" data-lp-el="name">
+              <h3 className="mt-5 text-lg font-semibold text-zinc-900" data-lp-el="name">
                 {renderLocalizedContent(m.name, ctx)}
               </h3>
-              {m.role ? <p className="text-sm text-zinc-500">{m.role}</p> : null}
-              {m.bio ? <p className="mt-3 text-sm text-zinc-600">{renderLocalizedContent(m.bio, ctx)}</p> : null}
+              {m.role ? <p className="mt-0.5 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">{m.role}</p> : null}
+              {m.bio ? <p className="mt-4 text-sm leading-relaxed text-zinc-600">{renderLocalizedContent(m.bio, ctx)}</p> : null}
               {m.link ? (
-                <a href={m.link} className="mt-3 inline-block text-sm font-medium text-zinc-900 hover:underline">
+                <a href={m.link} className="mt-4 inline-block text-sm font-medium text-zinc-900 hover:underline">
                   View profile
                 </a>
               ) : null}

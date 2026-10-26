@@ -572,9 +572,11 @@ function TopicGeoWidgetRenderer({ block }: { block: Block }) {
           )}
         </h2>
         {p.showDescription !== false && geo.description && (
-          <p className="mt-2 text-sm text-zinc-600" data-lp-el="description">
-            {geo.description}
-          </p>
+          <div
+            className="prose-sm mt-2 max-w-3xl text-sm text-zinc-600"
+            data-lp-el="description"
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(geo.description) }}
+          />
         )}
         {geo.states.length > 0 ? (
           <ul className={`mt-4 grid grid-cols-1 gap-3 ${colClass}`}>

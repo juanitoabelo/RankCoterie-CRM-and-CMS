@@ -264,18 +264,22 @@ textarea::placeholder {
 
 /* ── Page Builder: Typography Scoping ───────────────────────────────────── */
 
-.pb-section h1, .pb-section h2, .pb-section h3,
-.pb-section h4, .pb-section h5, .pb-section h6 {
-  color: var(--pb-heading-color, inherit);
-}
-.pb-section p, .pb-section span, .pb-section li {
-  color: var(--pb-text-color, inherit);
-}
-.pb-section a {
-  color: var(--pb-link-color, inherit);
-}
-.pb-section a:hover {
-  color: var(--pb-link-hover-color, inherit);
+/* Scoped inside @layer base so explicit Tailwind utilities (e.g. `text-white`
+   on buttons) and theme classes can still override the inherited colors. */
+@layer base {
+  .pb-section h1, .pb-section h2, .pb-section h3,
+  .pb-section h4, .pb-section h5, .pb-section h6 {
+    color: var(--pb-heading-color, inherit);
+  }
+  .pb-section p, .pb-section span, .pb-section li {
+    color: var(--pb-text-color, inherit);
+  }
+  .pb-section a {
+    color: var(--pb-link-color, inherit);
+  }
+  .pb-section a:hover {
+    color: var(--pb-link-hover-color, inherit);
+  }
 }
 
 /* ── Page Builder: Reverse Columns ────────────────────────────────────── */

@@ -449,7 +449,27 @@ export const SHARED_BLOCK_STYLE_SCHEMAS: Record<string, BlockStyleSchema> = {
     elements: [
       { key: "container", label: "Container", fields: CONTAINER_FIELDS },
       { key: "heading", label: "Heading", fields: HEADING_FIELD },
-      { key: "item", label: "Step", fields: CONTENT },
+      { key: "item", label: "Step card", fields: CONTENT },
+      {
+        key: "badge",
+        label: "Step number badge",
+        fields: fields(
+          [{ key: "backgroundColor", label: "Background", kind: "color" }],
+          ...BORDER_FIELDS,
+          ...PADDING_FIELDS,
+        ),
+      },
+      { key: "number", label: "Step number", fields: BODY_TEXT },
+      { key: "title", label: "Step title", fields: HEADINGS },
+      { key: "description", label: "Step description", fields: BODY_TEXT },
+      {
+        key: "connector",
+        label: "Connector line",
+        fields: [
+          { key: "backgroundColor", label: "Color", kind: "color" },
+          { key: "minHeight", label: "Thickness", kind: "number", min: 1, max: 12 },
+        ],
+      },
     ],
   },
   shapeDivider: {

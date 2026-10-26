@@ -304,7 +304,7 @@ function HeadingRenderer({ block }: { block: Block }) {
   const headingStyle: React.CSSProperties = {};
 
   if (p.textColor) headingStyle.color = p.textColor as string;
-  else headingStyle.color = "rgb(24, 24, 27)";
+  else headingStyle.color = "inherit";
   if (p.fontFamily) headingStyle.fontFamily = p.fontFamily as string;
   if (p.fontWeight) headingStyle.fontWeight = p.fontWeight as string;
   if (p.fontSize) headingStyle.fontSize = `${p.fontSize}${p.fontSizeUnit || "px"}`;
@@ -1126,7 +1126,12 @@ export function BlogTemplateBlockRenderer({ block: sourceBlock }: { block: Block
       p.showOnTablet === false ? "pb-hide-tablet" : "",
       p.showOnMobile === false ? "pb-hide-mobile" : "",
     ].filter(Boolean).join(" ");
-    const sectionClasses = ["pb-section", animClass, visClass, showOnClasses, p.cssClasses].filter(Boolean).join(" ");
+    const headingColorClass = p.headingColor
+      ? "[&_h1]:text-[color:var(--pb-heading-color)] [&_h2]:text-[color:var(--pb-heading-color)] [&_h3]:text-[color:var(--pb-heading-color)] [&_h4]:text-[color:var(--pb-heading-color)] [&_h5]:text-[color:var(--pb-heading-color)] [&_h6]:text-[color:var(--pb-heading-color)]"
+      : p.textColor
+        ? "[&_h1]:text-inherit [&_h2]:text-inherit [&_h3]:text-inherit [&_h4]:text-inherit [&_h5]:text-inherit [&_h6]:text-inherit"
+        : "";
+    const sectionClasses = ["pb-section", animClass, visClass, showOnClasses, headingColorClass, p.cssClasses].filter(Boolean).join(" ");
 
     const SectionTag = resolveTag(p.htmlTag, "div");
 

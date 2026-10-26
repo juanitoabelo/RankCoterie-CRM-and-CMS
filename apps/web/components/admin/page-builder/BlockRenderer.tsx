@@ -268,25 +268,33 @@ function FeaturesBlock({ block, ctx }: { block: Block & { type: "features" }; ct
     <BlockAdvancedFrame block={block}>
       {styleScope(
         block,
-        <section className="px-6 py-8" style={sectionPadding(block)}>
-          <div className="mx-auto max-w-5xl">
+        <section className="px-6 py-10" style={sectionPadding(block)}>
+          <div className="mx-auto max-w-6xl">
             {block.props.heading && (
-              <h2 className="text-center text-2xl font-bold text-zinc-900" data-lp-el="heading">
+              <h2 className="text-center text-3xl font-bold tracking-tight text-[color:var(--theme-heading,#18181b)] sm:text-4xl" data-lp-el="heading">
                 {renderLocalizedContent(block.props.heading, ctx)}
               </h2>
             )}
-            <div className={`mt-10 grid gap-8 ${cols}`}>
+            <div className={`mt-12 grid gap-6 ${cols}`}>
               {block.props.items.map((item, i) => (
-                <div key={i} className="text-center" data-lp-el="item">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-xl text-zinc-700">
-                    {item.icon}
+                <div
+                  key={i}
+                  className="rounded-2xl border border-zinc-200 bg-white p-7 shadow-sm transition-shadow hover:shadow-md"
+                  data-lp-el="item"
+                >
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[color:var(--theme-surface,#f4f4f5)] text-2xl text-[color:var(--theme-accent,#f3361f)] ring-1 ring-inset ring-black/5 [&_svg]:h-6 [&_svg]:w-6">
+                    {item.icon?.trim().startsWith("<svg") ? (
+                      <span dangerouslySetInnerHTML={{ __html: item.icon }} />
+                    ) : (
+                      item.icon
+                    )}
                   </div>
-                  <h3 className="mt-4 font-semibold text-zinc-900">
+                  <h3 className="mt-5 text-lg font-semibold text-[color:var(--theme-heading,#18181b)]">
                     {renderLocalizedContent(item.title, ctx)}
                   </h3>
                   {item.description && (
                     <p
-                      className="mt-2 text-sm text-zinc-600 rte-content"
+                      className="mt-2 text-sm leading-relaxed text-zinc-600 rte-content"
                       dangerouslySetInnerHTML={{
                         __html: renderLocalizedContent(item.description, ctx),
                       }}
@@ -317,10 +325,10 @@ function ButtonBlock({ block, ctx }: { block: Block & { type: "button" }; ctx: R
           <div className={`mx-auto max-w-6xl ${alignCls}`}>
             <a
               href={block.props.url}
-              className={`inline-block rounded-lg px-6 py-3 text-sm font-medium transition-colors ${
+              className={`rounded-lg px-7 py-3 text-sm font-semibold transition-colors ${
                 block.props.variant === "outline"
-                  ? "border border-zinc-900 text-zinc-900 hover:bg-zinc-100"
-                  : "bg-zinc-900 text-white hover:bg-zinc-700"
+                  ? "inline-block border border-[color:var(--theme-btn-bg,#18181b)] text-[color:var(--theme-btn-bg,#18181b)] hover:bg-[color:var(--theme-btn-bg,#18181b)] hover:text-[color:var(--theme-btn-text,#ffffff)]"
+                  : "btn"
               }`}
               data-lp-el="button"
             >
@@ -388,6 +396,14 @@ function FaqBlock({ block, ctx }: { block: Block & { type: "faq" }; ctx: RegionC
       )}
     </BlockAdvancedFrame>
   );
+}
+
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "";
+  const first = parts[0][0] ?? "";
+  const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "";
+  return `${first}${last}`.toUpperCase();
 }
 
 function TestimonialBlock({ block, ctx }: { block: Block & { type: "testimonial" }; ctx: RegionContext }) {
@@ -460,21 +476,28 @@ function TestimonialBlock({ block, ctx }: { block: Block & { type: "testimonial"
     <BlockAdvancedFrame block={block}>
       {styleScope(
         block,
-        <section className="px-6 py-6" style={sectionPadding(block)}>
+        <section className="px-6 py-10" style={sectionPadding(block)}>
           {block.props.heading && (
-            <h2 className="mb-8 text-center text-3xl font-bold text-zinc-900" data-lp-el="heading">
+            <h2 className="mb-10 text-center text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl" data-lp-el="heading">
               {renderLocalizedContent(block.props.heading, ctx)}
             </h2>
           )}
           <div className={`mx-auto grid max-w-6xl gap-6 ${colClass}`}>
             {items.map((item: { quote: string; author: string; role: string; rating: number; avatar?: string }, i: number) => (
-              <figure key={i} className="rounded-2xl bg-zinc-50 px-8 py-10 text-center" data-lp-el="item">
+              <figure
+                key={i}
+                className="flex flex-col rounded-2xl border border-zinc-200 bg-white p-7 shadow-sm"
+                data-lp-el="item"
+              >
+                <div className="text-5xl leading-none text-zinc-200" aria-hidden>
+                  &ldquo;
+                </div>
                 {item.rating > 0 && (
-                  <div className="text-amber-400">
+                  <div className="mt-3 text-amber-400">
                     {"★".repeat(Math.max(0, Math.min(5, item.rating)))}
                   </div>
                 )}
-                <blockquote className="mt-4 text-lg font-medium leading-relaxed text-zinc-800" data-lp-el="quote">
+                <blockquote className="mt-3 flex-1 text-[15px] leading-relaxed text-zinc-700" data-lp-el="quote">
                   <div
                     className="rte-content"
                     dangerouslySetInnerHTML={{
@@ -482,16 +505,23 @@ function TestimonialBlock({ block, ctx }: { block: Block & { type: "testimonial"
                     }}
                   />
                 </blockquote>
-                <figcaption className="mt-4 text-sm text-zinc-500">
-                  {item.avatar && (
+                <figcaption className="mt-6 flex items-center gap-3 border-t border-zinc-100 pt-5">
+                  {item.avatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={item.avatar}
                       alt={item.author}
-                      className="mx-auto mb-2 h-10 w-10 rounded-full object-cover"
+                      className="h-10 w-10 rounded-full object-cover"
                     />
+                  ) : (
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[color:var(--theme-surface,#f4f4f5)] text-sm font-semibold text-zinc-700">
+                      {initialsOf(item.author)}
+                    </span>
                   )}
-                  — {item.author}
-                  {item.role ? `, ${item.role}` : ""}
+                  <span>
+                    <span className="block text-sm font-semibold text-zinc-900">{item.author}</span>
+                    {item.role ? <span className="block text-xs text-zinc-500">{item.role}</span> : null}
+                  </span>
                 </figcaption>
               </figure>
             ))}
@@ -810,7 +840,15 @@ function SectionBlock({ block, ctx }: { block: SectionBlock; ctx: RegionContext 
     p.showOnTablet === false ? "pb-hide-tablet" : "",
     p.showOnMobile === false ? "pb-hide-mobile" : "",
   ].filter(Boolean).join(" ");
-  const sectionClasses = ["pb-section", animClass, visClass, showOnClasses, p.cssClasses].filter(Boolean).join(" ");
+  // When a section sets an explicit text/heading colour, force descendant
+  // headings to follow it instead of keeping a hard-coded dark utility colour
+  // (which made headings unreadable on dark bands).
+  const headingColorClass = p.headingColor
+    ? "[&_h1]:text-[color:var(--pb-heading-color)] [&_h2]:text-[color:var(--pb-heading-color)] [&_h3]:text-[color:var(--pb-heading-color)] [&_h4]:text-[color:var(--pb-heading-color)] [&_h5]:text-[color:var(--pb-heading-color)] [&_h6]:text-[color:var(--pb-heading-color)]"
+    : p.textColor
+      ? "[&_h1]:text-inherit [&_h2]:text-inherit [&_h3]:text-inherit [&_h4]:text-inherit [&_h5]:text-inherit [&_h6]:text-inherit"
+      : "";
+  const sectionClasses = ["pb-section", animClass, visClass, showOnClasses, headingColorClass, p.cssClasses].filter(Boolean).join(" ");
 
   const customCss = scopeCustomCss(p.customCss, block.id);
   const hoverCss = hasAdvancedHover(p) ? buildAdvancedHoverCss(block.id, p) : "";

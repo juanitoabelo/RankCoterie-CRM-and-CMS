@@ -938,6 +938,7 @@ export interface LogosBlock extends BlockBase {
     heading: string;
     columns: 3 | 4 | 5 | 6;
     grayscale: boolean;
+    monochrome?: boolean;
     items: Array<{ id: string; src: string; alt: string; url: string }>;
     style?: StyleBreakpoints;
   };
