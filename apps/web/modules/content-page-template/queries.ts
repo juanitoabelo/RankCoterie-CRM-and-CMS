@@ -245,6 +245,41 @@ export async function resolveContentPageTemplate(
   }
 }
 
+/** Public single-page slugs for a kind — used to purge their ISR cache. */
+export async function listContentPageSlugs(kind: ContentPageKind): Promise<string[]> {
+  if (kind === "topic") {
+    const rows = await prisma.category.findMany({
+      where: { tenantId: TENANT_ID, status: "LIVE" },
+      select: { slug: true },
+    });
+    return rows.map((r) => r.slug);
+  }
+  const rows = await prisma.contentTemplate.findMany({
+    where: { tenantId: TENANT_ID, status: "LIVE" },
+    select: { slug: true },
+  });
+  return rows.map((r) => r.slug);
+}
+
+/** Slug for one page id. */
+export async function getContentPageSlug(
+  kind: ContentPageKind,
+  pageId: string,
+): Promise<string | null> {
+  if (kind === "topic") {
+    const row = await prisma.category.findFirst({
+      where: { tenantId: TENANT_ID, id: pageId },
+      select: { slug: true },
+    });
+    return row?.slug ?? null;
+  }
+  const row = await prisma.contentTemplate.findFirst({
+    where: { tenantId: TENANT_ID, id: pageId },
+    select: { slug: true },
+  });
+  return row?.slug ?? null;
+}
+
 /** The template currently assigned to a page (null when only the default applies). */
 export async function getContentPageTemplateAssignment(
   pageId: string,

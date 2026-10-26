@@ -18,6 +18,8 @@ import {
   restoreContentPageTemplateRevision as restoreQuery,
   getContentPageTemplateAssignment as getAssignmentQuery,
   assignContentPageTemplate as assignQuery,
+  listContentPageSlugs,
+  getContentPageSlug,
   type CpTemplateLayoutTag,
 } from "./queries";
 
@@ -36,8 +38,19 @@ const LIST_PATH_BY_KIND: Record<ContentPageKind, string> = {
 };
 
 /** Purges every public single page for the kind (both routes export revalidate = 3600). */
-function revalidatePublicPages(kind: ContentPageKind) {
-  revalidatePath(kind === "topic" ? "/topic/[slug]" : "/subtopic/[slug]", "page");
+async function revalidatePublicPages(kind: ContentPageKind) {
+  const base = kind === "topic" ? "/topic" : "/subtopic";
+  const slugs = await listContentPageSlugs(kind).catch(() => []);
+  for (const slug of slugs) {
+    revalidatePath(`${base}/${slug}/`);
+  }
+}
+
+/** Purges one public single page (assignment changes only affect that page). */
+async function revalidatePublicPage(kind: ContentPageKind, pageId: string) {
+  const base = kind === "topic" ? "/topic" : "/subtopic";
+  const slug = await getContentPageSlug(kind, pageId).catch(() => null);
+  if (slug) revalidatePath(`${base}/${slug}/`);
 }
 
 /* ── LIST ─────────────────────────────────────────────────────────────── */
@@ -74,7 +87,7 @@ export async function createContentPageTemplateAction(
       reason: `Created ${kind} template: ${name} (${layout})`,
     });
     revalidatePath(LIST_PATH_BY_KIND[kind]);
-    revalidatePublicPages(kind);
+    await revalidatePublicPages(kind);
     return { ok: true, id: template.id };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to create template." };
@@ -104,7 +117,7 @@ export async function updateContentPageTemplateBlocksAction(
       actorId: actor.id,
     });
     revalidatePath(`${LIST_PATH_BY_KIND[kind]}/${id}/edit`);
-    revalidatePublicPages(kind);
+    await revalidatePublicPages(kind);
     return { ok: true, data: blocksJson };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to save." };
@@ -132,7 +145,7 @@ export async function updateContentPageTemplateMetaAction(
     });
     revalidatePath(`${LIST_PATH_BY_KIND[kind]}/${id}/edit`);
     revalidatePath(LIST_PATH_BY_KIND[kind]);
-    revalidatePublicPages(kind);
+    await revalidatePublicPages(kind);
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to update." };
@@ -155,7 +168,7 @@ export async function setDefaultContentPageTemplateAction(id: string): Promise<A
       actorId: actor.id,
     });
     revalidatePath(LIST_PATH_BY_KIND[kind]);
-    revalidatePublicPages(kind);
+    await revalidatePublicPages(kind);
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to set default." };
@@ -178,7 +191,7 @@ export async function deleteContentPageTemplateAction(id: string): Promise<Actio
       actorId: actor.id,
     });
     revalidatePath(LIST_PATH_BY_KIND[kind]);
-    revalidatePublicPages(kind);
+    await revalidatePublicPages(kind);
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to delete." };
@@ -211,7 +224,7 @@ export async function restoreContentPageTemplateRevisionAction(
       actorId: actor.id,
     });
     revalidatePath(`${LIST_PATH_BY_KIND[kind]}/${templateId}/edit`);
-    revalidatePublicPages(kind);
+    await revalidatePublicPages(kind);
     return { ok: true, data };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to restore." };
@@ -251,7 +264,7 @@ export async function assignContentPageTemplateAction(
         ? `Assigned ${kind} template ${templateId} to ${pageId}`
         : `Cleared ${kind} template assignment for ${pageId}`,
     });
-    revalidatePublicPages(kind);
+    await revalidatePublicPage(kind, pageId);
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to save assignment." };
