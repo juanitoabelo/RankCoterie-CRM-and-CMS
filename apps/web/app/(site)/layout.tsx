@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import type { Metadata } from "next";
 import { prisma, TENANT_ID } from "@/modules/shared";
 import { safeDb } from "@/lib/db-resilient";
+import { readSiteLayoutCache, writeSiteLayoutCache } from "@/lib/site-layout-cache";
 import { DEFAULT_STYLE_GUIDE, renderGlobalStyleGuide, type StyleGuide } from "@/lib/style-guide";
 import { DEFAULT_THEME_SETTINGS, renderThemeSettingsCSS, type ThemeSettings } from "@/lib/theme-settings";
 import { DEFAULT_HEADER_BLOCKS, DEFAULT_FOOTER_BLOCKS, type HeaderFooterBlock, type ContainerSettings, DEFAULT_CONTAINER_SETTINGS } from "@/lib/header-footer/types";
@@ -27,15 +28,12 @@ interface LayoutCache {
   footerContainerSettings: ContainerSettings;
   pageLayoutBlocks: PageLayoutBlock[];
   pageLayoutContainerSettings: ContainerSettings;
-  expiresAt: number;
 }
 
-const LAYOUT_CACHE_TTL_MS = 60_000; // 1 minute
-let layoutCache: LayoutCache | null = null;
-
 async function getLayoutData() {
-  if (layoutCache && Date.now() < layoutCache.expiresAt) {
-    return layoutCache;
+  const cached = readSiteLayoutCache<LayoutCache>();
+  if (cached) {
+    return cached;
   }
 
   const [tenant, headerMenu, footerMenu, sidebarMenu] = await Promise.all([
@@ -127,7 +125,7 @@ async function getLayoutData() {
     // Page layout models may not exist yet — fall back to empty (no layout applied)
   }
 
-  layoutCache = {
+  const data: LayoutCache = {
     tenant: tenant ? { theme: tenant.theme, companyId: tenant.companyId } : null,
     headerMenu: headerMenu ? { items: headerMenu.items } : null,
     footerMenu: footerMenu ? { items: footerMenu.items } : null,
@@ -139,10 +137,10 @@ async function getLayoutData() {
     footerContainerSettings,
     pageLayoutBlocks,
     pageLayoutContainerSettings,
-    expiresAt: Date.now() + LAYOUT_CACHE_TTL_MS,
   };
 
-  return layoutCache;
+  writeSiteLayoutCache(data);
+  return data;
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -198,6 +196,9 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   const footerMenu = layoutData.footerMenu;
   const useHeaderBuilder = layoutData.headerBlocks.length > 0;
   const useFooterBuilder = layoutData.footerBlocks.length > 0;
+  // Storefront utilities (wishlist / orders / cart) only make sense for shops.
+  // Non-commerce sites disable them via Theme → Layout.
+  const showStorefrontUtilities = themeSettings.layout.showStorefrontUtilities !== false;
   // Only headers may be pinned to the top; footers are always static.
   const headerSticky =
     useHeaderBuilder && layoutData.headerContainerSettings.sticky === "top";
@@ -234,13 +235,17 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
               }}
             />
             <div className="absolute right-4 top-1/5 z-20 -translate-y-1/2 flex items-center gap-4">
-              <Link href="/wishlist" className="hidden text-sm text-zinc-600 hover:text-zinc-900 sm:inline">
-                Wishlist
-              </Link>
-              <Link href="/orders" className="hidden text-sm text-zinc-600 hover:text-zinc-900 sm:inline">
-                Track order
-              </Link>
-              <CartIcon />
+              {showStorefrontUtilities && (
+                <>
+                  <Link href="/wishlist" className="hidden text-sm text-zinc-600 hover:text-zinc-900 sm:inline">
+                    Wishlist
+                  </Link>
+                  <Link href="/orders" className="hidden text-sm text-zinc-600 hover:text-zinc-900 sm:inline">
+                    Track order
+                  </Link>
+                  <CartIcon />
+                </>
+              )}
             </div>
           </div>
         ) : (
@@ -259,10 +264,14 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
                     {item.label}
                   </Link>
                 ))}
-                <Link href="/wishlist" className="hover:text-zinc-900">Wishlist</Link>
-                <Link href="/orders" className="hover:text-zinc-900">Track order</Link>
+                {showStorefrontUtilities && (
+                  <>
+                    <Link href="/wishlist" className="hover:text-zinc-900">Wishlist</Link>
+                    <Link href="/orders" className="hover:text-zinc-900">Track order</Link>
+                  </>
+                )}
               </nav>
-              <CartIcon />
+              {showStorefrontUtilities && <CartIcon />}
             </div>
           </div>
         )}

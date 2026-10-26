@@ -73,6 +73,8 @@ export interface LayoutSettings {
   footerStyle: FooterStyle;
   sidebarPosition: SidebarPosition;
   contentSpacing: ContentSpacing;
+  /** Show the wishlist / orders / cart utilities in the site header. */
+  showStorefrontUtilities?: boolean;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────── */
@@ -147,6 +149,7 @@ export const DEFAULT_LAYOUT_SETTINGS: LayoutSettings = {
   footerStyle: "default",
   sidebarPosition: "none",
   contentSpacing: "default",
+  showStorefrontUtilities: true,
 };
 
 export const DEFAULT_RESPONSIVE_SETTINGS: ResponsiveSettings = {
@@ -328,7 +331,12 @@ export const THEME_PRESETS: ThemePreset[] = [
       body: "'Roboto', system-ui, sans-serif",
       mono: "'Roboto Mono', ui-monospace, monospace",
     },
-    layout: { ...DEFAULT_LAYOUT_SETTINGS, maxWidth: "1200px" },
+    layout: {
+      ...DEFAULT_LAYOUT_SETTINGS,
+      maxWidth: "1200px",
+      headerStyle: "minimal",
+      showStorefrontUtilities: false,
+    },
   },
 ];
 
