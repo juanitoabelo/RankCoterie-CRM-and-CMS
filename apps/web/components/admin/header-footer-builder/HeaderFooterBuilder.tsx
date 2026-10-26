@@ -15,13 +15,14 @@ import {
   type CollisionDetection,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import type { Block, BlockType } from "@/lib/page-builder/types";
-import { createLayoutBlock, createSingleColumnRow, isRowBlock } from "@/lib/page-builder/types";
+import type { Block, BlockType, RowBlock, SectionBlock } from "@/lib/page-builder/types";
+import { createLayoutBlock, createSingleColumnRow, isRowBlock, isSectionBlock } from "@/lib/page-builder/types";
 import {
   createHeaderFooterBlock,
   type HeaderFooterBlock,
   type HeaderFooterBlockType,
   type ContainerSettings,
+  type AdvancedMenuPanel,
   DEFAULT_CONTAINER_SETTINGS,
 } from "@/lib/header-footer/types";
 import {
@@ -32,7 +33,6 @@ import {
   rowIdForColumn,
   moveBlock,
   addBlockFromPalette,
-  insertLayoutBlock,
   removeBlock,
   duplicateBlock,
   updateBlockProps,
@@ -53,10 +53,117 @@ import VisualEditorCanvas from "@/components/admin/visual-editor/VisualEditorCan
 import { blockLabel } from "@/components/admin/visual-editor/labels";
 import HeaderFooterPalette from "./HeaderFooterPalette";
 import HeaderFooterEditor from "./HeaderFooterEditor";
+import MobilePanelCanvas from "./MobilePanelCanvas";
+import DropdownPanelsCanvas from "./DropdownPanelsCanvas";
 import ContainerSettingsEditor from "./ContainerSettingsEditor";
 import ColumnEditor from "./ColumnEditor";
 
 type SaveResult = { ok: true } | { ok: false; error: string };
+
+/* ── Nested layout-tree helpers (mobile panel / dropdown panel content) ── */
+
+function firstColumnIdInTree(blocks: Block[]): string | null {
+  for (const b of blocks) {
+    if (isSectionBlock(b)) {
+      for (const r of b.props.rows) {
+        const id = r.props.columns[0]?.id ?? null;
+        if (id) return id;
+      }
+    } else if (isRowBlock(b)) {
+      const id = b.props.columns[0]?.id ?? null;
+      if (id) return id;
+    }
+  }
+  return null;
+}
+
+function addLeafToColumnInRow(row: RowBlock, colId: string, child: Block): RowBlock {
+  return {
+    ...row,
+    props: {
+      ...row.props,
+      columns: row.props.columns.map((c) =>
+        c.id === colId ? { ...c, blocks: [...c.blocks, child] } : c,
+      ),
+    },
+  } as RowBlock;
+}
+
+function addLeafToColumnInTree(blocks: Block[], colId: string, child: Block): Block[] {
+  return blocks.map((b) => {
+    if (isSectionBlock(b)) {
+      return {
+        ...b,
+        props: { ...b.props, rows: b.props.rows.map((r) => addLeafToColumnInRow(r, colId, child)) },
+      } as Block;
+    }
+    if (isRowBlock(b)) return addLeafToColumnInRow(b, colId, child) as Block;
+    return b;
+  });
+}
+
+/**
+ * Insert a palette/layout block into a nested layout tree (mobile panel or
+ * dropdown panel). Sections and rows append at the tree root; leaf blocks go
+ * into `colId` (or the first column), scaffolding a section/row when empty.
+ */
+function insertIntoLayoutTree(tree: Block[], child: Block, colId?: string): Block[] {
+  if (isSectionBlock(child) || isRowBlock(child)) return [...tree, child];
+  const target = colId ?? firstColumnIdInTree(tree);
+  if (target) return addLeafToColumnInTree(tree, target, child);
+  const row = createSingleColumnRow() as RowBlock;
+  const rowWithChild = {
+    ...row,
+    props: {
+      ...row.props,
+      columns: row.props.columns.map((c, i) => (i === 0 ? { ...c, blocks: [child] } : c)),
+    },
+  } as RowBlock;
+  const section = createLayoutBlock("section") as SectionBlock;
+  return [{ ...section, props: { ...section.props, rows: [rowWithChild] } } as Block, ...tree];
+}
+
+function normalizePanels(raw: unknown): AdvancedMenuPanel[] {
+  if (Array.isArray(raw)) return raw as AdvancedMenuPanel[];
+  return Object.entries((raw ?? {}) as Record<string, AdvancedMenuPanel>).map(([key, p]) => ({
+    ...p,
+    id: p.id ?? key,
+    assignedItemId: p.assignedItemId ?? key,
+  }));
+}
+
+type NestedTarget = {
+  blockId: string;
+  panelId?: string;
+  colId?: string;
+};
+
+/**
+ * Locate which nested tree (mobile layout or a dropdown panel) owns `id` —
+ * a block or column id that does not exist in the main header/footer tree.
+ */
+function locateNestedTarget(blocks: Block[], id: string): NestedTarget | null {
+  for (const b of blocks) {
+    if (b.type !== "advancedMenu") continue;
+    const props = b.props as Record<string, unknown>;
+    const mobile = (props.mobileLayout as Block[]) ?? [];
+    const mobileCol = columnById(mobile, id);
+    const mobileBlock = findColumnForBlock(mobile, id);
+    if (mobileCol || mobileBlock) {
+      return { blockId: b.id, colId: mobileCol?.id ?? mobileBlock?.columnId };
+    }
+    if (findBlock(mobile, id)) return { blockId: b.id };
+
+    for (const p of normalizePanels(props.dropdownPanels)) {
+      const tree = (p.blocks as Block[]) ?? [];
+      const col = columnById(tree, id);
+      const blk = findColumnForBlock(tree, id);
+      if (col || blk) return { blockId: b.id, panelId: p.id, colId: col?.id ?? blk?.columnId };
+      if (findBlock(tree, id)) return { blockId: b.id, panelId: p.id };
+    }
+  }
+  return null;
+}
 
 interface Props {
   templateId: string;
@@ -286,6 +393,78 @@ export default function HeaderFooterBuilder({
     [commit],
   );
 
+/* ── Advanced Menu mobile layout mutations ──────────────────────────── */
+  const updateMobileLayout = useCallback(
+    (blockId: string, updater: (blocks: Block[]) => Block[]) => {
+      commit((present) =>
+        mapBlocks(present, (b) => {
+          if (b.id !== blockId || b.type !== "advancedMenu") return b;
+          const props = b.props as Record<string, unknown>;
+          // Support legacy mobileBlocks key.
+          const current = (props.mobileLayout as Block[]) ?? (props.mobileBlocks as Block[]) ?? [];
+          return { ...b, props: { ...props, mobileLayout: updater(current) } } as Block;
+        }),
+      );
+    },
+    [commit],
+  );
+
+  /* ── Advanced Menu dropdown panel mutations ─────────────────────────── */
+  const updateDropdownPanels = useCallback(
+    (blockId: string, updater: (panels: AdvancedMenuPanel[]) => AdvancedMenuPanel[]) => {
+      commit((present) =>
+        mapBlocks(present, (b) => {
+          if (b.id !== blockId || b.type !== "advancedMenu") return b;
+          const props = b.props as Record<string, unknown>;
+          // Support both old (object) and new (array) formats
+          const currentRaw = props.dropdownPanels;
+          const current = Array.isArray(currentRaw)
+            ? (currentRaw as AdvancedMenuPanel[])
+            : Object.entries(currentRaw ?? {}).map(([key, p]) => ({ ...p, id: p.id ?? key, assignedItemId: p.assignedItemId ?? key })) as AdvancedMenuPanel[];
+          return { ...b, props: { ...props, dropdownPanels: updater(current) } } as Block;
+        }),
+      );
+    },
+    [commit],
+  );
+
+  const addDropdownPanel = useCallback(
+    (blockId: string, panel: AdvancedMenuPanel) => {
+      updateDropdownPanels(blockId, (panels) => [...panels, panel]);
+    },
+    [updateDropdownPanels],
+  );
+
+  const removeDropdownPanel = useCallback(
+    (blockId: string, panelId: string) => {
+      updateDropdownPanels(blockId, (panels) => panels.filter((p) => p.id !== panelId));
+    },
+    [updateDropdownPanels],
+  );
+
+  const updateDropdownPanel = useCallback(
+    (blockId: string, panelId: string, patch: Partial<AdvancedMenuPanel>) => {
+      updateDropdownPanels(blockId, (panels) =>
+        panels.map((p) => (p.id === panelId ? { ...p, ...patch } : p)),
+      );
+    },
+    [updateDropdownPanels],
+  );
+
+  const updatePanelLayout = useCallback(
+    (blockId: string, panelId: string, updater: (blocks: Block[]) => Block[]) => {
+      updateDropdownPanels(blockId, (panels) =>
+        panels.map((p) =>
+          p.id === panelId
+            ? { ...p, layout: "blocks" as const, blocks: updater(p.blocks ?? []) }
+            : p,
+        ),
+      );
+    },
+    [updateDropdownPanels],
+  );
+
+  /* ── Move adjacent (up/down) ─────────────────────────────────────── */
   const moveAdjacent = useCallback(
     (id: string, dir: -1 | 1) => {
       const ids = flattenIds(blocksRef.current);
@@ -344,18 +523,123 @@ export default function HeaderFooterBuilder({
       const activeId = String(active.id);
       const overId = normalizeDropTarget(String(over.id));
 
-      if (activeId.startsWith("palette:")) {
-        const type = activeId.replace("palette:", "");
-        const block = createHeaderFooterBlock(type as HeaderFooterBlockType);
-        commit((present) => addBlockFromPalette(present, block as Block, overId));
-      } else if (activeId.startsWith("layout:")) {
-        const layoutId = activeId.replace("layout:", "");
-        commit((present) => insertLayoutBlock(present, layoutId, { overId }).blocks);
+      // Create the dragged palette/layout block, if any.
+      const draggedChild: Block | null = activeId.startsWith("palette:")
+        ? (createHeaderFooterBlock(
+            activeId.replace("palette:", "") as HeaderFooterBlockType,
+          ) as unknown as Block)
+        : activeId.startsWith("layout:")
+          ? createLayoutBlock(activeId.replace("layout:", ""))
+          : null;
+
+      /* Drop onto an Advanced Menu's mobile layout zone.
+         Ids: <prefix>:<blockId>[:col:<colId>|root|card]
+         Prefixes: advmobilec: (canvas editor) | advmenu-mobile: (sidebar editor) */
+      const mobilePrefix = overId.startsWith("advmobilec:")
+        ? "advmobilec:"
+        : overId.startsWith("advmenu-mobile:")
+          ? "advmenu-mobile:"
+          : null;
+      if (overId && mobilePrefix) {
+        const segs = overId.slice(mobilePrefix.length).split(":");
+        const blockId = segs[0];
+        const colId = segs[1] === "col" ? segs[2] : undefined;
+        if (draggedChild) {
+          const child = draggedChild;
+          updateMobileLayout(blockId, (tree) => insertIntoLayoutTree(tree, child, colId));
+        }
+        return;
+      }
+
+      /* Drop onto a dropdown panel zone — canvas (advpanelc:) or sidebar (advpanel:).
+         Ids: <prefix>:<blockId>:<panelId|first>[:col:<colId>|root|card] */
+      const panelPrefix =
+        overId && overId.startsWith("advpanelc:")
+          ? "advpanelc:"
+          : overId && overId.startsWith("advpanel:")
+            ? "advpanel:"
+            : null;
+      if (overId && panelPrefix) {
+        const segs = overId.slice(panelPrefix.length).split(":");
+        const blockId = segs[0];
+        const rawPanelId = segs[1];
+        const colId = segs[2] === "col" ? segs[3] : undefined;
+        if (draggedChild) {
+          const child = draggedChild;
+          updateDropdownPanels(blockId, (panels) => {
+            const target =
+              rawPanelId === "first"
+                ? panels[0]
+                : panels.find((p) => p.id === rawPanelId);
+            if (!target) return panels;
+            return panels.map((p) =>
+              p.id === target.id
+                ? {
+                    ...p,
+                    layout: "blocks" as const,
+                    blocks: insertIntoLayoutTree((p.blocks ?? []) as Block[], child, colId),
+                  }
+                : p,
+            );
+          });
+        }
+        return;
+      }
+
+      if (draggedChild) {
+        const child = draggedChild;
+        commit((present) => {
+          // Drop onto nested content rendered in the editing preview (mobile
+          // panel / dropdown panel blocks) — route into that nested tree
+          // instead of letting it fall to the main tree root.
+          if (
+            overId &&
+            !findBlock(present, overId) &&
+            !columnById(present, overId) &&
+            !present.some((b) => b.id === overId)
+          ) {
+            const nested = locateNestedTarget(present, overId);
+            if (nested) {
+              return mapBlocks(present, (b) => {
+                if (b.id !== nested.blockId) return b;
+                const props = b.props as Record<string, unknown>;
+                if (!nested.panelId) {
+                  const mobile = (props.mobileLayout as Block[]) ?? [];
+                  return {
+                    ...b,
+                    props: { ...props, mobileLayout: insertIntoLayoutTree(mobile, child, nested.colId) },
+                  } as Block;
+                }
+                const panels = normalizePanels(props.dropdownPanels);
+                return {
+                  ...b,
+                  props: {
+                    ...props,
+                    dropdownPanels: panels.map((p) =>
+                      p.id === nested.panelId
+                        ? {
+                            ...p,
+                            layout: "blocks" as const,
+                            blocks: insertIntoLayoutTree(
+                              (p.blocks ?? []) as Block[],
+                              child,
+                              nested.colId,
+                            ),
+                          }
+                        : p,
+                    ),
+                  },
+                } as Block;
+              });
+            }
+          }
+          return addBlockFromPalette(present, child, overId);
+        });
       } else {
         commit((present) => moveBlock(present, activeId, overId));
       }
     },
-    [commit],
+    [commit, updateMobileLayout, updateDropdownPanels],
   );
 
   /* ── Collision Detection ──────────────────────────────────────── */
@@ -567,11 +851,26 @@ export default function HeaderFooterBuilder({
                 <VisualEditorCanvas
                   blocks={blocks}
                   renderLive={
-                    <HeaderFooterRenderer
-                      blocks={blocks as HeaderFooterBlock[]}
-                      containerSettings={containerSettings}
-                      menus={menus}
-                    />
+                    <>
+                      <HeaderFooterRenderer
+                        blocks={blocks as HeaderFooterBlock[]}
+                        containerSettings={containerSettings}
+                        menus={menus}
+                      />
+                      <MobilePanelCanvas
+                        blocks={blocks}
+                        onMobileLayoutChange={updateMobileLayout}
+                      />
+                      <DropdownPanelsCanvas
+                        blocks={blocks}
+                        onPanelLayoutChange={updatePanelLayout}
+                        onPanelSettingsChange={updateDropdownPanel}
+                        menuItems={[
+                          ...(menus.header ?? []),
+                          ...(menus.footer ?? []),
+                        ].map((m) => ({ id: m.id, label: m.label }))}
+                      />
+                    </>
                   }
                   emptyHint={`Drag blocks from the palette to build your ${templateType === "HEADER" ? "header" : "footer"}`}
                   selectedId={selectedId}
@@ -641,6 +940,17 @@ export default function HeaderFooterBuilder({
                 onDuplicate={() => duplicateBlockById(selectedBlock.id)}
                 onUpdateColumn={updateColumn}
                 themeColors={themeColors}
+                updateMobileLayout={updateMobileLayout}
+                updateDropdownPanels={updateDropdownPanels}
+                addDropdownPanel={addDropdownPanel}
+                removeDropdownPanel={removeDropdownPanel}
+                updateDropdownPanel={updateDropdownPanel}
+                updatePanelLayout={updatePanelLayout}
+                menuItems={
+                  ((selectedBlock.props as Record<string, unknown>).menuId as string) === "footer"
+                    ? menus.footer ?? []
+                    : menus.header ?? []
+                }
               />
             )}
 

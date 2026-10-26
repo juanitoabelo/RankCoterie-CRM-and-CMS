@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import type { HeaderFooterBlock } from "@/lib/header-footer/types";
+import { useState, useCallback } from "react";
+import { useDroppable } from "@dnd-kit/core";
+import type { HeaderFooterBlock, AdvancedMenuPanel } from "@/lib/header-footer/types";
 import type { ColumnData, Block } from "@/lib/page-builder/types";
 import GlobalColorPicker from "./GlobalColorPicker";
 import BuilderImageUploader from "./BuilderImageUploader";
@@ -14,7 +15,9 @@ import { useFontFamilyOptions } from "../CustomFontProvider";
 import type { FontFamilyOption } from "@/lib/custom-fonts";
 import MediaLibraryPicker from "../page-builder/MediaLibraryPicker";
 import { SHARED_EDITORS } from "../page-builder/shared-blocks/editors";
+import type { MenuItem } from "./HeaderFooterRenderer";
 import RowEditor from "./RowEditor";
+import LayoutEditor from "./LayoutEditor";
 import SectionEditor from "./SectionEditor";
 
 type ThemeColor = { key: string; label: string; color: string };
@@ -26,6 +29,20 @@ type EditorProps = {
   onDuplicate: () => void;
   onUpdateColumn: (columnId: string, patch: Record<string, unknown>) => void;
   themeColors?: ThemeColor[];
+  /** Update the mobile panel's full layout tree. */
+  updateMobileLayout?: (blockId: string, updater: (blocks: Block[]) => Block[]) => void;
+  /** Update the dropdown panels array. */
+  updateDropdownPanels?: (blockId: string, updater: (panels: AdvancedMenuPanel[]) => AdvancedMenuPanel[]) => void;
+  /** Add a new dropdown panel. */
+  addDropdownPanel?: (blockId: string, panel: AdvancedMenuPanel) => void;
+  /** Remove a dropdown panel. */
+  removeDropdownPanel?: (blockId: string, panelId: string) => void;
+  /** Update a dropdown panel's settings. */
+  updateDropdownPanel?: (blockId: string, panelId: string, patch: Partial<AdvancedMenuPanel>) => void;
+  /** Update a dropdown panel's layout tree. */
+  updatePanelLayout?: (blockId: string, panelId: string, updater: (blocks: Block[]) => Block[]) => void;
+  /** Menu items available for this block, used to pick a parent link. */
+  menuItems?: MenuItem[];
 };
 
 const inputCls = "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm";
@@ -352,21 +369,34 @@ function MenuEditor({ block, onChange, themeColors }: EditorProps) {
             </select>
           </label>
 
-          {/* Mobile Dropdown section */}
+          {/* Mobile Menu section */}
           <div className="border-t border-zinc-200 pt-3">
-            <span className="text-xs font-semibold text-zinc-700">Mobile Dropdown</span>
+            <span className="text-xs font-semibold text-zinc-700">Mobile Menu</span>
           </div>
+
+          <label className={labelCls}>Style
+            <select value={(p.mobileMenuStyle as string) || "slide"} onChange={(e) => set({ mobileMenuStyle: e.target.value })} className={inputCls}>
+              <option value="slide">Slide-out drawer (from left)</option>
+              <option value="dropdown">Dropdown panel (below header)</option>
+              <option value="static">Always visible (no toggle)</option>
+            </select>
+          </label>
+          <p className="text-[11px] leading-4 text-zinc-500">
+            Dropdown panel drops a full-width list below the header instead of sliding in from the side.
+          </p>
 
           <label className={labelCls}>Breakpoint (px)
             <input type="number" className={inputCls} value={(p.mobileBreakpoint as number) ?? 1024} onChange={(e) => set({ mobileBreakpoint: Number(e.target.value) })} min={480} max={1920} />
           </label>
 
-          <div className="flex items-center justify-between">
-            <span className={labelCls}>Full Width</span>
-            <button type="button" onClick={() => set({ fullMobileWidth: !(p.fullMobileWidth as boolean) })} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${(p.fullMobileWidth as boolean) ? "bg-zinc-900" : "bg-zinc-300"}`}>
-              <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${(p.fullMobileWidth as boolean) ? "translate-x-4.5" : "translate-x-0.5"}`} />
-            </button>
-          </div>
+          {((p.mobileMenuStyle as string) || "slide") === "slide" && (
+            <div className="flex items-center justify-between">
+              <span className={labelCls}>Drawer Full Width</span>
+              <button type="button" onClick={() => set({ fullMobileWidth: !(p.fullMobileWidth as boolean) })} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${(p.fullMobileWidth as boolean) ? "bg-zinc-900" : "bg-zinc-300"}`}>
+                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${(p.fullMobileWidth as boolean) ? "translate-x-4.5" : "translate-x-0.5"}`} />
+              </button>
+            </div>
+          )}
 
           <label className={labelCls}>Text Align
             <select value={(p.mobileTextAlign as string) || "left"} onChange={(e) => set({ mobileTextAlign: e.target.value })} className={inputCls}>
@@ -475,7 +505,7 @@ function MenuEditor({ block, onChange, themeColors }: EditorProps) {
           {/* Text Color with Normal/Hover/Active */}
           <div className="border-t border-zinc-200 pt-3">
             <span className={labelCls}>Text Color</span>
-            <div className="mt-1 grid grid-cols-3 gap-1">
+            <div className="mt-2 space-y-3">
               <GlobalColorPicker label="Normal" value={p.textColor as string} onChange={(c) => set({ textColor: c })} paletteOverride={themeColors} />
               <GlobalColorPicker label="Hover" value={p.hoverColor as string} onChange={(c) => set({ hoverColor: c })} paletteOverride={themeColors} />
               <GlobalColorPicker label="Active" value={p.activeColor as string} onChange={(c) => set({ activeColor: c })} paletteOverride={themeColors} />
@@ -547,12 +577,18 @@ function MenuEditor({ block, onChange, themeColors }: EditorProps) {
 
           {/* Dropdown section */}
           <div className="border-t border-zinc-200 pt-3">
-            <span className="text-xs font-semibold text-zinc-700">Dropdown</span>
+            <span className="text-xs font-semibold text-zinc-700">Dropdown Menu</span>
+            <p className="mt-1 text-[11px] leading-4 text-zinc-500">
+              Applies to sub-menu items. There is no separate active state for dropdown links.
+            </p>
           </div>
 
-          <GlobalColorPicker label="Background Color" value={p.dropdownBgColor as string} onChange={(c) => set({ dropdownBgColor: c })} paletteOverride={themeColors} />
-          <GlobalColorPicker label="Text Color" value={p.dropdownTextColor as string} onChange={(c) => set({ dropdownTextColor: c })} paletteOverride={themeColors} />
-          <GlobalColorPicker label="Hover Color" value={p.dropdownHoverColor as string} onChange={(c) => set({ dropdownHoverColor: c })} paletteOverride={themeColors} />
+          <div className="space-y-3">
+            <GlobalColorPicker label="Background Color" value={p.dropdownBgColor as string} onChange={(c) => set({ dropdownBgColor: c })} paletteOverride={themeColors} />
+            <GlobalColorPicker label="Text Color" value={p.dropdownTextColor as string} onChange={(c) => set({ dropdownTextColor: c })} paletteOverride={themeColors} />
+            <GlobalColorPicker label="Text Hover Color" value={p.dropdownTextHoverColor as string} onChange={(c) => set({ dropdownTextHoverColor: c })} paletteOverride={themeColors} />
+            <GlobalColorPicker label="Background Hover Color" value={p.dropdownHoverColor as string} onChange={(c) => set({ dropdownHoverColor: c })} paletteOverride={themeColors} />
+          </div>
 
           {/* Toggle Button section */}
           <div className="border-t border-zinc-200 pt-3">
@@ -602,6 +638,271 @@ function MenuEditor({ block, onChange, themeColors }: EditorProps) {
             <input type="text" className={inputCls} value={(p.cssClasses as string) || ""} onChange={(e) => set({ cssClasses: e.target.value })} placeholder="custom-menu-class" />
           </label>
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Advanced Menu Editor ─────────────────────────────────────────────── */
+
+function AdvancedMenuEditor(props: EditorProps) {
+  const {
+    block,
+    onChange,
+    updateMobileLayout,
+    updateDropdownPanels,
+    addDropdownPanel,
+    removeDropdownPanel,
+    updateDropdownPanel,
+    updatePanelLayout,
+    menuItems,
+  } = props;
+  const p = block.props as Record<string, unknown>;
+  const set = createSetter(block, onChange);
+  const mobileLayout = ((p.mobileLayout as Block[]) ?? (p.mobileBlocks as Block[]) ?? []) as Block[];
+  const dropdownPanels = (p.dropdownPanels as AdvancedMenuPanel[] | undefined) ?? [];
+
+  return (
+    <div className="space-y-3">
+      <MenuEditor {...props} />
+
+      <MobileLayoutEditor
+        blockId={block.id}
+        layout={mobileLayout}
+        onChange={(next) => updateMobileLayout?.(block.id, () => next)}
+        showItems={p.showMobileMenuItems !== false}
+        onToggleShowItems={(v) => set({ showMobileMenuItems: v })}
+      />
+
+      <DropdownPanelsDesigner
+        blockId={block.id}
+        menuItems={menuItems ?? []}
+        panels={dropdownPanels}
+        updateDropdownPanels={updateDropdownPanels}
+        addDropdownPanel={addDropdownPanel}
+        removeDropdownPanel={removeDropdownPanel}
+        updateDropdownPanel={updateDropdownPanel}
+        updatePanelLayout={updatePanelLayout}
+      />
+    </div>
+  );
+}
+
+/**
+ * Editor for the mobile panel's full layout tree.
+ */
+function MobileLayoutEditor({
+  blockId,
+  layout,
+  onChange,
+  showItems,
+  onToggleShowItems,
+}: {
+  blockId: string;
+  layout: Block[];
+  onChange: (layout: Block[]) => void;
+  showItems: boolean;
+  onToggleShowItems: (value: boolean) => void;
+}) {
+  return (
+    <div className="border-t border-zinc-200 pt-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-zinc-700">Mobile Panel Layout</span>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showItems}
+            onChange={(e) => onToggleShowItems(e.target.checked)}
+            className="rounded border-zinc-300 text-blue-600"
+          />
+          <span className="text-[11px] text-zinc-600">Show menu items above layout</span>
+        </label>
+      </div>
+      <p className="mt-1 text-[11px] leading-4 text-zinc-500">
+        Build the mobile dropdown/drawer content using sections, rows, columns, and blocks.
+      </p>
+      <LayoutEditor
+        blocks={layout}
+        onChange={onChange}
+        droppablePrefix={`advmenu-mobile:${blockId}`}
+        allowTopLevelLayout
+      />
+    </div>
+  );
+}
+
+/**
+ * Design mega-dropdown panels for parent navigation links.
+ * Each panel has its own full layout tree and is assigned to a specific parent menu item.
+ */
+function DropdownPanelsDesigner({
+  blockId,
+  menuItems,
+  panels,
+  updateDropdownPanels,
+  addDropdownPanel,
+  removeDropdownPanel,
+  updateDropdownPanel,
+  updatePanelLayout,
+}: {
+  blockId: string;
+  menuItems: MenuItem[];
+  panels: AdvancedMenuPanel[] | Record<string, AdvancedMenuPanel>;
+  updateDropdownPanels?: (blockId: string, updater: (panels: AdvancedMenuPanel[]) => AdvancedMenuPanel[]) => void;
+  addDropdownPanel?: (blockId: string, panel: AdvancedMenuPanel) => void;
+  removeDropdownPanel?: (blockId: string, panelId: string) => void;
+  updateDropdownPanel?: (blockId: string, panelId: string, patch: Partial<AdvancedMenuPanel>) => void;
+  updatePanelLayout?: (blockId: string, panelId: string, updater: (blocks: Block[]) => Block[]) => void;
+}) {
+  // Support both old (object keyed by item id) and new (array) formats
+  const panelsArray = Array.isArray(panels)
+    ? panels
+    : Object.entries(panels).map(([key, p]) => ({
+        ...p,
+        id: p.id ?? key,
+        assignedItemId: p.assignedItemId ?? key,
+      }));
+  const parents = menuItems.filter((i) => (i.children?.length ?? 0) > 0);
+  const [selectedPanelId, setSelectedPanelId] = useState<string | null>(panelsArray[0]?.id ?? null);
+
+  // Ensure we have a valid panel selected
+  const panel = panelsArray.find((p) => p.id === selectedPanelId) ?? panelsArray[0] ?? null;
+
+  const createNewPanel = useCallback(() => {
+    const newPanel: AdvancedMenuPanel = {
+      id: crypto.randomUUID(),
+      assignedItemId: parents[0]?.id ?? "",
+      layout: "blocks",
+      blocks: [],
+      containerWidth: "boxed",
+      maxWidth: 1200,
+    };
+    addDropdownPanel?.(blockId, newPanel);
+    setSelectedPanelId(newPanel.id);
+  }, [blockId, parents, addDropdownPanel]);
+
+  return (
+    <div className="border-t border-zinc-200 pt-3">
+      <span className="text-xs font-semibold text-zinc-700">Dropdown Panels</span>
+      <p className="mt-1 text-[11px] leading-4 text-zinc-500">
+        Create custom mega-dropdown layouts for parent menu items. Each panel can have
+        its own sections, rows, columns, and blocks.
+      </p>
+
+      {parents.length === 0 ? (
+        <p className="mt-2 rounded bg-zinc-50 px-2 py-2 text-[11px] text-zinc-400">
+          No parent links found. Add sub-items to a menu link in Admin → Menus
+          to design its dropdown.
+        </p>
+      ) : panelsArray.length === 0 ? (
+        <button
+          type="button"
+          onClick={createNewPanel}
+          className="mt-2 rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-600 hover:border-zinc-400 hover:bg-zinc-100"
+        >
+          + Create First Dropdown Panel
+        </button>
+      ) : (
+        <>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {panelsArray.map((p, idx) => (
+              <button
+                key={p.id ?? `panel-${idx}`}
+                type="button"
+                onClick={() => setSelectedPanelId(p.id ?? `panel-${idx}`)}
+                className={`rounded px-2 py-1 text-[11px] font-medium transition-colors ${
+                  (p.id ?? `panel-${idx}`) === selectedPanelId
+                    ? "bg-zinc-900 text-white"
+                    : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                }`}
+              >
+                {p.assignedItemId ? menuItems.find((m) => m.id === p.assignedItemId)?.label ?? p.assignedItemId : "Unassigned"}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={createNewPanel}
+              className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] font-medium text-zinc-600 hover:border-zinc-400 hover:bg-zinc-100"
+            >
+              + Add Panel
+            </button>
+          </div>
+
+          {panel && (
+            <div className="mt-3 space-y-3 p-3 rounded border border-zinc-200 bg-white">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-zinc-700">Panel for: </span>
+                <select
+                  value={panel.assignedItemId}
+                  onChange={(e) => updateDropdownPanel?.(blockId, panel.id, { assignedItemId: e.target.value })}
+                  className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700"
+                >
+                  {parents.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <label className="flex items-center gap-2 text-[11px] text-zinc-600">
+                <input
+                  type="checkbox"
+                  checked={panel.layout === "blocks"}
+                  onChange={(e) => updateDropdownPanel?.(blockId, panel.id, { layout: e.target.checked ? "blocks" : "links" })}
+                />
+                <span>Use custom layout (uncheck for default child links)</span>
+              </label>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm("Delete this dropdown panel?")) {
+                    removeDropdownPanel?.(blockId, panel.id);
+                    setSelectedPanelId(panelsArray.find((p) => p.id !== panel.id)?.id ?? null);
+                  }
+                }}
+                className="text-[11px] text-red-500 hover:underline"
+              >
+                Delete Panel
+              </button>
+
+              {panel.layout === "blocks" && (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="text-[11px] text-zinc-600">Container Width
+                      <select
+                        value={panel.containerWidth ?? "boxed"}
+                        onChange={(e) => updateDropdownPanel?.(blockId, panel.id, { containerWidth: e.target.value as "full" | "boxed" })}
+                        className="ml-2 rounded border border-zinc-300 bg-white px-2 py-1 text-[11px]"
+                      >
+                        <option value="boxed">Boxed (content width)</option>
+                        <option value="full">Full width (site width)</option>
+                      </select>
+                    </label>
+                    {panel.containerWidth === "boxed" && (
+                      <label className="text-[11px] text-zinc-600">Max Width (px)
+                        <input
+                          type="number"
+                          value={panel.maxWidth ?? 1200}
+                          onChange={(e) => updateDropdownPanel?.(blockId, panel.id, { maxWidth: Number(e.target.value) || 1200 })}
+                          className="ml-2 rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] w-24"
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  <LayoutEditor
+                    blocks={panel.blocks ?? []}
+                    onChange={(next) => updatePanelLayout?.(blockId, panel.id, () => next)}
+                    droppablePrefix={`advpanel:${blockId}:${panel.id}`}
+                    allowTopLevelLayout
+                  />
+                </>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -1150,33 +1451,81 @@ function FeaturesEditor({ block, onChange }: EditorProps) {
 
 /* ── Button Editor ────────────────────────────────────────────────────── */
 
-function ButtonEditor({ block, onChange }: EditorProps) {
-  const p = block.props as { text: string; url: string; align: "left" | "center" | "right"; variant: "solid" | "outline" };
+function ButtonEditor({ block, onChange, themeColors }: EditorProps) {
+  const [activeTab, setActiveTab] = useState<"content" | "style" | "advanced">("content");
+  const p = block.props as Record<string, unknown>;
   const set = createSetter(block, onChange);
 
   return (
     <div className="space-y-3">
-      <label className={labelCls}>Text
-        <input type="text" value={p.text} onChange={(e) => set({ text: e.target.value })} className={inputCls} />
-      </label>
-      <label className={labelCls}>URL
-        <input type="url" value={p.url} onChange={(e) => set({ url: e.target.value })} placeholder="https://..." className={inputCls} />
-      </label>
-      <div className="grid grid-cols-2 gap-3">
-        <label className={labelCls}>Alignment
-          <select value={p.align} onChange={(e) => set({ align: e.target.value })} className={inputCls}>
-            <option value="left">Left</option>
-            <option value="center">Center</option>
-            <option value="right">Right</option>
-          </select>
-        </label>
-        <label className={labelCls}>Variant
-          <select value={p.variant} onChange={(e) => set({ variant: e.target.value })} className={inputCls}>
-            <option value="solid">Solid</option>
-            <option value="outline">Outline</option>
-          </select>
-        </label>
+      {/* Tabs */}
+      <div className="flex border-b border-zinc-200">
+        {(["content", "style", "advanced"] as const).map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-2 text-xs font-medium capitalize ${activeTab === tab ? "border-b-2 border-zinc-900 text-zinc-900" : "text-zinc-500 hover:text-zinc-700"}`}>
+            {tab}
+          </button>
+        ))}
       </div>
+
+      {/* ── Content Tab ─────────────────────────────────── */}
+      {activeTab === "content" && (
+        <div className="space-y-3">
+          <div className="border-t border-zinc-200 pt-3">
+            <span className="text-xs font-semibold text-zinc-700">Button</span>
+          </div>
+
+          <label className={labelCls}>Text
+            <input type="text" value={(p.text as string) ?? ""} onChange={(e) => set({ text: e.target.value })} className={inputCls} />
+          </label>
+          <label className={labelCls}>URL
+            <input type="url" value={(p.url as string) ?? ""} onChange={(e) => set({ url: e.target.value })} placeholder="https://..." className={inputCls} />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className={labelCls}>Alignment
+              <select value={(p.align as string) ?? "left"} onChange={(e) => set({ align: e.target.value })} className={inputCls}>
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+              </select>
+            </label>
+            <label className={labelCls}>Variant
+              <select value={(p.variant as string) ?? "solid"} onChange={(e) => set({ variant: e.target.value })} className={inputCls}>
+                <option value="solid">Solid</option>
+                <option value="outline">Outline</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      )}
+
+      {/* ── Style Tab ─────────────────────────────────── */}
+      {activeTab === "style" && (
+        <div className="space-y-3">
+          <div className="border-t border-zinc-200 pt-3">
+            <span className="text-xs font-semibold text-zinc-700">Button</span>
+          </div>
+          <SchemaStyleTab blockType={block.type} p={p} set={set} />
+
+          <div className="border-t border-zinc-200 pt-3">
+            <span className="text-xs font-semibold text-zinc-700">Hover State</span>
+            <p className="mt-1 text-[11px] leading-4 text-zinc-500">
+              Optional overrides applied while the button is hovered. Leave blank to keep the normal style.
+            </p>
+          </div>
+          <div className="space-y-3">
+            <GlobalColorPicker label="Background" value={p.buttonHoverBgColor as string} onChange={(c) => set({ buttonHoverBgColor: c })} paletteOverride={themeColors} allowClear />
+            <GlobalColorPicker label="Text" value={p.buttonHoverTextColor as string} onChange={(c) => set({ buttonHoverTextColor: c })} paletteOverride={themeColors} allowClear />
+            <GlobalColorPicker label="Border" value={p.buttonHoverBorderColor as string} onChange={(c) => set({ buttonHoverBorderColor: c })} paletteOverride={themeColors} allowClear />
+          </div>
+        </div>
+      )}
+
+      {/* ── Advanced Tab ─────────────────────────────────── */}
+      {activeTab === "advanced" && (
+        <div className="space-y-3">
+          <BlockAdvancedTab props={p} set={set} />
+        </div>
+      )}
     </div>
   );
 }
@@ -2146,6 +2495,7 @@ function GenericEditor({ block, onChange }: EditorProps) {
 const EDITORS: Record<string, React.ComponentType<EditorProps>> = {
   logo: LogoEditor,
   menu: MenuEditor,
+  advancedMenu: AdvancedMenuEditor,
   socialIcons: SocialIconsEditor,
   contactInfo: ContactInfoEditor,
   search: SearchEditor,
@@ -2193,6 +2543,13 @@ export default function HeaderFooterEditor({
   onDuplicate,
   onUpdateColumn,
   themeColors,
+  updateMobileLayout,
+  updateDropdownPanels,
+  addDropdownPanel,
+  removeDropdownPanel,
+  updateDropdownPanel,
+  updatePanelLayout,
+  menuItems,
 }: EditorProps) {
   const Editor = EDITORS[block.type] ?? GenericEditor;
 
@@ -2209,7 +2566,21 @@ export default function HeaderFooterEditor({
         </div>
       </div>
       <div className="p-4">
-        <Editor block={block} onChange={onChange} onRemove={onRemove} onDuplicate={onDuplicate} onUpdateColumn={onUpdateColumn} themeColors={themeColors} />
+        <Editor
+          block={block}
+          onChange={onChange}
+          onRemove={onRemove}
+          onDuplicate={onDuplicate}
+          onUpdateColumn={onUpdateColumn}
+          themeColors={themeColors}
+          updateMobileLayout={updateMobileLayout}
+          updateDropdownPanels={updateDropdownPanels}
+          addDropdownPanel={addDropdownPanel}
+          removeDropdownPanel={removeDropdownPanel}
+          updateDropdownPanel={updateDropdownPanel}
+          updatePanelLayout={updatePanelLayout}
+          menuItems={menuItems}
+        />
       </div>
     </div>
   );
@@ -2217,7 +2588,7 @@ export default function HeaderFooterEditor({
 
 function getBlockIcon(type: string): string {
   const icons: Record<string, string> = {
-    logo: "◎", menu: "☰", socialIcons: "⏹", contactInfo: "📞", search: "🔍",
+    logo: "◎", menu: "☰", advancedMenu: "🧩", socialIcons: "⏹", contactInfo: "📞", search: "🔍",
     hero: "⬛", text: "📝", image: "🖼", cta: "🔘", features: "📊",
     button: "🔗", embed: "</>", faq: "❓", testimonial: "💬", spacer: "↕",
     divider: "—", heading: "H", list: "≡",     iconList: "✔", googleMap: "🗺", video: "▶", slider: "◫", contentGrid: "▦",
@@ -2228,7 +2599,7 @@ function getBlockIcon(type: string): string {
 
 function getBlockLabel(type: string): string {
   const labels: Record<string, string> = {
-    logo: "Logo", menu: "Menu", socialIcons: "Social Icons", contactInfo: "Contact Info", search: "Search",
+    logo: "Logo", menu: "Menu", advancedMenu: "Advanced Menu", socialIcons: "Social Icons", contactInfo: "Contact Info", search: "Search",
     hero: "Hero", text: "Text", image: "Image", cta: "CTA", features: "Features",
     button: "Button", embed: "Embed", faq: "FAQ", testimonial: "Testimonial", spacer: "Spacer",
     divider: "Divider", heading: "Heading", list: "List",     iconList: "Icon List", googleMap: "Google Maps", video: "Video", slider: "Slider", contentGrid: "Content Grid",

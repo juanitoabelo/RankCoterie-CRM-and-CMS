@@ -41,6 +41,17 @@ function collectElementMeta(blocks: Block[]): PbMeta[] {
         }
       } else {
         out.push({ id: b.id, kind: "block", type: b.type });
+        // Advanced Menu blocks carry extra nested content (mobile panel layout
+        // and per-parent dropdown panels) that must be selectable on canvas.
+        if (Array.isArray(p.mobileLayout)) walk(p.mobileLayout);
+        else if (Array.isArray(p.mobileBlocks)) walk(p.mobileBlocks);
+        const panelsRaw = p.dropdownPanels;
+        const panels: Array<{ blocks?: Block[] }> = Array.isArray(panelsRaw)
+          ? panelsRaw
+          : Object.values((panelsRaw ?? {}) as Record<string, { blocks?: Block[] }>);
+        for (const panel of panels) {
+          if (panel && Array.isArray(panel.blocks)) walk(panel.blocks);
+        }
       }
     }
   };

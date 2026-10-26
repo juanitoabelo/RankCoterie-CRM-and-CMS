@@ -331,6 +331,74 @@ export interface MenuBlock extends BlockBase {
   };
 }
 
+export interface AdvancedMenuBlock extends BlockBase {
+  type: "advancedMenu";
+  props: {
+    menuId: string;
+    orientation: "horizontal" | "vertical";
+    style: "links" | "dropdown" | "hamburger";
+    align: "left" | "center" | "right" | "between";
+    gap: number;
+    textColor?: string;
+    hoverColor?: string;
+    fontSize?: number;
+    mobileMenuStyle: "slide" | "overlay" | "dropdown" | "hamburger";
+    pointer?: "none" | "underline" | "framed" | "background" | "double";
+    pointerWidth?: number;
+    pointerColor?: string;
+    animation?: "none" | "fade" | "slide" | "grow";
+    hPadding?: number;
+    vPadding?: number;
+    spaceBetween?: number;
+    menuName?: string;
+    mobileBreakpoint?: number;
+    fullMobileWidth?: boolean;
+    mobileTextAlign?: "left" | "center" | "right";
+    toggleButton?: "hamburger" | "classic" | "bubble";
+    toggleAlign?: "left" | "center" | "right";
+    toggleColor?: string;
+    toggleSize?: number;
+    dropdownBgColor?: string;
+    dropdownTextColor?: string;
+    dropdownTextHoverColor?: string;
+    dropdownHoverColor?: string;
+    activeColor?: string;
+    fontFamily?: string;
+    fontWeight?: string;
+    textTransform?: "none" | "uppercase" | "lowercase" | "capitalize";
+    letterSpacing?: number;
+    /**
+     * Full layout tree (sections/rows/columns/blocks) for the mobile dropdown panel.
+     * Mirrors the page-builder canvas structure so any layout/block combination works.
+     */
+    mobileLayout?: Block[];
+    /** Show the nav items above the layout inside the mobile panel. */
+    showMobileMenuItems?: boolean;
+    /**
+     * Per-parent-link mega dropdown panels. Each panel has its own full layout tree
+     * and is assigned to a specific parent menu item by `assignedItemId`.
+     */
+    dropdownPanels?: AdvancedMenuPanel[];
+  };
+}
+
+export interface AdvancedMenuPanel {
+  /** Unique id for this panel instance. */
+  id: string;
+  /** The parent menu item id this panel is assigned to. */
+  assignedItemId: string;
+  /** Display mode: default child links or custom layout. */
+  layout: "links" | "blocks";
+  /** Full layout tree (sections/rows/columns/blocks) when layout === "blocks". */
+  blocks?: Block[];
+  /** Panel background override (falls back to the menu dropdown bg). */
+  bgColor?: string;
+  /** Container width: full site width or boxed to content width. */
+  containerWidth?: "full" | "boxed";
+  /** Optional custom max-width when boxed. */
+  maxWidth?: number;
+}
+
 export interface SocialIconsBlock extends BlockBase {
   type: "socialIcons";
   props: {
@@ -402,6 +470,7 @@ export type HeaderFooterBlock =
   | SectionBlock
   | LogoBlock
   | MenuBlock
+  | AdvancedMenuBlock
   | SocialIconsBlock
   | ContactInfoBlock
   | SearchBlock;
@@ -465,6 +534,22 @@ export const HEADER_FOOTER_SPECIALIZED_DEFINITIONS: HeaderFooterBlockDefinition[
     },
   },
   {
+    type: "advancedMenu",
+    label: "Advanced Menu",
+    icon: "🧩",
+    category: "Header / Footer",
+    defaults: {
+      menuId: "",
+      orientation: "horizontal",
+      style: "links",
+      align: "right",
+      gap: 24,
+      mobileMenuStyle: "hamburger",
+      mobileBlocks: [],
+      showMobileMenuItems: true,
+    },
+  },
+  {
     type: "socialIcons",
     label: "Social Icons",
     icon: "⏹",
@@ -517,6 +602,7 @@ export const HEADER_FOOTER_SPECIALIZED_DEFINITIONS: HeaderFooterBlockDefinition[
 export const HEADER_FOOTER_LEAF_BLOCK_TYPES: HeaderFooterBlockType[] = [
   "logo",
   "menu",
+  "advancedMenu",
   "socialIcons",
   "contactInfo",
   "search",
