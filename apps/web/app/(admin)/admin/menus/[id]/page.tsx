@@ -37,7 +37,6 @@ export default async function MenuDetailPage({
       <div className="mt-6">
         <MenuItemsSortable
           menuId={menu.id}
-          menuName={menu.name}
           items={menu.items}
         />
       </div>

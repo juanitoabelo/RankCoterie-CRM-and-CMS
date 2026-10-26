@@ -1,6 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { clearSiteLayoutCache } from "@/lib/site-layout-cache";
+
+/** Menus render in the global header/footer, so every public page is affected. */
+function revalidatePublicSite() {
+  clearSiteLayoutCache();
+  revalidatePath("/", "layout");
+}
 import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/modules/auth";
@@ -95,6 +102,7 @@ export async function createMenuItem(formData: FormData): Promise<ActionResult> 
     });
     await logAudit({ action: "MENU_UPDATE", entity: "MenuItem", entityId: label, actorId: actor.id });
     revalidatePath("/admin/menus");
+    revalidatePublicSite();
     revalidatePath("/admin/menus/new");
     return { ok: true };
   } catch (e) {
@@ -127,6 +135,7 @@ export async function updateMenuItem(id: string, formData: FormData): Promise<Ac
     });
     await logAudit({ action: "MENU_UPDATE", entity: "MenuItem", entityId: id, actorId: actor.id });
     revalidatePath("/admin/menus");
+    revalidatePublicSite();
     revalidatePath(`/admin/menus/items/${id}/edit`);
     return { ok: true };
   } catch (e) {
@@ -140,6 +149,7 @@ export async function deleteMenuItem(id: string): Promise<ActionResult> {
     await prisma.menuItem.delete({ where: { id } });
     await logAudit({ action: "MENU_DELETE", entity: "MenuItem", entityId: id, actorId: actor.id });
     revalidatePath("/admin/menus");
+    revalidatePublicSite();
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to delete menu item." };
@@ -152,6 +162,7 @@ export async function deleteMenu(id: string): Promise<ActionResult> {
     await prisma.menu.deleteMany({ where: { id, tenantId: TENANT_ID } });
     await logAudit({ action: "MENU_DELETE", entity: "Menu", entityId: id, actorId: actor.id });
     revalidatePath("/admin/menus");
+    revalidatePublicSite();
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to delete menu." };
@@ -188,6 +199,7 @@ export async function reorderMenuItems(
     );
     await logAudit({ action: "MENU_UPDATE", entity: "Menu", entityId: menuId, actorId: actor.id });
     revalidatePath("/admin/menus");
+    revalidatePublicSite();
     revalidatePath(`/admin/menus/${menuId}`);
     return { ok: true };
   } catch (e) {
@@ -229,6 +241,7 @@ export async function saveMenuItemsForm(formData: FormData): Promise<void> {
 
   await logAudit({ action: "MENU_UPDATE", entity: "Menu", entityId: menuId, actorId: actor.id });
   revalidatePath("/admin/menus");
+  revalidatePublicSite();
   revalidatePath(`/admin/menus/${menuId}`);
 }
 
@@ -241,6 +254,7 @@ export async function deleteMenuForm(formData: FormData): Promise<void> {
   await prisma.menu.deleteMany({ where: { id: menuId, tenantId: TENANT_ID } });
   await logAudit({ action: "MENU_DELETE", entity: "Menu", entityId: menuId, actorId: actor.id });
   revalidatePath("/admin/menus");
+  revalidatePublicSite();
 }
 
 export async function createMenu(formData: FormData): Promise<ActionResult> {
@@ -260,6 +274,7 @@ export async function createMenu(formData: FormData): Promise<ActionResult> {
     });
     await logAudit({ action: "MENU_UPDATE", entity: "Menu", entityId: name, actorId: actor.id });
     revalidatePath("/admin/menus");
+    revalidatePublicSite();
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to create menu." };
