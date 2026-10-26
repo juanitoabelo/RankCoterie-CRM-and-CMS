@@ -37,6 +37,11 @@ export const ABELO_THEME = {
     body: "'Roboto', system-ui, sans-serif",
     mono: "'Roboto Mono', ui-monospace, monospace",
   },
+  layout: {
+    maxWidth: "1200px",
+    headerStyle: "minimal",
+    showStorefrontUtilities: false,
+  },
 } as const;
 
 export const ABELO_BRAND = {
@@ -128,16 +133,16 @@ const resetIds = () => {
   seq = 0;
 };
 
-const heading = (text: string, level = 2, align: "left" | "center" = "center"): AnyBlock => ({
+const heading = (text: string, level = 2, align: "left" | "center" = "center", color?: string): AnyBlock => ({
   id: uid("heading"),
   type: "heading",
-  props: { text, level, align },
+  props: { text, level, align, ...(color ? { textColor: color } : {}) },
 });
 
-const richText = (html: string, align: "left" | "center" = "left"): AnyBlock => ({
+const richText = (html: string, align: "left" | "center" = "left", color?: string): AnyBlock => ({
   id: uid("text"),
   type: "text",
-  props: { content: html, align },
+  props: { content: html, align, ...(color ? { textColor: color } : {}) },
 });
 
 const button = (text: string, url: string, align: "left" | "center" = "center", variant = "solid"): AnyBlock => ({
@@ -146,15 +151,25 @@ const button = (text: string, url: string, align: "left" | "center" = "center", 
   props: { text, url, align, variant },
 });
 
-const image = (src: string, alt: string, caption = ""): AnyBlock => ({
+const image = (
+  src: string,
+  alt: string,
+  caption = "",
+  extra: Record<string, unknown> = {},
+): AnyBlock => ({
   id: uid("image"),
   type: "image",
-  props: { src, alt, caption, alignment: "center" },
+  props: { src, alt, caption, alignment: "center", ...extra },
 });
 
 const spacer = (height = 32): AnyBlock => ({ id: uid("spacer"), type: "spacer", props: { height } });
 
-const column = (span: number, blocks: AnyBlock[]) => ({ id: uid("col"), span, blocks });
+const column = (span: number, blocks: AnyBlock[], extra: Record<string, unknown> = {}) => ({
+  id: uid("col"),
+  span,
+  blocks,
+  ...extra,
+});
 
 const row = (columns: ReturnType<typeof column>[], extra: Record<string, unknown> = {}): AnyBlock => ({
   id: uid("row"),
@@ -165,7 +180,15 @@ const row = (columns: ReturnType<typeof column>[], extra: Record<string, unknown
 const section = (rows: AnyBlock[], extra: Record<string, unknown> = {}): AnyBlock => ({
   id: uid("sec"),
   type: "section",
-  props: { rows, width: "full", paddingTop: 0, paddingBottom: 0, ...extra },
+  props: {
+    rows,
+    width: "boxed",
+    maxWidth: 1200,
+    padding: { left: 24, right: 24 },
+    paddingTop: 0,
+    paddingBottom: 0,
+    ...extra,
+  },
 });
 
 /** A coloured/image band with a heading, subheading and optional CTA. */
@@ -182,8 +205,12 @@ const pageHeader = (
         [
           column(12, [
             heading(headingText, 1, "center"),
-            richText(`<p style="text-align:center">${subheading}</p>`, "center"),
-            ...(cta ? [button(cta.text, cta.url, "center")] : []),
+            richText(
+              `<p style="text-align:center;font-size:18px;line-height:1.7;max-width:44rem;margin:18px auto 0">${subheading}</p>`,
+              "center",
+              "#E4EAF2",
+            ),
+            ...(cta ? [spacer(8), button(cta.text, cta.url, "center")] : []),
           ]),
         ],
       ),
@@ -193,11 +220,11 @@ const pageHeader = (
       bgImage: img(bgKey),
       overlayBgType: "color",
       overlayColor: "#0B2A4A",
-      overlayOpacity: 78,
+      overlayOpacity: 74,
       textColor: "#ffffff",
       headingColor: "#ffffff",
-      paddingTop: 96,
-      paddingBottom: 96,
+      paddingTop: 120,
+      paddingBottom: 120,
     },
   );
 
@@ -209,9 +236,11 @@ const ctaSection = (img: Img): AnyBlock =>
           column(12, [
             heading("Let’s build your next website", 2, "center"),
             richText(
-              "<p style=\"text-align:center\">Tell us about your project and we’ll send a free quotation with a clear plan, timeline and price.</p>",
+              '<p style="text-align:center;font-size:18px;line-height:1.7;max-width:42rem;margin:14px auto 0">Tell us about your project and we’ll send a free quotation with a clear plan, timeline and price.</p>',
               "center",
+              "#E4EAF2",
             ),
+            spacer(8),
             button("Request for a free quotation", "/contact", "center"),
           ]),
         ],
@@ -237,6 +266,7 @@ const logosSection = (img: Img, headingText: string, keys: string[], bgColor: st
     heading: headingText,
     columns: 4,
     grayscale: false,
+    monochrome: true,
     items: keys.map((k) => ({ id: uid("logo"), src: img(k), alt: imageAlt(k), url: "" })),
     style: { sectionPaddingTop: 56, sectionPaddingBottom: 56 },
     bgColor,
@@ -246,21 +276,37 @@ const logosSection = (img: Img, headingText: string, keys: string[], bgColor: st
 
 /* ── Shared content ──────────────────────────────────────────────────────── */
 
+const svgIcon = (inner: string) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+
+const ICONS = {
+  palette:
+    '<circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2a10 10 0 1 0 0 20 2 2 0 0 0 2-2v-1a2 2 0 0 1 2-2h2a4 4 0 0 0 4-4c0-5.5-4.5-11-10-11Z"/>',
+  code: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
+  trending: '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+  compass:
+    '<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>',
+  layers: '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+  maximize: '<path d="M21 3 9 15"/><path d="M12 3H3v18h18v-9"/><path d="M16 3h5v5"/>',
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  mobile: '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>',
+};
+
 const SERVICES = [
   {
-    icon: "🎨",
+    icon: svgIcon(ICONS.palette),
     title: "Graphic Design",
     description:
       "We define requirements, then visualise and craft illustrations, logos, layouts and photography — realising the visual components of websites, books, magazines and packaging from your ideas.",
   },
   {
-    icon: "💻",
+    icon: svgIcon(ICONS.code),
     title: "Web Development",
     description:
       "We implement the approved design as a fast, responsive front end — architecting the database, content types, custom fields and all static content so the site is easy to manage.",
   },
   {
-    icon: "📈",
+    icon: svgIcon(ICONS.trending),
     title: "SEO Optimisation",
     description:
       "Tailored SEO from keyword research and on-page optimisation to content strategy and technical SEO, so your website ranks higher, attracts the right audience and converts.",
@@ -269,31 +315,31 @@ const SERVICES = [
 
 const COMPETITIVE = [
   {
-    icon: "🧭",
+    icon: svgIcon(ICONS.compass),
     title: "Easy Navigation",
     description:
       "A user-focused layout built on accessibility and empathy. A great browsing experience keeps visitors engaged and coming back.",
   },
   {
-    icon: "🧩",
+    icon: svgIcon(ICONS.layers),
     title: "Functional",
     description:
       "Beautiful and functional. Users always find what they are looking for — whether your site is eCommerce, corporate or a portfolio.",
   },
   {
-    icon: "📐",
+    icon: svgIcon(ICONS.maximize),
     title: "Scalable",
     description:
       "A scalable infrastructure handles traffic spikes without slowing down, so you spend less on maintenance and gain more profit.",
   },
   {
-    icon: "🔍",
+    icon: svgIcon(ICONS.search),
     title: "SEO Friendly",
     description:
       "Search engine optimisation keeps your site relevant and easy to find, boosting your online presence, authority and credibility.",
   },
   {
-    icon: "📱",
+    icon: svgIcon(ICONS.mobile),
     title: "Mobile Friendly",
     description:
       "Responsive design means your website looks great on any screen — laptop, tablet or phone — with a layout that adapts fluidly.",
@@ -368,7 +414,6 @@ const stats = (items: { id: string; value: string; label: string }[]): AnyBlock 
 
 const testimonialBlock = (
   items: (typeof TESTIMONIALS)[number][],
-  img: Img,
   display: "grid" | "slider" = "grid",
 ): AnyBlock => ({
   id: uid("testimonial"),
@@ -380,7 +425,6 @@ const testimonialBlock = (
       author: t.author,
       role: t.role,
       rating: t.rating,
-      avatar: img(t.avatarKey),
     })),
     display,
     columns: display === "slider" ? 1 : Math.min(3, items.length),
@@ -421,7 +465,7 @@ export function abeloPages(img: Img): PageDef[] {
         section(
           [
             row([
-              column(6, [image(img("working-station"), "Designer working at a workstation")]),
+              column(6, [image(img("working-station"), "Designer working at a workstation", "", { imageHeight: 460, borderRadiusTop: 18, borderRadiusRight: 18, borderRadiusBottom: 18, borderRadiusLeft: 18, boxShadow: "0 24px 60px -30px rgba(15,23,42,0.35)" })]),
               column(6, [
                 heading("Abelo Creative", 2, "left"),
                 richText(
@@ -429,7 +473,7 @@ export function abeloPages(img: Img): PageDef[] {
                 ),
                 button("About us", "/about", "left", "outline"),
               ]),
-            ]),
+            ], { align: "center" }),
           ],
           { bgColor: "#F4F6F9", paddingTop: 64, paddingBottom: 64 },
         ),
@@ -451,7 +495,7 @@ export function abeloPages(img: Img): PageDef[] {
           { bgColor: "#11467B", textColor: "#ffffff", headingColor: "#ffffff", paddingTop: 56, paddingBottom: 56 },
         ),
         section([row([column(12, [logosSection(img, "Our Clients — driving technology for leading brands", CLIENT_KEYS, "#0B2A4A", "#ffffff")])])], { paddingTop: 0, paddingBottom: 0 }),
-        section([row([column(12, [testimonialBlock(TESTIMONIALS.slice(0, 2), img)])])], { paddingTop: 40, paddingBottom: 40 }),
+        section([row([column(12, [testimonialBlock(TESTIMONIALS.slice(0, 2))])])], { paddingTop: 40, paddingBottom: 40 }),
         ctaSection(img),
       ],
     },
@@ -466,14 +510,14 @@ export function abeloPages(img: Img): PageDef[] {
         section(
           [
             row([
-              column(6, [image(img("about-office"), "The Abelo Creative studio")]),
+              column(6, [image(img("about-office"), "The Abelo Creative studio", "", { imageHeight: 460, borderRadiusTop: 18, borderRadiusRight: 18, borderRadiusBottom: 18, borderRadiusLeft: 18, boxShadow: "0 24px 60px -30px rgba(15,23,42,0.35)" })]),
               column(6, [
                 heading("Who we are", 2, "left"),
                 richText(
                   "<p>We are a website design and development team who aim to provide satisfaction to our clients with our professional services from the design phase to launching and site maintenance.</p><p>The business is established mainly to help all sorts of business types worldwide create their company’s website, both desktop and mobile responsive. We welcome partner businesses alike, ensuring they meet their clients’ requirements in a timely manner.</p><p>With all the workforce of Abelo Creative, we always see to it that we deliver the best quality of work that makes our clients happy and satisfied.</p>",
                 ),
               ]),
-            ]),
+            ], { align: "center" }),
           ],
           { paddingTop: 64, paddingBottom: 64 },
         ),
@@ -503,9 +547,9 @@ export function abeloPages(img: Img): PageDef[] {
                   subheading: "Small, senior, and hands-on from brief to launch.",
                   columns: 3,
                   members: [
-                    { id: "tm-1", name: "Juanito Abelo", role: "Founder & Lead Developer", image: img("avatar-juanito"), bio: "Full-stack developer across PHP, JavaScript, Shopify and WordPress.", link: "" },
-                    { id: "tm-2", name: "Katharine Rattray", role: "Design Lead", image: img("team-2"), bio: "Brand, layout and UX design from brief to polished mockups.", link: "" },
-                    { id: "tm-3", name: "Mike Bautista", role: "Technical Partner", image: img("team-3"), bio: "Partnerships and long-running product engineering.", link: "" },
+                    { id: "tm-1", name: "Juanito Abelo", role: "Founder & Lead Developer", image: "", bio: "Full-stack developer across PHP, JavaScript, Shopify and WordPress.", link: "" },
+                    { id: "tm-2", name: "Katharine Rattray", role: "Design Lead", image: "", bio: "Brand, layout and UX design from brief to polished mockups.", link: "" },
+                    { id: "tm-3", name: "Mike Bautista", role: "Technical Partner", image: "", bio: "Partnerships and long-running product engineering.", link: "" },
                   ],
                   style: {},
                 },
@@ -602,7 +646,7 @@ export function abeloPages(img: Img): PageDef[] {
         section(
           [
             row([
-              column(6, [image(img("service-web"), "Building a website")]),
+              column(6, [image(img("service-web"), "Building a website", "", { imageHeight: 440, borderRadiusTop: 18, borderRadiusRight: 18, borderRadiusBottom: 18, borderRadiusLeft: 18, boxShadow: "0 24px 60px -30px rgba(15,23,42,0.35)" })]),
               column(6, [
                 heading("Designed to perform", 2, "left"),
                 richText(
@@ -610,11 +654,11 @@ export function abeloPages(img: Img): PageDef[] {
                 ),
                 button("Start a project", "/contact", "left"),
               ]),
-            ]),
+            ], { align: "center" }),
           ],
           { bgColor: "#F4F6F9", paddingTop: 64, paddingBottom: 64 },
         ),
-        section([row([column(12, [testimonialBlock(TESTIMONIALS.slice(2), img)])])], { paddingTop: 40, paddingBottom: 40 }),
+        section([row([column(12, [testimonialBlock(TESTIMONIALS.slice(2))])])], { paddingTop: 40, paddingBottom: 40 }),
         ctaSection(img),
       ],
     },
@@ -642,7 +686,7 @@ export function abeloPages(img: Img): PageDef[] {
           ],
           { paddingTop: 56, paddingBottom: 56 },
         ),
-        section([row([column(12, [testimonialBlock(TESTIMONIALS, img)])])], { bgColor: "#F4F6F9", paddingTop: 56, paddingBottom: 56 }),
+        section([row([column(12, [testimonialBlock(TESTIMONIALS)])])], { bgColor: "#F4F6F9", paddingTop: 56, paddingBottom: 56 }),
         ctaSection(img),
       ],
     },
@@ -654,8 +698,8 @@ export function abeloPages(img: Img): PageDef[] {
       metaDesc: "What clients say about working with Abelo Creative.",
       blocks: [
         pageHeader("Testimonials", "Long-term partnerships and repeat clients — here’s what they say about working with us.", img, "avatar-caro"),
-        section([row([column(12, [testimonialBlock(TESTIMONIALS.slice(0, 2), img, "slider")])])], { paddingTop: 56, paddingBottom: 24 }),
-        section([row([column(12, [testimonialBlock(TESTIMONIALS.slice(2), img)])])], { paddingTop: 24, paddingBottom: 40 }),
+        section([row([column(12, [testimonialBlock(TESTIMONIALS.slice(0, 2), "slider")])])], { paddingTop: 56, paddingBottom: 24 }),
+        section([row([column(12, [testimonialBlock(TESTIMONIALS.slice(2))])])], { paddingTop: 24, paddingBottom: 40 }),
         section(
           [
             row([
@@ -724,19 +768,8 @@ export function abeloPages(img: Img): PageDef[] {
               ]),
             ]),
           ],
-          { paddingTop: 64, paddingBottom: 40 },
+          { paddingTop: 64, paddingBottom: 96 },
         ),
-        section([
-          row([
-            column(12, [
-              {
-                id: uid("map"),
-                type: "googleMap",
-                props: { location: "Cebu City, Philippines", zoom: 11, height: 380 },
-              },
-            ]),
-          ]),
-        ], { paddingTop: 0, paddingBottom: 56 }),
       ],
     },
 
@@ -908,8 +941,24 @@ export function abeloHeader(img: Img): Record<string, unknown> {
         [
           row(
             [
-              column(3, [{ id: uid("logo"), type: "logo", props: { src: img("logo"), alt: ABELO_BRAND.name, linkTo: "/", width: 150, height: 44 } }]),
-              column(6, [
+              column(
+                2,
+                [
+                  {
+                    id: uid("logo"),
+                    type: "logo",
+                    props: {
+                      src: img("logo"),
+                      alt: ABELO_BRAND.name,
+                      linkTo: "/",
+                      imageWidth: 88,
+                      imageHeight: 70,
+                    },
+                  },
+                ],
+                { spanSm: 9 },
+              ),
+              column(8, [
                 {
                   id: uid("menu"),
                   type: "menu",
@@ -918,19 +967,19 @@ export function abeloHeader(img: Img): Record<string, unknown> {
                     orientation: "horizontal",
                     style: "links",
                     align: "center",
-                    gap: 24,
+                    gap: 8,
                     textColor: "#11467B",
                     hoverColor: "#F3361F",
                     activeColor: "#F3361F",
-                    fontSize: 15,
+                    fontSize: 14,
                     mobileMenuStyle: "slide",
                     pointer: "underline",
                     pointerWidth: 2,
                     pointerColor: "#F3361F",
                     animation: "fade",
-                    hPadding: 12,
+                    hPadding: 6,
                     vPadding: 8,
-                    spaceBetween: 24,
+                    spaceBetween: 8,
                     mobileBreakpoint: 1024,
                     fullMobileWidth: true,
                     mobileTextAlign: "left",
@@ -940,24 +989,54 @@ export function abeloHeader(img: Img): Record<string, unknown> {
                     toggleSize: 24,
                     dropdownBgColor: "#ffffff",
                     dropdownTextColor: "#11467B",
-                    dropdownHoverColor: "#F3361F",
+                    dropdownTextHoverColor: "#F3361F",
+                    dropdownHoverColor: "#F4F6F9",
                     fontFamily: "'Montserrat', system-ui, sans-serif",
                     fontWeight: "600",
                     textTransform: "none",
                   },
                 },
-              ]),
-              column(3, [button("Get Started", "/contact", "right")]),
+              ], { spanMd: 10, spanSm: 3 }),
+              column(2, [button("Get Started", "/contact", "right")], {
+                hideOnMobile: true,
+                hideOnTablet: true,
+              }),
             ],
-            { align: "center", paddingY: 6 },
+            { align: "center", paddingY: 0, gap: 16, stackOnMobile: false },
           ),
         ],
-        { bgColor: "#ffffff", paddingTop: 8, paddingBottom: 8 },
+        { bgColor: "#ffffff", paddingTop: 10, paddingBottom: 10 },
       ),
     ],
-    containerSettings: {},
+    containerSettings: {
+      width: "boxed",
+      maxWidth: 1200,
+      bgColor: "#ffffff",
+      sticky: "top",
+      zindex: 50,
+      borderStyle: "solid",
+      borderWidth: 1,
+      borderColor: "#E7EBF0",
+      padding: { top: 0, right: 24, bottom: 0, left: 24 },
+    },
   };
 }
+
+const footerHeading = (text: string): AnyBlock => ({
+  id: uid("heading"),
+  type: "heading",
+  props: {
+    text,
+    level: 5,
+    align: "left",
+    textColor: "#ffffff",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+    fontFamily: "'Montserrat', system-ui, sans-serif",
+  },
+});
 
 export function abeloFooter(img: Img): Record<string, unknown> {
   return {
@@ -966,9 +1045,21 @@ export function abeloFooter(img: Img): Record<string, unknown> {
         [
           row(
             [
-              column(4, [
-                { id: uid("logo"), type: "logo", props: { src: img("logo-alt"), alt: ABELO_BRAND.name, linkTo: "/", width: 150, height: 44 } },
-                richText(`<p>${ABELO_BRAND.name} — ${ABELO_BRAND.tagline}. From the design phase to launching and site maintenance.</p>`),
+              column(5, [
+                {
+                  id: uid("logo"),
+                  type: "logo",
+                  props: {
+                    src: img("logo-alt"),
+                    alt: ABELO_BRAND.name,
+                    linkTo: "/",
+                    imageWidth: 132,
+                    imageHeight: 106,
+                  },
+                },
+                richText(
+                  `<p style="max-width:30rem;line-height:1.8;color:#B6C2CF">${ABELO_BRAND.name} — ${ABELO_BRAND.tagline}. From the design phase to launching and ongoing site maintenance.</p>`,
+                ),
                 {
                   id: uid("social"),
                   type: "socialIcons",
@@ -979,28 +1070,28 @@ export function abeloFooter(img: Img): Record<string, unknown> {
                     ],
                     style: "filled",
                     size: "md",
-                    color: "#9CA3AF",
+                    color: "#B6C2CF",
                     hoverColor: "#ffffff",
                     gap: 16,
                   },
                 },
               ]),
               column(2, [
-                heading("Navigate", 4, "left"),
+                footerHeading("Company"),
                 {
                   id: uid("menu"),
                   type: "menu",
-                  props: { menuId: "footer", orientation: "vertical", style: "links", align: "left", gap: 8, textColor: "#ffffff", hoverColor: "#F3361F", mobileMenuStyle: "dropdown" },
+                  props: { menuId: "footer", orientation: "vertical", style: "links", align: "left", gap: 10, hPadding: 0, vPadding: 0, textColor: "#B6C2CF", hoverColor: "#F3361F", fontSize: 14, mobileMenuStyle: "static" },
                 },
               ]),
               column(2, [
-                heading("Services", 4, "left"),
+                footerHeading("Services"),
                 richText(
-                  '<p><a href="/services">Graphic Design</a></p><p><a href="/services">Web Development</a></p><p><a href="/services">SEO Optimisation</a></p>',
+                  '<p style="color:#B6C2CF;line-height:2.1"><a href="/services" style="color:inherit;text-decoration:none">Graphic Design</a></p><p style="color:#B6C2CF;line-height:2.1"><a href="/services" style="color:inherit;text-decoration:none">Web Development</a></p><p style="color:#B6C2CF;line-height:2.1"><a href="/services" style="color:inherit;text-decoration:none">SEO Optimisation</a></p>',
                 ),
               ]),
-              column(4, [
-                heading("Contact", 4, "left"),
+              column(3, [
+                footerHeading("Get in touch"),
                 {
                   id: uid("contact"),
                   type: "contactInfo",
@@ -1015,42 +1106,47 @@ export function abeloFooter(img: Img): Record<string, unknown> {
                     hours: "",
                     separator: "newline",
                     iconStyle: "emoji",
-                    textColor: "#ffffff",
+                    textColor: "#B6C2CF",
                   },
                 },
               ]),
             ],
-            { gap: 40 },
+            { gap: 32, align: "flex-start" },
           ),
         ],
         {
-          bgColor: "#000000",
           textColor: "#ffffff",
           headingColor: "#ffffff",
           paddingTop: 64,
-          paddingBottom: 32,
+          paddingBottom: 40,
         },
       ),
       section(
         [
           row([
             column(12, [
+              { id: uid("divider"), type: "divider", props: {} },
               richText(
-                '<p style="text-align:center;font-size:13px">© Abelo Creative. All rights reserved.</p>',
+                '<p style="text-align:center;font-size:13px;color:#8A98A8;margin-top:20px">© Abelo Creative. All rights reserved.</p>',
                 "center",
               ),
             ]),
           ]),
         ],
         {
-          bgColor: "#000000",
-          textColor: "#9CA3AF",
+          textColor: "#8A98A8",
           paddingTop: 0,
-          paddingBottom: 24,
+          paddingBottom: 28,
         },
       ),
     ],
-    containerSettings: {},
+    containerSettings: {
+      width: "boxed",
+      maxWidth: 1200,
+      bgColor: "#0B1B2B",
+      textColor: "#ffffff",
+      padding: { top: 0, right: 24, bottom: 0, left: 24 },
+    },
   };
 }
 

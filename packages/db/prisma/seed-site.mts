@@ -107,6 +107,7 @@ async function seedTheme() {
     activePreset: ABELO_THEME.activePreset,
     colors: { ...(current.colors as object), ...ABELO_THEME.colors },
     fonts: { ...(current.fonts as object), ...ABELO_THEME.fonts },
+    layout: { ...(current.layout as object), ...ABELO_THEME.layout },
   };
 
   await prisma.tenant.update({
