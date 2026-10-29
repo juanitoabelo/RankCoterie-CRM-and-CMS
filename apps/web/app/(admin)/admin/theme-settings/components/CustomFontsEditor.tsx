@@ -13,7 +13,7 @@ import {
 
 const ACCEPT = ".woff2,.woff,.ttf,.otf";
 
-/** Best-effort family name from an uploaded filename, e.g. "CanopyDisplay-Bold.woff2". */
+/** Best-effort family name from an uploaded filename, e.g. "RankCoterieDisplay-Bold.woff2". */
 function familyFromFilename(name: string): string {
   return sanitizeFontFamily(
     name
@@ -155,7 +155,7 @@ export default function CustomFontsEditor() {
               onChange={(e) => setFamily(e.target.value)}
               required
               maxLength={60}
-              placeholder="Canopy Display"
+              placeholder="Rank Coterie Display"
               className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
             />
             <span className="mt-1 block text-[10px] text-zinc-400">

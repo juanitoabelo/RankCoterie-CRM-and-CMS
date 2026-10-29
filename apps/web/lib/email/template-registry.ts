@@ -73,7 +73,7 @@ export const EMAIL_TEMPLATES: Record<TemplateKey, TemplateMeta> = {
       <p style="font-size:12px;color:#71717a;margin-top:16px;">
         Secure payment via our payment provider. Reference: {invoice_id}.
       </p>
-      <p style="color:#71717a;font-size:12px;margin-top:24px;">This is a transactional message from Canopy.</p>
+      <p style="color:#71717a;font-size:12px;margin-top:24px;">This is a transactional message from Rank Coterie.</p>
     </div></div></html>`,
     },
     sample: {
@@ -173,7 +173,7 @@ export const EMAIL_TEMPLATES: Record<TemplateKey, TemplateMeta> = {
       <p style="font-size:14px;color:#3f3f46;">
         <a href="{retry_link}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-size:14px;display:inline-block;">Retry Payment</a>
       </p>
-      <p style="color:#71717a;font-size:12px;margin-top:24px;">This is a transactional message from Canopy.</p>
+      <p style="color:#71717a;font-size:12px;margin-top:24px;">This is a transactional message from Rank Coterie.</p>
     </div></div></html>`,
     },
     sample: {
@@ -187,7 +187,7 @@ export const EMAIL_TEMPLATES: Record<TemplateKey, TemplateMeta> = {
     description: "Business-ownership verification email sent from the public claim form.",
     placeholders: ["{claimant_name}", "{business_slug}", "{verify_link}"] as const,
     defaultTemplate: {
-      subject: "Verify ownership of {business_slug} on Canopy Directory",
+      subject: "Verify ownership of {business_slug} on Rank Coterie Directory",
       body: `<!DOCTYPE html>
 <html>
 <body style="margin:0;padding:24px;font-family:system-ui,sans-serif;background:#f4f4f5;">
@@ -196,7 +196,7 @@ export const EMAIL_TEMPLATES: Record<TemplateKey, TemplateMeta> = {
       <h1 style="font-size:24px;margin:0 0 16px;color:#18181b;">Verify Your Business Ownership</h1>
       <p style="font-size:16px;color:#3f3f46;">Hi {claimant_name},</p>
       <p style="font-size:16px;color:#3f3f46;">
-        Someone (hopefully you!) requested to claim the business <strong>{business_slug}</strong> on Canopy Directory.
+        Someone (hopefully you!) requested to claim the business <strong>{business_slug}</strong> on Rank Coterie Directory.
       </p>
       <p style="font-size:16px;color:#3f3f46;">
         Click the button below to verify your ownership:
@@ -214,7 +214,7 @@ export const EMAIL_TEMPLATES: Record<TemplateKey, TemplateMeta> = {
         This link expires in 24 hours. If you didn't request this, please ignore this email.
       </p>
       <hr style="border:none;border-top:1px solid #e4e4e7;margin:24px 0;">
-      <p style="font-size:12px;color:#71717a;">Canopy Directory — Business Verification</p>
+      <p style="font-size:12px;color:#71717a;">Rank Coterie Directory — Business Verification</p>
     </div>
   </div>
 </body>

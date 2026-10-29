@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — Custom Fonts.
+ * Rank Coterie — Custom Fonts.
  *
  * Fonts uploaded under Theme Settings → Custom Fonts. Every uploaded file is
  * stored as a `CustomFont` row and surfaced three ways:
@@ -172,7 +172,7 @@ export function validateFontStyle(raw: string): "normal" | "italic" {
 /*  CSS generation                                                             */
 /* ──────────────────────────────────────────────────────────────────────────── */
 
-/** The CSS stack stored as a font option's value, e.g. `'Canopy Display', system-ui, sans-serif`. */
+/** The CSS stack stored as a font option's value, e.g. `'Rank Coterie Display', system-ui, sans-serif`. */
 export function fontStackFor(family: string, mono = false): string {
   const fallback = mono ? "ui-monospace, monospace" : "system-ui, sans-serif";
   return `'${sanitizeFontFamily(family)}', ${fallback}`;

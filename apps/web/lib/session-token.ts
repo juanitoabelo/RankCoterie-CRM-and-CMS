@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — pure session-token codec.
+ * Rank Coterie — pure session-token codec.
  *
  * Edge-safe (no `next/headers`, no DB, no Node APIs beyond global `crypto`):
  * signs/verifies the `canopy_session` token value using Web Crypto HMAC-SHA256.

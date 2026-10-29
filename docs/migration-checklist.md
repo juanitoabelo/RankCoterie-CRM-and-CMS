@@ -1,4 +1,4 @@
-# Migration Checklist → Canopy V2 (PostgreSQL)
+# Migration Checklist → Rank Coterie (PostgreSQL)
 
 **Source of truth**: `../canopy-architecture.md` (§6.4 phases, §7 data dictionary).
 **Data source**: `masternet.sql` is the **newest sample tenant** (fresh-site snapshot, Aug 2024) and the

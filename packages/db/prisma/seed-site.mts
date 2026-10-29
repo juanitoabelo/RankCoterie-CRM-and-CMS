@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — "Abelo Creative" default site seed (idempotent, additive).
+ * Rank Coterie — "Abelo Creative" default site seed (idempotent, additive).
  *
  * Ships the agency-style marketing site as fresh-install default data:
  *   1. Downloads every image in the Abelo starter manifest into the local

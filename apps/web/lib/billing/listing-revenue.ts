@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — Listing subscription revenue report helpers (§6.7.3.2).
+ * Rank Coterie — Listing subscription revenue report helpers (§6.7.3.2).
  *
  * Pure functions only (no Prisma/Stripe imports) so the report maths are
  * unit-testable. The report mixes two sources:

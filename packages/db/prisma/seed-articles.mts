@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — sample article seed (ADDITIVE, idempotent).
+ * Rank Coterie — sample article seed (ADDITIVE, idempotent).
  *
  * Creates 6 categories (topics), 6 regions, 24 placeholder images and
  * 20 sample articles (ContentTemplate) with SEO fields, category
@@ -318,7 +318,7 @@ async function ensureCategories(): Promise<string[]> {
       continue;
     }
     const created = await prisma.category.create({
-      data: { ...c, tenantId: TENANT_ID, author: "Canopy Editorial", sections: {} },
+      data: { ...c, tenantId: TENANT_ID, author: "Rank Coterie Editorial", sections: {} },
     });
     ids.push(created.id);
   }
@@ -1429,7 +1429,7 @@ function buildJsonLd(a: SampleArticle, image: string): string {
     description: a.metaDesc,
     image,
     author: { "@type": "Person", name: a.author },
-    publisher: { "@type": "Organization", name: "Canopy Directory" },
+    publisher: { "@type": "Organization", name: "Rank Coterie Directory" },
   };
   if (a.publishedAt) data.datePublished = a.publishedAt;
   return JSON.stringify(data);

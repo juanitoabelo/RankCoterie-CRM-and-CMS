@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — password hashing (Node's built-in scrypt).
+ * Rank Coterie — password hashing (Node's built-in scrypt).
  *
  * scrypt is a memory-hard KDF recommended for password storage. The stored value
  * bundles algorithm params, salt, and hash so it is self-describing:

@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — first-run bootstrap for the default Super Admin.
+ * Rank Coterie — first-run bootstrap for the default Super Admin.
  *
  * Ensures an owner Super Admin account exists so the system can always be
  * reached after a fresh install without manually seeding. Creates it only when

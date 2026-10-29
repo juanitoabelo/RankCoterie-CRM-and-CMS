@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: "Get your company page | Canopy",
+  title: "Get your company page | Rank Coterie",
   description:
     "A dedicated landing page for your business — one-time setup fee plus a monthly tier subscription.",
   robots: { index: false, follow: false },

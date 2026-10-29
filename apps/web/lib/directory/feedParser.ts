@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — feed parsing (legacy §4.3 feeds → FeedItem rows).
+ * Rank Coterie — feed parsing (legacy §4.3 feeds → FeedItem rows).
  *
  * Pure wrapper over rss-parser: normalizes RSS 2.0 + Atom into the shape
  * FeedItem rows need. No DB access — unit-testable with fixture XML.

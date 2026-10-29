@@ -39,7 +39,7 @@ function ProviderFields({
           <label className={labelCls}>From</label>
           <input
             type="text"
-            placeholder={isSmtp ? "Billing <billing@example.com>" : "Canopy <billing@example.com>"}
+            placeholder={isSmtp ? "Billing <billing@example.com>" : "Rank Coterie <billing@example.com>"}
             value={settings.from}
             onChange={(e) => onPatch({ from: e.target.value })}
             className={inputCls}
@@ -152,7 +152,7 @@ function SetupNotes({ providerKey }: { providerKey: EmailProviderKey }) {
           </li>
           <li>
             Set <strong>From</strong> to a sender on your verified domain, e.g.{" "}
-            <code className="font-mono text-xs">Canopy &lt;billing@yourdomain.com&gt;</code>.
+            <code className="font-mono text-xs">Rank Coterie &lt;billing@yourdomain.com&gt;</code>.
           </li>
         </ol>
       </details>
@@ -199,7 +199,7 @@ function SetupNotes({ providerKey }: { providerKey: EmailProviderKey }) {
           </li>
           <li>
             Set <strong>From</strong> to a verified sender, e.g.{" "}
-            <code className="font-mono text-xs">Canopy &lt;billing@yourdomain.com&gt;</code>.
+            <code className="font-mono text-xs">Rank Coterie &lt;billing@yourdomain.com&gt;</code>.
           </li>
         </ol>
       </details>

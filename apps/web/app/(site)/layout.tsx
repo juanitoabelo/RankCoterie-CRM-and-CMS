@@ -149,7 +149,7 @@ export async function generateMetadata(): Promise<Metadata> {
     generalSettings?: { siteIconUrl?: string; siteTitle?: string };
   };
   const siteIconUrl = theme.generalSettings?.siteIconUrl;
-  const siteTitle = theme.generalSettings?.siteTitle || "Canopy Directory";
+  const siteTitle = theme.generalSettings?.siteTitle || "Rank Coterie Directory";
   return {
     title: siteTitle,
     description: "Localized business directory with paid listings and SEO-ready region pages",
@@ -251,7 +251,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         ) : (
           <div className="mx-auto flex max-w-5il items-center justify-between px-4 py-4">
             <Link href="/" className="text-lg font-semibold text-zinc-900">
-              Canopy Directory
+              Rank Coterie Directory
             </Link>
             <div className="flex items-center gap-4">
               <nav className="flex items-center gap-6 text-sm text-zinc-600">
@@ -374,7 +374,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
               </div>
             ) : null}
             <div className="py-4 text-center text-xs text-zinc-400">
-              © {new Date().getFullYear()} Canopy Directory. Listings are not endorsements.
+              © {new Date().getFullYear()} Rank Coterie Directory. Listings are not endorsements.
             </div>
           </>
         )}

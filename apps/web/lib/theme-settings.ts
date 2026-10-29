@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — Frontend Theme Settings.
+ * Rank Coterie — Frontend Theme Settings.
  *
  * Global theme configuration stored in `Tenant.theme.themeSettings`.
  * Controls site-wide appearance: colors, fonts, layout, and responsive behavior.

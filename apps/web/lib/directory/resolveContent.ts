@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — resolve localized category content for a given page (legacy §6.5e rules).
+ * Rank Coterie — resolve localized category content for a given page (legacy §6.5e rules).
  *
  * Priority per page type, faithful to the legacy GeoCategory resolution:
  *   State page:  categoryRegionContent(state,ALL) → region.custom1/custom2 → category.stateInit

@@ -1,9 +1,9 @@
 #!/usr/bin/env npx tsx
 /**
- * Canopy V2 — Legacy MariaDB → PostgreSQL migration script (Phase 0).
+ * Rank Coterie — Legacy MariaDB → PostgreSQL migration script (Phase 0).
  *
  * Reads from a MySQL source (dump loaded into a staging DB or live) and writes
- * to the Canopy V2 PostgreSQL via Prisma. Schema-driven and tenant-repeatable:
+ * to the Rank Coterie PostgreSQL via Prisma. Schema-driven and tenant-repeatable:
  * each invocation targets one tenant.
  *
  * Usage:
@@ -112,7 +112,7 @@ function placeholderHash(): string {
 // ---------------------------------------------------------------------------
 
 async function migrate() {
-  console.log(`\n=== Canopy V2 Legacy Migration ===`);
+  console.log(`\n=== Rank Coterie Legacy Migration ===`);
   console.log(`Tenant: ${TENANT_ID} (${TENANT_NAME} / ${TENANT_DOMAIN})`);
   console.log(`MySQL:  ${MYSQL_URL!.replace(/\/\/[^:]+:[^@]+@/, "//***:***@")}`);
   console.log(`Dry run: ${DRY_RUN}  |  Mask PII: ${MASK_PII}\n`);

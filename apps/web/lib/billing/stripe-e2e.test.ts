@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — Stripe E2E verification tests (Phase 2 deferred items).
+ * Rank Coterie — Stripe E2E verification tests (Phase 2 deferred items).
  *
  * These tests verify the full checkout → webhook → listing lifecycle.
  *

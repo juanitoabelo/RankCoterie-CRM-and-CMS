@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — Stripe webhook: paid-listing fulfillment + billing lifecycle (§6.7.3.2, legacy §4.6).
+ * Rank Coterie — Stripe webhook: paid-listing fulfillment + billing lifecycle (§6.7.3.2, legacy §4.6).
  *
  * checkout.session.completed  → activate listing (LIVE) + create ListingSubscription
  *                              → order paid (metadata.orderId) / client invoice paid (metadata.invoiceId)

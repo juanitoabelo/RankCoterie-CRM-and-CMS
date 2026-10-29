@@ -8,8 +8,8 @@ export const revalidate = 0;
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: "Blog | Canopy Directory",
-    description: "Read the latest articles and insights from Canopy Directory.",
+    title: "Blog | Rank Coterie Directory",
+    description: "Read the latest articles and insights from Rank Coterie Directory.",
   };
 }
 

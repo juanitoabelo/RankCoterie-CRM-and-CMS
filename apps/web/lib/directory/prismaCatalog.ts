@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — Prisma-backed CatalogRepo (§6.5 / §6.7).
+ * Rank Coterie — Prisma-backed CatalogRepo (§6.5 / §6.7).
  *
  * Implements the `CatalogRepo` seam from `./catalog` against the PostgreSQL schema.
  * Swap is env-driven: `getCatalogRepo()` returns this when CATALOG_REPO=prisma.

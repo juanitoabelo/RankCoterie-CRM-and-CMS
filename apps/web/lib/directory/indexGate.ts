@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — /g/* indexation gate: THE one rule.
+ * Rank Coterie — /g/* indexation gate: THE one rule.
  *
  *   "A URL is visible to Google only at the quality level it currently earns."
  *

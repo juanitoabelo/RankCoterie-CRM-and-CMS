@@ -17,13 +17,13 @@ import {
 function font(over: Partial<CustomFontFile> = {}): CustomFontFile {
   return {
     id: "abc123",
-    family: "Canopy Display",
+    family: "Rank Coterie Display",
     weight: "400",
     style: "normal",
     mono: false,
     mimeType: "font/woff2",
     size: 1024,
-    filename: "canopy.woff2",
+    filename: "rank-coterie.woff2",
     createdAt: "2026-09-28T00:00:00.000Z",
     ...over,
   };
@@ -31,7 +31,7 @@ function font(over: Partial<CustomFontFile> = {}): CustomFontFile {
 
 describe("sanitizeFontFamily", () => {
   it("keeps letters, numbers, spaces, and hyphens", () => {
-    expect(sanitizeFontFamily("Canopy Display 2")).toBe("Canopy Display 2");
+    expect(sanitizeFontFamily("Rank Coterie Display 2")).toBe("Rank Coterie Display 2");
     expect(sanitizeFontFamily("Source-Serif")).toBe("Source-Serif");
   });
 
@@ -51,8 +51,8 @@ describe("sanitizeFontFamily", () => {
 
 describe("validateFontFamily", () => {
   it("accepts a normal name and returns the cleaned value", () => {
-    const result = validateFontFamily("  Canopy Display  ");
-    expect(result).toEqual({ ok: true, family: "Canopy Display" });
+    const result = validateFontFamily("  Rank Coterie Display  ");
+    expect(result).toEqual({ ok: true, family: "Rank Coterie Display" });
   });
 
   it("rejects a name that sanitizes to nothing", () => {
@@ -123,11 +123,11 @@ describe("validateFontBytes", () => {
 
 describe("fontStackFor", () => {
   it("quotes the family and adds a generic fallback", () => {
-    expect(fontStackFor("Canopy Display")).toBe("'Canopy Display', system-ui, sans-serif");
+    expect(fontStackFor("Rank Coterie Display")).toBe("'Rank Coterie Display', system-ui, sans-serif");
   });
 
   it("uses a monospace fallback when flagged", () => {
-    expect(fontStackFor("Canopy Mono", true)).toBe("'Canopy Mono', ui-monospace, monospace");
+    expect(fontStackFor("Rank Coterie Mono", true)).toBe("'Rank Coterie Mono', ui-monospace, monospace");
   });
 
   it("sanitizes the family before embedding it", () => {
@@ -138,7 +138,7 @@ describe("fontStackFor", () => {
 describe("renderFontFace", () => {
   it("emits a src pointing at the font route with the right format", () => {
     const css = renderFontFace(font({ id: "f1" }));
-    expect(css).toContain("font-family: 'Canopy Display';");
+    expect(css).toContain("font-family: 'Rank Coterie Display';");
     expect(css).toContain("url('/api/custom-fonts/f1') format('woff2')");
     expect(css).toContain("font-weight: 400;");
     expect(css).toContain("font-style: normal;");
@@ -187,7 +187,7 @@ describe("customFontFamilies / customFontOptions", () => {
       font({ id: "b", weight: "700" }),
       font({ id: "c", family: "Other", weight: "400" }),
     ]);
-    expect(families).toEqual(["Canopy Display", "Other"]);
+    expect(families).toEqual(["Rank Coterie Display", "Other"]);
   });
 
   it("produces one dropdown option per family", () => {
@@ -197,8 +197,8 @@ describe("customFontFamilies / customFontOptions", () => {
     ]);
     expect(options).toHaveLength(1);
     expect(options[0]).toMatchObject({
-      value: "'Canopy Display', system-ui, sans-serif",
-      label: "Canopy Display",
+      value: "'Rank Coterie Display', system-ui, sans-serif",
+      label: "Rank Coterie Display",
       custom: true,
       mono: false,
     });
@@ -210,7 +210,7 @@ describe("customFontFamilies / customFontOptions", () => {
       font({ id: "b", weight: "700", mono: true }),
     ]);
     expect(options[0].mono).toBe(true);
-    expect(options[0].value).toBe("'Canopy Display', ui-monospace, monospace");
+    expect(options[0].value).toBe("'Rank Coterie Display', ui-monospace, monospace");
   });
 
   it("keeps option values unique so they are safe as React keys", () => {

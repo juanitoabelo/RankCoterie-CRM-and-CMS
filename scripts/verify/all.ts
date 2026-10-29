@@ -55,7 +55,7 @@ async function verifyEmailConfig() {
       body: JSON.stringify({
         from: emailFrom,
         to: emailFrom, // send to self for verification
-        subject: "Canopy Verification Test",
+        subject: "Rank Coterie Verification Test",
         text: "This is a test email to verify Resend configuration.",
       }),
     });

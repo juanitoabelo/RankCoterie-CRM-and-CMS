@@ -12,7 +12,7 @@ export default async function EmailSettingsPage() {
       <div>
         <h1 className="text-2xl font-semibold text-zinc-900">Email Settings</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Configure which email services Canopy may use for transactional email (invoice links,
+          Configure which email services Rank Coterie may use for transactional email (invoice links,
           orders, claims). Enable one or more providers and set the priority order — if the
           first provider hits its daily/monthly quota, the next one takes over automatically.
         </p>

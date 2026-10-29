@@ -1,6 +1,6 @@
 #!/usr/bin/env npx tsx
 /**
- * Canopy V2 — Normalize Section/Row default padding in saved builder blocks.
+ * Rank Coterie — Normalize Section/Row default padding in saved builder blocks.
  *
  * The builder previously baked large defaults into sections/rows when they were
  * created (section paddingTop/paddingBottom 24–48, row paddingY 16–24). Now the

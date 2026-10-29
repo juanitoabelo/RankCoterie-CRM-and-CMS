@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — feed ingestion (legacy §4.3).
+ * Rank Coterie — feed ingestion (legacy §4.3).
  *
  * Fetches ACTIVE feeds, parses RSS/Atom, upserts FeedItems idempotently
  * (fingerprint unique constraint — re-syncing a feed never duplicates rows),

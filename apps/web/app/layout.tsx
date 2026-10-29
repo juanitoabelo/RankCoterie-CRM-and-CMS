@@ -24,7 +24,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Canopy Directory",
+  title: "Rank Coterie Directory",
   description: "Localized business directory with paid listings and SEO-ready region pages",
 };
 

@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — "Abelo Creative" default site starter content (pure data).
+ * Rank Coterie — "Abelo Creative" default site starter content (pure data).
  *
  * Single source of truth for the agency-style marketing site that ships as
  * fresh-install default data: brand theme, page blocks, blog templates,

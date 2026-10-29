@@ -1,4 +1,4 @@
-// Canopy V2 — draft Prisma schema (Phase 0)
+// Rank Coterie — draft Prisma schema (Phase 0)
 // WIP: maps the legacy MariaDB (masternet.sql) into PostgreSQL per canopy-architecture.md §6.5 / §6.7.
 // Naming follows the legacy domain (tbl* → PascalCase) so the migration script stays 1:1.
 
@@ -1081,7 +1081,7 @@ model Asset {
 model CustomFont {
   id        String   @id @default(cuid())
   tenantId  String
-  family    String // CSS family name, e.g. "Canopy Display"
+  family    String // CSS family name, e.g. "Rank Coterie Display"
   weight    String   @default("400") // "100".."900" or "variable"
   style     String   @default("normal") // normal | italic
   mono      Boolean  @default(false) // use a monospace fallback in generated stacks

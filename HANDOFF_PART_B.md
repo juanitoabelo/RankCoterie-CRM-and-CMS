@@ -1,10 +1,10 @@
-# Canopy V2 — Build Handoff / Resume Plan
+# Rank Coterie — Build Handoff / Resume Plan
 
 > Copy of the working TODO + status so this can be resumed in a later session.
 > Updated: 2026-09-03.
 
 ## Overall Objective
-Re-group the Canopy admin sidebar into a classified menu and build the full set of
+Re-group the Rank Coterie admin sidebar into a classified menu and build the full set of
 admin content features (Sections, Geo Category Images, Widget Builder, Users, My
 Company, Menu Builder) plus convert admin auth from an HMAC `ADMIN_SECRET` to
 per-user role-based accounts.

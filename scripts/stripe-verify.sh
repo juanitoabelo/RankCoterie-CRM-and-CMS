@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Canopy V2 — Stripe Phase 2 Verification Checklist Runner
+# Rank Coterie — Stripe Phase 2 Verification Checklist Runner
 # =============================================================================
 # Interactive script that walks through each Stripe E2E verification step.
 # Prerequisites:
@@ -32,7 +32,7 @@ fail() { echo -e "${RED}  ✗ FAIL: $1${NC}"; }
 info() { echo -e "${YELLOW}  ℹ $1${NC}"; }
 
 # Check prerequisites
-echo -e "${CYAN}=== Canopy V2 — Stripe Phase 2 Verification ===${NC}"
+echo -e "${CYAN}=== Rank Coterie — Stripe Phase 2 Verification ===${NC}"
 
 step 0 "Checking prerequisites"
 

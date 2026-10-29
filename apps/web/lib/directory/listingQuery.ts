@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — listing query composition for a category × region page.
+ * Rank Coterie — listing query composition for a category × region page.
  *
  * Single pipeline used by every `/g/` page tier:
  *   1. fetch candidates                 (CatalogRepo)

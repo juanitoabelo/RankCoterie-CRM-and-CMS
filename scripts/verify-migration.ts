@@ -1,8 +1,8 @@
 #!/usr/bin/env npx tsx
 /**
- * Canopy V2 — Post-migration verification script (Phase 0).
+ * Rank Coterie — Post-migration verification script (Phase 0).
  *
- * Compares row counts between the legacy MySQL source and the Canopy V2
+ * Compares row counts between the legacy MySQL source and the Rank Coterie
  * PostgreSQL target. Generates a parity report per table.
  *
  * Usage:

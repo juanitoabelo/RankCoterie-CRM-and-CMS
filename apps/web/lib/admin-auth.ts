@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — admin authentication & authorization.
+ * Rank Coterie — admin authentication & authorization.
  * 
  * @deprecated Import from "@/modules/auth" instead.
  * This file is maintained for backward compatibility.

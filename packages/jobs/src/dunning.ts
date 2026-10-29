@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — Inngest job: dunning grace-expiry sweep (legacy §4.6).
+ * Rank Coterie — Inngest job: dunning grace-expiry sweep (legacy §4.6).
  *
  * Runs hourly (DUNNING_CRON env overrides) and on billing/dunning.run events.
  * The webhook marks overdue payments SUSPENDED + grace; this job flips listings

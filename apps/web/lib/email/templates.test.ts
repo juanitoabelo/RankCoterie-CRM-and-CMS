@@ -169,7 +169,7 @@ describe("template registry", () => {
   it("renders claim emails from the defaults", () => {
     const verify = EMAIL_TEMPLATES.claimVerify;
     const v = renderTemplate(verify.defaultTemplate, verify.sample);
-    expect(v.subject).toBe("Verify ownership of acme-plumbing on Canopy Directory");
+    expect(v.subject).toBe("Verify ownership of acme-plumbing on Rank Coterie Directory");
     expect(v.html).toContain("Verify Ownership");
     expect(v.html).toContain("http://localhost:3000/api/claim/verify?token=sample&amp;slug=acme-plumbing");
 

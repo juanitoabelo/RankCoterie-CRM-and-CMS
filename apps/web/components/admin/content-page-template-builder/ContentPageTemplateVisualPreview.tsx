@@ -19,7 +19,7 @@ const TOPIC_SAMPLE_BINDING: ContentPageBindingData = {
     slug: "adoption-foster-care",
     description:
       "<p>This is sample Topic content, shown here so you can preview the single-page template as visitors will see it. Use Structure Display to select blocks and edit their settings — changes appear here in the visual preview.</p>",
-    author: "Canopy Editorial",
+    author: "Rank Coterie Editorial",
     metaDesc: "A sample meta description for previewing your Topic template.",
     seoTitle: "Sample Topic SEO title",
   },
@@ -43,7 +43,7 @@ const SUBTOPIC_SAMPLE_BINDING: ContentPageBindingData = {
     slug: "wilderness-therapy-for-troubled-teen-girls",
     body:
       "<p>This is sample SubTopic body content, shown here so you can preview the single-page template as visitors will see it. Use Structure Display to select blocks and edit their settings — changes appear here in the visual preview.</p>",
-    author: "Canopy Editorial",
+    author: "Rank Coterie Editorial",
     metaDesc: "A sample meta description for previewing your SubTopic template.",
     seoTitle: "Sample SubTopic SEO title",
   },

@@ -26,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const page = await getAssignedApplyPage();
   if (!page) {
     return {
-      title: "Apply to get listed | Canopy Directory",
+      title: "Apply to get listed | Rank Coterie Directory",
       description:
         "Get your program listed in the directory with a local SEO page per region.",
     };

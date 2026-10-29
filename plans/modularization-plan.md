@@ -1,4 +1,4 @@
-# Canopy V2 — Modularization Plan
+# Rank Coterie — Modularization Plan
 
 ## Objective
 Refactor the codebase into feature-based modules with clear boundaries. Each module contains its own components, actions, types, and utilities. Only touch modules being refactored; existing working features remain untouched.

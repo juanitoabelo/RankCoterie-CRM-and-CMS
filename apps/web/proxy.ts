@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — proxy: legacy /g/ normalization + admin guard.
+ * Rank Coterie — proxy: legacy /g/ normalization + admin guard.
  *
  * 1. Legacy /g/ URLs (.html/.php, index.php, missing trailing slash) → 301 to the
  *    canonical Next.js form. Region slugs are legacy DomainKeys — mixed case IS

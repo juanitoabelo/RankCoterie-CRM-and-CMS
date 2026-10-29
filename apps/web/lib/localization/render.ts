@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — SEO localization token renderer.
+ * Rank Coterie — SEO localization token renderer.
  *
  * Faithful modernization of the legacy engine (canopy-architecture.md §4.2 / §6.5).
  * Content is authored ONCE with natural-language tokens; this renderer substitutes a

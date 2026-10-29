@@ -80,7 +80,7 @@ function layout(bodyHtml: string): string {
   <div style="max-width:560px;margin:0 auto;padding:32px 16px;">
     <div style="background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:28px;">
       ${bodyHtml}
-      <p style="color:#71717a;font-size:12px;margin-top:24px;">This is a transactional message from Canopy.</p>
+      <p style="color:#71717a;font-size:12px;margin-top:24px;">This is a transactional message from Rank Coterie.</p>
     </div>
   </div></body></html>`;
 }

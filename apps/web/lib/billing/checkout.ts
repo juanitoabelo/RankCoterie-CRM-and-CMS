@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — Stripe Checkout builder for the paid directory (§6.7.3.2, legacy §4.6).
+ * Rank Coterie — Stripe Checkout builder for the paid directory (§6.7.3.2, legacy §4.6).
  *
  * Apply flow: the listing is created (PENDING_REVIEW), then the applicant pays
  * through Checkout — one-time setup fee + recurring subscription (STANDARD or

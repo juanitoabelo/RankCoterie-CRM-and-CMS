@@ -103,7 +103,7 @@ export default async function PayInvoicePage({
             Secure card payment processed by our payment provider.
           </p>
           <p className="mt-2">
-            <Link href="/" className="text-zinc-500 hover:underline">canopy-v2</Link>
+            <Link href="/" className="text-zinc-500 hover:underline">Rank Coterie</Link>
           </p>
         </div>
       </div>

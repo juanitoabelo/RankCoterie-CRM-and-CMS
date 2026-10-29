@@ -55,7 +55,7 @@ npm run verify:stripe
 #### 2.1 Get REST App Credentials
 1. Go to [PayPal Developer Dashboard](https://developer.paypal.com/)
 2. My Apps & Credentials → **Create App**
-3. App Name: "Canopy Storefront"
+3. App Name: "Rank Coterie Storefront"
 4. Copy **Client ID** and **Secret**
 
 #### 2.2 Configure Webhook
@@ -125,7 +125,7 @@ Add to your deployed host's `.env` file:
 # Required
 SITE_URL=https://your-domain.com
 RESEND_API_KEY=re_...
-EMAIL_FROM=Canopy <orders@your-domain.com>
+EMAIL_FROM=Rank Coterie <orders@your-domain.com>
 
 # Optional (if not using gateway config)
 STRIPE_SECRET_KEY=sk_...

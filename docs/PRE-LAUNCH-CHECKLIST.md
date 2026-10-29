@@ -1,4 +1,4 @@
-# Pre-Launch Checklist — Canopy V2
+# Pre-Launch Checklist — Rank Coterie
 
 ## Phase 0 — Data Pipeline
 

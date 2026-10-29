@@ -1,4 +1,4 @@
-# Canopy V2
+# Rank Coterie
 
 The modernized rebuild of the **Canopy / MasterNet** platform (legacy PHP app in the parent folder).
 

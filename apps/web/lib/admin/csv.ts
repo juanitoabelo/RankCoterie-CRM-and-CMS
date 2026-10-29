@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — CSV export helper (reports page + /api/admin/exports).
+ * Rank Coterie — CSV export helper (reports page + /api/admin/exports).
  *
  * Pure and deliberately tiny: RFC-4180-style quoting for the values that
  * matter (commas, quotes, newlines), no dependency.

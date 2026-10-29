@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — shared audit trail (§README "Robustness upgrades").
+ * Rank Coterie — shared audit trail (§README "Robustness upgrades").
  *
  * Every admin action that changes business state (suppression add/remove, listing
  * approve/reject, tier change, refund) writes an AuditLog row with actor + reason.

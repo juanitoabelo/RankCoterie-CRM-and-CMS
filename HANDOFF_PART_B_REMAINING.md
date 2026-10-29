@@ -1,4 +1,4 @@
-# Canopy V2 — Remaining Work Reference
+# Rank Coterie — Remaining Work Reference
 
 Copied from `HANDOFF_PART_B.md` on 2026-09-04 before continuing implementation.
 

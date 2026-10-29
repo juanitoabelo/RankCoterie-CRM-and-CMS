@@ -57,7 +57,7 @@ export default function AdminSidebar({
           >
             <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 6v4a2 2 0 002 2h4a2 2 0 002-2v-4" />
           </svg>
-          Canopy Admin
+          Rank Coterie Admin
         </span>
       </Link>
 

@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — Inngest job: abandoned pending-order sweep.
+ * Rank Coterie — Inngest job: abandoned pending-order sweep.
  *
  * Runs every 5 minutes (ABANDONED_CRON env overrides) and on
  * orders/abandoned.run. Cancels PENDING orders whose payment never arrived

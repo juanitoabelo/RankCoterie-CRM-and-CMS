@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — directory visibility gate (§6.7, legacy §4.10).
+ * Rank Coterie — directory visibility gate (§6.7, legacy §4.10).
  *
  * THE single enforcement point: suppressed (admin opt-out), unpaid, suspended and
  * expired listings must never render — in category pages, region pages, feeds,

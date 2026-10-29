@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — Inngest job: materialize content-template variants per region (§6.5b).
+ * Rank Coterie — Inngest job: materialize content-template variants per region (§6.5b).
  *
  * Fired by the admin content page on "Publish" (event: content/template.publish).
  * Runs the same idempotent publish logic as the inline server action, but async

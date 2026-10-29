@@ -63,7 +63,7 @@ export async function GET(request: Request) {
         value: (l) => toIsoCell(l.createdAt),
       },
     ]);
-    return csvResponse(csv, `canopy-leads-${today()}.csv`, total, leads.length);
+    return csvResponse(csv, `rank-coterie-leads-${today()}.csv`, total, leads.length);
   }
 
   if (kind === "clients") {
@@ -94,7 +94,7 @@ export async function GET(request: Request) {
         value: (c) => toIsoCell(c.createdAt),
       },
     ]);
-    return csvResponse(csv, `canopy-clients-${today()}.csv`, total, clients.length);
+    return csvResponse(csv, `rank-coterie-clients-${today()}.csv`, total, clients.length);
   }
 
   const [invoices, total] = await Promise.all([
@@ -127,7 +127,7 @@ export async function GET(request: Request) {
     { key: "stripePaymentId", label: "stripe_payment_id" },
     { key: "responseMsg", label: "response" },
   ]);
-  return csvResponse(csv, `canopy-invoices-${today()}.csv`, total, invoices.length);
+  return csvResponse(csv, `rank-coterie-invoices-${today()}.csv`, total, invoices.length);
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Export failed." },

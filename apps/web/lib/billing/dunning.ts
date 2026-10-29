@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — dunning sweep (legacy §4.6 → README decision #3).
+ * Rank Coterie — dunning sweep (legacy §4.6 → README decision #3).
  *
  * The Stripe side of dunning is Stripe's own (retries, escalation) and the webhook
  * marks listings SUSPENDED with a `paymentGraceUntil` (see /api/webhooks/stripe).

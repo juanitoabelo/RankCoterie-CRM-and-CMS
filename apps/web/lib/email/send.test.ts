@@ -94,7 +94,7 @@ describe("sendEmail — configuration states", () => {
 describe("sendEmail — priority chain", () => {
   it("uses the single enabled provider", async () => {
     h.tenantFindUnique.mockResolvedValue(
-      themeWith(settings({ providers: { brevo: { enabled: true, apiKey: "xk", from: "Canopy <hi@x.com>" } } })),
+      themeWith(settings({ providers: { brevo: { enabled: true, apiKey: "xk", from: "Rank Coterie <hi@x.com>" } } })),
     );
     fetchMock.mockResolvedValue({ ok: true, status: 200 });
     const r = await sendEmail(INPUT);
@@ -242,7 +242,7 @@ describe("sendEmail — SMTP transport", () => {
               secure: false,
               user: "mailer@example.com",
               pass: "secret",
-              from: "Canopy <billing@example.com>",
+              from: "Rank Coterie <billing@example.com>",
             },
           },
         }),
@@ -260,7 +260,7 @@ describe("sendEmail — SMTP transport", () => {
       auth: { user: "mailer@example.com", pass: "secret" },
     });
     expect(sendMail).toHaveBeenCalledWith(
-      expect.objectContaining({ from: "Canopy <billing@example.com>", to: "client@example.com" }),
+      expect.objectContaining({ from: "Rank Coterie <billing@example.com>", to: "client@example.com" }),
     );
   });
 });

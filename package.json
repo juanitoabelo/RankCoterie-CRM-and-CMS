@@ -2,7 +2,7 @@
   "name": "canopy-v2",
   "private": true,
   "version": "0.1.0",
-  "description": "Canopy V2 monorepo — paid SEO directory + lead-gen + CRM platform (Next.js)",
+  "description": "Rank Coterie monorepo — paid SEO directory + lead-gen + CRM platform (Next.js)",
   "engines": {
     "node": ">=20"
   },

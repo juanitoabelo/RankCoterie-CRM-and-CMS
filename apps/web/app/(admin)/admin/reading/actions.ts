@@ -68,7 +68,7 @@ export async function saveReadingSettings(formData: FormData): Promise<ActionRes
     const tenant = await prisma.tenant.upsert({
       where: { id: TENANT_ID },
       update: {},
-      create: { id: TENANT_ID, name: "Canopy", domainKey: "canopy.local" },
+      create: { id: TENANT_ID, name: "Rank Coterie", domainKey: "canopy.local" },
     });
     const theme = (tenant.theme ?? {}) as Record<string, unknown>;
     await prisma.tenant.update({

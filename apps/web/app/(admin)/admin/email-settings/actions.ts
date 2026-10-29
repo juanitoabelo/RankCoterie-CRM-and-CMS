@@ -71,7 +71,7 @@ export async function saveEmailSettings(formData: FormData): Promise<EmailAction
     const tenant = await prisma.tenant.upsert({
       where: { id: TENANT_ID },
       update: {},
-      create: { id: TENANT_ID, name: "Canopy", domainKey: "canopy.local" },
+      create: { id: TENANT_ID, name: "Rank Coterie", domainKey: "canopy.local" },
     });
     const theme = { ...((tenant.theme ?? {}) as Record<string, unknown>), emailSettings: settings };
     await prisma.tenant.update({ where: { id: TENANT_ID }, data: { theme } });
@@ -116,7 +116,7 @@ async function writeThemePatch(patch: Record<string, unknown>): Promise<void> {
   const tenant = await prisma.tenant.upsert({
     where: { id: TENANT_ID },
     update: {},
-    create: { id: TENANT_ID, name: "Canopy", domainKey: "canopy.local" },
+    create: { id: TENANT_ID, name: "Rank Coterie", domainKey: "canopy.local" },
   });
   const theme = { ...((tenant.theme ?? {}) as Record<string, unknown>), ...patch };
   await prisma.tenant.update({

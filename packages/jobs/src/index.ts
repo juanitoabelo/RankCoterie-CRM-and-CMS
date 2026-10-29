@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — Inngest client.
+ * Rank Coterie — Inngest client.
  * Shared event definitions live alongside their functions.
  */
 import { Inngest } from "inngest";

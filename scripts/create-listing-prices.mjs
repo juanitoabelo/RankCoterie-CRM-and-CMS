@@ -35,15 +35,15 @@ async function getOrCreateProduct(name, description) {
 }
 
 const standardProduct = await getOrCreateProduct(
-  "Canopy Directory Listing - Standard",
+  "Rank Coterie Directory Listing - Standard",
   "$50 monthly subscription for a paid listing"
 );
 const premiumProduct = await getOrCreateProduct(
-  "Canopy Directory Listing - Premium",
+  "Rank Coterie Directory Listing - Premium",
   "$100 monthly subscription for a featured listing"
 );
 const setupProduct = await getOrCreateProduct(
-  "Canopy Directory Setup Fee",
+  "Rank Coterie Directory Setup Fee",
   "One-time setup fee for a directory listing"
 );
 

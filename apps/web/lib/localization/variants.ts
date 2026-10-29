@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — content-template variant preview + publish (§6.5b).
+ * Rank Coterie — content-template variant preview + publish (§6.5b).
  *
  * Content is authored ONCE (ContentTemplate.body with {{region}} tokens); publishing
  * materializes one ContentVariant per selected region, ready for SSG/ISR.

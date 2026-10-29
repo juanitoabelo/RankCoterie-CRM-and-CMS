@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — Live Stripe pull for the listing subscription revenue report.
+ * Rank Coterie — Live Stripe pull for the listing subscription revenue report.
  *
  * Listing subscription payments are not mirrored into a local money table, so the
  * report reads actual collected/refunded amounts straight from Stripe. Invoices

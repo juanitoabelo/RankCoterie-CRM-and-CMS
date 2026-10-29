@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — Global Style Guide.
+ * Rank Coterie — Global Style Guide.
  *
  * Site-wide look-and-feel backed by the per-tenant `Tenant.theme` JSON field.
  * Unlike the per-block style guide (`lib/page-builder/style.ts`), this guide is

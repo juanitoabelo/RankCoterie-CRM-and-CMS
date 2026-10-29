@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — dev seed. Mirrors the Phase-1 mock (`apps/web/lib/directory/catalog.ts`)
+ * Rank Coterie — dev seed. Mirrors the Phase-1 mock (`apps/web/lib/directory/catalog.ts`)
  * so page output is byte-for-byte comparable between mock and Prisma backends.
  *
  * Run: `npm run db:seed --workspace=db` (requires Postgres + `prisma migrate dev` first).

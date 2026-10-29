@@ -1,4 +1,4 @@
-# Canopy V2 — Production Cutover Runbook (Phase 3d)
+# Rank Coterie — Production Cutover Runbook (Phase 3d)
 
 **Goal**: move the legacy PHP app(s) from "source of truth" to "frozen archive" with zero
 downtime for public SEO traffic, and a single atomic DNS switch.

@@ -18,7 +18,7 @@ export async function generateMetadata({
   if (!listing) return { title: "Claim Listing" };
 
   return {
-    title: `Claim "${listing.title}" | Canopy Directory`,
+    title: `Claim "${listing.title}" | Rank Coterie Directory`,
     description: `Claim ownership of ${listing.title} to manage your listing profile.`,
   };
 }

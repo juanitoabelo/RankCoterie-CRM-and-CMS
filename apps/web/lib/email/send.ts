@@ -79,7 +79,7 @@ async function patchTheme(data: Record<string, unknown>): Promise<void> {
   const tenant = await prisma.tenant.upsert({
     where: { id: TENANT_ID },
     update: {},
-    create: { id: TENANT_ID, name: "Canopy", domainKey: "canopy.local" },
+    create: { id: TENANT_ID, name: "Rank Coterie", domainKey: "canopy.local" },
   });
   const theme = { ...((tenant.theme ?? {}) as Record<string, unknown>), ...data };
   await prisma.tenant.update({
@@ -135,7 +135,7 @@ async function tryResend(cfg: EmailProviderSettings, input: EmailInput): Promise
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: cfg.from || "Canopy <onboarding@resend.dev>",
+        from: cfg.from || "Rank Coterie <onboarding@resend.dev>",
         to: [input.to],
         subject: input.subject,
         html: input.html,
@@ -165,7 +165,7 @@ async function tryBrevo(cfg: EmailProviderSettings, input: EmailInput): Promise<
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        sender: parsed ? { email: parsed.email, name: parsed.name ?? "Canopy" } : undefined,
+        sender: parsed ? { email: parsed.email, name: parsed.name ?? "Rank Coterie" } : undefined,
         to: [{ email: input.to }],
         subject: input.subject,
         htmlContent: input.html,
@@ -239,7 +239,7 @@ export async function sendEmail(input: EmailInput): Promise<SendEmailResult> {
         {
           ...DEFAULT_EMAIL_SETTINGS.providers.resend,
           apiKey: process.env.RESEND_API_KEY,
-          from: process.env.EMAIL_FROM ?? "Canopy <onboarding@resend.dev>",
+          from: process.env.EMAIL_FROM ?? "Rank Coterie <onboarding@resend.dev>",
         },
         input,
       );
@@ -292,8 +292,8 @@ export async function sendTestEmail(to: string): Promise<SendEmailResult> {
   }
   return sendEmail({
     to: email,
-    subject: "Canopy test email",
-    html: "<p>This is a test email from Canopy. If you received it, your provider chain works.</p>",
-    text: "This is a test email from Canopy. If you received it, your provider chain works.",
+    subject: "Rank Coterie test email",
+    html: "<p>This is a test email from Rank Coterie. If you received it, your provider chain works.</p>",
+    text: "This is a test email from Rank Coterie. If you received it, your provider chain works.",
   });
 }

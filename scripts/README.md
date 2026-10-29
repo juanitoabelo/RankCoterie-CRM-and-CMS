@@ -1,4 +1,4 @@
-# Canopy V2 — Scripts
+# Rank Coterie — Scripts
 
 ## Migration Pipeline (Phase 0)
 

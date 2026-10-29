@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — Inngest job: recurring client-invoice rebilling.
+ * Rank Coterie — Inngest job: recurring client-invoice rebilling.
  *
  * Runs daily (INVOICE_REBILL_CRON env overrides) and on
  * billing/invoices.rebill events. Paid recurring schedules that came due get a

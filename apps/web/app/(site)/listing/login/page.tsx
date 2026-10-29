@@ -3,7 +3,7 @@ import LoginCard from "@/components/auth/LoginCard";
 import { listingLogin } from "./actions";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Listing Login | Canopy" };
+export const metadata: Metadata = { title: "Listing Login | Rank Coterie" };
 
 export default async function ListingLoginPage({
   searchParams,

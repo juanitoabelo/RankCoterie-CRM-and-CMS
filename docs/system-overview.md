@@ -1,4 +1,4 @@
-# Canopy V2 — System Overview
+# Rank Coterie — System Overview
 
 > Full documentation of how the platform works, as implemented in this repository.
 > Companion pieces: `geocategory-and-page-generation.md` (page multiplication + SEO analysis),

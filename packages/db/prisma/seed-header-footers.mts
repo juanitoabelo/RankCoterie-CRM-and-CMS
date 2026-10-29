@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — built-in header/footer starter presets seed (ADDITIVE, idempotent).
+ * Rank Coterie — built-in header/footer starter presets seed (ADDITIVE, idempotent).
  *
  * Materialises the ten code-defined starter templates (5 headers + 5 futuristic
  * footers) as real, editable `HeaderFooter` rows so they appear in the builder's

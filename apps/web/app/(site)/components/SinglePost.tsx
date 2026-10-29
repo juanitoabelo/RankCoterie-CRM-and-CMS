@@ -85,7 +85,7 @@ export async function getSinglePostSeo(
     : [];
 
   return {
-    title: article.metaDesc ? `${title} | Canopy` : title,
+    title: article.metaDesc ? `${title} | Rank Coterie` : title,
     description,
     keywords: metaKeywords.length > 0 ? metaKeywords : undefined,
     robots: {

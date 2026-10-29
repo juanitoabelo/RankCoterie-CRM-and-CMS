@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — Inngest jobs: feed ingestion cron (legacy §4.3).
+ * Rank Coterie — Inngest jobs: feed ingestion cron (legacy §4.3).
  *
  * - feedSyncAllJob: scheduled every 6h (FEED_SYNC_CRON env overrides) + feed/sync.all event
  * - feedSyncOneJob: on-demand single feed (feed/sync.one, {feedId}) — the admin

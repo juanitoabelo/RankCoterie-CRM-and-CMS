@@ -1,5 +1,5 @@
 /**
- * Canopy V2 — directory catalog data-access seam.
+ * Rank Coterie — directory catalog data-access seam.
  *
  * Pages depend on the `CatalogRepo` interface, NOT on Prisma directly. This lets the
  * `/g/` SEO pages compile and render with mock data during Phase 1, and later swap in a
