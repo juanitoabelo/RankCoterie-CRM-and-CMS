@@ -67,6 +67,19 @@ function useMenuContext() {
   return useContext(MenuContext);
 }
 
+/**
+ * Builder-only preview viewport. When set, responsive menu switching is driven
+ * by the canvas viewport toggle instead of the real browser window, because the
+ * builder previews devices inside a normal desktop window.
+ */
+export type PreviewViewport = "desktop" | "tablet" | "mobile";
+const PreviewViewportContext = createContext<PreviewViewport | null>(null);
+const PREVIEW_WIDTHS: Record<PreviewViewport, number> = {
+  desktop: 1440,
+  tablet: 768,
+  mobile: 390,
+};
+
 /* ── Specialized Block Renderers ────────────────────────────────────────── */
 
 function LogoRenderer({ block }: { block: Block }) {
@@ -160,6 +173,101 @@ function CloseIcon({ size = 24, color = "currentColor" }: { size?: number; color
   );
 }
 
+function DesktopChildMenuItem({
+  child,
+  panel,
+  dropdownTextColor,
+  dropdownTextHoverColor,
+  dropdownHoverColor,
+  dropdownBgColor,
+}: {
+  child: MenuItem;
+  panel?: AdvancedMenuPanel;
+  dropdownTextColor?: string;
+  dropdownTextHoverColor?: string;
+  dropdownHoverColor?: string;
+  dropdownBgColor?: string;
+}) {
+  const blocks = panel?.layout === "blocks" ? ((panel.blocks ?? []) as HeaderFooterBlock[]) : [];
+  const hasPanel = blocks.length > 0;
+  const [open, setOpen] = useState(false);
+  const [box, setBox] = useState<{ left: number; width: number } | null>(null);
+  const ref = useRef<HTMLDivElement | null>(null);
+  const timer = useRef<NodeJS.Timeout | null>(null);
+  const isFull = panel?.containerWidth === "full";
+  const maxWidth = panel?.maxWidth ?? 1200;
+
+  const measure = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth || window.innerWidth;
+    if (isFull) {
+      setBox({ left: -rect.left, width: vw });
+    } else {
+      const w = Math.min(maxWidth, vw - 32);
+      setBox({ left: (vw - w) / 2 - rect.left, width: w });
+    }
+  }, [isFull, maxWidth]);
+
+  useLayoutEffect(() => {
+    if (!open || !hasPanel) return;
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [open, hasPanel, measure]);
+
+  const enter = () => {
+    if (timer.current) clearTimeout(timer.current);
+    measure();
+    setOpen(true);
+  };
+  const leave = () => {
+    timer.current = setTimeout(() => setOpen(false), 150);
+  };
+
+  return (
+    <div ref={ref} className="relative" onMouseEnter={enter} onMouseLeave={leave}>
+      <Link
+        href={child.href}
+        target={child.target ?? undefined}
+        className="flex items-center gap-2 px-4 py-2 text-sm transition-colors hover:bg-zinc-50"
+        style={{ color: dropdownTextColor ?? "#333333" }}
+        onMouseEnter={(e) => {
+          if (dropdownHoverColor) e.currentTarget.style.backgroundColor = dropdownHoverColor;
+          e.currentTarget.style.color = dropdownTextHoverColor ?? dropdownTextColor ?? "#333333";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = "";
+          e.currentTarget.style.color = dropdownTextColor ?? "#333333";
+        }}
+      >
+        <span className="flex-1">{child.label}</span>
+        {hasPanel && <SubmenuIcon className="-rotate-90 opacity-60" />}
+      </Link>
+
+      {hasPanel && open && box && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: box.left,
+            width: box.width,
+            backgroundColor: panel?.bgColor ?? dropdownBgColor ?? "#ffffff",
+            border: "1px solid #e4e4e7",
+            borderRadius: isFull ? 0 : "0.375rem",
+            boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+            zIndex: 60,
+            padding: "1rem",
+          }}
+        >
+          <RenderBlocks blocks={blocks} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DesktopMenuItem({
   item,
   textColor,
@@ -181,6 +289,7 @@ function DesktopMenuItem({
   dropdownHoverColor,
   animation,
   panel,
+  dropdownPanels,
   editingMode,
 }: {
   item: MenuItem;
@@ -203,6 +312,7 @@ function DesktopMenuItem({
   dropdownHoverColor?: string;
   animation?: string;
   panel?: AdvancedMenuPanel;
+  dropdownPanels?: AdvancedMenuPanel[];
   editingMode?: boolean;
 }) {
   const hasChildren = !!(item.children && item.children.length > 0);
@@ -341,25 +451,45 @@ function DesktopMenuItem({
               <RenderBlocks blocks={panelBlocks} />
             </div>
           ) : (
-            item.children!.map((child) => (
-              <Link
-                key={child.id}
-                href={child.href}
-                target={child.target ?? undefined}
-                className="block px-4 py-2 text-sm transition-colors hover:bg-zinc-50"
-                style={{ color: dropdownTextColor ?? "#333333" }}
-                onMouseEnter={(e) => {
-                  if (dropdownHoverColor) e.currentTarget.style.backgroundColor = dropdownHoverColor;
-                  e.currentTarget.style.color = dropdownTextHoverColor ?? dropdownTextColor ?? "#333333";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "";
-                  e.currentTarget.style.color = dropdownTextColor ?? "#333333";
-                }}
-              >
-                {child.label}
-              </Link>
-            ))
+            item.children!.map((child) => {
+              const childPanel = dropdownPanels?.find((dp) => dp.assignedItemId === child.id);
+              const childBlocks =
+                childPanel?.layout === "blocks"
+                  ? ((childPanel.blocks ?? []) as HeaderFooterBlock[])
+                  : [];
+              if (childBlocks.length > 0) {
+                return (
+                  <DesktopChildMenuItem
+                    key={child.id}
+                    child={child}
+                    panel={childPanel}
+                    dropdownTextColor={dropdownTextColor}
+                    dropdownTextHoverColor={dropdownTextHoverColor}
+                    dropdownHoverColor={dropdownHoverColor}
+                    dropdownBgColor={dropdownBgColor}
+                  />
+                );
+              }
+              return (
+                <Link
+                  key={child.id}
+                  href={child.href}
+                  target={child.target ?? undefined}
+                  className="block px-4 py-2 text-sm transition-colors hover:bg-zinc-50"
+                  style={{ color: dropdownTextColor ?? "#333333" }}
+                  onMouseEnter={(e) => {
+                    if (dropdownHoverColor) e.currentTarget.style.backgroundColor = dropdownHoverColor;
+                    e.currentTarget.style.color = dropdownTextHoverColor ?? dropdownTextColor ?? "#333333";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "";
+                    e.currentTarget.style.color = dropdownTextColor ?? "#333333";
+                  }}
+                >
+                  {child.label}
+                </Link>
+              );
+            })
           )}
         </div>
       )}
@@ -392,6 +522,8 @@ function MobileMenuPanel({
   panelClassName,
   extraContent,
   dropdownPanels,
+  previewWidth,
+  previewLeft,
 }: {
   items: MenuItem[];
   isOpen: boolean;
@@ -417,8 +549,13 @@ function MobileMenuPanel({
   panelClassName?: string;
   extraContent?: React.ReactNode;
   dropdownPanels?: AdvancedMenuPanel[];
+  /** Builder preview: constrain the fixed panel to the simulated device width. */
+  previewWidth?: number | null;
+  /** Builder preview: left offset of the simulated device frame. */
+  previewLeft?: number | null;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [childExpandedId, setChildExpandedId] = useState<string | null>(null);
 
   const textAlign = mobileTextAlign === "center"
     ? "text-center"
@@ -480,34 +617,86 @@ function MobileMenuPanel({
                     <RenderBlocks blocks={panelBlocks} />
                   </div>
                 ) : (
-                  item.children!.map((child) => (
-                    <Link
-                      key={child.id}
-                      href={child.href}
-                      target={child.target ?? undefined}
-                      className="block transition-colors"
-                      style={{
-                        color: dropdownTextColor ?? textColor,
-                        fontSize: fontSize ? fontSize - 2 : 14,
-                        padding: `${vPadding ?? 10}px ${hPadding ?? 32}px`,
-                        fontFamily,
-                        fontWeight,
-                        textTransform: textTransform as React.CSSProperties["textTransform"],
-                        letterSpacing,
-                      }}
-                      onClick={onClose}
-                      onMouseEnter={(e) => {
-                        if (dropdownHoverColor) e.currentTarget.style.backgroundColor = dropdownHoverColor;
-                        e.currentTarget.style.color = dropdownTextHoverColor ?? dropdownTextColor ?? textColor ?? "";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = "";
-                        e.currentTarget.style.color = dropdownTextColor ?? textColor ?? "";
-                      }}
-                    >
-                      {child.label}
-                    </Link>
-                  ))
+                  item.children!.map((child) => {
+                    const childPanel = dropdownPanels?.find((dp) => dp.assignedItemId === child.id);
+                    const childBlocks =
+                      childPanel?.layout === "blocks"
+                        ? ((childPanel.blocks ?? []) as HeaderFooterBlock[])
+                        : [];
+                    const hasChildPanel = childBlocks.length > 0;
+                    const childKey = `child:${child.id}`;
+                    const childExpanded = childExpandedId === childKey;
+                    if (hasChildPanel) {
+                      return (
+                        <div key={child.id}>
+                          <div className="flex items-center">
+                            <Link
+                              href={child.href}
+                              target={child.target ?? undefined}
+                              className="flex-1 block transition-colors"
+                              style={{
+                                color: dropdownTextColor ?? textColor,
+                                fontSize: fontSize ? fontSize - 2 : 14,
+                                padding: `${vPadding ?? 10}px ${hPadding ?? 32}px`,
+                                fontFamily,
+                                fontWeight,
+                                textTransform: textTransform as React.CSSProperties["textTransform"],
+                                letterSpacing,
+                              }}
+                              onClick={onClose}
+                            >
+                              {child.label}
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => setChildExpandedId(childExpanded ? null : childKey)}
+                              className="flex h-9 w-9 items-center justify-center transition-transform"
+                              style={{
+                                transform: childExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                                color: dropdownTextColor ?? textColor,
+                              }}
+                              aria-label={`Toggle ${child.label} panel`}
+                            >
+                              <SubmenuIcon />
+                            </button>
+                          </div>
+                          {childExpanded && (
+                            <div className="border-t border-zinc-100 px-4 py-3">
+                              <RenderBlocks blocks={childBlocks} />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                    return (
+                      <Link
+                        key={child.id}
+                        href={child.href}
+                        target={child.target ?? undefined}
+                        className="block transition-colors"
+                        style={{
+                          color: dropdownTextColor ?? textColor,
+                          fontSize: fontSize ? fontSize - 2 : 14,
+                          padding: `${vPadding ?? 10}px ${hPadding ?? 32}px`,
+                          fontFamily,
+                          fontWeight,
+                          textTransform: textTransform as React.CSSProperties["textTransform"],
+                          letterSpacing,
+                        }}
+                        onClick={onClose}
+                        onMouseEnter={(e) => {
+                          if (dropdownHoverColor) e.currentTarget.style.backgroundColor = dropdownHoverColor;
+                          e.currentTarget.style.color = dropdownTextHoverColor ?? dropdownTextColor ?? textColor ?? "";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = "";
+                          e.currentTarget.style.color = dropdownTextColor ?? textColor ?? "";
+                        }}
+                      >
+                        {child.label}
+                      </Link>
+                    );
+                  })
                 )}
               </div>
             )}
@@ -528,7 +717,18 @@ function MobileMenuPanel({
     return (
       <div
         className={`${panelClassName ?? ""} fixed inset-x-0 z-50 max-h-[80vh] overflow-y-auto border-t border-zinc-200 shadow-lg`}
-        style={{ top: topOffset ?? 0, backgroundColor: dropdownBgColor ?? "#ffffff" }}
+        style={{
+          top: topOffset ?? 0,
+          backgroundColor: dropdownBgColor ?? "#ffffff",
+          ...(previewWidth
+            ? {
+                left: previewLeft ?? `calc(50% - ${previewWidth / 2}px)`,
+                right: "auto",
+                width: previewWidth,
+                maxWidth: "100vw",
+              }
+            : {}),
+        }}
       >
         {nav}
         {extraContent}
@@ -550,8 +750,17 @@ function MobileMenuPanel({
       <div
         className={`fixed top-0 left-0 z-50 h-full overflow-y-auto transition-transform duration-300 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
-        } ${fullMobileWidth ? "w-full" : "w-80"}`}
-        style={{ backgroundColor: dropdownBgColor ?? "#ffffff" }}
+        } ${fullMobileWidth !== false ? "w-full" : "w-80"}`}
+        style={{
+          backgroundColor: dropdownBgColor ?? "#ffffff",
+          ...(previewWidth
+            ? {
+                left: previewLeft ?? `calc(50% - ${previewWidth / 2}px)`,
+                width: previewWidth,
+                maxWidth: "100vw",
+              }
+            : {}),
+        }}
       >
         {/* Close button */}
         <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
@@ -614,7 +823,11 @@ function MenuRenderer({ block }: { block: Block }) {
   const items = menus[menuKey] ?? menus.header ?? [];
   const [mobileOpen, setMobileOpen] = useState(false);
   const [panelTop, setPanelTop] = useState(0);
+  const [previewLeft, setPreviewLeft] = useState<number | null>(null);
   const breakpoint = p.mobileBreakpoint ?? 1024;
+  const previewViewport = useContext(PreviewViewportContext);
+  const previewWidth = previewViewport ? PREVIEW_WIDTHS[previewViewport] : null;
+  const forceMobileNav = previewWidth != null && previewWidth <= breakpoint;
 
   const alignClass =
     p.align === "center"
@@ -637,6 +850,11 @@ function MenuRenderer({ block }: { block: Block }) {
   const panelUidClass = `menu-panel-${uid}`;
 
   const openMobileMenu = (trigger: HTMLElement) => {
+    if (previewWidth != null) {
+      const frame = trigger.closest('[data-pb-kind="container"]') as HTMLElement | null;
+      const rect = frame?.getBoundingClientRect();
+      setPreviewLeft(rect ? Math.max(0, Math.round(rect.left)) : null);
+    }
     if (isDropdownMobile) {
       const section = trigger.closest('[data-pb-kind="section"]');
       const top = section
@@ -654,7 +872,7 @@ function MenuRenderer({ block }: { block: Block }) {
       {/* CSS for animations, scoped to this menu instance */}
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-        ${isStaticMobile ? "" : `@media (max-width: ${breakpoint}px) {
+        ${isStaticMobile || previewWidth != null ? "" : `@media (max-width: ${breakpoint}px) {
           .${navUidClass} { display: none !important; }
           .${toggleUidClass} { display: flex !important; }
         }
@@ -671,6 +889,7 @@ function MenuRenderer({ block }: { block: Block }) {
           gap: p.spaceBetween ?? p.gap,
           color: p.textColor,
           fontSize: p.fontSize,
+          display: forceMobileNav ? "none" : undefined,
         }}
       >
         {items.map((item) => (
@@ -703,7 +922,7 @@ function MenuRenderer({ block }: { block: Block }) {
       {!isStaticMobile && (
       <>
       <div
-        className={`menu-mobile-toggle ${toggleUidClass} hidden items-center ${
+        className={`menu-mobile-toggle ${toggleUidClass} ${forceMobileNav ? "flex" : "hidden"} items-center ${
           p.toggleAlign === "center"
             ? "justify-center"
             : p.toggleAlign === "right"
@@ -749,6 +968,8 @@ function MenuRenderer({ block }: { block: Block }) {
             fontWeight={p.fontWeight}
             textTransform={p.textTransform}
             letterSpacing={p.letterSpacing}
+            previewWidth={previewWidth}
+            previewLeft={previewLeft}
             variant="dropdown"
             topOffset={panelTop}
             panelClassName={panelUidClass}
@@ -775,6 +996,8 @@ function MenuRenderer({ block }: { block: Block }) {
           fontWeight={p.fontWeight}
           textTransform={p.textTransform}
           letterSpacing={p.letterSpacing}
+          previewWidth={previewWidth}
+          previewLeft={previewLeft}
         />
       )}
       </>
@@ -829,7 +1052,11 @@ function AdvancedMenuRenderer({ block }: { block: Block }) {
   const items = menus[menuKey] ?? menus.header ?? [];
   const [mobileOpen, setMobileOpen] = useState(false);
   const [panelTop, setPanelTop] = useState(0);
+  const [previewLeft, setPreviewLeft] = useState<number | null>(null);
   const breakpoint = p.mobileBreakpoint ?? 1024;
+  const previewViewport = useContext(PreviewViewportContext);
+  const previewWidth = previewViewport ? PREVIEW_WIDTHS[previewViewport] : null;
+  const forceMobileNav = previewWidth != null && previewWidth <= breakpoint;
   const mobileLayout = ((p.mobileLayout ?? (p as Record<string, unknown>).mobileBlocks ?? []) as HeaderFooterBlock[]);
   const showItems = p.showMobileMenuItems ?? true;
   // Support both old (object keyed by item id) and new (array) formats
@@ -857,6 +1084,11 @@ function AdvancedMenuRenderer({ block }: { block: Block }) {
   const panelUidClass = `menu-panel-${uid}`;
 
   const openMobileMenu = (trigger: HTMLElement) => {
+    if (previewWidth != null) {
+      const frame = trigger.closest('[data-pb-kind="container"]') as HTMLElement | null;
+      const rect = frame?.getBoundingClientRect();
+      setPreviewLeft(rect ? Math.max(0, Math.round(rect.left)) : null);
+    }
     if (isDropdownMobile) {
       const section = trigger.closest('[data-pb-kind="section"]');
       const top = section
@@ -898,13 +1130,15 @@ function AdvancedMenuRenderer({ block }: { block: Block }) {
     letterSpacing: p.letterSpacing,
     dropdownPanels,
     extraContent,
+    previewWidth,
+    previewLeft,
   };
 
   return (
     <BlockAdvancedFrame block={block}>
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-        ${isStaticMobile ? "" : `@media (max-width: ${breakpoint}px) {
+        ${isStaticMobile || previewWidth != null ? "" : `@media (max-width: ${breakpoint}px) {
           .${navUidClass} { display: none !important; }
           .${toggleUidClass} { display: flex !important; }
         }
@@ -920,6 +1154,7 @@ function AdvancedMenuRenderer({ block }: { block: Block }) {
           gap: p.spaceBetween ?? p.gap,
           color: p.textColor,
           fontSize: p.fontSize,
+          display: forceMobileNav ? "none" : undefined,
         }}
       >
         {items.map((item) => {
@@ -947,6 +1182,7 @@ function AdvancedMenuRenderer({ block }: { block: Block }) {
               dropdownHoverColor={p.dropdownHoverColor}
               animation={p.animation}
               panel={panel}
+              dropdownPanels={dropdownPanels}
             />
           );
         })}
@@ -955,7 +1191,7 @@ function AdvancedMenuRenderer({ block }: { block: Block }) {
       {!isStaticMobile && (
         <>
           <div
-            className={`menu-mobile-toggle ${toggleUidClass} hidden items-center ${
+            className={`menu-mobile-toggle ${toggleUidClass} ${forceMobileNav ? "flex" : "hidden"} items-center ${
               p.toggleAlign === "center"
                 ? "justify-center"
                 : p.toggleAlign === "right"
@@ -2187,10 +2423,13 @@ export default function HeaderFooterRenderer({
   blocks,
   containerSettings = DEFAULT_CONTAINER_SETTINGS,
   menus = {},
+  previewViewport,
 }: {
   blocks: HeaderFooterBlock[];
   containerSettings?: ContainerSettings;
   menus?: MenuData;
+  /** When set (builder canvas), responsive switching follows this instead of the window. */
+  previewViewport?: PreviewViewport;
 }) {
   const containerMargin = spacingToCssParts(containerSettings.margin);
   const containerPad = spacingToCssParts(containerSettings.padding);
@@ -2264,18 +2503,20 @@ export default function HeaderFooterRenderer({
 
   return (
     <MenuContext.Provider value={menus}>
-      <div
-        style={outerStyle}
-        id={containerSettings.cssId || undefined}
-        className={containerSettings.cssClasses || undefined}
-        data-pb-el={PB_CONTAINER}
-        data-pb-kind="container"
-      >
-        {overlayStyle && <div style={overlayStyle} />}
-        <div style={innerStyle}>
-          <RenderBlocks blocks={blocks} />
+      <PreviewViewportContext.Provider value={previewViewport ?? null}>
+        <div
+          style={outerStyle}
+          id={containerSettings.cssId || undefined}
+          className={containerSettings.cssClasses || undefined}
+          data-pb-el={PB_CONTAINER}
+          data-pb-kind="container"
+        >
+          {overlayStyle && <div style={overlayStyle} />}
+          <div style={innerStyle}>
+            <RenderBlocks blocks={blocks} />
+          </div>
         </div>
-      </div>
+      </PreviewViewportContext.Provider>
     </MenuContext.Provider>
   );
 }

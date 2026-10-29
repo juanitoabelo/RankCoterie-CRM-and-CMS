@@ -392,8 +392,8 @@ function MenuEditor({ block, onChange, themeColors }: EditorProps) {
           {((p.mobileMenuStyle as string) || "slide") === "slide" && (
             <div className="flex items-center justify-between">
               <span className={labelCls}>Drawer Full Width</span>
-              <button type="button" onClick={() => set({ fullMobileWidth: !(p.fullMobileWidth as boolean) })} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${(p.fullMobileWidth as boolean) ? "bg-zinc-900" : "bg-zinc-300"}`}>
-                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${(p.fullMobileWidth as boolean) ? "translate-x-4.5" : "translate-x-0.5"}`} />
+              <button type="button" onClick={() => set({ fullMobileWidth: !(p.fullMobileWidth !== false) })} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${(p.fullMobileWidth !== false) ? "bg-zinc-900" : "bg-zinc-300"}`}>
+                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${(p.fullMobileWidth !== false) ? "translate-x-4.5" : "translate-x-0.5"}`} />
               </button>
             </div>
           )}
@@ -762,7 +762,12 @@ function DropdownPanelsDesigner({
         id: p.id ?? key,
         assignedItemId: p.assignedItemId ?? key,
       }));
-  const parents = menuItems.filter((i) => (i.children?.length ?? 0) > 0);
+  // Any link (top-level or first-level child) can own a mega dropdown.
+  const targets = menuItems.flatMap((i) => [
+    { id: i.id, label: i.label },
+    ...(i.children ?? []).map((c) => ({ id: c.id, label: `${i.label} › ${c.label}` })),
+  ]);
+  const labelById = new Map(targets.map((t) => [t.id, t.label]));
   const [selectedPanelId, setSelectedPanelId] = useState<string | null>(panelsArray[0]?.id ?? null);
 
   // Ensure we have a valid panel selected
@@ -771,7 +776,7 @@ function DropdownPanelsDesigner({
   const createNewPanel = useCallback(() => {
     const newPanel: AdvancedMenuPanel = {
       id: crypto.randomUUID(),
-      assignedItemId: parents[0]?.id ?? "",
+      assignedItemId: targets[0]?.id ?? "",
       layout: "blocks",
       blocks: [],
       containerWidth: "boxed",
@@ -779,20 +784,20 @@ function DropdownPanelsDesigner({
     };
     addDropdownPanel?.(blockId, newPanel);
     setSelectedPanelId(newPanel.id);
-  }, [blockId, parents, addDropdownPanel]);
+  }, [blockId, targets, addDropdownPanel]);
 
   return (
     <div className="border-t border-zinc-200 pt-3">
       <span className="text-xs font-semibold text-zinc-700">Dropdown Panels</span>
       <p className="mt-1 text-[11px] leading-4 text-zinc-500">
-        Create custom mega-dropdown layouts for parent menu items. Each panel can have
-        its own sections, rows, columns, and blocks.
+        Create custom mega-dropdown layouts for any menu link (top-level or child).
+        Each panel can have its own sections, rows, columns, and blocks. A caret is
+        added automatically to links that have a panel.
       </p>
 
-      {parents.length === 0 ? (
+      {targets.length === 0 ? (
         <p className="mt-2 rounded bg-zinc-50 px-2 py-2 text-[11px] text-zinc-400">
-          No parent links found. Add sub-items to a menu link in Admin → Menus
-          to design its dropdown.
+          No menu links found. Add links in Admin → Menus to design their dropdowns.
         </p>
       ) : panelsArray.length === 0 ? (
         <button
@@ -816,7 +821,7 @@ function DropdownPanelsDesigner({
                     : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
                 }`}
               >
-                {p.assignedItemId ? menuItems.find((m) => m.id === p.assignedItemId)?.label ?? p.assignedItemId : "Unassigned"}
+                {p.assignedItemId ? labelById.get(p.assignedItemId) ?? p.assignedItemId : "Unassigned"}
               </button>
             ))}
             <button
@@ -837,7 +842,7 @@ function DropdownPanelsDesigner({
                   onChange={(e) => updateDropdownPanel?.(blockId, panel.id, { assignedItemId: e.target.value })}
                   className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] text-zinc-700"
                 >
-                  {parents.map((item) => (
+                  {targets.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.label}
                     </option>

@@ -754,6 +754,12 @@ export default function HeaderFooterBuilder({
         ? "mx-auto max-w-[768px]"
         : "mx-auto w-full";
 
+  // Flatten top-level + first-level children so any link can be assigned a panel.
+  const menuItemOptions = [...(menus.header ?? []), ...(menus.footer ?? [])].flatMap((m) => [
+    { id: m.id, label: m.label },
+    ...(m.children ?? []).map((c) => ({ id: c.id, label: `${m.label} / ${c.label}` })),
+  ]);
+
   return (
     <div className="mt-4">
       {/* ── TOOLBAR ──────────────────────────────────────────────── */}
@@ -856,6 +862,7 @@ export default function HeaderFooterBuilder({
                         blocks={blocks as HeaderFooterBlock[]}
                         containerSettings={containerSettings}
                         menus={menus}
+                        previewViewport={viewport}
                       />
                       <MobilePanelCanvas
                         blocks={blocks}
@@ -865,10 +872,7 @@ export default function HeaderFooterBuilder({
                         blocks={blocks}
                         onPanelLayoutChange={updatePanelLayout}
                         onPanelSettingsChange={updateDropdownPanel}
-                        menuItems={[
-                          ...(menus.header ?? []),
-                          ...(menus.footer ?? []),
-                        ].map((m) => ({ id: m.id, label: m.label }))}
+                        menuItems={menuItemOptions}
                       />
                     </>
                   }
@@ -886,18 +890,30 @@ export default function HeaderFooterBuilder({
                   }
                 />
               ) : (
-                <HeaderFooterCanvas
-                  blocks={blocks}
-                  viewport={viewport}
-                  containerSettings={containerSettings}
-                  selectedId={selectedId}
-                  selectedColumnId={selectedColumnId}
-                  onSelect={onSelect}
-                  onSelectColumn={onSelectColumn}
-                  onRemove={removeBlockById}
-                  onDuplicate={duplicateBlockById}
-                  onAddRowToSection={addRowToSectionHandler}
-                />
+                <>
+                  <HeaderFooterCanvas
+                    blocks={blocks}
+                    viewport={viewport}
+                    containerSettings={containerSettings}
+                    selectedId={selectedId}
+                    selectedColumnId={selectedColumnId}
+                    onSelect={onSelect}
+                    onSelectColumn={onSelectColumn}
+                    onRemove={removeBlockById}
+                    onDuplicate={duplicateBlockById}
+                    onAddRowToSection={addRowToSectionHandler}
+                  />
+                  <MobilePanelCanvas
+                    blocks={blocks}
+                    onMobileLayoutChange={updateMobileLayout}
+                  />
+                  <DropdownPanelsCanvas
+                    blocks={blocks}
+                    onPanelLayoutChange={updatePanelLayout}
+                    onPanelSettingsChange={updateDropdownPanel}
+                    menuItems={menuItemOptions}
+                  />
+                </>
               )}
             </div>
           </div>
