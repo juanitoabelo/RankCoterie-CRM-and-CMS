@@ -9,6 +9,7 @@ import { Role } from "@prisma/client";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { hashPassword } from "@/lib/passwords";
 import { TENANT_ID } from "@/lib/tenant";
+import { usernameFromEmail } from "@/lib/auth/username";
 const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL ?? "juanito.abelo@gmail.com";
 
 function initialSuperAdminPassword(): string {
@@ -48,6 +49,7 @@ export async function ensureSuperAdmin(): Promise<{ created: boolean; password: 
         id,
         tenantId: TENANT_ID,
         email: SUPER_ADMIN_EMAIL,
+        username: process.env.SUPER_ADMIN_USERNAME?.trim().toLowerCase() || usernameFromEmail(SUPER_ADMIN_EMAIL),
         passwordHash,
         firstName: "Super",
         lastName: "Admin",

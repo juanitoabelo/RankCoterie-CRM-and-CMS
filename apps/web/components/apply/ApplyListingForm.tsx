@@ -229,9 +229,29 @@ export default function ApplyListingForm({
         <div>
           <h2 className="text-sm font-medium text-zinc-900">Create your login</h2>
           <p className="mt-1 text-sm text-zinc-500">
-            We&apos;ll use your contact email above as your username. This lets you
-            manage your listing (hours, photos, description) after it&apos;s published.
+            Pick a username. You can sign in with either this username or your
+            contact email above to manage your listing (hours, photos, description)
+            after it&apos;s published.
           </p>
+          <div className="mt-3">
+            <label className={labelCls}>
+              Username *
+              <input
+                name="username"
+                required
+                minLength={3}
+                maxLength={30}
+                pattern="[A-Za-z0-9][A-Za-z0-9._-]*[A-Za-z0-9]"
+                autoComplete="username"
+                className={fieldCls}
+                placeholder="e.g. clearview"
+              />
+            </label>
+            <p className="mt-1 text-xs text-zinc-500">
+              Letters, numbers, dots, underscores, and hyphens. This is your login
+              handle, separate from your name and email.
+            </p>
+          </div>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <label className={labelCls}>
               Password *

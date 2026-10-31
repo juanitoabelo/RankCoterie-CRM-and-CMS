@@ -27,6 +27,7 @@ test("apply page renders the full form", async ({ page }) => {
   await expect(page.getByPlaceholder("e.g. Clearview Horizon")).toBeVisible();
   await expect(page.locator('input[name="title"]')).toBeVisible();
   await expect(page.locator('input[name="email"]')).toBeVisible();
+  await expect(page.locator('input[name="username"]')).toBeVisible();
   await expect(page.locator('input[name="password"]')).toBeVisible();
   await expect(page.locator('input[name="confirmPassword"]')).toBeVisible();
   await expect(page.getByRole("button", { name: /continue to payment/i })).toBeVisible();

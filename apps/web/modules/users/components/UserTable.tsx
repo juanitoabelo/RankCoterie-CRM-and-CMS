@@ -18,7 +18,8 @@ export function UserTable({ users }: UserTableProps) {
           <thead>
             <tr className="border-b border-zinc-200 text-xs font-medium uppercase text-zinc-500">
               <th className="pb-2 pr-4">Edit User</th>
-              <th className="pb-2 pr-4">User Name</th>
+              <th className="pb-2 pr-4">Name</th>
+              <th className="pb-2 pr-4">Username</th>
               <th className="pb-2 pr-4">Department</th>
               <th className="pb-2 pr-4">User Page</th>
               <th className="pb-2 pr-4">User Articles</th>
@@ -28,7 +29,7 @@ export function UserTable({ users }: UserTableProps) {
           </thead>
           <tbody>
             <tr>
-              <td colSpan={7} className="py-6 text-center text-sm text-zinc-400">
+              <td colSpan={8} className="py-6 text-center text-sm text-zinc-400">
                 No users found.
               </td>
             </tr>
@@ -44,7 +45,8 @@ export function UserTable({ users }: UserTableProps) {
         <thead>
           <tr className="border-b border-zinc-200 text-xs font-medium uppercase text-zinc-500">
             <th className="pb-2 pr-4">Edit User</th>
-            <th className="pb-2 pr-4">User Name</th>
+            <th className="pb-2 pr-4">Name</th>
+            <th className="pb-2 pr-4">Username</th>
             <th className="pb-2 pr-4">Department</th>
             <th className="pb-2 pr-4">User Page</th>
             <th className="pb-2 pr-4">User Articles</th>
@@ -80,6 +82,13 @@ export function UserTable({ users }: UserTableProps) {
                 {u.firstName || u.lastName
                   ? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()
                   : u.email}
+              </td>
+              <td className="py-3 pr-4 text-sm text-zinc-600">
+                {u.username ? (
+                  <span className="font-mono text-xs">{u.username}</span>
+                ) : (
+                  <span className="text-xs text-zinc-400">—</span>
+                )}
               </td>
               <td className="py-3 pr-4 text-sm text-zinc-600">
                 {u.department ?? "—"}

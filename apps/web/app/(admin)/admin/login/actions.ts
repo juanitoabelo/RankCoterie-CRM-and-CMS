@@ -7,13 +7,15 @@ import { authenticatePortalUser, startPortalSession } from "@/lib/auth/login";
 import { ensureSuperAdmin } from "@/lib/bootstrap";
 
 export async function adminLogin(formData: FormData): Promise<void> {
-  const email = String(formData.get("email") ?? "");
+  const identifier = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
 
   await ensureSuperAdmin();
 
-  const result = await authenticatePortalUser(email, password);
-  if (!result.ok) throw new Error(result.error);
+  const result = await authenticatePortalUser(identifier, password);
+  if (!result.ok) {
+    redirect(`/admin/login?error=${encodeURIComponent(result.error)}`);
+  }
   const user = result.user;
 
   await startPortalSession(user.id);

@@ -27,36 +27,42 @@ export type PortalUser = {
  * message. Never throws — callers decide how to surface/redirect failures.
  */
 export async function authenticatePortalUser(
-  emailRaw: string,
+  identifierRaw: string,
   password: string,
 ): Promise<{ ok: true; user: PortalUser } | { ok: false; error: string }> {
-  const email = emailRaw.trim().toLowerCase();
-  if (!email || !password) {
-    return { ok: false, error: "Email and password are required." };
+  const identifier = identifierRaw.trim().toLowerCase();
+  if (!identifier || !password) {
+    return { ok: false, error: "Email/username and password are required." };
   }
 
   const now = Date.now();
-  const attempt = await prisma.loginAttempt.findUnique({ where: { email } });
+  const attempt = await prisma.loginAttempt.findUnique({ where: { email: identifier } });
   if (attempt && attempt.resetAt.getTime() > now && attempt.count >= MAX_ATTEMPTS) {
     return { ok: false, error: "Too many login attempts. Try again later." };
   }
 
   const user = await prisma.user.findFirst({
-    where: { email, tenantId: TENANT_ID },
+    where: {
+      tenantId: TENANT_ID,
+      OR: [
+        { email: { equals: identifier, mode: "insensitive" } },
+        { username: identifier },
+      ],
+    },
     include: { roles: true },
   });
   if (!user || !user.active) {
-    await recordFailedAttempt(email, now);
-    return { ok: false, error: "Invalid email or password." };
+    await recordFailedAttempt(identifier, now);
+    return { ok: false, error: "Invalid email, username, or password." };
   }
 
   const ok = await verifyPassword(user.passwordHash, password);
   if (!ok) {
-    await recordFailedAttempt(email, now);
-    return { ok: false, error: "Invalid email or password." };
+    await recordFailedAttempt(identifier, now);
+    return { ok: false, error: "Invalid email, username, or password." };
   }
 
-  await prisma.loginAttempt.deleteMany({ where: { email } });
+  await prisma.loginAttempt.deleteMany({ where: { email: identifier } });
   return { ok: true, user };
 }
 

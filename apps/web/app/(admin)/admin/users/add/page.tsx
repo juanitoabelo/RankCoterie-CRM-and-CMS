@@ -50,16 +50,27 @@ export default async function AddUserPage() {
             />
           </label>
           <label className="block text-xs font-medium text-zinc-600">
-            Password
+            Username
             <input
-              type="password"
-              name="password"
+              name="username"
               required
-              minLength={8}
+              minLength={3}
+              maxLength={30}
+              pattern="[A-Za-z0-9][A-Za-z0-9._-]*[A-Za-z0-9]"
               className="mt-1 block w-full rounded border border-zinc-300 px-3 py-2 text-sm"
             />
           </label>
         </div>
+        <label className="block text-xs font-medium text-zinc-600">
+          Password
+          <input
+            type="password"
+            name="password"
+            required
+            minLength={8}
+            className="mt-1 block w-full rounded border border-zinc-300 px-3 py-2 text-sm"
+          />
+        </label>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-xs font-medium text-zinc-600">
             Company

@@ -2,6 +2,7 @@ import { test, expect, Page } from "@playwright/test";
 import { goto } from "./navigation";
 
 const TEST_EMAIL = `e2e-flow-${Date.now()}@example.com`;
+const TEST_USERNAME = `e2e-flow-${Date.now()}`;
 const TEST_PASSWORD = "TestPass123!";
 const TEST_TITLE = "E2E Test Listing";
 
@@ -11,6 +12,7 @@ async function fillApplyForm(page: Page) {
   await page.locator('input[name="tier"][value="STANDARD"]').check();
   await page.locator('input[name="title"]').fill(TEST_TITLE);
   await page.locator('input[name="email"]').fill(TEST_EMAIL);
+  await page.locator('input[name="username"]').fill(TEST_USERNAME);
   await page.locator('input[name="password"]').fill(TEST_PASSWORD);
   await page.locator('input[name="confirmPassword"]').fill(TEST_PASSWORD);
 
@@ -72,6 +74,19 @@ test.describe("Full flow: apply to subscribe to add listing", () => {
 
     const url = page.url();
     expect(url).toMatch(/\/admin(\/my-listing)?\/?$/);
+  });
+
+  test("login works with the username chosen during apply", async ({ page }) => {
+    await goto(page, "/admin/login");
+    await page.locator('input[name="email"]').fill(TEST_USERNAME);
+    await page.locator('input[type="password"]').first().fill(TEST_PASSWORD);
+
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 15000 }).catch(() => null),
+      page.getByRole("button", { name: /sign in/i }).click(),
+    ]);
+
+    expect(page.url()).toMatch(/\/admin(\/my-listing)?\/?$/);
   });
 
   test("my listing area shows the claimed listing", async ({ page }) => {

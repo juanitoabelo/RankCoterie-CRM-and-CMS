@@ -13,6 +13,7 @@ import {
   readStripeConfig,
 } from "@/lib/billing/checkout";
 import { throttle } from "@/lib/throttle";
+import { normalizeUsername, validateUsername } from "@/lib/auth/username";
 
 export type CompanyApplyResult = { ok: false; error: string } | { ok: true };
 
@@ -85,7 +86,8 @@ export async function applyCompany(formData: FormData): Promise<CompanyApplyResu
   const tierRaw = String(formData.get("tier") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const username = normalizeUsername(String(formData.get("username") ?? ""));
   const website = String(formData.get("website") ?? "").trim();
   const address = String(formData.get("address") ?? "").trim();
   const city = String(formData.get("city") ?? "").trim();
@@ -101,6 +103,8 @@ export async function applyCompany(formData: FormData): Promise<CompanyApplyResu
   const tier = tierRaw as "STANDARD" | "PREMIUM";
   if (!title) return { ok: false, error: "Company name is required." };
   if (!email) return { ok: false, error: "Contact email is required." };
+  const usernameError = validateUsername(username);
+  if (usernameError) return { ok: false, error: usernameError };
   if (password.length < 8) {
     return { ok: false, error: "Password must be at least 8 characters." };
   }
@@ -128,6 +132,14 @@ export async function applyCompany(formData: FormData): Promise<CompanyApplyResu
       where: { email, tenantId: TENANT_ID },
       include: { roles: true },
     });
+    const usernameOwner = await prisma.user.findFirst({
+      where: { tenantId: TENANT_ID, username },
+      select: { id: true },
+    });
+    if (usernameOwner && usernameOwner.id !== existingUser?.id) {
+      return { ok: false, error: "That username is already taken." };
+    }
+
     let accountId: string;
     if (existingUser) {
       accountId = existingUser.id;
@@ -136,11 +148,18 @@ export async function applyCompany(formData: FormData): Promise<CompanyApplyResu
           data: { userId: existingUser.id, role: Role.SUBSCRIBER },
         });
       }
+      if (!existingUser.username) {
+        await prisma.user.update({
+          where: { id: existingUser.id },
+          data: { username },
+        });
+      }
     } else {
       const createdUser = await prisma.user.create({
         data: {
           tenantId: TENANT_ID,
           email,
+          username,
           passwordHash: hashPassword(password),
           firstName: title,
           active: true,

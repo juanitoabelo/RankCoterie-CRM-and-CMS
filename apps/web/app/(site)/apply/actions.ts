@@ -14,6 +14,7 @@ import {
   readStripeConfig,
 } from "@/lib/billing/checkout";
 import { throttle } from "@/lib/throttle";
+import { normalizeUsername, validateUsername } from "@/lib/auth/username";
 
 export type ApplyResult = { ok: false; error: string } | { ok: true };
 
@@ -90,7 +91,8 @@ export async function applyListing(formData: FormData): Promise<ApplyResult> {
   const title = String(formData.get("title") ?? "").trim();
   const companyName = String(formData.get("companyName") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const username = normalizeUsername(String(formData.get("username") ?? ""));
   const website = String(formData.get("website") ?? "").trim();
   const address = String(formData.get("address") ?? "").trim();
   const city = String(formData.get("city") ?? "").trim();
@@ -107,6 +109,8 @@ export async function applyListing(formData: FormData): Promise<ApplyResult> {
   }
   if (!title) return { ok: false, error: "Company title is required." };
   if (!email) return { ok: false, error: "Contact email is required." };
+  const usernameError = validateUsername(username);
+  if (usernameError) return { ok: false, error: usernameError };
   if (password.length < 8) {
     return { ok: false, error: "Password must be at least 8 characters." };
   }
@@ -130,6 +134,20 @@ export async function applyListing(formData: FormData): Promise<ApplyResult> {
   }
 
   const slug = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}-${Date.now().toString(36)}`;
+
+  // Resolve the account before creating the listing so a taken username fails
+  // cleanly instead of leaving an orphaned pending listing behind.
+  const existingUser = await prisma.user.findFirst({
+    where: { email, tenantId: TENANT_ID },
+    include: { roles: true },
+  });
+  const usernameOwner = await prisma.user.findFirst({
+    where: { tenantId: TENANT_ID, username },
+    select: { id: true },
+  });
+  if (usernameOwner && usernameOwner.id !== existingUser?.id) {
+    return { ok: false, error: "That username is already taken." };
+  }
 
   try {
     const listing = await prisma.listing.create({
@@ -162,10 +180,6 @@ export async function applyListing(formData: FormData): Promise<ApplyResult> {
 
     // Create (or reuse) a subscriber account so the owner can log in and manage
     // their listing via /admin/my-listing after it's reviewed.
-    const existingUser = await prisma.user.findFirst({
-      where: { email, tenantId: TENANT_ID },
-      include: { roles: true },
-    });
     let accountId: string;
     if (existingUser) {
       accountId = existingUser.id;
@@ -174,11 +188,18 @@ export async function applyListing(formData: FormData): Promise<ApplyResult> {
           data: { userId: existingUser.id, role: Role.SUBSCRIBER },
         });
       }
+      if (!existingUser.username) {
+        await prisma.user.update({
+          where: { id: existingUser.id },
+          data: { username },
+        });
+      }
     } else {
       const createdUser = await prisma.user.create({
         data: {
           tenantId: TENANT_ID,
           email,
+          username,
           passwordHash: hashPassword(password),
           firstName: companyName || null,
           active: true,

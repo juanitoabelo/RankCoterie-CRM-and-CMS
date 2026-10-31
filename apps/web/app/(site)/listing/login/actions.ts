@@ -9,9 +9,9 @@ import { authenticatePortalUser, startPortalSession } from "@/lib/auth/login";
  * listing at /admin/my-listing (the existing subscriber area).
  */
 export async function listingLogin(formData: FormData): Promise<void> {
-  const email = String(formData.get("email") ?? "");
+  const identifier = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
-  const result = await authenticatePortalUser(email, password);
+  const result = await authenticatePortalUser(identifier, password);
   if (!result.ok) {
     redirect(`/listing/login?error=${encodeURIComponent(result.error)}`);
   }

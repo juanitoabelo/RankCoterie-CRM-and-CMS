@@ -5,7 +5,7 @@ import { useState } from "react";
 type LoginCardProps = {
   title: string;
   subtitle: string;
-  /** Server action that reads email/password from FormData. */
+  /** Server action that reads email/username/password from FormData. */
   action: (formData: FormData) => Promise<void>;
   /** Shown under the form (links to the other portals, etc.). */
   help: React.ReactNode;
@@ -37,16 +37,18 @@ export default function LoginCard({
         <form
           action={action}
           onSubmit={() => setPending(true)}
+          aria-busy={pending}
           className="mt-6 space-y-4"
         >
           <label className="block text-sm font-medium text-zinc-700">
-            Email
+            Email or username
             <input
               name="email"
-              type="email"
+              type="text"
               required
               autoComplete="username"
-              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              disabled={pending}
+              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm disabled:bg-zinc-100"
             />
           </label>
           <label className="block text-sm font-medium text-zinc-700">
@@ -56,14 +58,21 @@ export default function LoginCard({
               type="password"
               required
               autoComplete="current-password"
-              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              disabled={pending}
+              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm disabled:bg-zinc-100"
             />
           </label>
           <button
             type="submit"
             disabled={pending}
-            className="w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-wait disabled:opacity-70"
           >
+            {pending && (
+              <span
+                aria-hidden
+                className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+              />
+            )}
             {pending ? "Signing in…" : "Sign in"}
           </button>
         </form>

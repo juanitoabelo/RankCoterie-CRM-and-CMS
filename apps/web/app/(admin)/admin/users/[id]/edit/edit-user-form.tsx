@@ -23,6 +23,7 @@ type SocialMedia = {
 type UserWithRoles = {
   id: string;
   email: string;
+  username?: string | null;
   firstName?: string | null;
   lastName?: string | null;
   company?: string | null;
@@ -361,6 +362,22 @@ export default function EditUserForm({ user }: { user: UserWithRoles }) {
           <label className="block text-xs font-medium text-zinc-600">
             Email Address
             <input name="email" type="email" defaultValue={user.email} required className="mt-1 block w-full rounded border border-zinc-300 px-3 py-2 text-sm" />
+          </label>
+          <label className="block text-xs font-medium text-zinc-600">
+            Username
+            <input
+              name="username"
+              type="text"
+              defaultValue={user.username ?? ""}
+              required
+              minLength={3}
+              maxLength={30}
+              pattern="[A-Za-z0-9][A-Za-z0-9._-]*[A-Za-z0-9]"
+              className="mt-1 block w-full rounded border border-zinc-300 px-3 py-2 text-sm"
+            />
+            <span className="mt-1 block text-[11px] font-normal text-zinc-400">
+              Members can sign in with this username or their email.
+            </span>
           </label>
           <label className="block text-xs font-medium text-zinc-600">
             New Password (leave blank to keep current)

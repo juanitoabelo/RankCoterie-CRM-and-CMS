@@ -74,6 +74,24 @@ export default async function ClaimCompletePage({
             />
           </div>
 
+          <div>
+            <label className={labelCls}>Username</label>
+            <input
+              name="username"
+              type="text"
+              required
+              minLength={3}
+              maxLength={30}
+              pattern="[A-Za-z0-9][A-Za-z0-9._-]*[A-Za-z0-9]"
+              autoComplete="username"
+              className={fieldCls}
+              placeholder="e.g. johnsmith"
+            />
+            <p className="mt-1 text-xs text-zinc-500">
+              You can sign in with this username or your email.
+            </p>
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className={labelCls}>Password</label>

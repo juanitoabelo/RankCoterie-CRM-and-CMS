@@ -11,6 +11,7 @@ import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/modules/auth";
 import { hashPassword } from "@/lib/passwords";
+import { normalizeUsername, validateUsername } from "@/lib/auth/username";
 import { TENANT_ID } from "@/modules/shared";
 import { ALL_ROLES } from "./types";
 
@@ -44,6 +45,7 @@ export async function listUsers(search?: string, department?: string, page?: num
     where.OR = [
       { firstName: { contains: search, mode: "insensitive" } },
       { lastName: { contains: search, mode: "insensitive" } },
+      { username: { contains: search, mode: "insensitive" } },
       { email: { contains: search, mode: "insensitive" } },
     ];
   }
@@ -81,6 +83,7 @@ export async function createUser(formData: FormData): Promise<ActionResult> {
   const actorId = await currentSuperAdminId();
   const str = (k: string) => String(formData.get(k) ?? "").trim();
   const email = str("email").toLowerCase();
+  const username = normalizeUsername(str("username"));
   const password = str("password");
   const firstName = str("firstName");
   const lastName = str("lastName");
@@ -89,6 +92,8 @@ export async function createUser(formData: FormData): Promise<ActionResult> {
   const roles = normalizeRoles(formData.getAll("roles"));
 
   if (!email) return { ok: false, error: "Email is required." };
+  const usernameError = validateUsername(username);
+  if (usernameError) return { ok: false, error: usernameError };
   if (password.length < 8) return { ok: false, error: "Password must be at least 8 characters." };
   if (roles.length === 0) return { ok: false, error: "At least one role is required." };
 
@@ -97,11 +102,17 @@ export async function createUser(formData: FormData): Promise<ActionResult> {
       where: { email, tenantId: TENANT_ID },
     });
     if (existing) return { ok: false, error: "A user with that email already exists." };
+    const usernameOwner = await prisma.user.findFirst({
+      where: { tenantId: TENANT_ID, username },
+      select: { id: true },
+    });
+    if (usernameOwner) return { ok: false, error: "That username is already taken." };
 
     await prisma.user.create({
       data: {
         tenantId: TENANT_ID,
         email,
+        username,
         passwordHash: hashPassword(password),
         firstName: firstName || null,
         lastName: lastName || null,
@@ -132,6 +143,7 @@ export async function updateUser(id: string, formData: FormData): Promise<Action
   const actorId = await currentSuperAdminId();
   const str = (k: string) => String(formData.get(k) ?? "").trim();
   const email = str("email").toLowerCase();
+  const username = normalizeUsername(str("username"));
   const firstName = str("firstName");
   const lastName = str("lastName");
   const company = str("company") || null;
@@ -166,6 +178,8 @@ export async function updateUser(id: string, formData: FormData): Promise<Action
   const generalSkillsInfo = str("generalSkillsInfo") || null;
 
   if (!email) return { ok: false, error: "Email is required." };
+  const usernameError = validateUsername(username);
+  if (usernameError) return { ok: false, error: usernameError };
   if (newPassword && newPassword.length < 8) {
     return { ok: false, error: "Password must be at least 8 characters." };
   }
@@ -175,11 +189,17 @@ export async function updateUser(id: string, formData: FormData): Promise<Action
     await prisma.$transaction(async (tx) => {
       const target = await tx.user.findFirst({ where: { id, tenantId: TENANT_ID } });
       if (!target) throw new Error("User not found.");
+      const usernameOwner = await tx.user.findFirst({
+        where: { tenantId: TENANT_ID, username, id: { not: id } },
+        select: { id: true },
+      });
+      if (usernameOwner) throw new Error("That username is already taken.");
       await tx.userRole.deleteMany({ where: { userId: id } });
       await tx.user.update({
         where: { id, tenantId: TENANT_ID },
         data: {
           email,
+          username,
           firstName: firstName || null,
           lastName: lastName || null,
           company,

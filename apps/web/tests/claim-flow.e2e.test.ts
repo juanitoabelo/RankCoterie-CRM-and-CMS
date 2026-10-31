@@ -79,6 +79,7 @@ test.describe("Claim flow", () => {
 
     await page.locator('input[name="email"]').fill(listing.email);
     await page.locator('input[name="name"]').fill(CLAIM_NAME);
+    await page.locator('input[name="username"]').fill(`claim-${Date.now()}`);
     await page.locator('input[name="password"]').fill(CLAIM_PASSWORD);
     await page.locator('input[name="confirmPassword"]').fill(CLAIM_PASSWORD);
 

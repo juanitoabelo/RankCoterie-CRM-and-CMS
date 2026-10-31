@@ -16,6 +16,7 @@ import { throttle } from "@/lib/throttle";
 import type { ListingTier, ListingStatus } from "@/lib/directory/visibility";
 import { TENANT_ID } from "@/lib/tenant";
 import { readFreeGraceDays } from "@/lib/billing/checkout";
+import { normalizeUsername, validateUsername } from "@/lib/auth/username";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -568,6 +569,7 @@ export async function completeClaim(formData: FormData): Promise<ActionResult> {
 
   const listingId = String(formData.get("listingId") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const username = normalizeUsername(String(formData.get("username") ?? ""));
   const name = String(formData.get("name") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
@@ -575,6 +577,8 @@ export async function completeClaim(formData: FormData): Promise<ActionResult> {
   if (!listingId || !email) {
     return { ok: false, error: "Email is required." };
   }
+  const usernameError = validateUsername(username);
+  if (usernameError) return { ok: false, error: usernameError };
   if (!name) return { ok: false, error: "Your name is required." };
   if (password.length < 8) {
     return { ok: false, error: "Password must be at least 8 characters." };
@@ -609,6 +613,13 @@ export async function completeClaim(formData: FormData): Promise<ActionResult> {
       where: { email, tenantId: TENANT_ID },
       include: { roles: true },
     });
+    const usernameOwner = await prisma.user.findFirst({
+      where: { tenantId: TENANT_ID, username },
+      select: { id: true },
+    });
+    if (usernameOwner && usernameOwner.id !== existingUser?.id) {
+      return { ok: false, error: "That username is already taken." };
+    }
     if (existingUser) {
       accountId = existingUser.id;
       if (!existingUser.roles.some((r) => r.role === Role.SUBSCRIBER)) {
@@ -616,11 +627,18 @@ export async function completeClaim(formData: FormData): Promise<ActionResult> {
           data: { userId: existingUser.id, role: Role.SUBSCRIBER },
         });
       }
+      if (!existingUser.username) {
+        await prisma.user.update({
+          where: { id: existingUser.id },
+          data: { username },
+        });
+      }
     } else {
       const created = await prisma.user.create({
         data: {
           tenantId: TENANT_ID,
           email,
+          username,
           passwordHash: hashPassword(password),
           firstName: name || null,
           active: true,

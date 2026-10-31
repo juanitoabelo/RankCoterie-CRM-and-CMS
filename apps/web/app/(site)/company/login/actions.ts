@@ -6,9 +6,9 @@ import { authenticatePortalUser, startPortalSession } from "@/lib/auth/login";
 
 /** Company owner portal login — subscribers who own a company landing page. */
 export async function companyLogin(formData: FormData): Promise<void> {
-  const email = String(formData.get("email") ?? "");
+  const identifier = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
-  const result = await authenticatePortalUser(email, password);
+  const result = await authenticatePortalUser(identifier, password);
   if (!result.ok) {
     redirect(`/company/login?error=${encodeURIComponent(result.error)}`);
   }

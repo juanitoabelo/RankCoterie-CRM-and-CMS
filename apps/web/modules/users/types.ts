@@ -10,6 +10,7 @@ import { Role } from "@prisma/client";
 export interface UserWithRoles {
   id: string;
   email: string;
+  username: string | null;
   firstName: string | null;
   lastName: string | null;
   imageUrl: string | null;
