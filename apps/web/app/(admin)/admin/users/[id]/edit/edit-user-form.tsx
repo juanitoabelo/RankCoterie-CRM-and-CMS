@@ -89,12 +89,13 @@ function Section({
       <button
         type="button"
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
         className="flex w-full items-center gap-2 bg-zinc-100 px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-zinc-700 hover:bg-zinc-200"
       >
         {title}
         <span className="ml-auto"><ChevronIcon open={open} /></span>
       </button>
-      {open && <div className="bg-zinc-50 px-4 py-4">{children}</div>}
+      <div className={open ? "bg-zinc-50 px-4 py-4" : "hidden"}>{children}</div>
     </div>
   );
 }
@@ -336,7 +337,7 @@ export default function EditUserForm({ user }: { user: UserWithRoles }) {
       </Section>
 
       {/* Admin Access - Roles */}
-      <Section title="Administrative Permissions">
+      <Section title="Administrative Permissions" defaultOpen>
         <fieldset>
           <legend className="block text-xs font-medium text-zinc-600">Roles</legend>
           <div className="mt-1 grid grid-cols-2 gap-1.5">
@@ -357,7 +358,7 @@ export default function EditUserForm({ user }: { user: UserWithRoles }) {
       </Section>
 
       {/* Reset Login Credentials */}
-      <Section title="Reset Login Credentials">
+      <Section title="Reset Login Credentials" defaultOpen>
         <div className="space-y-3">
           <label className="block text-xs font-medium text-zinc-600">
             Email Address
