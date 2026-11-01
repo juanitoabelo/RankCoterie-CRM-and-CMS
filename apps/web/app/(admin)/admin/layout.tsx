@@ -127,6 +127,7 @@ const NAV_GROUPS: NavGroup[] = [
       { section: "sitemap", href: "/admin/sitemap", label: "Sitemap" },
       { section: "themeSettings", href: "/admin/theme-settings", label: "Theme Settings" },
       { section: "styleGuide", href: "/admin/style-guide", label: "Style Guide (Legacy)" },
+      { section: "customCssJs", href: "/admin/custom-css-js", label: "Custom CSS & JS" },
       { section: "reports", href: "/admin/reports", label: "Reports" },
     ],
   },

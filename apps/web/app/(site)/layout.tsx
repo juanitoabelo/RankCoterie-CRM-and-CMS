@@ -14,6 +14,7 @@ import type { PageLayoutBlock } from "@/lib/page-layout/types";
 import PageLayoutRenderer from "@/components/admin/page-layout-builder/PageLayoutRenderer";
 import CartIcon from "@/components/storefront/CartIcon";
 import RecaptchaProvider from "@/components/site/RecaptchaProvider";
+import { getCustomCssJsSettings } from "@/modules/custom-css-js/actions";
 
 // Cache for layout data (tenant, menu, company) - avoids repeated DB hits
 interface LayoutCache {
@@ -212,6 +213,8 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       ? theme.generalSettings.recaptchaSiteKey
       : "";
 
+  const customCssJs = await getCustomCssJsSettings();
+
   return (
     <div className="min-h-full flex flex-col">
 
@@ -330,7 +333,16 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       )}
 
       {/* ── reCAPTCHA v3 ──────────────────────────────────────────── */}
-      {recaptchaSiteKey && <RecaptchaProvider siteKey={recaptchaSiteKey} />}
+{recaptchaSiteKey && <RecaptchaProvider siteKey={recaptchaSiteKey} />}
+
+      {/* ── Custom CSS ──────────────────────────────────────────────── */}
+      {customCssJs.customCss && (
+        <style
+          dangerouslySetInnerHTML={{
+            __html: customCssJs.customCss,
+          }}
+        />
+      )}
 
       {/* ── Main Content ──────────────────────────────────────────── */}
       <main className="flex-1">
@@ -379,6 +391,16 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           </>
         )}
       </footer>
+
+      {/* ── Custom JS ───────────────────────────────────────────────── */}
+      {customCssJs.customJs && (
+        <script
+          dangerouslySetInnerHTML={{
+            __html: customCssJs.customJs,
+          }}
+        />
+      )}
+
     </div>
   );
 }
