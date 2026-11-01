@@ -6,7 +6,7 @@
  * Renders blog template blocks for the public site. Reuses page builder
  * renderers for standard blocks, adds blog-specific renderers.
  */
-import { createContext, useContext } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import type { Block } from "@/lib/page-builder/types";
 import type { ContainerSettings } from "@/lib/blog-template/types";
 import { isRowBlock, isSectionBlock } from "@/lib/page-builder/types";
@@ -54,9 +54,19 @@ import {
 
 type BlogArticle = ArticlePreviewData;
 
+interface BlogPostLink {
+  title: string;
+  slug: string;
+  publishedAt: Date | string | null;
+  createdAt: Date | string;
+}
+
 interface BlogDataContextValue {
   articles?: BlogArticle[];
   article?: BlogArticle;
+  previousArticle?: BlogPostLink | null;
+  nextArticle?: BlogPostLink | null;
+  recentPosts?: BlogPostLink[];
   templateType?: "listing" | "single";
   viewport?: "desktop" | "tablet" | "mobile";
 }
@@ -715,6 +725,7 @@ function BlogPostGridRenderer({ block }: { block: Block }) {
 }
 
 function BlogSidebarRenderer({ block }: { block: Block }) {
+  const { articles, recentPosts } = useContext(BlogDataContext);
   const p = block.props as { widgets: Array<{ type: string; heading?: string; limit?: number }> };
   const widgets = p.widgets ?? [];
 
@@ -742,21 +753,23 @@ function BlogSidebarRenderer({ block }: { block: Block }) {
               <ul className="space-y-2 text-sm">
                 {["Technology", "Design", "Business", "Marketing", "Development"].map((cat) => (
                   <li key={cat}>
-                    <a href="#" className="text-zinc-600 hover:text-amber-600 transition-colors" data-lp-el="link">
+                    <span className="text-zinc-600">
                       {cat}
-                    </a>
+                    </span>
                   </li>
                 ))}
               </ul>
             )}
             {widget.type === "recentPosts" && (
               <ul className="space-y-3 text-sm">
-                {["Recent Post One", "Recent Post Two", "Recent Post Three"].map((title) => (
-                  <li key={title}>
-                    <a href="#" className="font-medium text-zinc-900 hover:text-amber-600 transition-colors" data-lp-el="link">
-                      {title}
+                {(recentPosts ?? articles ?? []).slice(0, widget.limit ?? 3).map((post) => (
+                  <li key={post.slug}>
+                    <a href={`/${post.slug}`} className="font-medium text-zinc-900 hover:text-amber-600 transition-colors" data-lp-el="link">
+                      {post.title}
                     </a>
-                    <p className="text-xs text-zinc-500">Jan 1, 2025</p>
+                    <p className="text-xs text-zinc-500">
+                      {new Date(post.publishedAt ?? post.createdAt).toLocaleDateString()}
+                    </p>
                   </li>
                 ))}
               </ul>
@@ -764,14 +777,13 @@ function BlogSidebarRenderer({ block }: { block: Block }) {
             {widget.type === "tags" && (
               <div className="flex flex-wrap gap-2">
                 {["React", "Next.js", "TypeScript", "Tailwind", "Design"].map((tag) => (
-                  <a
+                  <span
                     key={tag}
-                    href="#"
-                    className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-600 hover:bg-zinc-200 transition-colors"
+                    className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-600"
                     data-lp-el="chip"
                   >
                     {tag}
-                  </a>
+                  </span>
                 ))}
               </div>
             )}
@@ -788,7 +800,11 @@ function BlogSidebarRenderer({ block }: { block: Block }) {
 }
 
 function ArticleContentRenderer({ block }: { block: Block }) {
-  const { article } = useContext(BlogDataContext);
+  const { article, previousArticle, nextArticle } = useContext(BlogDataContext);
+  const [shareUrl, setShareUrl] = useState("");
+  useEffect(() => {
+    setShareUrl(window.location.href);
+  }, []);
   const p = block.props as Record<string, unknown>;
   const showTitle = p.showTitle !== false;
   const showMeta = p.showMeta !== false;
@@ -848,30 +864,54 @@ function ArticleContentRenderer({ block }: { block: Block }) {
             <span className="text-sm font-medium text-zinc-700">Share:</span>
             <div className="flex gap-2">
               {["Twitter", "Facebook", "LinkedIn"].map((platform) => (
-                <a
-                  key={platform}
-                  href="#"
-                  className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-600 hover:bg-zinc-200 transition-colors"
-                >
-                  {platform}
-                </a>
+                shareUrl ? (
+                  <a
+                    key={platform}
+                    href={getShareUrl(platform, shareUrl)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-600 hover:bg-zinc-200 transition-colors"
+                  >
+                    {platform}
+                  </a>
+                ) : null
               ))}
             </div>
           </div>
         )}
         {showNavigation && (
           <div className="mt-8 flex items-center justify-between border-t border-zinc-200 pt-6" data-lp-el="nav">
-            <a href="#" className="text-sm text-zinc-600 hover:text-amber-600 transition-colors">
-              ← Previous Article
-            </a>
-            <a href="#" className="text-sm text-zinc-600 hover:text-amber-600 transition-colors">
-              Next Article →
-            </a>
+            {previousArticle ? (
+              <a href={`/${previousArticle.slug}`} className="text-sm text-zinc-600 hover:text-amber-600 transition-colors">
+                ← Previous Article
+                <span className="mt-1 block font-medium text-zinc-900">{previousArticle.title}</span>
+              </a>
+            ) : <span />}
+            {nextArticle ? (
+              <a href={`/${nextArticle.slug}`} className="text-right text-sm text-zinc-600 hover:text-amber-600 transition-colors">
+                Next Article →
+                <span className="mt-1 block font-medium text-zinc-900">{nextArticle.title}</span>
+              </a>
+            ) : null}
           </div>
         )}
       </article>
     </BlockAdvancedFrame>
   );
+}
+
+function getShareUrl(platform: string, url: string): string {
+  const encodedUrl = encodeURIComponent(url);
+  switch (platform) {
+    case "Twitter":
+      return `https://twitter.com/intent/tweet?url=${encodedUrl}`;
+    case "Facebook":
+      return `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
+    case "LinkedIn":
+      return `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`;
+    default:
+      return url;
+  }
 }
 
 function ArticleHeroRenderer({ block }: { block: Block }) {
@@ -1213,6 +1253,9 @@ export default function BlogTemplateRenderer({
   containerSettings,
   articles,
   article,
+  previousArticle,
+  nextArticle,
+  recentPosts,
   templateType,
   viewport,
 }: {
@@ -1220,6 +1263,9 @@ export default function BlogTemplateRenderer({
   containerSettings?: ContainerSettings;
   articles?: BlogArticle[];
   article?: BlogArticle;
+  previousArticle?: BlogPostLink | null;
+  nextArticle?: BlogPostLink | null;
+  recentPosts?: BlogPostLink[];
   templateType?: "listing" | "single";
   viewport?: "desktop" | "tablet" | "mobile";
 }) {
@@ -1259,7 +1305,7 @@ export default function BlogTemplateRenderer({
   }
 
   return (
-    <BlogDataContext.Provider value={{ articles, article, templateType, viewport }}>
+    <BlogDataContext.Provider value={{ articles, article, previousArticle, nextArticle, recentPosts, templateType, viewport }}>
       <div style={outerStyle}>
         {containerSettings?.bgImage && containerSettings.overlayOpacity ? (
           <div

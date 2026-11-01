@@ -1,4 +1,4 @@
-import { prisma } from "@/modules/shared";
+import { prisma, TENANT_ID } from "@/modules/shared";
 import { renderLocalizedContent } from "@/lib/localization/render";
 import type { Metadata } from "next";
 import { resolveBlogTemplate, parseBlogTemplateData } from "@/modules/blog-template";
@@ -31,8 +31,12 @@ export default async function BlogPage() {
 
   // Fetch articles for the blog post grid
   const articles = await prisma.contentTemplate.findMany({
-    where: { status: "LIVE" },
-    orderBy: { createdAt: "desc" },
+    where: { tenantId: TENANT_ID, status: "LIVE", slug: { not: "" } },
+    orderBy: [
+      { publishedAt: { sort: "desc", nulls: "last" } },
+      { createdAt: "desc" },
+      { id: "desc" },
+    ],
     take: 30,
     include: {
       category: { select: { slug: true, title: true } },

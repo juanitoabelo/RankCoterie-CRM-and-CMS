@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { prisma } from "@/modules/shared";
+import { prisma, TENANT_ID } from "@/modules/shared";
 import { renderLocalizedContent } from "@/lib/localization/render";
 import type { RegionContext } from "@/lib/localization/render";
 import {
@@ -37,7 +37,7 @@ export async function getSinglePostSeo(
   region?: string,
 ): Promise<Metadata | null> {
   const article = await prisma.contentTemplate.findFirst({
-    where: { slug, status: "LIVE" },
+    where: { tenantId: TENANT_ID, slug, status: "LIVE" },
     select: {
       title: true,
       metaDesc: true,
@@ -105,7 +105,7 @@ export async function getSinglePostSeo(
 
 export async function loadSinglePost(slug: string, region?: string) {
   const article = await prisma.contentTemplate.findFirst({
-    where: { slug, status: "LIVE" },
+    where: { tenantId: TENANT_ID, slug, status: "LIVE" },
     include: {
       category: { select: { slug: true, title: true } },
       featuredImage: { select: { id: true, alt: true, caption: true } },
@@ -117,9 +117,48 @@ export async function loadSinglePost(slug: string, region?: string) {
   });
   if (!article) return null;
 
-  const [allRegions, geoState] = await Promise.all([
+  const [allRegions, geoState, previousArticles, nextArticles, recentPosts] = await Promise.all([
     prisma.region.findMany({ orderBy: [{ priority: "asc" }, { id: "asc" }] }),
     getGeoState(),
+    prisma.contentTemplate.findMany({
+      where: { tenantId: TENANT_ID, status: "LIVE", slug: { not: "" } },
+      orderBy: [
+        { publishedAt: { sort: "desc", nulls: "last" } },
+        { createdAt: "desc" },
+        { id: "desc" },
+      ],
+      cursor: { id: article.id },
+      skip: 1,
+      take: 1,
+      select: { title: true, slug: true, publishedAt: true, createdAt: true },
+    }),
+    prisma.contentTemplate.findMany({
+      where: { tenantId: TENANT_ID, status: "LIVE", slug: { not: "" } },
+      orderBy: [
+        { publishedAt: { sort: "asc", nulls: "first" } },
+        { createdAt: "asc" },
+        { id: "asc" },
+      ],
+      cursor: { id: article.id },
+      skip: 1,
+      take: 1,
+      select: { title: true, slug: true, publishedAt: true, createdAt: true },
+    }),
+    prisma.contentTemplate.findMany({
+      where: {
+        tenantId: TENANT_ID,
+        status: "LIVE",
+        slug: { not: "" },
+        id: { not: article.id },
+      },
+      orderBy: [
+        { publishedAt: { sort: "desc", nulls: "last" } },
+        { createdAt: "desc" },
+        { id: "desc" },
+      ],
+      take: 5,
+      select: { title: true, slug: true, publishedAt: true, createdAt: true },
+    }),
   ]);
   const variantRegionIds = article.variants.map((v) => v.regionId);
   const resolved = resolvePostRegion({
@@ -181,6 +220,9 @@ export async function loadSinglePost(slug: string, region?: string) {
     regionChoices,
     blocks,
     containerSettings,
+    previousArticle: previousArticles[0] ?? null,
+    nextArticle: nextArticles[0] ?? null,
+    recentPosts,
   };
 }
 
@@ -192,6 +234,9 @@ export function SinglePost({
   regionChoices,
   blocks,
   containerSettings,
+  previousArticle,
+  nextArticle,
+  recentPosts,
 }: SinglePostData) {
   // If a template is assigned, use the template renderer
   if (blocks.length > 0) {
@@ -209,6 +254,9 @@ export function SinglePost({
             featuredImageAlt: article.featuredImage?.alt ?? null,
             featuredImageCaption: article.featuredImage?.caption ?? null,
           }}
+          previousArticle={previousArticle}
+          nextArticle={nextArticle}
+          recentPosts={recentPosts}
           templateType="single"
         />
       </article>
