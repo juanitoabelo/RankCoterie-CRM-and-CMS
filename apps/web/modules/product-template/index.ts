@@ -5,4 +5,9 @@ export type {
   ProductTemplateRevisionRow,
   ProductTemplateAssignmentRow,
 } from "./queries";
-export type { ProductTemplateData, ContainerSettings } from "@/lib/product-template/types";
+export type {
+  ProductTemplateData,
+  ProductTemplateProductData,
+  ProductTemplateTab,
+  ContainerSettings,
+} from "@/lib/product-template/types";

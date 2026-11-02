@@ -6,6 +6,7 @@
 import Link from "next/link";
 import { listProductTemplates } from "@/modules/product-template/queries";
 import DeleteTemplateButton from "./DeleteTemplateButton";
+import SetDefaultTemplateButton from "./SetDefaultTemplateButton";
 
 export const revalidate = 0;
 
@@ -35,6 +36,7 @@ export default async function ProductTemplatesAdminPage() {
             <tr>
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Type</th>
+              <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
@@ -44,6 +46,13 @@ export default async function ProductTemplatesAdminPage() {
                 <td className="px-4 py-3">{t.name}</td>
                 <td className="px-4 py-3">
                   <span className="px-2 py-0.5 text-xs font-medium">{t.type}</span>
+                </td>
+                <td className="px-4 py-3">
+                  {t.isDefault ? (
+                    <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">Default</span>
+                  ) : (
+                    <SetDefaultTemplateButton id={t.id} />
+                  )}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <Link

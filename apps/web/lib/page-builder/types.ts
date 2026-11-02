@@ -487,6 +487,69 @@ export interface ProductGridBlock extends BlockBase {
   };
 }
 
+export interface ProductTemplateTabData {
+  id: string;
+  label: string;
+  binding?: string;
+  content?: string;
+}
+
+export interface ProductTemplateBlockStyleProps {
+  bgColor?: string;
+  textColor?: string;
+  padding?: number;
+}
+
+export interface ProductTemplateTitleBlock extends BlockBase {
+  type: "productTitle";
+  props: ProductTemplateBlockStyleProps & { level?: number };
+}
+
+export interface ProductTemplatePriceBlock extends BlockBase {
+  type: "productPrice";
+  props: ProductTemplateBlockStyleProps;
+}
+
+export interface ProductTemplateGalleryBlock extends BlockBase {
+  type: "productGallery";
+  props: ProductTemplateBlockStyleProps;
+}
+
+export interface ProductTemplateShortDescriptionBlock extends BlockBase {
+  type: "productShortDescription";
+  props: ProductTemplateBlockStyleProps;
+}
+
+export interface ProductTemplateDescriptionBlock extends BlockBase {
+  type: "productDescription";
+  props: ProductTemplateBlockStyleProps;
+}
+
+export interface ProductTemplateSkuBlock extends BlockBase {
+  type: "productSku";
+  props: ProductTemplateBlockStyleProps;
+}
+
+export interface ProductTemplateStockBlock extends BlockBase {
+  type: "productStock";
+  props: ProductTemplateBlockStyleProps;
+}
+
+export interface ProductTemplateSpecificationsBlock extends BlockBase {
+  type: "productSpecifications";
+  props: ProductTemplateBlockStyleProps;
+}
+
+export interface ProductTemplatePurchaseBlock extends BlockBase {
+  type: "productPurchase";
+  props: ProductTemplateBlockStyleProps;
+}
+
+export interface ProductTemplateTabsBlock extends BlockBase {
+  type: "productTabs";
+  props: ProductTemplateBlockStyleProps & { tabs: ProductTemplateTabData[] };
+}
+
 export interface BlogSidebarBlock extends BlockBase {
   type: "blogSidebar";
   props: {
@@ -1254,6 +1317,16 @@ export type Block =
   | ContentGridBlock
   | BlogPostGridBlock
   | ProductGridBlock
+  | ProductTemplateTitleBlock
+  | ProductTemplatePriceBlock
+  | ProductTemplateGalleryBlock
+  | ProductTemplateShortDescriptionBlock
+  | ProductTemplateDescriptionBlock
+  | ProductTemplateSkuBlock
+  | ProductTemplateStockBlock
+  | ProductTemplateSpecificationsBlock
+  | ProductTemplatePurchaseBlock
+  | ProductTemplateTabsBlock
   | BlogSidebarBlock
   | ArticleContentBlock
   | ArticleHeroBlock

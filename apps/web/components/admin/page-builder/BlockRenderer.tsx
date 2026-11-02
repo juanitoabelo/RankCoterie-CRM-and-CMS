@@ -44,6 +44,7 @@ import {
 } from "./renderHelpers";
 import { BlockAdvancedFrame, DisplayConditionGate } from "./advanced-ui";
 import { SHARED_RENDERERS } from "./shared-blocks/renderers";
+import { PRODUCT_TEMPLATE_BLOCK_RENDERERS } from "@/components/storefront/ProductTemplateBlocks";
 
 /** Wrap a block's markup so per-breakpoint style-guide CSS applies to it. */
 function styleScope(block: Block, inner: React.ReactNode): React.ReactNode {
@@ -1427,6 +1428,7 @@ const RENDERERS: Record<string, React.ComponentType<{ block: Block; ctx: RegionC
   listingApplyForm: ListingApplyFormBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   row: RowBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
   section: SectionBlock as React.ComponentType<{ block: Block; ctx: RegionContext }>,
+  ...PRODUCT_TEMPLATE_BLOCK_RENDERERS,
   ...SHARED_RENDERERS,
 };
 

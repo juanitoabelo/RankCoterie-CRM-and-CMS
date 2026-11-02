@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import Image from "next/image";
 import { prisma } from "@/modules/shared";
 import BlockRenderer from "@/components/admin/page-builder/BlockRenderer";
 import ProductPurchase from "@/components/storefront/ProductPurchase";
+import ProductGallery from "@/components/storefront/ProductGallery";
+import ProductDetailsTabs from "@/components/storefront/ProductDetailsTabs";
+import ProductTemplateRenderer from "@/components/storefront/ProductTemplateRenderer";
 import { getEnabledPaymentGateways } from "@/modules/ecommerce/queries";
+import { parseProductTemplateData, resolveProductTemplate } from "@/modules/product-template/queries";
+import type { ProductTemplateProductData } from "@/lib/product-template/types";
 import { sanitizeHtml } from "@/lib/style-guide";
 import { getSinglePostSeo, loadSinglePost, SinglePost } from "@/app/(site)/components/SinglePost";
 import type { Block } from "@/lib/page-builder/types";
@@ -191,13 +195,31 @@ export default async function PublicPage({
     where: { slug },
     include: {
       images: { orderBy: [{ isMain: "desc" }, { position: "asc" }] },
+      attributes: {
+        where: { isVisible: true, attribute: { isVisible: true } },
+        orderBy: { position: "asc" },
+        include: {
+          attribute: { select: { name: true } },
+          term: { select: { name: true } },
+        },
+      },
+      customFields: {
+        where: { isPublic: true },
+        orderBy: { position: "asc" },
+        select: { id: true, key: true, label: true, value: true, group: true },
+      },
     },
   });
 
   if (product) {
-    const gateways = await getEnabledPaymentGateways();
+    const [gateways, productTemplate] = await Promise.all([
+      getEnabledPaymentGateways(),
+      resolveProductTemplate("single", {
+        pageId: product.id,
+        pathname: `/${product.slug}`,
+      }),
+    ]);
     const { price, compareAt } = priceLabel(product);
-    const mainImage = product.images[0];
     const stockLabel =
       product.stockStatus === "IN_STOCK"
         ? "In stock"
@@ -221,8 +243,63 @@ export default async function PublicPage({
         : null;
 
     const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+    const productAttributes = product.attributes.flatMap((attribute) => {
+      const value = attribute.term?.name ?? attribute.customValue;
+      return value ? [{
+        id: attribute.id,
+        attributeId: attribute.attributeId,
+        name: attribute.attribute.name,
+        value,
+      }] : [];
+    });
+    const productData: ProductTemplateProductData = {
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      sku: product.sku,
+      shortDescription: product.shortDescription,
+      description: product.description,
+      regularPrice: product.regularPrice,
+      salePrice:
+        product.salePrice !== null &&
+        (!product.salePriceStart || product.salePriceStart <= new Date()) &&
+        (!product.salePriceEnd || product.salePriceEnd >= new Date())
+          ? product.salePrice
+          : null,
+      stockStatus: product.stockStatus,
+      averageRating: product.averageRating,
+      reviewCount: product.reviewCount,
+      weight: product.weight,
+      length: product.length,
+      width: product.width,
+      height: product.height,
+      images: product.images.map((image) => ({
+        id: image.id,
+        assetId: image.assetId,
+        alt: image.alt,
+      })),
+      customFields: product.customFields.map((field) => ({
+        key: field.key,
+        label: field.label,
+        value: field.value,
+        group: field.group,
+      })),
+      attributes: productAttributes,
+    };
+    const templateData = productTemplate
+      ? parseProductTemplateData(productTemplate.data)
+      : null;
 
     return (
+      <>
+      {productTemplate && templateData ? (
+        <ProductTemplateRenderer
+          blocks={templateData.blocks}
+          containerSettings={templateData.containerSettings}
+          product={productData}
+          gateways={gateways.map((gw) => ({ id: gw.id, name: gw.name, type: gw.type }))}
+        />
+      ) : (
       <div className="mx-auto max-w-6xl px-4 py-10">
         <nav className="mb-6 text-sm text-zinc-500">
           <Link href="/" className="hover:text-zinc-900 hover:underline">
@@ -234,34 +311,7 @@ export default async function PublicPage({
 
         <div className="grid gap-10 lg:grid-cols-2">
           <div>
-            {mainImage ? (
-              <Image
-                src={`/api/assets/${mainImage.assetId}/`}
-                alt={mainImage.alt ?? product.name}
-                width={800}
-                height={800}
-                priority
-                className="h-auto w-full rounded-xl border border-zinc-200 bg-zinc-50 object-cover"
-              />
-            ) : (
-              <div className="flex h-80 w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-zinc-400">
-                No image
-              </div>
-            )}
-            {product.images.length > 1 && (
-              <div className="mt-3 grid grid-cols-5 gap-2">
-                {product.images.slice(1, 6).map((img) => (
-                  <Image
-                    key={img.id}
-                    src={`/api/assets/${img.assetId}/`}
-                    alt={img.alt ?? ""}
-                    width={160}
-                    height={80}
-                    className="h-20 w-full rounded-lg border border-zinc-200 object-cover"
-                  />
-                ))}
-              </div>
-            )}
+            <ProductGallery images={product.images} productName={product.name} />
           </div>
 
           <div>
@@ -309,24 +359,38 @@ export default async function PublicPage({
           </div>
         </div>
 
-        {product.description && (
-          <section className="mt-12 border-t border-zinc-200 pt-8">
-            <h2 className="text-lg font-semibold text-zinc-900">Description</h2>
-            <div
-              className="prose prose-zinc mt-4 max-w-none"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.description) }}
-            />
-          </section>
-        )}
-
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            // \u003c keeps "</script>" inside product data from breaking out.
-            __html: JSON.stringify(productJsonLd(product, siteUrl)).replace(/</g, "\\u003c"),
-          }}
+        <ProductDetailsTabs
+          descriptionHtml={sanitizeHtml(product.description ?? "")}
+          attributes={productAttributes}
+          customFields={product.customFields}
+          specifications={[
+            ...(product.sku ? [{ label: "SKU", value: product.sku }] : []),
+            ...(product.weight !== null
+              ? [{ label: "Weight", value: `${product.weight} kg` }]
+              : []),
+            ...(product.length !== null || product.width !== null || product.height !== null
+              ? [{
+                  label: "Dimensions",
+                  value: [
+                    product.length !== null ? `${product.length} cm` : null,
+                    product.width !== null ? `${product.width} cm` : null,
+                    product.height !== null ? `${product.height} cm` : null,
+                  ].filter(Boolean).join(" × "),
+                }]
+              : []),
+          ]}
         />
+
       </div>
+      )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          // \u003c keeps "</script>" inside product data from breaking out.
+          __html: JSON.stringify(productJsonLd(product, siteUrl)).replace(/</g, "\\u003c"),
+        }}
+      />
+      </>
     );
   }
 

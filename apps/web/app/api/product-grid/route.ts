@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getProductGridPage, type ProductGridParams } from "@/modules/ecommerce/queries";
+import { getProductCardTemplateSettings } from "@/lib/product-card-template-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,8 +37,11 @@ export async function GET(request: Request) {
   };
 
   try {
-    const page = await getProductGridPage(params);
-    return NextResponse.json(page);
+    const [page, cardTemplate] = await Promise.all([
+      getProductGridPage(params),
+      getProductCardTemplateSettings(),
+    ]);
+    return NextResponse.json({ ...page, cardTemplate });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Failed to load products." },

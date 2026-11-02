@@ -3,8 +3,10 @@
  */
 import { prisma } from "@/modules/shared";
 import { TENANT_ID } from "@/modules/shared";
-import type { ProductTemplateData } from "@/lib/product-template/types";
-import { DEFAULT_CONTAINER_SETTINGS } from "@/lib/product-template/types";
+export {
+  parseProductTemplateData,
+  serializeProductTemplateData,
+} from "@/lib/product-template/serialization";
 
 export interface ProductTemplateRow {
   id: string;
@@ -32,33 +34,6 @@ export interface ProductTemplateAssignmentRow {
   createdAt: Date;
 }
 
-/** Parse template data JSON into blocks and container settings. */
-export function parseProductTemplateData(data: string | null): ProductTemplateData {
-  if (!data) {
-    return { blocks: [], containerSettings: DEFAULT_CONTAINER_SETTINGS };
-  }
-  try {
-    const parsed = JSON.parse(data);
-    if (Array.isArray(parsed)) {
-      return { blocks: parsed, containerSettings: DEFAULT_CONTAINER_SETTINGS };
-    }
-    return {
-      blocks: parsed.blocks ?? [],
-      containerSettings: { ...DEFAULT_CONTAINER_SETTINGS, ...parsed.containerSettings },
-    };
-  } catch {
-    return { blocks: [], containerSettings: DEFAULT_CONTAINER_SETTINGS };
-  }
-}
-
-/** Serialize blocks and container settings to JSON string. */
-export function serializeProductTemplateData(
-  blocks: import("@/lib/page-builder/types").Block[],
-  containerSettings: any,
-): string {
-  return JSON.stringify({ blocks, containerSettings });
-}
-
 /** List all product template templates for the current tenant, optionally filtered by type. */
 export async function listProductTemplates(type?: "single"): Promise<ProductTemplateRow[]> {
   return prisma.productTemplate.findMany({
@@ -69,7 +44,9 @@ export async function listProductTemplates(type?: "single"): Promise<ProductTemp
 
 /** Get a single product template by ID. */
 export async function getProductTemplate(id: string): Promise<ProductTemplateRow | null> {
-  return prisma.productTemplate.findUnique({ where: { id } }) as Promise<ProductTemplateRow | null>;
+  return prisma.productTemplate.findFirst({
+    where: { id, tenantId: TENANT_ID },
+  }) as Promise<ProductTemplateRow | null>;
 }
 
 /** Create a new product template. */
@@ -257,7 +234,21 @@ export async function saveProductTemplateAssignments(
     priority?: number;
   }>,
 ): Promise<void> {
+  const productIds = assignments
+    .map((assignment) => assignment.pageId)
+    .filter((pageId): pageId is string => Boolean(pageId));
   await prisma.$transaction([
+    ...(productIds.length > 0
+      ? [
+          prisma.productTemplateAssignment.deleteMany({
+            where: {
+              tenantId: TENANT_ID,
+              pageId: { in: productIds },
+              productTemplateId: { not: productTemplateId },
+            },
+          }),
+        ]
+      : []),
     prisma.productTemplateAssignment.deleteMany({
       where: { productTemplateId },
     }),

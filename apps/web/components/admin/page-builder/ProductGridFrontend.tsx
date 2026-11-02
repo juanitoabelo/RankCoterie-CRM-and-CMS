@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ProductGridBlock } from "@/lib/page-builder/types";
 import { notifyCartUpdated } from "@/lib/cart-event";
+import {
+  DEFAULT_PRODUCT_CARD_TEMPLATE,
+  type ProductCardTemplateSettings,
+} from "@/lib/product-card-template";
 
 type ProductGridProps = ProductGridBlock["props"];
 
@@ -31,6 +35,7 @@ type GridResponse = {
   total: number;
   totalPages: number;
   categories: GridCategory[];
+  cardTemplate?: ProductCardTemplateSettings;
 };
 
 type SortOption = { label: string; order: NonNullable<ProductGridProps["orderBy"]>; sort: "asc" | "desc" };
@@ -82,10 +87,10 @@ function subscribeWishlist(onStoreChange: () => void): () => void {
 }
 
 
-const ASPECT_CLASS: Record<NonNullable<ProductGridProps["imageAspect"]>, string> = {
-  "16:9": "aspect-[16/9]",
-  "4:3": "aspect-[4/3]",
-  "1:1": "aspect-square",
+const CARD_TEMPLATE_ASPECT_CLASS: Record<ProductCardTemplateSettings["imageAspect"], string> = {
+  landscape: "aspect-[16/9]",
+  square: "aspect-square",
+  portrait: "aspect-[4/5]",
 };
 
 const ANIM_CLASS: Record<NonNullable<ProductGridProps["cardAnimation"]>, string> = {
@@ -139,8 +144,8 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
     showRating = true,
     showAddToCart = true,
     showQuickAddToCart,
-    addToCartLabel = "Add to cart",
-    quickAddToCartLabel = "Add to cart",
+    addToCartLabel,
+    quickAddToCartLabel,
     showWishlist = false,
     showCategory = true,
     showPagination = true,
@@ -158,11 +163,18 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
     showSearch = false,
     searchPlaceholder = "Search products...",
     cardStyle = "shadow",
-    imageAspect = "16:9",
   } = props;
 
   const gridStyle = columnStyle(props);
-  const showQuickAdd = showQuickAddToCart ?? showAddToCart;
+  const cardTemplate = data?.cardTemplate ?? DEFAULT_PRODUCT_CARD_TEMPLATE;
+  const resolvedAddToCartLabel = addToCartLabel ?? cardTemplate.addToCartLabel;
+  const resolvedQuickAddLabel = quickAddToCartLabel ?? cardTemplate.quickAddLabel;
+  const showQuickAdd = (showQuickAddToCart ?? showAddToCart) && cardTemplate.showQuickAdd;
+  const cardSpacing = {
+    compact: "0.75rem",
+    comfortable: "1.05rem",
+    spacious: "1.375rem",
+  }[cardTemplate.spacing];
 
   const [activeCategory, setActiveCategory] = useState(categoryId);
   const [page, setPage] = useState(1);
@@ -439,14 +451,24 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
                   data-pg-card
                   className={[
                     "pg-item",
-                    CARD_CLASS[cardStyle],
+                    CARD_CLASS[cardTemplate.cardStyle ?? cardStyle],
                     ANIM_CLASS[cardAnimation],
                     HOVER_CLASS[hoverEffect],
                   ].join(" ")}
-                  style={{ ["--pg-delay" as string]: `${(index % productsPerPage) * 70}ms` }}
+                  style={{
+                    ["--pg-delay" as string]: `${(index % productsPerPage) * 70}ms`,
+                    ["--pg-card-padding" as string]: cardSpacing,
+                    ["--pg-text-color" as string]: cardTemplate.textColor,
+                    ["--pg-muted-color" as string]: cardTemplate.mutedColor,
+                    ["--pg-accent-color" as string]: cardTemplate.accentColor,
+                    ["--pg-button-background" as string]: cardTemplate.buttonBackground,
+                    ["--pg-button-text" as string]: cardTemplate.buttonText,
+                    backgroundColor: cardTemplate.cardBackground,
+                    borderRadius: `${cardTemplate.radius}px`,
+                  }}
                 >
-                  {showFeaturedImage ? (
-                    <div className={`pg-image ${ASPECT_CLASS[imageAspect]}`}>
+                  {showFeaturedImage && cardTemplate.showImage ? (
+                    <div className={`pg-image ${CARD_TEMPLATE_ASPECT_CLASS[cardTemplate.imageAspect]}`}>
                       {item.imageAssetId ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -454,20 +476,21 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
                           alt={item.name}
                           loading="lazy"
                           className="pg-image-el"
+                          style={{ objectFit: cardTemplate.imageFit }}
                         />
                       ) : (
                         <div className="pg-image-placeholder" aria-hidden>
                           <span>🛒</span>
                         </div>
                       )}
-                      {showBadges && (
+                      {showBadges && cardTemplate.showBadges && (
                         <div className="pg-badges">
                           {item.onSale && <span className="pg-badge pg-badge-sale">Sale</span>}
                           {item.featured && <span className="pg-badge pg-badge-featured">Featured</span>}
                           {out && <span className="pg-badge pg-badge-out">Sold out</span>}
                         </div>
                       )}
-                      {showWishlist ? (
+                      {showWishlist && cardTemplate.showWishlist ? (
                         <button
                           type="button"
                           aria-label={saved ? `Remove ${item.name} from wishlist` : `Save ${item.name} to wishlist`}
@@ -495,10 +518,10 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
                             disabled={adding[item.id]}
                           >
                             {added[item.id]
-                              ? `${quickAddToCartLabel} ✓`
+                              ? `${resolvedQuickAddLabel} ✓`
                               : adding[item.id]
                                 ? "Adding…"
-                                : quickAddToCartLabel}
+                                : resolvedQuickAddLabel}
                           </button>
                         </div>
                       ) : null}
@@ -506,12 +529,12 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
                   ) : null}
 
                   <div className="pg-body">
-                    {showCategory && item.categories.length > 0 ? (
+                    {showCategory && cardTemplate.showCategory && item.categories.length > 0 ? (
                       <div className="pg-category">{item.categories[0].name}</div>
                     ) : null}
-                    {showTitle ? <h3 className="pg-title">{item.name}</h3> : null}
-                    {showExcerpt && excerpt ? <p className="pg-excerpt">{excerpt}</p> : null}
-                    {showRating && item.reviewCount > 0 ? (
+                    {showTitle && cardTemplate.showTitle ? <h3 className="pg-title">{item.name}</h3> : null}
+                    {showExcerpt && cardTemplate.showExcerpt && excerpt ? <p className="pg-excerpt">{excerpt}</p> : null}
+                    {showRating && cardTemplate.showRating && item.reviewCount > 0 ? (
                       <div className="pg-rating" aria-label={`Rated ${item.rating} out of 5 from ${item.reviewCount} reviews`}>
                         <span className="pg-stars" aria-hidden>
                           {[0, 1, 2, 3, 4].map((star) => (
@@ -526,7 +549,7 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
                         <span className="pg-rating-count">({item.reviewCount})</span>
                       </div>
                     ) : null}
-                    {showPrice ? (
+                    {showPrice && cardTemplate.showPrice ? (
                       <div className="pg-price-row">
                         <span className={`pg-price${item.onSale ? " is-sale" : ""}`}>{money(item.price)}</span>
                         {item.onSale && item.regularPrice > item.price ? (
@@ -534,7 +557,7 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
                         ) : null}
                       </div>
                     ) : null}
-                    {showAddToCart && !out ? (
+                    {showAddToCart && cardTemplate.showAddToCart && !out ? (
                       <button
                         type="button"
                         className={`pg-cart-btn${added[item.id] ? " is-added" : ""}`}
@@ -542,10 +565,10 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
                         disabled={adding[item.id]}
                       >
                         {added[item.id]
-                          ? `${addToCartLabel} ✓`
+                          ? `${resolvedAddToCartLabel} ✓`
                           : adding[item.id]
                             ? "Adding…"
-                            : addToCartLabel}
+                            : resolvedAddToCartLabel}
                       </button>
                     ) : null}
                   </div>
@@ -710,7 +733,7 @@ const gridStyles = `
 }
 .pg-quick-btn {
   width: 100%; border: 0; border-radius: 0.6rem;
-  background: rgba(24,24,27,.94); color: #fff;
+  background: var(--pg-button-background, rgba(24,24,27,.94)); color: var(--pg-button-text, #fff);
   font-size: 0.8rem; font-weight: 600; padding: 0.55rem 0.75rem;
   cursor: pointer; backdrop-filter: blur(6px);
   transition: background 200ms ease, transform 200ms ease;
@@ -718,29 +741,29 @@ const gridStyles = `
 .pg-quick-btn:hover { background: #000; transform: translateY(-1px); }
 .pg-quick-btn.is-added { background: #047857; }
 
-.pg-body { padding: 0.95rem 1.05rem 1.1rem; }
+.pg-body { padding: var(--pg-card-padding, 0.95rem 1.05rem 1.1rem); }
 .pg-card-minimal .pg-body { padding-left: 0; padding-right: 0; }
-.pg-category { font-size: 0.7rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #71717a; }
-.pg-title { margin-top: 0.2rem; font-size: 1rem; font-weight: 600; color: #18181b; line-height: 1.35; transition: color 200ms ease; }
-.pg-item:hover .pg-title { color: #000; }
-.pg-excerpt { margin-top: 0.35rem; font-size: 0.82rem; color: #71717a; line-height: 1.5; }
+.pg-category { font-size: 0.7rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--pg-muted-color, #71717a); }
+.pg-title { margin-top: 0.2rem; font-size: 1rem; font-weight: 600; color: var(--pg-text-color, #18181b); line-height: 1.35; transition: color 200ms ease; }
+.pg-item:hover .pg-title { color: var(--pg-accent-color, #000); }
+.pg-excerpt { margin-top: 0.35rem; font-size: 0.82rem; color: var(--pg-muted-color, #71717a); line-height: 1.5; }
 .pg-rating { display: flex; align-items: center; gap: 0.3rem; margin-top: 0.45rem; }
 .pg-stars { display: inline-flex; gap: 0.05rem; color: #d4d4d8; font-size: 0.85rem; }
 .pg-star.is-on { color: #f59e0b; }
-.pg-rating-count { font-size: 0.72rem; color: #a1a1aa; }
+.pg-rating-count { font-size: 0.72rem; color: var(--pg-muted-color, #a1a1aa); }
 .pg-price-row { display: flex; align-items: baseline; gap: 0.5rem; margin-top: 0.5rem; }
-.pg-price { font-size: 1.02rem; font-weight: 700; color: #18181b; transition: color 200ms ease, transform 200ms ease; display: inline-block; }
+.pg-price { font-size: 1.02rem; font-weight: 700; color: var(--pg-text-color, #18181b); transition: color 200ms ease, transform 200ms ease; display: inline-block; }
 .pg-item:hover .pg-price { transform: translateY(-1px); }
-.pg-price.is-sale { color: #dc2626; }
+.pg-price.is-sale { color: var(--pg-accent-color, #dc2626); }
 .pg-compare { font-size: 0.82rem; color: #a1a1aa; text-decoration: line-through; }
 .pg-cart-btn {
   margin-top: 0.75rem; width: 100%;
-  border: 1px solid #18181b; background: #18181b; color: #fff;
+  border: 1px solid var(--pg-button-background, #18181b); background: var(--pg-button-background, #18181b); color: var(--pg-button-text, #fff);
   border-radius: 0.6rem; padding: 0.5rem 0.75rem;
   font-size: 0.82rem; font-weight: 600; cursor: pointer;
   transition: background 200ms ease, color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
 }
-.pg-cart-btn:hover:not(:disabled) { background: #fff; color: #18181b; transform: translateY(-2px); box-shadow: 0 10px 22px -14px rgba(0,0,0,.7); }
+.pg-cart-btn:hover:not(:disabled) { background: var(--pg-button-text, #fff); color: var(--pg-button-background, #18181b); transform: translateY(-2px); box-shadow: 0 10px 22px -14px rgba(0,0,0,.7); }
 .pg-cart-btn:disabled { opacity: .65; cursor: default; }
 .pg-cart-btn.is-added { background: #047857; border-color: #047857; color: #fff; }
 .pg-cart-btn.is-added:hover { background: #065f46; color: #fff; transform: none; box-shadow: none; }
