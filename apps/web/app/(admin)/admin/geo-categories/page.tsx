@@ -1,7 +1,18 @@
 import Link from "next/link";
-import { listGeoCategories, deleteGeoCategoryForm } from "./actions";
+import {
+  ListToolbar,
+  Pagination,
+  SortableTh,
+  parseListParams,
+  sortableSort,
+} from "@/components/admin/listing";
+import { listGeoCategories } from "./actions";
 
 export const revalidate = 0;
+
+const SORTABLE = ["title", "slug", "status"] as const;
+
+type SearchParams = Record<string, string | string[] | undefined>;
 
 function ImageThumb({ assetId }: { assetId: string | null }) {
   if (!assetId) return <span className="text-xs text-zinc-400">—</span>;
@@ -14,10 +25,26 @@ function ImageThumb({ assetId }: { assetId: string | null }) {
   );
 }
 
-export default async function GeoCategoriesListPage() {
-  const categories = await listGeoCategories();
+export default async function GeoCategoriesListPage({
+  searchParams,
+}: {
+  searchParams?: Promise<SearchParams>;
+}) {
+  const params = parseListParams((await searchParams) ?? {});
+  const sort = sortableSort(params.sort, params.dir, SORTABLE);
 
-  function findImage(images: { position: string; imageAssetId: string }[], position: string) {
+  const { items: categories, total } = await listGeoCategories({
+    q: params.q,
+    page: params.page,
+    pageSize: params.pageSize,
+    sort: sort?.field ?? "",
+    dir: sort?.dir ?? "asc",
+  });
+
+  function findImage(
+    images: { position: string; imageAssetId: string | null }[],
+    position: string,
+  ) {
     const img = images.find((i) => i.position === position);
     return img?.imageAssetId ?? null;
   }
@@ -47,12 +74,20 @@ export default async function GeoCategoriesListPage() {
         </Link>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-xl border border-zinc-200 bg-white">
+      <ListToolbar
+        basePath="/admin/geo-categories"
+        params={params}
+        total={total}
+        noun="geocategories"
+        placeholder="Search by title or slug..."
+      />
+
+      <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white">
         <table className="w-full text-sm">
           <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
             <tr>
               <th className="px-4 py-2.5">Edit GeoCat</th>
-              <th className="px-4 py-2.5">GeoCat Title</th>
+              <SortableTh field="title" label="GeoCat Title" basePath="/admin/geo-categories" params={params} />
               <th className="px-4 py-2.5">View Page</th>
               <th className="px-4 py-2.5">Parent Img?</th>
               <th className="px-4 py-2.5">State Img?</th>
@@ -64,7 +99,7 @@ export default async function GeoCategoriesListPage() {
             {categories.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-6 text-center text-zinc-400">
-                  No geo categories yet.
+                  No geo categories found.
                 </td>
               </tr>
             )}
@@ -106,6 +141,8 @@ export default async function GeoCategoriesListPage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination basePath="/admin/geo-categories" params={params} total={total} />
     </div>
   );
 }

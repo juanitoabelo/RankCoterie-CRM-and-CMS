@@ -5,6 +5,7 @@
  */
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { TENANT_ID } from "@/lib/tenant";
+import type { Prisma } from "@prisma/client";
 import type { 
   ContentFilter, 
   PaginatedContent, 
@@ -45,15 +46,72 @@ export async function getArticles(filter: ContentFilter = {}): Promise<Paginated
 }
 
 /** Fetch articles for admin — includes variants and category for display */
-export async function getArticlesForAdmin() {
-  return prisma.contentTemplate.findMany({
-    where: { tenantId: TENANT_ID },
-    orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
-    include: {
-      category: { select: { title: true } },
-      variants: { select: { id: true, regionId: true, status: true } },
-    },
-  });
+const ARTICLE_SORTABLE = [
+  "title",
+  "slug",
+  "status",
+  "author",
+  "updatedAt",
+  "createdAt",
+] as const;
+
+export type AdminArticleListFilter = {
+  q?: string;
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+  dir?: "asc" | "desc";
+};
+
+/**
+ * Paginated admin article list. Search, sort and paging all run in the
+ * database, and the projection drops `body`/SEO blobs — only the columns the
+ * table renders are transferred.
+ */
+export async function getArticlesForAdmin(filter: AdminArticleListFilter = {}) {
+  const { q = "", page = 1, pageSize = 25, sort = "", dir = "asc" } = filter;
+  const where: Record<string, unknown> = { tenantId: TENANT_ID };
+  if (q) {
+    where.OR = [
+      { title: { contains: q, mode: "insensitive" } },
+      { slug: { contains: q, mode: "insensitive" } },
+      { author: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
+  const field = (ARTICLE_SORTABLE as readonly string[]).includes(sort)
+    ? sort
+    : null;
+  const orderBy: Prisma.ContentTemplateOrderByWithRelationInput[] = field
+    ? ([{ [field]: dir }, { id: "asc" }] as Prisma.ContentTemplateOrderByWithRelationInput[])
+    : [{ status: "asc" }, { updatedAt: "desc" }];
+
+  const [items, total] = await Promise.all([
+    prisma.contentTemplate.findMany({
+      where,
+      orderBy,
+      skip: (Math.max(1, page) - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        status: true,
+        updatedAt: true,
+        category: { select: { title: true } },
+        _count: { select: { variants: true } },
+      },
+    }),
+    prisma.contentTemplate.count({ where }),
+  ]);
+
+  return {
+    items,
+    total,
+    page,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  };
 }
 
 /** Fetch a single article by ID */

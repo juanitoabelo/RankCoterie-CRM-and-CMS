@@ -1,5 +1,6 @@
 "use server";
 
+import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
@@ -8,19 +9,63 @@ import { TENANT_ID } from "@/modules/shared";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
-export async function listGeoCategories() {
+const GEO_SORTABLE = ["title", "slug", "status"] as const;
+
+export type GeoCategoryListFilter = {
+  q?: string;
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+  dir?: "asc" | "desc";
+};
+
+/** Paginated geo-category list — search/sort run in the database. */
+export async function listGeoCategories(filter: GeoCategoryListFilter = {}) {
   await requireSection("categories");
-  const categories = await prisma.category.findMany({
-    where: { tenantId: TENANT_ID },
-    orderBy: { title: "asc" },
-    include: {
-      images: {
-        orderBy: { order: "asc" },
-        include: { imageAsset: { select: { id: true, mimeType: true } } },
+  const { q = "", page = 1, pageSize = 25, sort = "", dir = "asc" } = filter;
+
+  const where: Record<string, unknown> = { tenantId: TENANT_ID };
+  if (q) {
+    where.OR = [
+      { title: { contains: q, mode: "insensitive" } },
+      { slug: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
+  const field = (GEO_SORTABLE as readonly string[]).includes(sort) ? sort : null;
+  const orderBy: Prisma.CategoryOrderByWithRelationInput[] = field
+    ? ([{ [field]: dir }, { id: "asc" }] as Prisma.CategoryOrderByWithRelationInput[])
+    : [{ title: "asc" }, { id: "asc" }];
+
+  // Description/SEO blobs stay in the DB — the table only needs titles,
+  // slugs and the three image slots.
+  const [items, total] = await Promise.all([
+    prisma.category.findMany({
+      where,
+      orderBy,
+      skip: (Math.max(1, page) - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        status: true,
+        images: {
+          orderBy: { order: "asc" },
+          select: { position: true, imageAssetId: true },
+        },
       },
-    },
-  });
-  return categories;
+    }),
+    prisma.category.count({ where }),
+  ]);
+
+  return {
+    items,
+    total,
+    page,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  };
 }
 
 export async function getGeoCategory(id: string) {

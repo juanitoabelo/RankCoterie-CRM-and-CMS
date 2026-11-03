@@ -38,6 +38,7 @@ export { CONTENT_STATUS_FILTERS } from "./types";
 export { getArticles } from "./queries";
 /** Get articles for admin with variants */
 export { getArticlesForAdmin } from "./queries";
+export type { AdminArticleListFilter } from "./queries";
 /** Get a single article by ID */
 export { getArticleById } from "./queries";
 /** Get article edit data with categories and regions */

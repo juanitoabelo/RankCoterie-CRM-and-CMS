@@ -1,5 +1,6 @@
 "use server";
 
+import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
@@ -14,15 +15,71 @@ export async function actorId(): Promise<string | null> {
   return u.id;
 }
 
-export async function listSections() {
+const SECTION_SORTABLE = [
+  "title",
+  "slug",
+  "order",
+  "status",
+  "updatedAt",
+  "createdAt",
+] as const;
+
+export type SectionListFilter = {
+  q?: string;
+  status?: string;
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+  dir?: "asc" | "desc";
+};
+
+/** Paginated section list — search/sort/filter all run in the database. */
+export async function listSections(filter: SectionListFilter = {}) {
   await requireSection("sections");
-  return prisma.section.findMany({
-    where: { tenantId: TENANT_ID },
-    orderBy: [{ order: "asc" }, { title: "asc" }],
-    include: {
-      category: { select: { id: true, slug: true, title: true } },
-    },
-  });
+  const { q = "", status = "", page = 1, pageSize = 25, sort = "", dir = "asc" } = filter;
+
+  const where: Record<string, unknown> = { tenantId: TENANT_ID };
+  if (status) where.status = status;
+  if (q) {
+    where.OR = [
+      { title: { contains: q, mode: "insensitive" } },
+      { slug: { contains: q, mode: "insensitive" } },
+      { heading: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
+  const field = (SECTION_SORTABLE as readonly string[]).includes(sort) ? sort : null;
+  const orderBy: Prisma.SectionOrderByWithRelationInput[] = field
+    ? ([{ [field]: dir }, { id: "asc" }] as Prisma.SectionOrderByWithRelationInput[])
+    : [{ order: "asc" }, { title: "asc" }];
+
+  // `body` is never rendered in the list — keep it out of the payload.
+  const [items, total] = await Promise.all([
+    prisma.section.findMany({
+      where,
+      orderBy,
+      skip: (Math.max(1, page) - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        order: true,
+        status: true,
+        updatedAt: true,
+        category: { select: { id: true, slug: true, title: true } },
+      },
+    }),
+    prisma.section.count({ where }),
+  ]);
+
+  return {
+    items,
+    total,
+    page,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  };
 }
 
 export async function createSection(formData: FormData): Promise<ActionResult> {

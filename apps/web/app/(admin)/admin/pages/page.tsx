@@ -1,12 +1,58 @@
-import { prisma } from "@/modules/shared";
+import type { Prisma } from "@prisma/client";
+import { prisma, TENANT_ID } from "@/modules/shared";
+import {
+  ListToolbar,
+  Pagination,
+  SortableTh,
+  parseListParams,
+  sortableSort,
+} from "@/components/admin/listing";
+import SubmitButton from "@/components/admin/SubmitButton";
 import { createPageForm, deletePageForm } from "./actions";
 
 export const revalidate = 0;
 
-export default async function PagesAdminPage() {
-  const pages = await prisma.page.findMany({
-    orderBy: [{ status: "asc" }, { name: "asc" }],
-  });
+const SORTABLE = ["name", "slug", "status", "updatedAt"] as const;
+
+type SearchParams = Record<string, string | string[] | undefined>;
+
+export default async function PagesAdminPage({
+  searchParams,
+}: {
+  searchParams?: Promise<SearchParams>;
+}) {
+  const params = parseListParams((await searchParams) ?? {});
+
+  const where: Prisma.PageWhereInput = {
+    tenantId: TENANT_ID,
+    ...(params.q
+      ? {
+          OR: [
+            { name: { contains: params.q, mode: "insensitive" } },
+            { slug: { contains: params.q, mode: "insensitive" } },
+            { title: { contains: params.q, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+  };
+
+  const sort = sortableSort(params.sort, params.dir, SORTABLE);
+  const orderBy: Prisma.PageOrderByWithRelationInput[] = sort
+    ? [{ [sort.field]: sort.dir } as Prisma.PageOrderByWithRelationInput, { id: "asc" }]
+    : [{ status: "asc" }, { name: "asc" }];
+
+  // Only the columns the table renders — `data` (builder JSON) is the heavy
+  // one and is never shown here.
+  const [pages, total] = await Promise.all([
+    prisma.page.findMany({
+      where,
+      orderBy,
+      skip: (params.page - 1) * params.pageSize,
+      take: params.pageSize,
+      select: { id: true, name: true, slug: true, status: true, updatedAt: true },
+    }),
+    prisma.page.count({ where }),
+  ]);
 
   return (
     <div>
@@ -43,23 +89,20 @@ export default async function PagesAdminPage() {
             placeholder="Page title (optional)"
             className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
           />
-          <button
-            type="submit"
-            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-          >
-            Create
-          </button>
+          <SubmitButton pendingText="Creating…">Create</SubmitButton>
         </div>
       </form>
 
-      <div className="mt-8 overflow-hidden rounded-xl border border-zinc-200 bg-white">
+      <ListToolbar basePath="/admin/pages" params={params} total={total} noun="pages" />
+
+      <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white">
         <table className="w-full text-sm">
           <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
             <tr>
-              <th className="px-4 py-2.5">Name</th>
-              <th className="px-4 py-2.5">Slug</th>
-              <th className="px-4 py-2.5">Status</th>
-              <th className="px-4 py-2.5">Updated</th>
+              <SortableTh field="name" label="Name" basePath="/admin/pages" params={params} />
+              <SortableTh field="slug" label="Slug" basePath="/admin/pages" params={params} />
+              <SortableTh field="status" label="Status" basePath="/admin/pages" params={params} />
+              <SortableTh field="updatedAt" label="Updated" basePath="/admin/pages" params={params} />
               <th className="px-4 py-2.5" />
             </tr>
           </thead>
@@ -67,7 +110,7 @@ export default async function PagesAdminPage() {
             {pages.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-6 text-center text-zinc-400">
-                  No pages yet.
+                  No pages found.
                 </td>
               </tr>
             )}
@@ -102,12 +145,12 @@ export default async function PagesAdminPage() {
                 </td>
                 <td className="px-4 py-3 text-right">
                   <form action={deletePageForm.bind(null, p.id)}>
-                    <button
-                      type="submit"
-                      className="text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-zinc-800"
+                    <SubmitButton
+                      pendingText="Deleting…"
+                      className="text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-zinc-800 disabled:no-underline"
                     >
                       Delete
-                    </button>
+                    </SubmitButton>
                   </form>
                 </td>
               </tr>
@@ -115,6 +158,8 @@ export default async function PagesAdminPage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination basePath="/admin/pages" params={params} total={total} />
     </div>
   );
 }

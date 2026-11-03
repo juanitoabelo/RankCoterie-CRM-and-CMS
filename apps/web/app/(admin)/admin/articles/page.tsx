@@ -1,11 +1,36 @@
 import { getArticlesForAdmin } from "@/modules/content";
+import {
+  ListToolbar,
+  Pagination,
+  SortableTh,
+  parseListParams,
+  sortableSort,
+} from "@/components/admin/listing";
 import ImageUploader from "@/components/admin/ImageUploader";
+import SubmitButton from "@/components/admin/SubmitButton";
 import { createArticleForm, deleteArticleForm } from "./actions";
 
 export const revalidate = 0;
 
-export default async function ArticlesAdminPage() {
-  const articles = await getArticlesForAdmin();
+const SORTABLE = ["title", "slug", "status", "author", "updatedAt", "createdAt"] as const;
+
+type SearchParams = Record<string, string | string[] | undefined>;
+
+export default async function ArticlesAdminPage({
+  searchParams,
+}: {
+  searchParams?: Promise<SearchParams>;
+}) {
+  const params = parseListParams((await searchParams) ?? {});
+  const sort = sortableSort(params.sort, params.dir, SORTABLE);
+
+  const { items: articles, total } = await getArticlesForAdmin({
+    q: params.q,
+    page: params.page,
+    pageSize: params.pageSize,
+    sort: sort?.field ?? "",
+    dir: sort?.dir ?? "asc",
+  });
 
   return (
     <div>
@@ -69,25 +94,22 @@ export default async function ArticlesAdminPage() {
             </div>
           </div>
           <div className="sm:col-span-2">
-            <button
-              type="submit"
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-            >
-              Create
-            </button>
+            <SubmitButton pendingText="Creating…">Create</SubmitButton>
           </div>
         </div>
       </form>
 
-      <div className="mt-8 overflow-hidden rounded-xl border border-zinc-200 bg-white">
+      <ListToolbar basePath="/admin/articles" params={params} total={total} noun="articles" />
+
+      <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white">
         <table className="w-full text-sm">
           <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
             <tr>
-              <th className="px-4 py-2.5">Title</th>
+              <SortableTh field="title" label="Title" basePath="/admin/articles" params={params} />
               <th className="px-4 py-2.5">Category</th>
-              <th className="px-4 py-2.5">Status</th>
+              <SortableTh field="status" label="Status" basePath="/admin/articles" params={params} />
               <th className="px-4 py-2.5">Variants</th>
-              <th className="px-4 py-2.5">Updated</th>
+              <SortableTh field="updatedAt" label="Updated" basePath="/admin/articles" params={params} />
               <th className="px-4 py-2.5" />
             </tr>
           </thead>
@@ -95,7 +117,7 @@ export default async function ArticlesAdminPage() {
             {articles.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-6 text-center text-zinc-400">
-                  No articles yet.
+                  No articles found.
                 </td>
               </tr>
             )}
@@ -128,19 +150,19 @@ export default async function ArticlesAdminPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-zinc-500">
-                  {a.variants.length} region{a.variants.length !== 1 ? "s" : ""}
+                  {a._count.variants} region{a._count.variants !== 1 ? "s" : ""}
                 </td>
                 <td className="px-4 py-3 text-zinc-500">
                   {a.updatedAt.toISOString().slice(0, 10)}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <form action={deleteArticleForm.bind(null, a.id)}>
-                    <button
-                      type="submit"
-                      className="text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-zinc-800"
+                    <SubmitButton
+                      pendingText="Deleting…"
+                      className="text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-zinc-800 disabled:no-underline"
                     >
                       Delete
-                    </button>
+                    </SubmitButton>
                   </form>
                 </td>
               </tr>
@@ -148,6 +170,8 @@ export default async function ArticlesAdminPage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination basePath="/admin/articles" params={params} total={total} />
     </div>
   );
 }

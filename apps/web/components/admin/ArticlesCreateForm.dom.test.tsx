@@ -4,7 +4,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createRoot, type Root } from "react-dom/client";
 
 vi.mock("@/modules/content", () => ({
-  getArticlesForAdmin: vi.fn().mockResolvedValue([]),
+  getArticlesForAdmin: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+}));
+
+// The listing toolbar renders the page-size picker, which needs the app router.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), back: vi.fn() }),
 }));
 
 vi.mock("@/app/(admin)/admin/articles/actions", () => ({
@@ -31,7 +36,7 @@ describe("new article form", () => {
     document.body.appendChild(container);
     root = createRoot(container);
 
-    const page = await ArticlesAdminPage();
+    const page = await ArticlesAdminPage({});
     await act(async () => root.render(page));
 
     const form = container.querySelector('form[action]');

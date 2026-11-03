@@ -1,33 +1,76 @@
 import Link from "next/link";
-import { prisma } from "@/modules/shared";
-import { TENANT_ID } from "@/modules/shared";
-import { US_STATES } from "./constants";
+import type { Prisma } from "@prisma/client";
+import { prisma, TENANT_ID } from "@/modules/shared";
+import {
+  ListToolbar,
+  Pagination,
+  SortableTh,
+  parseListParams,
+  sortableSort,
+} from "@/components/admin/listing";
 
 export const revalidate = 0;
+
+const SORTABLE = ["state", "city", "priority", "createdAt"] as const;
+
+type SearchParams = Record<string, string | string[] | undefined>;
 
 export default async function RegionsListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ state?: string }>;
+  searchParams?: Promise<SearchParams>;
 }) {
-  const params = await searchParams;
-  const stateFilter = params.state ?? "ALL";
+  const params = parseListParams((await searchParams) ?? {}, {
+    filterKeys: ["state"],
+  });
+  const sort = sortableSort(params.sort, params.dir, SORTABLE);
 
-  const where = stateFilter !== "ALL" ? { state: stateFilter } : {};
+  const where: Prisma.RegionWhereInput = {
+    tenantId: TENANT_ID,
+    ...(params.filters.state ? { state: params.filters.state } : {}),
+    ...(params.q
+      ? {
+          OR: [
+            { state: { contains: params.q, mode: "insensitive" } },
+            { stateFull: { contains: params.q, mode: "insensitive" } },
+            { city: { contains: params.q, mode: "insensitive" } },
+            { slug: { contains: params.q, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+  };
 
-  const [regions, total] = await Promise.all([
+  const orderBy: Prisma.RegionOrderByWithRelationInput[] = sort
+    ? [{ [sort.field]: sort.dir } as Prisma.RegionOrderByWithRelationInput, { id: "asc" }]
+    : [{ state: "asc" }, { city: "asc" }, { id: "asc" }];
+
+  // Row list, total and the state dropdown resolve together instead of the
+  // previous three sequential round-trips (which also scanned every row to
+  // build the dropdown).
+  const [regions, total, stateRows] = await Promise.all([
     prisma.region.findMany({
       where,
-      orderBy: [{ state: "asc" }, { city: "asc" }, { id: "asc" }],
+      orderBy,
+      skip: (params.page - 1) * params.pageSize,
+      take: params.pageSize,
+      select: {
+        id: true,
+        state: true,
+        city: true,
+        custom1: true,
+        custom2: true,
+        priority: true,
+      },
     }),
     prisma.region.count({ where }),
+    prisma.region.findMany({
+      where: { tenantId: TENANT_ID },
+      distinct: ["state"],
+      orderBy: { state: "asc" },
+      select: { state: true },
+    }),
   ]);
-
-  const states = Array.from(
-    new Set(
-      (await prisma.region.findMany({ select: { state: true } })).map((r) => r.state)
-    )
-  ).sort();
+  const states = stateRows.map((r) => r.state);
 
   return (
     <div>
@@ -36,39 +79,43 @@ export default async function RegionsListPage({
       </p>
       <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Regions</h1>
 
-      <form className="mt-6 rounded-xl border border-zinc-200 bg-white p-5">
-        <label className="block text-sm font-medium text-zinc-800">In State</label>
-        <select
-          name="state"
-          defaultValue={stateFilter}
-          className="mt-2 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-        >
-          <option value="ALL">ALL</option>
-          {states.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-        <div className="mt-4">
-          <button
-            type="submit"
-            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+      <ListToolbar
+        basePath="/admin/regions"
+        params={params}
+        total={total}
+        noun="regions"
+        placeholder="Search state, city or slug..."
+      >
+        <div>
+          <label
+            htmlFor="region-state"
+            className="block text-sm font-medium text-zinc-800"
           >
-            VIEW REGIONS
-          </button>
+            In State
+          </label>
+          <select
+            id="region-state"
+            name="state"
+            defaultValue={params.filters.state ?? "ALL"}
+            className="mt-2 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+          >
+            <option value="ALL">ALL</option>
+            {states.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
         </div>
-      </form>
-
-      <h2 className="mt-8 text-lg font-semibold text-zinc-900">
-        Results ({total} Region{total === 1 ? "" : "s"})
-      </h2>
+      </ListToolbar>
 
       <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white">
         <table className="w-full text-sm">
           <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
             <tr>
               <th className="px-4 py-2.5">Edit Region</th>
-              <th className="px-4 py-2.5">Region State</th>
-              <th className="px-4 py-2.5">Region City</th>
+              <SortableTh field="state" label="Region State" basePath="/admin/regions" params={params} />
+              <SortableTh field="city" label="Region City" basePath="/admin/regions" params={params} />
               <th className="px-4 py-2.5 text-center">Box 1 Content?</th>
               <th className="px-4 py-2.5 text-center">Box 2 Content?</th>
             </tr>
@@ -112,6 +159,8 @@ export default async function RegionsListPage({
           </tbody>
         </table>
       </div>
+
+      <Pagination basePath="/admin/regions" params={params} total={total} />
     </div>
   );
 }

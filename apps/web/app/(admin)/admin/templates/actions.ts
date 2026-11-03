@@ -10,16 +10,69 @@ import { TENANT_ID } from "@/modules/shared";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
-export async function listSubTopics() {
+const SUBTOPIC_SORTABLE = [
+  "title",
+  "slug",
+  "status",
+  "author",
+  "updatedAt",
+  "createdAt",
+] as const;
+
+export type SubTopicListFilter = {
+  q?: string;
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+  dir?: "asc" | "desc";
+};
+
+/** Paginated subtopic list — search/sort run in the database. */
+export async function listSubTopics(filter: SubTopicListFilter = {}) {
   await requireSection("templates");
-  return prisma.contentTemplate.findMany({
-    where: { tenantId: TENANT_ID },
-    orderBy: [{ title: "asc" }],
-    include: {
-      category: { select: { id: true, title: true, slug: true } },
-      featuredImage: { select: { id: true } },
-    },
-  });
+  const { q = "", page = 1, pageSize = 25, sort = "", dir = "asc" } = filter;
+
+  const where: Record<string, unknown> = { tenantId: TENANT_ID };
+  if (q) {
+    where.OR = [
+      { title: { contains: q, mode: "insensitive" } },
+      { slug: { contains: q, mode: "insensitive" } },
+      { author: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
+  const field = (SUBTOPIC_SORTABLE as readonly string[]).includes(sort) ? sort : null;
+  const orderBy: Prisma.ContentTemplateOrderByWithRelationInput[] = field
+    ? ([{ [field]: dir }, { id: "asc" }] as Prisma.ContentTemplateOrderByWithRelationInput[])
+    : [{ title: "asc" }, { id: "asc" }];
+
+  // `body` is the heavy column and is never shown in the list.
+  const [items, total] = await Promise.all([
+    prisma.contentTemplate.findMany({
+      where,
+      orderBy,
+      skip: (Math.max(1, page) - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        author: true,
+        status: true,
+        updatedAt: true,
+        featuredImage: { select: { id: true } },
+      },
+    }),
+    prisma.contentTemplate.count({ where }),
+  ]);
+
+  return {
+    items,
+    total,
+    page,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  };
 }
 
 export async function getSubTopic(id: string) {

@@ -10,20 +10,65 @@ import { TENANT_ID } from "@/modules/shared";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
-export async function listCategories() {
+const CATEGORY_SORTABLE = ["title", "slug", "status", "author"] as const;
+
+export type CategoryListFilter = {
+  q?: string;
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+  dir?: "asc" | "desc";
+};
+
+/** Paginated topic list — search/sort run in the database. */
+export async function listCategories(filter: CategoryListFilter = {}) {
   await requireSection("topics");
-  return prisma.category.findMany({
-    where: { tenantId: TENANT_ID },
-    orderBy: { title: "asc" },
-    include: {
-      parent: { select: { id: true, title: true } },
-      images: {
-        where: { position: "PRIMARY" },
-        take: 1,
-        include: { imageAsset: { select: { id: true } } },
+  const { q = "", page = 1, pageSize = 25, sort = "", dir = "asc" } = filter;
+
+  const where: Record<string, unknown> = { tenantId: TENANT_ID };
+  if (q) {
+    where.OR = [
+      { title: { contains: q, mode: "insensitive" } },
+      { slug: { contains: q, mode: "insensitive" } },
+      { author: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
+  const field = (CATEGORY_SORTABLE as readonly string[]).includes(sort) ? sort : null;
+  const orderBy: Prisma.CategoryOrderByWithRelationInput[] = field
+    ? ([{ [field]: dir }, { id: "asc" }] as Prisma.CategoryOrderByWithRelationInput[])
+    : [{ title: "asc" }, { id: "asc" }];
+
+  // Only the columns the table renders; SEO/description blobs stay in the DB.
+  const [items, total] = await Promise.all([
+    prisma.category.findMany({
+      where,
+      orderBy,
+      skip: (Math.max(1, page) - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        author: true,
+        status: true,
+        images: {
+          where: { position: "PRIMARY" },
+          take: 1,
+          select: { imageAsset: { select: { id: true } } },
+        },
       },
-    },
-  });
+    }),
+    prisma.category.count({ where }),
+  ]);
+
+  return {
+    items,
+    total,
+    page,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  };
 }
 
 export async function getCategory(id: string) {

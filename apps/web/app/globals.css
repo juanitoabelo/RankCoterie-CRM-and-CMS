@@ -303,3 +303,20 @@ textarea::placeholder {
   .pb-reverse-mobile > *:nth-child(5) { order: 95 !important; }
   .pb-reverse-mobile > *:nth-child(6) { order: 94 !important; }
 }
+
+/* ── Admin: indeterminate route progress bar ──────────────────────────────
+   Used by RouteProgressBar (route loading.tsx) and BusyIndicator (in-flight
+   mutations). The element is w-1/3, so 400% carries it fully off-screen. */
+@keyframes route-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+.route-progress-bar {
+  animation: route-progress 1.1s ease-in-out infinite;
+  will-change: transform;
+}

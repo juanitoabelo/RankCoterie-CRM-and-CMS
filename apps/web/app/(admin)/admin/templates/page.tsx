@@ -1,20 +1,34 @@
 import Link from "next/link";
+import {
+  ListToolbar,
+  Pagination,
+  SortableTh,
+  parseListParams,
+  sortableSort,
+} from "@/components/admin/listing";
 import { listSubTopics } from "./actions";
 
 export const revalidate = 0;
 
+const SORTABLE = ["title", "slug", "status", "author", "updatedAt", "createdAt"] as const;
+
+type SearchParams = Record<string, string | string[] | undefined>;
+
 export default async function SubTopicsListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams?: Promise<SearchParams>;
 }) {
-  const params = await searchParams;
-  const query = params.q ?? "";
-  const subtopics = await listSubTopics();
+  const params = parseListParams((await searchParams) ?? {});
+  const sort = sortableSort(params.sort, params.dir, SORTABLE);
 
-  const filtered = query
-    ? subtopics.filter((st) => st.title.toLowerCase().includes(query.toLowerCase()))
-    : subtopics;
+  const { items: subtopics, total } = await listSubTopics({
+    q: params.q,
+    page: params.page,
+    pageSize: params.pageSize,
+    sort: sort?.field ?? "",
+    dir: sort?.dir ?? "asc",
+  });
 
   return (
     <div>
@@ -24,47 +38,35 @@ export default async function SubTopicsListPage({
       </p>
       <h1 className="mt-1 text-2xl font-semibold text-zinc-900">SubTopics</h1>
 
-      <form className="mt-6 rounded-xl border border-zinc-200 bg-white p-5">
-        <label className="block text-sm font-medium text-zinc-800">Search SubTopics</label>
-        <input
-          name="q"
-          defaultValue={query}
-          placeholder="Search by title..."
-          className="mt-2 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-        />
-        <div className="mt-4">
-          <button
-            type="submit"
-            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-          >
-            VIEW SUBTOPICS
-          </button>
-        </div>
-      </form>
-
-      <h2 className="mt-8 text-lg font-semibold text-zinc-900">Results</h2>
+      <ListToolbar
+        basePath="/admin/templates"
+        params={params}
+        total={total}
+        noun="subtopics"
+        placeholder="Search by title..."
+      />
 
       <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white">
         <table className="w-full text-sm">
           <thead className="border-b border-zinc-200 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
             <tr>
               <th className="px-4 py-2.5">Edit Page</th>
-              <th className="px-4 py-2.5">SubTopic Title</th>
+              <SortableTh field="title" label="SubTopic Title" basePath="/admin/templates" params={params} />
               <th className="px-4 py-2.5">View Page</th>
-              <th className="px-4 py-2.5">Author</th>
+              <SortableTh field="author" label="Author" basePath="/admin/templates" params={params} />
               <th className="px-4 py-2.5">Image?</th>
               <th className="px-4 py-2.5 text-right">ID#</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
-            {filtered.length === 0 && (
+            {subtopics.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-6 text-center text-zinc-400">
                   No subtopics found.
                 </td>
               </tr>
             )}
-            {filtered.map((st) => (
+            {subtopics.map((st) => (
               <tr key={st.id} className="hover:bg-zinc-50">
                 <td className="px-4 py-3">
                   <Link
@@ -107,6 +109,8 @@ export default async function SubTopicsListPage({
           </tbody>
         </table>
       </div>
+
+      <Pagination basePath="/admin/templates" params={params} total={total} />
     </div>
   );
 }

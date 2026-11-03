@@ -1,6 +1,7 @@
 import { getCurrentUser, isSuperAdmin, isSubscriberOnly, canAccessSection } from "@/modules/auth";
 import { adminLogout } from "./login/actions";
 import AdminSidebar from "./AdminSidebar";
+import BusyIndicator from "@/components/admin/BusyIndicator";
 import { CustomFontProvider } from "@/components/admin/CustomFontProvider";
 import { loadCustomFontsSafe } from "@/lib/custom-fonts.server";
 
@@ -134,7 +135,12 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const user = await getCurrentUser();
+  // Session + fonts are independent — load them together to halve the
+  // layout's waterfalls on every admin navigation.
+  const [user, customFonts] = await Promise.all([
+    getCurrentUser(),
+    loadCustomFontsSafe(),
+  ]);
 
   const can =
     user === null
@@ -152,12 +158,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const subscriberOnly = user !== null && isSubscriberOnly(user);
 
-  // Uploaded fonts feed every font-family dropdown in the admin, so they load
-  // once here and reach the builders through context.
-  const customFonts = user ? await loadCustomFontsSafe() : [];
-
   return (
     <CustomFontProvider fonts={customFonts}>
+      <BusyIndicator />
       <div className="flex min-h-screen bg-zinc-50 text-zinc-900">
         <AdminSidebar
           groups={subscriberOnly ? [] : visibleGroups}
