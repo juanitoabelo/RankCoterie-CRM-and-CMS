@@ -6,6 +6,7 @@ import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/modules/auth";
 import { TENANT_ID } from "@/modules/shared";
+import { invalidateThemeStylesCache } from "@/lib/theme-styles.server";
 import {
   DEFAULT_THEME_SETTINGS,
   THEME_PRESETS,
@@ -171,6 +172,7 @@ async function saveThemeSettingsToDb(settings: ThemeSettings, actorId: string): 
         } as unknown as Prisma.InputJsonValue,
       },
     });
+    invalidateThemeStylesCache();
     await logAudit({ action: "THEME_SETTINGS_UPDATE", entity: "Tenant", entityId: TENANT_ID, actorId });
     revalidatePath("/admin/theme-settings");
     revalidatePath("/");

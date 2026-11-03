@@ -125,6 +125,8 @@ model Region {
   categoryImages CategoryImage[]
   featuredPlacements FeaturedPlacement[]
   @@index([tenantId])
+  // Admin region list: tenant filter + state/city ordering + dropdown.
+  @@index([tenantId, state, city])
 }
 
 model Category {
@@ -166,6 +168,9 @@ model Category {
   images CategoryImage[]
   featuredPlacements FeaturedPlacement[]
   @@unique([tenantId, slug])
+  // Admin topic/geo-category lists: tenant filter + title ordering.
+  @@index([tenantId, title])
+  @@index([tenantId, status])
 }
 
 model CategoryRegionContent {
@@ -557,6 +562,10 @@ model ContentTemplate {
   sectionLinks SubTopicSection[]
   listingLinks ListingSubTopic[]
   @@unique([tenantId, slug])
+  // Admin article/subtopic lists: default status+updatedAt ordering and
+  // title-ordered lists, both tenant-scoped.
+  @@index([tenantId, status, updatedAt])
+  @@index([tenantId, title])
 }
 
 model ContentVariant {
@@ -794,6 +803,8 @@ model Page {
   updatedAt       DateTime @updatedAt
   createdAt       DateTime @default(now())
   @@unique([tenantId, slug])
+  // Admin page list: default status+name ordering, tenant-scoped.
+  @@index([tenantId, status, name])
 }
 
 model PageRevision {
@@ -1135,6 +1146,8 @@ model Section {
   updatedAt  DateTime @updatedAt
   @@unique([tenantId, slug])
   @@index([tenantId, order])
+  // Admin section list: title search ordering, tenant-scoped.
+  @@index([tenantId, title])
 }
 
 // The site owner's company profile + installed tracking/verification tags.

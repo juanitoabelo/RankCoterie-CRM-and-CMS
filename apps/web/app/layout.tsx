@@ -1,11 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
-import { prisma, TENANT_ID } from "@/modules/shared";
-import { safeDb } from "@/lib/db-resilient";
-import { DEFAULT_STYLE_GUIDE, renderGlobalStyleGuide, type StyleGuide } from "@/lib/style-guide";
-import { DEFAULT_THEME_SETTINGS, renderThemeSettingsCSS, type ThemeSettings } from "@/lib/theme-settings";
-import { renderCustomFontFaces } from "@/lib/custom-fonts";
-import { loadCustomFontsSafe } from "@/lib/custom-fonts.server";
+import { getThemeStyles, renderCustomFontFaces, renderGlobalStyleGuide, renderThemeSettingsCSS } from "@/lib/theme-styles.server";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -28,39 +23,9 @@ export const metadata: Metadata = {
   description: "Localized business directory with paid listings and SEO-ready region pages",
 };
 
-async function getThemeStyles() {
-  const tenant = await safeDb(() => prisma.tenant.findUnique({ where: { id: TENANT_ID } }), null);
-  const theme = (tenant?.theme ?? {}) as {
-    styleGuide?: Partial<StyleGuide>;
-    themeSettings?: Partial<ThemeSettings>;
-    readingSettings?: { searchEngineVisibility?: string };
-  };
-  const guide: StyleGuide = { ...DEFAULT_STYLE_GUIDE, ...theme.styleGuide };
-  const themeSettings: ThemeSettings = {
-    ...DEFAULT_THEME_SETTINGS,
-    ...theme.themeSettings,
-    colors: { ...DEFAULT_THEME_SETTINGS.colors, ...theme.themeSettings?.colors },
-    fonts: {
-      ...DEFAULT_THEME_SETTINGS.fonts,
-      ...theme.themeSettings?.fonts,
-      sizes: {
-        mobile: { ...DEFAULT_THEME_SETTINGS.fonts.sizes.mobile, ...theme.themeSettings?.fonts?.sizes?.mobile },
-        tablet: { ...DEFAULT_THEME_SETTINGS.fonts.sizes.tablet, ...theme.themeSettings?.fonts?.sizes?.tablet },
-        desktop: { ...DEFAULT_THEME_SETTINGS.fonts.sizes.desktop, ...theme.themeSettings?.fonts?.sizes?.desktop },
-      },
-    },
-    layout: { ...DEFAULT_THEME_SETTINGS.layout, ...theme.themeSettings?.layout },
-    responsive: {
-      breakpoints: { ...DEFAULT_THEME_SETTINGS.responsive.breakpoints, ...theme.themeSettings?.responsive?.breakpoints },
-      containerPadding: { ...DEFAULT_THEME_SETTINGS.responsive.containerPadding, ...theme.themeSettings?.responsive?.containerPadding },
-    },
-  };
-  const noindex = theme.readingSettings?.searchEngineVisibility === "hidden";
-  const customFonts = await loadCustomFontsSafe();
-  return { guide, themeSettings, noindex, customFonts };
-}
-
 export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Tenant theme + fonts are TTL-cached server-side (see lib/theme-styles.server.ts)
+  // so this layout — which wraps every route — stays a cache hit per request.
   const { guide, themeSettings, noindex, customFonts } = await getThemeStyles();
   const fontFaceCSS = renderCustomFontFaces(customFonts);
 

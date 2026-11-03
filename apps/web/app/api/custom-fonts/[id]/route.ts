@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma, TENANT_ID } from "@/modules/shared";
 import { canAccessSection, getApiUser } from "@/modules/auth";
 import { logAudit } from "@/lib/audit";
+import { invalidateFontCache } from "@/lib/custom-fonts.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,6 +72,7 @@ export async function DELETE(
     const { count } = await prisma.customFont.deleteMany({
       where: { tenantId: TENANT_ID, family: font.family },
     });
+    invalidateFontCache();
     await logAudit({
       action: "CUSTOM_FONT_DELETE",
       entity: "CustomFont",
@@ -82,6 +84,7 @@ export async function DELETE(
   }
 
   await prisma.customFont.delete({ where: { id } });
+  invalidateFontCache();
   await logAudit({
     action: "CUSTOM_FONT_DELETE",
     entity: "CustomFont",

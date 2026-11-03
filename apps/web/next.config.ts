@@ -16,6 +16,8 @@ const nextConfig: NextConfig = {
   // proxy 301s and the legacy /g/ URLs; links and sitemap emit trailing slashes).
   trailingSlash: true,
   serverExternalPackages: ["@prisma/client"],
+  // Keep the generator tag out of responses — saves bytes on every document.
+  poweredByHeader: false,
   // Seed/media assets include SVGs; the optimizer rejects them by default.
   // The sandboxing CSP neutralizes any script inside served SVGs.
   images: {
@@ -32,6 +34,24 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: securityHeaders,
+      },
+      {
+        // Fingerprinted build assets — never revalidate.
+        source: "/_next/static/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+      {
+        // Public media (icons, images, fonts) — long cache, but revalidable so
+        // a replaced favicon/logo still lands within a day.
+        source: "/:file(.*\\.(?:ico|png|jpg|jpeg|gif|webp|avif|svg|woff|woff2|ttf|otf))",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, stale-while-revalidate=604800",
+          },
+        ],
       },
     ];
   },

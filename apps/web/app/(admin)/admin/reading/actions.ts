@@ -6,6 +6,7 @@ import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/modules/auth";
 import { TENANT_ID } from "@/modules/shared";
+import { invalidateThemeStylesCache } from "@/lib/theme-styles.server";
 import type { ReadingSettings, PageOption, ActionResult } from "./types";
 import { DEFAULT_READING_SETTINGS } from "./types";
 
@@ -80,6 +81,7 @@ export async function saveReadingSettings(formData: FormData): Promise<ActionRes
         } as unknown as Prisma.InputJsonValue,
       },
     });
+    invalidateThemeStylesCache();
     await logAudit({
       action: "READING_SETTINGS_UPDATE",
       entity: "Tenant",

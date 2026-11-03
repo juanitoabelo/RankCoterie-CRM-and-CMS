@@ -6,6 +6,7 @@ import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/modules/auth";
 import { TENANT_ID } from "@/modules/shared";
+import { invalidateThemeStylesCache } from "@/lib/theme-styles.server";
 import type { GeneralSettings, GeneralActionResult } from "./types";
 import { DEFAULT_GENERAL_SETTINGS } from "./types";
 
@@ -75,6 +76,7 @@ export async function saveGeneralSettings(formData: FormData): Promise<GeneralAc
         } as unknown as Prisma.InputJsonValue,
       },
     });
+    invalidateThemeStylesCache();
     await logAudit({
       action: "GENERAL_SETTINGS_UPDATE",
       entity: "Tenant",

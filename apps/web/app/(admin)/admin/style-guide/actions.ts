@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { DEFAULT_STYLE_GUIDE, type StyleGuide } from "@/lib/style-guide";
 import { requireSection } from "@/modules/auth";
 import { TENANT_ID } from "@/modules/shared";
+import { invalidateThemeStylesCache } from "@/lib/theme-styles.server";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -52,6 +53,7 @@ export async function saveStyleGuide(formData: FormData): Promise<ActionResult> 
         } as unknown as Prisma.InputJsonValue,
       },
     });
+    invalidateThemeStylesCache();
     await logAudit({ action: "STYLE_GUIDE_UPDATE", entity: "Tenant", entityId: TENANT_ID, actorId: actor.id });
     revalidatePath("/admin/style-guide");
     return { ok: true };

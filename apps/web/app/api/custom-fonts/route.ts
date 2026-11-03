@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma, TENANT_ID } from "@/modules/shared";
 import { canAccessSection, getApiUser } from "@/modules/auth";
 import { logAudit } from "@/lib/audit";
-import { loadCustomFonts } from "@/lib/custom-fonts.server";
+import { loadCustomFonts, invalidateFontCache } from "@/lib/custom-fonts.server";
 import {
   MAX_FONT_BYTES,
   validateFontBytes,
@@ -87,5 +87,9 @@ export async function POST(request: Request) {
       { error: e instanceof Error ? e.message : "Failed to save font." },
       { status: 500 },
     );
+  } finally {
+    // Upload (and the replace-by-reupload delete) touched the font rows —
+    // drop the server cache so layouts render the new file immediately.
+    invalidateFontCache();
   }
 }
