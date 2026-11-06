@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toCsv, toIsoCell } from "./csv";
+import { toCsv, toIsoCell, parseCsv } from "./csv";
 
 describe("toCsv", () => {
   const cols = [
@@ -42,5 +42,60 @@ describe("toIsoCell", () => {
   it("returns empty string for null/undefined", () => {
     expect(toIsoCell(null)).toBe("");
     expect(toIsoCell(undefined)).toBe("");
+  });
+});
+
+describe("parseCsv", () => {
+  it("round-trips toCsv output", () => {
+    const cols = [
+      { key: "name", label: "Name" },
+      { key: "note", label: "Note" },
+    ];
+    const rows = [
+      { name: "Smith, John", note: 'said "hi"\nnext line' },
+      { name: "plain", note: "" },
+    ];
+    expect(parseCsv(toCsv(rows, cols))).toEqual([
+      ["Name", "Note"],
+      ["Smith, John", 'said "hi"\nnext line'],
+      ["plain", ""],
+    ]);
+  });
+
+  it("handles CRLF, LF and a trailing newline without a phantom row", () => {
+    expect(parseCsv("a,b\r\n1,2\r\n")).toEqual([
+      ["a", "b"],
+      ["1", "2"],
+    ]);
+    expect(parseCsv("a,b\n1,2")).toEqual([
+      ["a", "b"],
+      ["1", "2"],
+    ]);
+  });
+
+  it("parses quoted cells with commas, doubled quotes and newlines", () => {
+    expect(parseCsv('"a,1","say ""hi""","line1\nline2"')).toEqual([
+      ["a,1", 'say "hi"', "line1\nline2"],
+    ]);
+  });
+
+  it("keeps an empty quoted cell followed by delimiters intact", () => {
+    expect(parseCsv('"",x\r\n"",')).toEqual([
+      ["", "x"],
+      ["", ""],
+    ]);
+  });
+
+  it("strips a UTF-8 BOM from the first header cell", () => {
+    expect(parseCsv("\uFEFFTitle,Slug\nA,a")[0]).toEqual(["Title", "Slug"]);
+  });
+
+  it("preserves blank lines as rows and returns [] for an empty file", () => {
+    expect(parseCsv("a\n\nb")).toEqual([["a"], [""], ["b"]]);
+    expect(parseCsv("")).toEqual([]);
+  });
+
+  it("keeps quotes that appear mid-cell as literal text", () => {
+    expect(parseCsv('ab"cd,e')).toEqual([['ab"cd', "e"]]);
   });
 });

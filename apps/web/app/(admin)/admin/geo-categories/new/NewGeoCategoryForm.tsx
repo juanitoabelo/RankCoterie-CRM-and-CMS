@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createGeoCategory, type ActionResult } from "../actions";
 import RichTextarea from "@/components/admin/RichTextarea";
+import ImageUploader from "@/components/admin/ImageUploader";
 import SeoFields, { DEFAULT_SEO_DATA, type SeoData } from "@/components/admin/SeoFields";
 
 const inputCls = "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm";
@@ -104,29 +105,39 @@ export default function NewGeoCategoryForm({
           />
         </div>
 
-        <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-6">
-          <h2 className="text-sm font-medium text-zinc-900">New Category Content (Parent Page)</h2>
+        {/* Parent Page Content */}
+        <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-zinc-900">Category Parent Page</h2>
           <RichTextarea name="description" label="Category Parent Content" placeholder="Write parent page content..." />
+          <ImageUploader
+            name="parentImageAssetId"
+            label="Parent Image"
+            hint="Suggested size: 1600 × 900 px (16:9)"
+          />
         </div>
 
-        <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-6">
-          <h2 className="text-sm font-medium text-zinc-900">GeoCategory State Page (Intro)</h2>
-          <RichTextarea name="stateInit" label="State Page Intro" placeholder="Write state intro content..." />
+        {/* State Page */}
+        <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-zinc-900">GeoCategory State Page</h2>
+          <RichTextarea name="stateInit" label="State Page Content (Intro)" placeholder="Write state intro content..." />
+          <RichTextarea name="stateDesc" label="State Page Content (Static)" placeholder="Write state static content..." />
+          <ImageUploader
+            name="stateImageAssetId"
+            label="State Image"
+            hint="Suggested size: 1600 × 900 px (16:9)"
+          />
         </div>
 
-        <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-6">
-          <h2 className="text-sm font-medium text-zinc-900">GeoCategory State Page (Static)</h2>
-          <RichTextarea name="stateDesc" label="State Page Static Content" placeholder="Write state static content..." />
-        </div>
-
-        <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-6">
-          <h2 className="text-sm font-medium text-zinc-900">GeoCategory City Page (Intro)</h2>
-          <RichTextarea name="cityInit" label="City Page Intro" placeholder="Write city intro content..." />
-        </div>
-
-        <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-6">
-          <h2 className="text-sm font-medium text-zinc-900">GeoCategory City Page (Static)</h2>
-          <RichTextarea name="cityDesc" label="City Page Static Content" placeholder="Write city static content..." />
+        {/* City Page */}
+        <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-zinc-900">GeoCategory City Page</h2>
+          <RichTextarea name="cityInit" label="City Page Content (Intro)" placeholder="Write city intro content..." />
+          <RichTextarea name="cityDesc" label="City Page Content (Static)" placeholder="Write city static content..." />
+          <ImageUploader
+            name="cityImageAssetId"
+            label="City Image"
+            hint="Suggested size: 1600 × 900 px (16:9)"
+          />
         </div>
 
         <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-4">

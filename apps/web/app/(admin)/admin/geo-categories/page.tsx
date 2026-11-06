@@ -72,6 +72,12 @@ export default async function GeoCategoriesListPage({
         >
           Add New GeoCategory
         </Link>
+        <Link
+          href="/admin/geo-categories/import"
+          className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+        >
+          Bulk Import
+        </Link>
       </div>
 
       <ListToolbar

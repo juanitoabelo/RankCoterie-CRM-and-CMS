@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
   // Legacy scheme is directory-style: /g/cat/region/ is canonical (matches the
   // proxy 301s and the legacy /g/ URLs; links and sitemap emit trailing slashes).
   trailingSlash: true,
-  serverExternalPackages: ["@prisma/client"],
+  serverExternalPackages: ["@prisma/client", "exceljs"],
   // Keep the generator tag out of responses — saves bytes on every document.
   poweredByHeader: false,
   // Seed/media assets include SVGs; the optimizer rejects them by default.
@@ -28,6 +28,13 @@ const nextConfig: NextConfig = {
   // separately with `tsc --noEmit`. Revisit once the baseline errors are cleared.
   typescript: {
     ignoreBuildErrors: true,
+  },
+  experimental: {
+    // Bulk-import server actions receive the uploaded spreadsheet (limit 1 MB
+    // by default) — a 1.5 MB .xlsx/.csv needs headroom.
+    serverActions: {
+      bodySizeLimit: "2mb",
+    },
   },
   async headers() {
     return [

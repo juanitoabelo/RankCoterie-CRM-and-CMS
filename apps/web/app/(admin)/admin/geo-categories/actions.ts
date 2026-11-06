@@ -229,6 +229,10 @@ export async function createGeoCategory(formData: FormData): Promise<ActionResul
   const cityInit = String(formData.get("cityInit") ?? "").trim() || null;
   const cityDesc = String(formData.get("cityDesc") ?? "").trim() || null;
 
+  const parentImageAssetId = String(formData.get("parentImageAssetId") ?? "").trim() || null;
+  const stateImageAssetId = String(formData.get("stateImageAssetId") ?? "").trim() || null;
+  const cityImageAssetId = String(formData.get("cityImageAssetId") ?? "").trim() || null;
+
   if (!title) return { ok: false, error: "Title is required." };
   if (!slug) return { ok: false, error: "Slug is required." };
 
@@ -273,6 +277,17 @@ export async function createGeoCategory(formData: FormData): Promise<ActionResul
     if (altRows.length) {
       await prisma.categoryRegionContent.createMany({
         data: altRows.map((r) => ({ categoryId: row.id, state: r.state, areaPart: r.areaPart, customText: r.customText })),
+      });
+    }
+
+    const images: { imageAssetId: string; position: string; isPrimary: boolean }[] = [
+      { imageAssetId: parentImageAssetId, position: "PRIMARY", isPrimary: true },
+      { imageAssetId: stateImageAssetId, position: "STATE", isPrimary: false },
+      { imageAssetId: cityImageAssetId, position: "CITY", isPrimary: false },
+    ].filter((i): i is { imageAssetId: string; position: string; isPrimary: boolean } => Boolean(i.imageAssetId));
+    if (images.length) {
+      await prisma.categoryImage.createMany({
+        data: images.map((i) => ({ tenantId: TENANT_ID, categoryId: row.id, ...i })),
       });
     }
 

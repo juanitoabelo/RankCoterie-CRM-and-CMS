@@ -58,6 +58,7 @@ export type AuditAction =
   | "CATEGORY_CREATE"
   | "CATEGORY_UPDATE"
   | "CATEGORY_DELETE"
+  | "CATEGORY_BULK_IMPORT"
   | "PAGE_CREATE"
   | "PAGE_UPDATE"
   | "PAGE_DELETE"
