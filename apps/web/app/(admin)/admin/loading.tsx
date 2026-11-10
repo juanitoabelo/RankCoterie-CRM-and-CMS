@@ -25,34 +25,40 @@ export default function AdminLoading() {
         <div className="mt-4 h-4 w-56 rounded bg-zinc-100" />
 
         <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white">
-          <div className="border-b border-zinc-200 bg-zinc-50 px-4 py-3">
-            <div className="flex gap-6">
-              {[48, 72, 44, 56, 40].map((width, i) => (
-                <div
-                  key={i}
-                  className="h-3 rounded bg-zinc-200"
-                  style={{ width }}
-                />
-              ))}
-            </div>
-          </div>
-          <tbody className="divide-y divide-zinc-100">
-            {Array.from({ length: 8 }).map((_, row) => (
-              <tr key={row} className="px-4 py-3">
-                <td className="px-4 py-3.5">
+          <table className="w-full">
+            <thead className="border-b border-zinc-200 bg-zinc-50">
+              <tr>
+                <th className="px-4 py-3 text-left">
                   <div className="flex gap-6">
-                    {[120, 80, 56, 64, 48].map((width, i) => (
+                    {[48, 72, 44, 56, 40].map((width, i) => (
                       <div
                         key={i}
-                        className="h-3.5 rounded bg-zinc-100"
-                        style={{ width: width + ((row * 7 + i * 13) % 40) }}
+                        className="h-3 rounded bg-zinc-200"
+                        style={{ width }}
                       />
                     ))}
                   </div>
-                </td>
+                </th>
               </tr>
-            ))}
-          </tbody>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {Array.from({ length: 8 }).map((_, row) => (
+                <tr key={row}>
+                  <td className="px-4 py-3.5">
+                    <div className="flex gap-6">
+                      {[120, 80, 56, 64, 48].map((width, i) => (
+                        <div
+                          key={i}
+                          className="h-3.5 rounded bg-zinc-100"
+                          style={{ width: width + ((row * 7 + i * 13) % 40) }}
+                        />
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
         <div className="mt-4 h-8 w-72 rounded bg-zinc-100" />

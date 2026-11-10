@@ -3,6 +3,7 @@ import { prisma } from "@/modules/shared";
 import { requireSection } from "@/modules/auth";
 import { FlashBanner } from "@/components/admin/FlashBanner";
 import { clientAddForm } from "../actions";
+import CustomFieldsEditor from "@/components/admin/custom-fields/CustomFieldsEditor";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -98,6 +99,8 @@ export default async function AdminClientNewPage({
             </label>
           </div>
         </section>
+
+        <CustomFieldsEditor contentType="client" />
 
         <section className="rounded-xl border border-zinc-200 bg-white p-5">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">

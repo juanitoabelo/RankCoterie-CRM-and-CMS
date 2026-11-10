@@ -14,6 +14,7 @@ import type {
   StyleBreakpoints,
   PricingBlock,
   LeadFormBlock,
+  CustomAdvanceFormBlock,
   StatsBlock,
   LogosBlock,
   TabsBlock,
@@ -44,6 +45,7 @@ import type {
   TeamBlock,
 } from "@/lib/page-builder/types";
 import { renderLocalizedContent, type RegionContext } from "@/lib/localization/render";
+import { parseCustomFieldCss, type CustomFormField } from "@/modules/custom-forms/types";
 import { renderStyleGuide, styleScopeClass } from "@/lib/page-builder/style";
 import { elementStylesNode, renderElementStyles, type ElementStyles } from "@/lib/page-builder/element-style";
 import { getSectionPaddingStyle } from "../renderHelpers";
@@ -247,6 +249,101 @@ function LeadFormView({ block, ctx }: { block: LeadFormBlock; ctx: RegionContext
             {renderLocalizedContent(p.submitLabel, ctx) || "Send"}
           </button>
         </form>
+      </div>
+    </Leaf>
+  );
+}
+
+function CustomAdvanceFormView({ block, ctx }: { block: CustomAdvanceFormBlock; ctx: RegionContext }) {
+  const p = block.props;
+  const [form, setForm] = useState<{ id: string; name: string; fields: CustomFormField[] } | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const [submitError, setSubmitError] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [pending, setPending] = useState(false);
+  useEffect(() => {
+    if (!p.formId) return;
+    const controller = new AbortController();
+    fetch(`/api/custom-advance-form/${encodeURIComponent(p.formId)}`, { signal: controller.signal })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "This form is unavailable.");
+        setForm(data);
+        setLoadError("");
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setForm(null);
+          setLoadError(error instanceof Error ? error.message : "Could not load this form.");
+        }
+      });
+    return () => controller.abort();
+  }, [p.formId]);
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!form) return;
+    setPending(true);
+    setSubmitError("");
+    const formElement = event.currentTarget;
+    const formData = new FormData(formElement);
+    const values: Record<string, string | boolean> = {};
+    for (const field of form.fields) {
+      const value = formData.get(field.key);
+      values[field.key] = field.type === "checkbox" ? value === "on" : typeof value === "string" ? value : "";
+    }
+    try {
+      const response = await fetch(`/api/custom-advance-form/${encodeURIComponent(p.formId)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ values, website: formData.get("website") ?? "" }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not submit the form.");
+      formElement.reset();
+      setSubmitted(true);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Could not submit the form. Please try again.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <Leaf block={block}>
+      <div className="mx-auto max-w-xl">
+        <Heading text={p.heading} ctx={ctx} />
+        {!p.formId ? <p className="mt-3 text-sm text-amber-700">Select a published form in the block settings.</p>
+          : loadError ? <p role="alert" className="mt-3 text-sm text-red-700">{loadError}</p>
+            : !form || form.id !== p.formId ? <p className="mt-3 text-sm text-zinc-500">Loading form…</p>
+              : submitted ? <p role="status" className="mt-4 rounded-lg bg-emerald-50 p-4 text-sm text-emerald-800">{p.successMessage || "Thanks! Your response has been submitted."}</p>
+              : <form onSubmit={submit} className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2" data-lp-el="form">
+                  <label aria-hidden="true" className="absolute -left-[10000px] h-px w-px overflow-hidden" tabIndex={-1}>
+                    Website<input name="website" tabIndex={-1} autoComplete="off" />
+                  </label>
+                {form.fields.map((field) => {
+                  const customStyle = parseCustomFieldCss(field.customCss);
+                  return (
+                    <label key={field.key} className={`block text-sm font-medium text-zinc-700 ${field.width === "full" ? "sm:col-span-2" : ""}`}>
+                      <span>{field.label}{field.required ? <span aria-hidden="true"> *</span> : null}</span>
+                      {field.type === "textarea"
+                        ? <textarea name={field.key} required={field.required} rows={4} placeholder={field.placeholder} style={customStyle} className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm" />
+                        : field.type === "select"
+                          ? <select name={field.key} required={field.required} style={customStyle} className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"><option value="">Select…</option>{(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}</select>
+                          : field.type === "checkbox"
+                            ? <input name={field.key} type="checkbox" required={field.required} style={customStyle} className="ml-2 h-4 w-4 align-middle" />
+                            : <input name={field.key} type={field.type === "email" ? "email" : field.type === "phone" ? "tel" : "text"} required={field.required} placeholder={field.placeholder} style={customStyle} className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm" />}
+                      {field.helpText && <span className="mt-1 block text-xs font-normal text-zinc-500">{field.helpText}</span>}
+                    </label>
+                  );
+                })}
+                {submitError && <p role="alert" className="text-sm text-red-700 sm:col-span-2">{submitError}</p>}
+                <div className="sm:col-span-2">
+                  <button disabled={pending} type="submit" className="btn rounded-lg px-5 py-2.5 text-sm font-semibold disabled:opacity-50" data-lp-el="button">
+                  {pending ? "Submitting…" : renderLocalizedContent(p.submitLabel, ctx) || "Submit"}
+                  </button>
+                </div>
+              </form>}
       </div>
     </Leaf>
   );
@@ -1421,6 +1518,7 @@ function TeamView({ block, ctx }: { block: TeamBlock; ctx: RegionContext }) {
 export const SHARED_RENDERERS: Record<string, React.ComponentType<RenderProps>> = {
   pricing: (props) => <PricingView {...(props as { block: PricingBlock; ctx: RegionContext })} />,
   leadForm: (props) => <LeadFormView {...(props as { block: LeadFormBlock; ctx: RegionContext })} />,
+  customAdvanceForm: (props) => <CustomAdvanceFormView {...(props as { block: CustomAdvanceFormBlock; ctx: RegionContext })} />,
   stats: (props) => <StatsView {...(props as { block: StatsBlock; ctx: RegionContext })} />,
   logos: (props) => <LogosView {...(props as { block: LogosBlock; ctx: RegionContext })} />,
   tabs: (props) => <TabsView {...(props as { block: TabsBlock; ctx: RegionContext })} />,

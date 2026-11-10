@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import RichTextarea from "@/components/admin/RichTextarea";
 import ImageUploader from "@/components/admin/ImageUploader";
 import ProductGalleryUploader from "@/components/admin/product/ProductGalleryUploader";
+import CustomFieldsEditor from "@/components/admin/custom-fields/CustomFieldsEditor";
 import type { ActionResult } from "@/app/(admin)/admin/products/actions";
 import type {
   PaymentGatewayWithRelations,
@@ -1079,6 +1080,8 @@ export default function ProductForm({
       </section>
 
       {/* SEO */}
+      <CustomFieldsEditor contentType="product" recordId={productId ?? undefined} />
+
       <details className={`${cardCls} group`}>
         <summary className="cursor-pointer text-sm font-semibold uppercase tracking-wide text-zinc-500">
           Search engine optimisation

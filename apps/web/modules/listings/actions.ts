@@ -17,6 +17,7 @@ import type { ListingTier, ListingStatus } from "@/lib/directory/visibility";
 import { TENANT_ID } from "@/lib/tenant";
 import { readFreeGraceDays } from "@/lib/billing/checkout";
 import { normalizeUsername, validateUsername } from "@/lib/auth/username";
+import { saveCustomFieldValues } from "@/app/(admin)/admin/custom-fields/actions";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -203,6 +204,12 @@ export async function createListing(formData: FormData): Promise<ActionResult> {
         regions: { create: input.regionIds.map((regionId) => ({ regionId })) },
       },
     });
+    const customFields = await saveCustomFieldValues(
+      "listing",
+      listing.id,
+      String(formData.get("customFieldValues") ?? "{}"),
+    );
+    if (!customFields.ok) return customFields;
 
     await logAudit({
       action: "LISTING_CREATE",
@@ -278,6 +285,12 @@ export async function updateListing(id: string, formData: FormData): Promise<Act
       },
       });
     });
+    const customFields = await saveCustomFieldValues(
+      "listing",
+      id,
+      String(formData.get("customFieldValues") ?? "{}"),
+    );
+    if (!customFields.ok) return customFields;
 
     await logAudit({
       action: "LISTING_UPDATE",

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { updatePageMeta, type ActionResult } from "../../actions";
 import SeoFields, { type SeoData } from "@/components/admin/SeoFields";
+import CustomFieldsEditor from "@/components/admin/custom-fields/CustomFieldsEditor";
 
 const inputCls = "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm";
 const labelCls = "block text-sm font-medium text-zinc-800";
@@ -105,6 +106,8 @@ export default function PageMetaEditor({
         <h3 className="mb-3 text-sm font-medium text-zinc-900">SEO &amp; Social</h3>
         <SeoFields data={seoData} onChange={setSeoData} slugPreview={slug} />
       </div>
+
+      <CustomFieldsEditor contentType="page" recordId={page.id} />
 
       {/* Single Save Button for everything */}
       <div className="mt-6 flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">

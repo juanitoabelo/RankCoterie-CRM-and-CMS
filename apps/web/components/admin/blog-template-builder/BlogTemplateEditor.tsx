@@ -10,6 +10,7 @@ import SchemaStyleTab from "../page-builder/SchemaStyleTab";
 import BlockAdvancedTab from "../page-builder/BlockAdvancedTab";
 import BlockEditor from "../page-builder/BlockEditor";
 import ArticleBindingsEditor from "./ArticleBindingsEditor";
+import type { ArticleBindingField } from "@/lib/blog-template/article-bindings";
 
 type ThemeColor = { key: string; label: string; color: string };
 
@@ -21,6 +22,7 @@ type EditorProps = {
   onUpdateColumn: (columnId: string, patch: Record<string, unknown>) => void;
   onAddToColumn: (columnId: string, type: import("@/lib/page-builder/types").BlockType) => void;
   allowArticleBindings?: boolean;
+  bindingFields?: ArticleBindingField[];
   themeColors?: ThemeColor[];
 };
 
@@ -473,6 +475,7 @@ export default function BlogTemplateEditor({
   onUpdateColumn,
   onAddToColumn,
   allowArticleBindings = false,
+  bindingFields,
   themeColors,
 }: EditorProps) {
   const blockType = block.type;
@@ -506,6 +509,7 @@ export default function BlogTemplateEditor({
               blockType={blockType}
               props={block.props as Record<string, unknown>}
               onChange={(props) => onChange(props as BlogTemplateBlock["props"])}
+              bindingFields={bindingFields}
             />
           </div>
         )}

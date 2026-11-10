@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/modules/shared";
 import { requireSection } from "@/modules/auth";
 import { FlashBanner } from "@/components/admin/FlashBanner";
+import CustomFieldsPanel from "@/components/admin/custom-fields/CustomFieldsPanel";
 import {
   clientEditForm,
   clientNoteForm,
@@ -109,6 +110,7 @@ export default async function AdminClientDetailPage({
         ← Back to clients
       </Link>
       <FlashBanner error={error} ok={ok} />
+      <CustomFieldsPanel contentType="client" recordId={client.id} />
       <h1 className="mt-2 text-2xl font-semibold text-zinc-900">
         {client.firstName} {client.lastName}
         {client.maskedCard && (

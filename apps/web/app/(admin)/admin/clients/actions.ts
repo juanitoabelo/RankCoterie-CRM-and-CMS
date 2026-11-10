@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { prisma, TENANT_ID } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/modules/auth";
+import { saveCustomFieldValues } from "../custom-fields/actions";
 
 export type ActionResult = { ok: boolean; error?: string; message?: string; id?: string };
 
@@ -334,6 +335,12 @@ export async function clientAddForm(formData: FormData): Promise<void> {
   });
   if (!result.ok) newClientError(result.error ?? "Could not create client.");
   if (!result.id) newClientError("Could not create client.");
+  const customFields = await saveCustomFieldValues(
+    "client",
+    result.id,
+    String(formData.get("customFieldValues") ?? "{}"),
+  );
+  if (!customFields.ok) newClientError(customFields.error ?? "Could not save custom fields.");
   redirect(`/admin/clients/${result.id}?ok=${encodeURIComponent("Client created.")}`);
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
-import type { ArticleBlockBindings, ArticleCustomFieldDefinition } from "@/lib/blog-template/article-bindings";
-import { articleBindingFieldsForTarget, articleBindingTargets } from "@/lib/blog-template/article-bindings";
+import type { ArticleBindingField, ArticleBlockBindings, ArticleCustomFieldDefinition } from "@/lib/blog-template/article-bindings";
+import { articleBindingFieldsForTarget, articleBindingTargets, bindingFieldsForTarget } from "@/lib/blog-template/article-bindings";
 
 const selectClass = "mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-800";
 
@@ -10,9 +10,10 @@ type Props = {
   props: Record<string, unknown>;
   onChange: (props: Record<string, unknown>) => void;
   customFields?: ArticleCustomFieldDefinition[];
+  bindingFields?: ArticleBindingField[];
 };
 
-export default function ArticleBindingsEditor({ blockType, props, onChange, customFields = [] }: Props) {
+export default function ArticleBindingsEditor({ blockType, props, onChange, customFields = [], bindingFields }: Props) {
   const targets = articleBindingTargets(blockType, props);
   if (targets.length === 0) return null;
 
@@ -30,7 +31,7 @@ export default function ArticleBindingsEditor({ blockType, props, onChange, cust
   return (
     <details className="rounded-lg border border-indigo-200 bg-indigo-50/50 p-3">
       <summary className="cursor-pointer text-xs font-semibold text-indigo-900">
-        Article Data Bindings
+        Content Data Bindings
         {Object.keys(bindings).length > 0 && (
           <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-700">
             {Object.keys(bindings).length} connected
@@ -42,7 +43,9 @@ export default function ArticleBindingsEditor({ blockType, props, onChange, cust
       </p>
       <div className="mt-3 space-y-3">
         {targets.map((target) => {
-          const fields = articleBindingFieldsForTarget(target.valueType, customFields);
+          const fields = bindingFields
+            ? bindingFieldsForTarget(target.valueType, bindingFields)
+            : articleBindingFieldsForTarget(target.valueType, customFields);
           return (
             <label key={target.key} className="block text-[11px] font-medium text-zinc-700">
               {target.label}

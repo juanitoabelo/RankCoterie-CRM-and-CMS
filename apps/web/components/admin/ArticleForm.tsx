@@ -9,6 +9,7 @@ import {
 import RichTextEditor from "./page-builder/RichTextEditor";
 import SeoFields, { DEFAULT_SEO_DATA, type SeoData } from "./SeoFields";
 import ImageUploader from "@/components/admin/ImageUploader";
+import CustomFieldsEditor from "@/components/admin/custom-fields/CustomFieldsEditor";
 
 export interface ArticleFormCategory {
   id: string;
@@ -198,6 +199,8 @@ export default function ArticleForm({
           />
         </div>
       </div>
+
+      <CustomFieldsEditor contentType="article" recordId={article?.id} />
 
       {/* SEO Section */}
       <div>

@@ -11,6 +11,7 @@ import { parseProductTemplateData, resolveProductTemplate } from "@/modules/prod
 import type { ProductTemplateProductData } from "@/lib/product-template/types";
 import { sanitizeHtml } from "@/lib/style-guide";
 import { getSinglePostSeo, loadSinglePost, SinglePost } from "@/app/(site)/components/SinglePost";
+import { CustomPostTypeArchiveContent, getCustomPostTypeArchive } from "@/app/(site)/components/CustomPostTypeArchive";
 import type { Block } from "@/lib/page-builder/types";
 import type { Metadata } from "next";
 
@@ -54,6 +55,15 @@ export async function generateMetadata({
         : description
           ? { title, description }
           : undefined,
+    };
+  }
+
+  const customPostType = await getCustomPostTypeArchive(slug);
+  if (customPostType) {
+    if (!customPostType.isPublic || !customPostType.hasArchive) return { title: "Page not found" };
+    return {
+      title: customPostType.archivesLabel || customPostType.pluralLabel || customPostType.name,
+      description: customPostType.description ?? undefined,
     };
   }
 
@@ -392,6 +402,12 @@ export default async function PublicPage({
       />
       </>
     );
+  }
+
+  const customPostType = await getCustomPostTypeArchive(slug);
+  if (customPostType) {
+    if (!customPostType.isPublic || !customPostType.hasArchive) notFound();
+    return <CustomPostTypeArchiveContent postType={customPostType} />;
   }
 
   // Fall back to finding a page by slug

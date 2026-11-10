@@ -166,7 +166,20 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
   } = props;
 
   const gridStyle = columnStyle(props);
-  const cardTemplate = data?.cardTemplate ?? DEFAULT_PRODUCT_CARD_TEMPLATE;
+  const [gridData, setGridData] = useState<GridResponse | null>(null);
+  const [activeCategory, setActiveCategory] = useState(categoryId);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [sortKey, setSortKey] = useState(
+    () => SORT_OPTIONS.find((o) => o.order === orderBy && o.sort === sortOrder)?.label ?? SORT_OPTIONS[0].label,
+  );
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [added, setAdded] = useState<Record<string, boolean>>({});
+  const [adding, setAdding] = useState<Record<string, boolean>>({});
+
+  const cardTemplate = gridData?.cardTemplate ?? DEFAULT_PRODUCT_CARD_TEMPLATE;
   const resolvedAddToCartLabel = addToCartLabel ?? cardTemplate.addToCartLabel;
   const resolvedQuickAddLabel = quickAddToCartLabel ?? cardTemplate.quickAddLabel;
   const showQuickAdd = (showQuickAddToCart ?? showAddToCart) && cardTemplate.showQuickAdd;
@@ -175,19 +188,6 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
     comfortable: "1.05rem",
     spacious: "1.375rem",
   }[cardTemplate.spacing];
-
-  const [activeCategory, setActiveCategory] = useState(categoryId);
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [sortKey, setSortKey] = useState(
-    () => SORT_OPTIONS.find((o) => o.order === orderBy && o.sort === sortOrder)?.label ?? SORT_OPTIONS[0].label,
-  );
-  const [data, setData] = useState<GridResponse | null>(null);
-  const [loadedKey, setLoadedKey] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [added, setAdded] = useState<Record<string, boolean>>({});
-  const [adding, setAdding] = useState<Record<string, boolean>>({});
 
   const gridRef = useRef<HTMLDivElement>(null);
   const wishlist = useSyncExternalStore(subscribeWishlist, readWishlist, () => EMPTY_WISHLIST);
@@ -220,7 +220,7 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
   ].join("|");
 
   const loading = loadedKey !== paramsKey;
-  const filtering = data !== null && loadedKey !== paramsKey;
+  const filtering = gridData !== null && loadedKey !== paramsKey;
 
   useEffect(() => {
     let cancelled = false;
@@ -245,7 +245,7 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
       })
       .then((json) => {
         if (cancelled) return;
-        setData(json);
+        setGridData(json);
         setError(null);
       })
       .catch((e) => {
@@ -283,7 +283,7 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
     );
     cards.forEach((card) => observer.observe(card));
     return () => observer.disconnect();
-  }, [data, cardAnimation, layout]);
+  }, [gridData, cardAnimation, layout]);
 
   const toggleWishlist = useCallback((id: string) => {
     const current = readWishlist();
@@ -322,7 +322,7 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
     [adding],
   );
 
-  const visibleCategories = data?.categories ?? [];
+  const visibleCategories = gridData?.categories ?? [];
   const gridClass = layout === "isotope" ? "pg-grid pg-grid-isotope" : "pg-grid";
 
   return (
@@ -334,9 +334,9 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
             {heading ? (
               <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">{heading}</h2>
             ) : null}
-            {showCount && data && (
+            {showCount && gridData && (
               <span className="text-sm text-zinc-500">
-                {data.total} product{data.total === 1 ? "" : "s"}
+                {gridData.total} product{gridData.total === 1 ? "" : "s"}
               </span>
             )}
           </div>
@@ -416,7 +416,7 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-6 text-sm text-red-700">
             {error}
           </div>
-        ) : loading && !data ? (
+        ) : loading && !gridData ? (
           <div className={gridClass} style={gridStyle}>
             {Array.from({ length: Math.min(productsPerPage, 9) }).map((_, i) => (
               <div key={i} className="pg-card pg-card-shadow pg-skeleton" aria-hidden>
@@ -429,14 +429,14 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
               </div>
             ))}
           </div>
-        ) : data && data.items.length > 0 ? (
+        ) : gridData && gridData.items.length > 0 ? (
           <div
             key={paramsKey}
             ref={gridRef}
             className={`${gridClass}${filtering ? " is-filtering" : ""}`}
             style={gridStyle}
           >
-            {data.items.map((item, index) => {
+            {gridData.items.map((item, index) => {
               const saved = wishlist.includes(item.id);
               const out = item.stockStatus === "OUT_OF_STOCK";
               const excerpt = item.excerpt
@@ -582,17 +582,17 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
           </div>
         )}
 
-        {showPagination && data && data.totalPages > 1 ? (
+        {showPagination && gridData && gridData.totalPages > 1 ? (
           <nav className="pg-pagination" aria-label="Product pages">
             <button
               type="button"
               className="pg-page-btn"
-              disabled={data.page <= 1}
-              onClick={() => setPage(data.page - 1)}
+              disabled={gridData.page <= 1}
+              onClick={() => setPage(gridData.page - 1)}
             >
               ← Prev
             </button>
-            {pageNumbers(data.page, data.totalPages).map((value, i) =>
+            {pageNumbers(gridData.page, gridData.totalPages).map((value, i) =>
               value === "…" ? (
                 <span key={`gap-${i}`} className="pg-page-gap">
                   …
@@ -601,8 +601,8 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
                 <button
                   key={value}
                   type="button"
-                  className={`pg-page-btn${value === data.page ? " is-active" : ""}`}
-                  aria-current={value === data.page ? "page" : undefined}
+                  className={`pg-page-btn${value === gridData.page ? " is-active" : ""}`}
+                  aria-current={value === gridData.page ? "page" : undefined}
                   onClick={() => setPage(value)}
                 >
                   {value}
@@ -612,8 +612,8 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
             <button
               type="button"
               className="pg-page-btn"
-              disabled={data.page >= data.totalPages}
-              onClick={() => setPage(data.page + 1)}
+              disabled={gridData.page >= gridData.totalPages}
+              onClick={() => setPage(gridData.page + 1)}
             >
               Next →
             </button>

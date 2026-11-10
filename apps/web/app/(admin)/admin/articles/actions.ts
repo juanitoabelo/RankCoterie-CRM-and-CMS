@@ -6,6 +6,7 @@ import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/modules/auth";
 import { TENANT_ID } from "@/modules/shared";
+import { saveCustomFieldValues } from "../custom-fields/actions";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -59,6 +60,12 @@ export async function createArticle(formData: FormData): Promise<ActionResult> {
         jsonSchema,
       },
     });
+    const customFields = await saveCustomFieldValues(
+      "article",
+      row.id,
+      String(formData.get("customFieldValues") ?? "{}"),
+    );
+    if (!customFields.ok) return customFields;
     await logAudit({
       action: "ARTICLE_CREATE",
       entity: "ContentTemplate",
@@ -127,6 +134,12 @@ export async function updateArticle(
       },
     });
     if (result.count === 0) return { ok: false, error: "Article not found." };
+    const customFields = await saveCustomFieldValues(
+      "article",
+      id,
+      String(formData.get("customFieldValues") ?? "{}"),
+    );
+    if (!customFields.ok) return customFields;
     await logAudit({
       action: "ARTICLE_UPDATE",
       entity: "ContentTemplate",

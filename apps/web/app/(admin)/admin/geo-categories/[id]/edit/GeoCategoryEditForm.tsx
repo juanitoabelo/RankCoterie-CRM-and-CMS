@@ -9,6 +9,7 @@ import ImageUploader from "@/components/admin/ImageUploader";
 import SeoFields, { type SeoData } from "@/components/admin/SeoFields";
 import GeoTemplateAssignmentCard from "@/components/admin/geo-category-template-builder/GeoTemplateAssignmentCard";
 import { assignGeoCategoryTemplateAction } from "@/app/(admin)/admin/geo-category-template/actions";
+import CustomFieldsEditor from "@/components/admin/custom-fields/CustomFieldsEditor";
 
 function parseKeywords(raw: string | null | undefined): string[] {
   if (!raw) return [];
@@ -189,6 +190,7 @@ export default function EditGeoCategoryForm({
       </div>
 
       <form action={onSubmit} className="mt-8 space-y-8">
+        <CustomFieldsEditor contentType="geo-category" recordId={category.id} />
         {message && (
           <p className={`text-sm ${message.ok ? "text-emerald-700" : "text-red-600"}`}>
             {message.ok ? "Saved." : message.error}

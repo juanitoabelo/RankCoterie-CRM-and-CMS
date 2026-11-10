@@ -3,6 +3,7 @@ import { prisma } from "@/modules/shared";
 import { requireSection } from "@/modules/auth";
 import { TENANT_ID } from "@/modules/shared";
 import SectionEditForm from "./SectionEditForm";
+import CustomFieldsPanel from "@/components/admin/custom-fields/CustomFieldsPanel";
 
 export const revalidate = 0;
 
@@ -19,5 +20,12 @@ export default async function SectionEditPage({
   });
   if (!section) return notFound();
 
-  return <SectionEditForm section={section} />;
+  return (
+    <div>
+      <SectionEditForm section={section} />
+      <div className="mx-auto mt-8 max-w-4xl">
+        <CustomFieldsPanel contentType="section" recordId={section.id} />
+      </div>
+    </div>
+  );
 }

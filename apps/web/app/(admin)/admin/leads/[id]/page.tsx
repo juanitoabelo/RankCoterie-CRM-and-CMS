@@ -10,6 +10,8 @@ import {
 } from "@/modules/leads";
 import { FlashBanner } from "@/components/admin/FlashBanner";
 import { IntakeSectionFields } from "@/components/admin/LeadIntakeFields";
+import { normalizeCustomFormFields } from "@/modules/custom-forms/types";
+import CustomFieldsPanel from "@/components/admin/custom-fields/CustomFieldsPanel";
 import {
   leadStatusForm,
   leadNoteForm,
@@ -44,7 +46,12 @@ export default async function AdminLeadDetailPage({
   const { error, ok } = await searchParams;
   const lead = await prisma.lead.findUnique({
     where: { id },
-    include: { notes: { orderBy: { createdAt: "desc" } }, todos: { orderBy: { createdAt: "asc" } }, client: { select: { id: true } } },
+    include: {
+      notes: { orderBy: { createdAt: "desc" } },
+      todos: { orderBy: { createdAt: "asc" } },
+      client: { select: { id: true } },
+      formSubmissions: { include: { form: { select: { name: true } } }, orderBy: { createdAt: "desc" } },
+    },
   });
   if (!lead) notFound();
 
@@ -78,7 +85,7 @@ export default async function AdminLeadDetailPage({
 
   const intake = (lead.intake ?? {}) as Record<string, unknown>;
   /** Keys not in the shared schema (legacy-migrated or custom) — shown read-only. */
-  const legacyOnlyKeys = Object.keys(intake).filter((k) => !LEAD_INTAKE_FIELD_MAP[k]);
+  const legacyOnlyKeys = Object.keys(intake).filter((k) => !LEAD_INTAKE_FIELD_MAP[k] && k !== "customFormData");
   const describeIntakeValue = (key: string) =>
     formatIntakeValue(
       { key, label: key, type: typeof intake[key] === "boolean" ? "yesno" : "text", section: "lead" },
@@ -104,6 +111,7 @@ export default async function AdminLeadDetailPage({
         ← Back to leads
       </Link>
       <FlashBanner error={error} ok={ok} />
+      <CustomFieldsPanel contentType="lead" recordId={lead.id} />
       <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-900">
@@ -255,6 +263,35 @@ export default async function AdminLeadDetailPage({
             </div>
           </dl>
         </section>
+
+        {lead.formSubmissions.length > 0 && (
+          <section className="rounded-xl border border-zinc-200 bg-white p-5">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">Custom form submissions</h2>
+            <div className="mt-3 space-y-4">
+              {lead.formSubmissions.map((submission) => {
+                const fields = normalizeCustomFormFields(submission.form.fields);
+                const values = submission.data && typeof submission.data === "object"
+                  ? submission.data as Record<string, unknown>
+                  : {};
+                return (
+                  <div key={submission.id} className="rounded-lg border border-zinc-200 p-4">
+                    <div className="flex flex-wrap justify-between gap-2">
+                      <h3 className="font-medium">{submission.form.name}</h3>
+                      <Link className="text-sm underline" href={`/admin/custom-advance-form/${submission.formId}/submissions/${submission.id}`}>Open submission</Link>
+                    </div>
+                    <p className="mt-1 text-xs text-zinc-500">{submission.createdAt.toLocaleString()} · {submission.status}</p>
+                    <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {fields.map((field) => <div key={field.key} className="text-sm">
+                        <dt className="text-xs text-zinc-500">{field.label}</dt>
+                        <dd className="whitespace-pre-wrap break-words">{String(values[field.key] ?? "—")}</dd>
+                      </div>)}
+                    </dl>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         <section className="rounded-xl border border-zinc-200 bg-white p-5">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">Clinical intake</h2>

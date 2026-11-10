@@ -1,5 +1,6 @@
 import { getCompany } from "./actions";
 import CompanyAccordion from "./company-accordion";
+import CustomFieldsPanel from "@/components/admin/custom-fields/CustomFieldsPanel";
 
 export const revalidate = 0;
 
@@ -42,6 +43,11 @@ export default async function MyCompanyAdminPage() {
           }}
         />
       </div>
+      {company && (
+        <div className="mt-8 max-w-2xl">
+          <CustomFieldsPanel contentType="company" recordId={company.id} />
+        </div>
+      )}
     </div>
   );
 }

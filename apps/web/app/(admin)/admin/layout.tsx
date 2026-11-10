@@ -125,6 +125,8 @@ const NAV_GROUPS: NavGroup[] = [
       { section: "headerFooter", href: "/admin/header-footer", label: "Header & Footer Builder" },
       { section: "general", href: "/admin/general", label: "General" },
       { section: "general", href: "/admin/email-settings", label: "Email Settings" },
+      { section: "general", href: "/admin/custom-advance-form", label: "Custom Advance Form" },
+      { section: "general", href: "/admin/custom-fields", label: "Custom Fields & Post Types" },
       { section: "reading", href: "/admin/reading", label: "Reading" },
       { section: "sitemap", href: "/admin/sitemap", label: "Sitemap" },
       { section: "themeSettings", href: "/admin/theme-settings", label: "Theme Settings" },

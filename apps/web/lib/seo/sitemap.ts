@@ -25,13 +25,14 @@ export type SitemapReport = {
  *
  * Homepage, every category, and every category × region SEO page
  * (gate-filtered — link set === index set === sitemap set), plus standalone
- * pages, published products, and LIVE articles with their region variants.
+ * pages, published products, LIVE articles with their region variants, and
+ * public custom post types and entries.
  * Region slugs are legacy DomainKeys (mixed case is canonical, e.g.
  * "San-Diego-California-CA").
  */
 export async function buildSitemapReport(): Promise<SitemapReport> {
   const repo = await getCatalogRepo();
-  const [categories, regions, products, articles, allRegions, pages] = await Promise.all([
+  const [categories, regions, products, articles, allRegions, pages, customPostTypes] = await Promise.all([
     repo.getCategories(),
     repo.getRegions(),
     prisma.product.findMany({
@@ -56,6 +57,21 @@ export async function buildSitemapReport(): Promise<SitemapReport> {
       select: { slug: true, updatedAt: true },
       orderBy: { updatedAt: "desc" },
       take: 5000,
+    }),
+    prisma.customPostType.findMany({
+      where: { tenantId: TENANT_ID, isPublic: true },
+      select: {
+        id: true,
+        slug: true,
+        rewriteSlug: true,
+        hasArchive: true,
+        posts: {
+          where: { tenantId: TENANT_ID, status: "PUBLISHED", robotsIndex: true },
+          select: { slug: true, updatedAt: true },
+          orderBy: { updatedAt: "desc" },
+          take: 5000,
+        },
+      },
     }),
   ]);
 
@@ -176,6 +192,30 @@ export async function buildSitemapReport(): Promise<SitemapReport> {
     });
   }
 
+  const customPostArchiveUrls: string[] = [];
+  const customPostUrls: string[] = [];
+  for (const postType of customPostTypes) {
+    if (postType.hasArchive) {
+      const archiveUrl = `${SITE_URL}/${postType.rewriteSlug || postType.slug}/`;
+      customPostArchiveUrls.push(archiveUrl);
+      entries.push({
+        url: archiveUrl,
+        changeFrequency: "weekly",
+        priority: 0.7,
+      });
+    }
+    for (const post of postType.posts) {
+      const postUrl = `${SITE_URL}/custom-post/${postType.slug}/${post.slug}`;
+      customPostUrls.push(postUrl);
+      entries.push({
+        url: postUrl,
+        lastModified: post.updatedAt,
+        changeFrequency: "weekly",
+        priority: 0.7,
+      });
+    }
+  }
+
   const groups: SitemapGroup[] = [
     { key: "home", label: "Homepage", urls: [`${SITE_URL}/`] },
     { key: "categories", label: "Categories", urls: categoryUrls },
@@ -186,6 +226,8 @@ export async function buildSitemapReport(): Promise<SitemapReport> {
     { key: "subtopics", label: "SubTopics", urls: subtopicUrls },
     { key: "articleRegions", label: "Article Region Variants", urls: articleRegionUrls },
     { key: "pages", label: "Standalone Pages", urls: pageUrls },
+    { key: "customPostArchives", label: "Custom Post Type Archives", urls: customPostArchiveUrls },
+    { key: "customPosts", label: "Custom Posts", urls: customPostUrls },
   ];
 
   return { siteUrl: SITE_URL, total: entries.length, groups, entries };

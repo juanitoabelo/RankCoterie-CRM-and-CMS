@@ -16,6 +16,7 @@ import {
 import ImageUploader from "@/components/admin/ImageUploader";
 import RichTextarea from "@/components/admin/RichTextarea";
 import GalleryImagesUploader from "@/components/admin/GalleryImagesUploader";
+import CustomFieldsEditor from "@/components/admin/custom-fields/CustomFieldsEditor";
 
 export interface ListingFormCategory {
   id: string;
@@ -746,6 +747,8 @@ export default function ListingForm({
           </div>
         </section>
       )}
+
+      {!ownerMode && <CustomFieldsEditor contentType="listing" recordId={listing?.id} />}
 
       <div className="flex flex-wrap gap-3 pt-4 border-t border-zinc-200">
         {!ownerMode && (

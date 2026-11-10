@@ -10,6 +10,7 @@ import {
   slugify,
   type ParsedRelations,
 } from "@/modules/ecommerce/product-form";
+import { saveCustomFieldValues } from "../custom-fields/actions";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -157,6 +158,12 @@ export async function createProduct(formData: FormData): Promise<ActionResult> {
           publishedAt: data.status === "PUBLISHED" ? now : null,
         },
       });
+      const customFields = await saveCustomFieldValues(
+        "product",
+        product.id,
+        String(formData.get("customFieldValues") ?? "{}"),
+      );
+      if (!customFields.ok) return fail(customFields.error);
       await syncProductRelations(tx, created.id, relations);
       return created;
     });
@@ -200,6 +207,12 @@ export async function updateProduct(id: string, formData: FormData): Promise<Act
           publishedAt: existing.publishedAt ?? (data.status === "PUBLISHED" ? new Date() : null),
         },
       });
+      const customFields = await saveCustomFieldValues(
+        "product",
+        existing.id,
+        String(formData.get("customFieldValues") ?? "{}"),
+      );
+      if (!customFields.ok) return fail(customFields.error);
       await syncProductRelations(tx, existing.id, relations);
     });
 

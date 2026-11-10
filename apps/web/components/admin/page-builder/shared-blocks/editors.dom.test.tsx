@@ -30,7 +30,7 @@ describe("shared block editors", () => {
   it(
     "renders an editor for every shared block type",
     async () => {
-      expect(SHARED_BLOCK_TYPES.length).toBe(30);
+      expect(SHARED_BLOCK_TYPES.length).toBe(31);
       for (const type of SHARED_BLOCK_TYPES) {
         await act(async () => {
           root.render(

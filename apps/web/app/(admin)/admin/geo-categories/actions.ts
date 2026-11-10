@@ -6,6 +6,7 @@ import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/modules/auth";
 import { TENANT_ID } from "@/modules/shared";
+import { saveCustomFieldValues } from "../custom-fields/actions";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -273,6 +274,12 @@ export async function createGeoCategory(formData: FormData): Promise<ActionResul
         ...parsedSeo.seo,
       },
     });
+    const customFields = await saveCustomFieldValues(
+      "geo-category",
+      row.id,
+      String(formData.get("customFieldValues") ?? "{}"),
+    );
+    if (!customFields.ok) return customFields;
 
     if (altRows.length) {
       await prisma.categoryRegionContent.createMany({
@@ -361,6 +368,12 @@ export async function updateGeoCategory(id: string, formData: FormData): Promise
       where: { id },
       data: { slug, title, description, stateInit, stateDesc, cityInit, cityDesc, ...parsedSeo.seo },
     });
+    const customFields = await saveCustomFieldValues(
+      "geo-category",
+      id,
+      String(formData.get("customFieldValues") ?? "{}"),
+    );
+    if (!customFields.ok) return customFields;
 
     const imageUpdates = [
       { position: "PRIMARY", assetId: parentImageAssetId },

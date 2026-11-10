@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createPage, type ActionResult } from "../actions";
+import CustomFieldsEditor from "@/components/admin/custom-fields/CustomFieldsEditor";
 
 const inputCls = "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm";
 const labelCls = "block text-sm font-medium text-zinc-800";
@@ -50,6 +51,8 @@ export default function NewPageForm() {
           </select>
         </div>
       </div>
+
+      <CustomFieldsEditor contentType="page" />
 
       <button
         type="submit"

@@ -985,6 +985,17 @@ export interface LeadFormBlock extends BlockBase {
   };
 }
 
+export interface CustomAdvanceFormBlock extends BlockBase {
+  type: "customAdvanceForm";
+  props: {
+    formId: string;
+    heading: string;
+    submitLabel: string;
+    successMessage: string;
+    style?: StyleBreakpoints;
+  };
+}
+
 export interface StatsBlock extends BlockBase {
   type: "stats";
   props: {
@@ -1333,6 +1344,7 @@ export type Block =
   | ListingApplyFormBlock
   | PricingBlock
   | LeadFormBlock
+  | CustomAdvanceFormBlock
   | StatsBlock
   | LogosBlock
   | TabsBlock
@@ -1411,6 +1423,7 @@ export const LEAF_BLOCK_TYPES: BlockType[] = [
   "listingApplyForm",
   "pricing",
   "leadForm",
+  "customAdvanceForm",
   "stats",
   "logos",
   "tabs",
@@ -1445,6 +1458,7 @@ export const LEAF_BLOCK_TYPES: BlockType[] = [
 export const SHARED_BLOCK_TYPES: BlockType[] = [
   "pricing",
   "leadForm",
+  "customAdvanceForm",
   "stats",
   "logos",
   "tabs",
@@ -2171,6 +2185,18 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
       showMessage: true,
       submitLabel: "Send message",
       successMessage: "Thanks! We will be in touch soon.",
+      style: {},
+    },
+  },
+  {
+    type: "customAdvanceForm",
+    label: "Advanced Form",
+    icon: "📋",
+    defaults: {
+      formId: "",
+      heading: "",
+      submitLabel: "Submit",
+      successMessage: "Thanks! Your response has been submitted.",
       style: {},
     },
   },

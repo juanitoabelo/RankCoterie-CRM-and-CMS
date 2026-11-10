@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getRegion } from "../../actions";
 import RegionEditForm from "./RegionEditForm";
+import CustomFieldsPanel from "@/components/admin/custom-fields/CustomFieldsPanel";
 
 export const revalidate = 0;
 
@@ -27,6 +28,9 @@ export default async function RegionEditPage({
       </div>
 
       <RegionEditForm region={region} />
+      <div className="mt-8">
+        <CustomFieldsPanel contentType="region" recordId={region.id} />
+      </div>
     </div>
   );
 }

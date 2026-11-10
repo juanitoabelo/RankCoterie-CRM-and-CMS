@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 import { prisma, TENANT_ID } from "@/modules/shared";
 import { requireSection } from "@/modules/auth";
 import { logAudit } from "@/lib/audit";
+import { saveCustomFieldValues } from "../custom-fields/actions";
 import { createInvoicePaymentLink, deactivateInvoicePaymentLink } from "@/lib/billing/client-payments";
 import { activateListingFromInvoice } from "@/lib/billing/listing-activation";
 import { sendInvoicePaymentEmail } from "@/lib/email/invoices";
@@ -195,6 +196,12 @@ export async function createCompanyListing(fd: FormData): Promise<ActionResult> 
       });
       await setMemberships(tx, id, parsed);
     });
+    const customFields = await saveCustomFieldValues(
+      "company-listing",
+      id,
+      String(fd.get("customFieldValues") ?? "{}"),
+    );
+    if (!customFields.ok) return customFields;
     await logAudit({
       actorId: actor.id,
       action: "LISTING_CREATE",
@@ -256,6 +263,12 @@ export async function updateCompanyListing(id: string, fd: FormData): Promise<Ac
       });
       await setMemberships(tx, id, parsed);
     });
+    const customFields = await saveCustomFieldValues(
+      "company-listing",
+      id,
+      String(fd.get("customFieldValues") ?? "{}"),
+    );
+    if (!customFields.ok) return customFields;
     await logAudit({
       actorId: actor.id,
       action: "LISTING_UPDATE",

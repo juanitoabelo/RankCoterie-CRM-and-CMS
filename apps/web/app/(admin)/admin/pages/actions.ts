@@ -5,6 +5,7 @@ import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { TENANT_ID } from "@/modules/shared";
 import { requireSection } from "@/modules/auth";
+import { saveCustomFieldValues } from "../custom-fields/actions";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -29,6 +30,12 @@ export async function createPage(formData: FormData): Promise<ActionResult> {
         data: "[]",
       },
     });
+    const customFields = await saveCustomFieldValues(
+      "page",
+      row.id,
+      String(formData.get("customFieldValues") ?? "{}"),
+    );
+    if (!customFields.ok) return customFields;
     await logAudit({
       action: "PAGE_CREATE",
       entity: "Page",
@@ -191,6 +198,12 @@ export async function updatePageMeta(
         jsonSchema,
       },
     });
+    const customFields = await saveCustomFieldValues(
+      "page",
+      pageId,
+      String(formData.get("customFieldValues") ?? "{}"),
+    );
+    if (!customFields.ok) return customFields;
     await logAudit({
       action: "PAGE_UPDATE",
       entity: "Page",

@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/modules/auth";
 import { sanitizeHtml } from "@/lib/style-guide";
 import { TENANT_ID } from "@/modules/shared";
+import { saveCustomFieldValues } from "../custom-fields/actions";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -123,7 +124,7 @@ export async function createSubTopic(formData: FormData): Promise<ActionResult> 
     const existing = await prisma.contentTemplate.findFirst({ where: { tenantId: TENANT_ID, slug } });
     if (existing) return { ok: false, error: "A subtopic with that slug already exists." };
 
-    await prisma.contentTemplate.create({
+    const subtopic = await prisma.contentTemplate.create({
       data: {
         tenantId: TENANT_ID,
         title,
@@ -135,6 +136,12 @@ export async function createSubTopic(formData: FormData): Promise<ActionResult> 
         status: "DRAFT",
       },
     });
+    const customFields = await saveCustomFieldValues(
+      "subtopic",
+      subtopic.id,
+      String(formData.get("customFieldValues") ?? "{}"),
+    );
+    if (!customFields.ok) return customFields;
     await logAudit({ action: "TEMPLATE_CREATE", entity: "ContentTemplate", entityId: slug, meta: { slug, title }, actorId: actor.id });
     revalidatePath("/admin/templates");
     revalidatePath(`/subtopic/${slug}`);
@@ -193,6 +200,12 @@ export async function updateSubTopic(id: string, formData: FormData): Promise<Ac
         ...(status ? { status } : {}),
       },
     });
+    const customFields = await saveCustomFieldValues(
+      "subtopic",
+      id,
+      String(formData.get("customFieldValues") ?? "{}"),
+    );
+    if (!customFields.ok) return customFields;
 
     await logAudit({ action: "TEMPLATE_UPDATE", entity: "ContentTemplate", entityId: id, meta: { slug, title }, actorId: actor.id });
     revalidatePath("/admin/templates");

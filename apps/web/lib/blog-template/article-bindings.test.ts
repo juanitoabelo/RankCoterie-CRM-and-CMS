@@ -20,6 +20,9 @@ const ARTICLE: ArticleBindingData = {
 describe("article template bindings", () => {
   it("resolves safe article paths, including nested and custom fields", () => {
     expect(resolveArticleBindingValue(ARTICLE, "category.title")).toBe("News");
+    expect(resolveArticleBindingValue({ ...ARTICLE, articleUrl: "/custom-post/case-studies/new-case" }, "articleUrl"))
+      .toBe("/custom-post/case-studies/new-case");
+    expect(resolveArticleBindingValue(ARTICLE, "articleUrl")).toBe("/dynamic-title");
     expect(resolveArticleBindingValue(ARTICLE, "featuredImage")).toBe("/api/assets/featured-asset");
     expect(resolveArticleBindingValue(ARTICLE, "customFields.subtitle")).toBe("Custom subtitle");
     expect(resolveArticleBindingValue(ARTICLE, "customFields.missing")).toBeNull();

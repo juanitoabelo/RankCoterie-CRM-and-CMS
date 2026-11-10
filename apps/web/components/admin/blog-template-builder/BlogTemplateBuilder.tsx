@@ -45,6 +45,7 @@ import {
 } from "@/lib/page-builder/tree";
 import type { BlogTemplateRevisionRow } from "@/modules/blog-template";
 import type { ArticlePreviewData } from "@/lib/blog-template/article-bindings";
+import type { ArticleBindingField } from "@/lib/blog-template/article-bindings";
 import { innermostPointerWithin } from "@/lib/page-builder/collision";
 import BlogTemplateCanvas from "./BlogTemplateCanvas";
 import BlogTemplateVisualPreview from "./BlogTemplateVisualPreview";
@@ -61,6 +62,8 @@ interface Props {
   templateId: string;
   templateName: string;
   templateType: "listing" | "single";
+  templateContextLabel?: string;
+  assignmentDescription?: string;
   initialBlocks: Block[];
   initialContainerSettings?: ContainerSettings;
   isDefault: boolean;
@@ -71,6 +74,7 @@ interface Props {
     priority: number;
   }>;
   previewArticles?: ArticlePreviewData[];
+  bindingFields?: ArticleBindingField[];
   themeColors?: Array<{ key: string; label: string; color: string }>;
   onSave: (
     id: string,
@@ -96,11 +100,14 @@ export default function BlogTemplateBuilder({
   templateId,
   templateName,
   templateType,
+  templateContextLabel,
+  assignmentDescription,
   initialBlocks,
   initialContainerSettings,
   isDefault,
   initialAssignments,
   previewArticles = [],
+  bindingFields,
   themeColors,
   onSave,
   onListRevisions,
@@ -469,7 +476,7 @@ export default function BlogTemplateBuilder({
       {/* ── TOOLBAR ──────────────────────────────────────────────── */}
       <div className="mb-4 flex items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-2">
         <span className="text-sm font-medium text-zinc-700">
-          {templateType === "listing" ? "📄 Blog Template (Listing)" : "📄 Blog Template (Single)"}
+          {templateContextLabel ?? (templateType === "listing" ? "📄 Blog Template (Listing)" : "📄 Blog Template (Single)")}
         </span>
         <span className="text-sm text-zinc-900">{templateName}</span>
 
@@ -600,6 +607,7 @@ export default function BlogTemplateBuilder({
                         blockType="column"
                         props={selectedCol as unknown as Record<string, unknown>}
                         onChange={(props) => updateColumn(selectedColumnId, props)}
+                        bindingFields={bindingFields}
                       />
                     </div>
                   )}
@@ -631,6 +639,7 @@ export default function BlogTemplateBuilder({
                 onUpdateColumn={updateColumn}
                 onAddToColumn={addBlockToColumn}
                 allowArticleBindings={templateType === "single"}
+                bindingFields={bindingFields}
                 themeColors={themeColors}
               />
             )}
@@ -652,7 +661,7 @@ export default function BlogTemplateBuilder({
                       : "No assignments configured."}
                   </p>
                   <p className="mt-2 text-[11px] text-zinc-400">
-                    Assign via the page edit screen or page type settings.
+                    {assignmentDescription ?? "Assign via the page edit screen or page type settings."}
                   </p>
                 </div>
               )}

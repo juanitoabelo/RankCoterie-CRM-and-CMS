@@ -12,6 +12,7 @@ import RichTextarea from "@/components/admin/RichTextarea";
 import ImageUploader from "@/components/admin/ImageUploader";
 import WordCounter from "@/components/admin/WordCounter";
 import ContentPageTemplateAssignmentCard from "@/components/admin/content-page-template-builder/ContentPageTemplateAssignmentCard";
+import CustomFieldsEditor from "@/components/admin/custom-fields/CustomFieldsEditor";
 
 interface TopicImage {
   id: string;
@@ -123,6 +124,7 @@ export default function TopicEditForm({
         )}
         <input type="hidden" name="id" value={category.id} />
         <input type="hidden" name="slug" value={category.slug} />
+        <CustomFieldsEditor contentType="topic" recordId={category.id} />
 
         {/* Topic Page URL */}
         <div className="rounded-xl border border-zinc-200 bg-white p-5">

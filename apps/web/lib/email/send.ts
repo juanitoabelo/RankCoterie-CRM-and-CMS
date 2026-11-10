@@ -35,6 +35,8 @@ export type EmailInput = {
   subject: string;
   html: string;
   text?: string;
+  from?: string;
+  replyTo?: string;
 };
 
 export type SendEmailResult = {
@@ -135,11 +137,12 @@ async function tryResend(cfg: EmailProviderSettings, input: EmailInput): Promise
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: cfg.from || "Rank Coterie <onboarding@resend.dev>",
+        from: input.from || cfg.from || "Rank Coterie <onboarding@resend.dev>",
         to: [input.to],
         subject: input.subject,
         html: input.html,
         text: input.text,
+        reply_to: input.replyTo,
       }),
       cache: "no-store",
     });
@@ -156,7 +159,7 @@ async function tryResend(cfg: EmailProviderSettings, input: EmailInput): Promise
 
 async function tryBrevo(cfg: EmailProviderSettings, input: EmailInput): Promise<TransportResult> {
   if (!cfg.apiKey) return { ok: false, error: "no API key" };
-  const parsed = cfg.from ? parseFrom(cfg.from) : null;
+  const parsed = input.from || cfg.from ? parseFrom(input.from || cfg.from) : null;
   try {
     const res = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
@@ -170,6 +173,7 @@ async function tryBrevo(cfg: EmailProviderSettings, input: EmailInput): Promise<
         subject: input.subject,
         htmlContent: input.html,
         textContent: input.text,
+        replyTo: input.replyTo ? { email: input.replyTo } : undefined,
       }),
       cache: "no-store",
     });
@@ -195,7 +199,8 @@ async function trySmtp(cfg: EmailProviderSettings, input: EmailInput): Promise<T
       auth: cfg.pass ? { user: cfg.user, pass: cfg.pass } : undefined,
     });
     await transport.sendMail({
-      from: cfg.from || cfg.user,
+      from: input.from || cfg.from || cfg.user,
+      replyTo: input.replyTo,
       to: input.to,
       subject: input.subject,
       html: input.html,

@@ -7,6 +7,7 @@ import ImageUploader from "@/components/admin/ImageUploader";
 import RichTextarea from "@/components/admin/RichTextarea";
 import RegionPicker, { type PickerRegion } from "@/components/regions/RegionPicker";
 import { createCompanyListing, updateCompanyListing } from "../actions";
+import CustomFieldsEditor from "@/components/admin/custom-fields/CustomFieldsEditor";
 
 const labelCls = "block text-sm font-medium text-zinc-700";
 const inputCls =
@@ -574,6 +575,8 @@ export default function CompanyListingForm({
           Topics are shared with the GeoCategory widgets above — both manage the same selection.
         </p>
       </section>
+
+      <CustomFieldsEditor contentType="company-listing" recordId={listing?.id} />
 
       <div className="flex items-center gap-3 border-t border-zinc-200 pt-4">
         <button

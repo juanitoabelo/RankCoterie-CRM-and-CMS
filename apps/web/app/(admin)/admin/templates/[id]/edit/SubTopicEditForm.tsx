@@ -12,6 +12,7 @@ import RichTextarea from "@/components/admin/RichTextarea";
 import ImageUploader from "@/components/admin/ImageUploader";
 import WordCounter from "@/components/admin/WordCounter";
 import ContentPageTemplateAssignmentCard from "@/components/admin/content-page-template-builder/ContentPageTemplateAssignmentCard";
+import CustomFieldsEditor from "@/components/admin/custom-fields/CustomFieldsEditor";
 
 interface SubTopic {
   id: string;
@@ -159,6 +160,7 @@ export default function SubTopicEditForm({
       </div>
 
       <form action={onSubmit} className="mt-8 space-y-6">
+        <CustomFieldsEditor contentType="subtopic" recordId={subtopic.id} />
         {message && (
           <p className={`text-sm ${message.ok ? "text-emerald-700" : "text-red-600"}`}>
             {message.ok ? "Saved." : message.error}

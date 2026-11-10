@@ -19,6 +19,8 @@ export interface ArticleCustomFieldDefinition {
 export interface ArticleBindingData {
   title?: string | null;
   slug?: string | null;
+  excerpt?: string | null;
+  articleUrl?: string | null;
   body?: string | null;
   metaDesc?: string | null;
   seoTitle?: string | null;
@@ -30,7 +32,7 @@ export interface ArticleBindingData {
   featuredImageAlt?: string | null;
   featuredImageCaption?: string | null;
   ogImage?: string | null;
-  category?: { title?: string | null; slug?: string | null } | null;
+  category?: { title?: string | null; name?: string | null; slug?: string | null } | null;
   customFields?: Record<string, unknown>;
 }
 
@@ -51,6 +53,7 @@ export interface ArticleBlockBindings {
 export const ARTICLE_BINDING_FIELDS: ArticleBindingField[] = [
   { key: "title", label: "Article title", valueType: "text" },
   { key: "body", label: "Article body", valueType: "richText" },
+  { key: "excerpt", label: "Excerpt", valueType: "richText" },
   { key: "metaDesc", label: "Meta description", valueType: "text" },
   { key: "seoTitle", label: "SEO title", valueType: "text" },
   { key: "focusKeyphrase", label: "Focus keyphrase", valueType: "text" },
@@ -214,9 +217,24 @@ export function articleBindingFieldsForTarget(
   );
 }
 
+export function bindingFieldsForTarget(
+  targetType: ArticleBindingValueType,
+  fields: ArticleBindingField[],
+): ArticleBindingField[] {
+  return fields.filter((field) =>
+    targetType === "richText"
+      ? field.valueType !== "image"
+      : targetType === "url"
+        ? field.valueType === "url" || field.valueType === "text"
+        : targetType === "text"
+          ? field.valueType !== "image" && field.valueType !== "richText"
+        : field.valueType === targetType,
+  );
+}
+
 export function resolveArticleBindingValue(article: ArticleBindingData, fieldPath: string): string | null {
   if (fieldPath === "articleUrl") {
-    return article.slug ? `/${article.slug}` : null;
+    return article.articleUrl || (article.slug ? `/${article.slug}` : null);
   }
   const value = fieldPath.split(".").reduce<unknown>((current, key) => {
     if (!current || typeof current !== "object" || key === "__proto__" || key === "prototype" || key === "constructor") {
@@ -228,6 +246,18 @@ export function resolveArticleBindingValue(article: ArticleBindingData, fieldPat
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.toISOString();
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    const items = value.filter((item): item is string | number | boolean =>
+      typeof item === "string" || typeof item === "number" || typeof item === "boolean",
+    );
+    return items.length > 0 ? items.map(String).join(", ") : null;
+  }
+  if (value && typeof value === "object" && fieldPath.startsWith("customFields.")) {
+    const record = value as Record<string, unknown>;
+    for (const key of ["url", "title", "name", "label", "value"]) {
+      if (typeof record[key] === "string") return record[key];
+    }
+  }
   return null;
 }
 

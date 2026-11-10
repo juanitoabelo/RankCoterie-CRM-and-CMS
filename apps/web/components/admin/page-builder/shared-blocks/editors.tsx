@@ -249,6 +249,42 @@ function LeadFormEditor(props: SharedEditorProps) {
   );
 }
 
+function CustomAdvanceFormEditor(props: SharedEditorProps) {
+  const { p, set } = useEditor(props);
+  const [forms, setForms] = useState<Array<{ id: string; name: string }>>([]);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    fetch("/api/custom-advance-form")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not load published forms.");
+        return response.json();
+      })
+      .then((data: { forms?: Array<{ id: string; name: string }> }) => {
+        if (active) setForms(Array.isArray(data.forms) ? data.forms : []);
+      })
+      .catch((cause: unknown) => {
+        if (active) setError(cause instanceof Error ? cause.message : "Could not load published forms.");
+      });
+    return () => { active = false; };
+  }, []);
+  return (
+    <div className="space-y-3">
+      <SelectInput
+        label="Published custom form"
+        value={String(p.formId ?? "")}
+        options={[{ value: "", label: "Select a form" }, ...forms.map((form) => ({ value: form.id, label: form.name }))]}
+        onChange={(value) => set({ formId: String(value) })}
+      />
+      {error && <p role="alert" className="text-xs text-red-700">{error}</p>}
+      {!forms.length && !error && <p className="text-xs text-zinc-500">Publish a custom form first to make it available here.</p>}
+      <TextInput label="Heading (optional)" value={String(p.heading ?? "")} onChange={(value) => set({ heading: value })} />
+      <TextInput label="Submit button label" value={String(p.submitLabel ?? "Submit")} onChange={(value) => set({ submitLabel: value })} />
+      <TextInput label="Success message" value={String(p.successMessage ?? "")} onChange={(value) => set({ successMessage: value })} />
+    </div>
+  );
+}
+
 /* ── Stats ─────────────────────────────────────────────────────────────────── */
 
 function StatsEditor(props: SharedEditorProps) {
@@ -836,6 +872,7 @@ function TeamEditor(props: SharedEditorProps) {
 export const SHARED_EDITORS: Record<string, React.ComponentType<SharedEditorProps>> = {
   pricing: PricingEditor,
   leadForm: LeadFormEditor,
+  customAdvanceForm: CustomAdvanceFormEditor,
   stats: StatsEditor,
   logos: LogosEditor,
   tabs: TabsEditor,

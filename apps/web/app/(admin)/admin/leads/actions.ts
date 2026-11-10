@@ -12,6 +12,7 @@ import {
   LEAD_INTAKE_FIELD_MAP,
   parseIntakeValue,
 } from "@/modules/leads";
+import { saveCustomFieldValues } from "../custom-fields/actions";
 
 export type ActionResult = { ok: boolean; error?: string; message?: string; id?: string };
 
@@ -671,6 +672,12 @@ export async function leadAddForm(formData: FormData): Promise<void> {
   });
   if (!result.ok) newLeadError(result.error ?? "Could not create lead.");
   if (!result.id) newLeadError("Could not create lead.");
+  const customFields = await saveCustomFieldValues(
+    "lead",
+    result.id,
+    String(formData.get("customFieldValues") ?? "{}"),
+  );
+  if (!customFields.ok) newLeadError(customFields.error ?? "Could not save custom fields.");
   redirect(`/admin/leads/${result.id}?ok=${encodeURIComponent("Lead created.")}`);
 }
 

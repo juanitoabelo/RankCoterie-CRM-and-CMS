@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createSubTopic, type ActionResult } from "../actions";
 import RichTextarea from "@/components/admin/RichTextarea";
 import WordCounter from "@/components/admin/WordCounter";
+import CustomFieldsEditor from "@/components/admin/custom-fields/CustomFieldsEditor";
 
 interface TopicOption {
   id: string;
@@ -57,6 +58,8 @@ export default function NewSubTopicForm({
           className="mt-2 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
         />
       </div>
+
+      <CustomFieldsEditor contentType="subtopic" />
 
       <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-4">
         <label className="block text-sm font-medium text-zinc-800">New SubTopic Content</label>

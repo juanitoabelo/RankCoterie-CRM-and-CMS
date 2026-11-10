@@ -5,6 +5,7 @@ import { LEAD_DISPOSITIONS, LEAD_INTAKE_SECTIONS } from "@/modules/leads";
 import { FlashBanner } from "@/components/admin/FlashBanner";
 import { IntakeSectionFields } from "@/components/admin/LeadIntakeFields";
 import { leadAddForm } from "../actions";
+import CustomFieldsEditor from "@/components/admin/custom-fields/CustomFieldsEditor";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -170,6 +171,8 @@ export default async function AdminLeadNewPage({
             </div>
           </details>
         ))}
+
+        <CustomFieldsEditor contentType="lead" />
 
         <p className="text-xs text-zinc-400">First or last name is required.</p>
         <div className="flex gap-2">

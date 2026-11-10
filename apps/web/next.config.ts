@@ -37,17 +37,10 @@ const nextConfig: NextConfig = {
     },
   },
   async headers() {
-    return [
+    const configuredHeaders = [
       {
         source: "/:path*",
         headers: securityHeaders,
-      },
-      {
-        // Fingerprinted build assets — never revalidate.
-        source: "/_next/static/:path*",
-        headers: [
-          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
-        ],
       },
       {
         // Public media (icons, images, fonts) — long cache, but revalidable so
@@ -61,6 +54,18 @@ const nextConfig: NextConfig = {
         ],
       },
     ];
+
+    if (process.env.NODE_ENV === "production") {
+      configuredHeaders.push({
+        // Fingerprinted production assets — never revalidate.
+        source: "/_next/static/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      });
+    }
+
+    return configuredHeaders;
   },
 };
 

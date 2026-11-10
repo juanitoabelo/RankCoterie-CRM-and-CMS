@@ -68,7 +68,7 @@ export function serializeBlogTemplateData(
 /** List all blog template templates for the current tenant, optionally filtered by type. */
 export async function listBlogTemplates(type?: "listing" | "single"): Promise<BlogTemplateRow[]> {
   return prisma.blogTemplate.findMany({
-    where: { tenantId: TENANT_ID, ...(type ? { type } : {}) },
+    where: { tenantId: TENANT_ID, customPostTypeId: null, ...(type ? { type } : {}) },
     orderBy: [{ isDefault: "desc" }, { name: "asc" }],
   }) as Promise<BlogTemplateRow[]>;
 }
@@ -118,12 +118,12 @@ export async function updateBlogTemplateMeta(
 
 /** Set a template as the default for its type, clearing other defaults of the same type. */
 export async function setDefaultBlogTemplate(id: string): Promise<void> {
-  const template = await prisma.blogTemplate.findUnique({ where: { id } });
+  const template = await prisma.blogTemplate.findFirst({ where: { id, tenantId: TENANT_ID, customPostTypeId: null } });
   if (!template) return;
 
   await prisma.$transaction([
     prisma.blogTemplate.updateMany({
-      where: { tenantId: TENANT_ID, type: template.type, isDefault: true },
+      where: { tenantId: TENANT_ID, type: template.type, customPostTypeId: null, isDefault: true },
       data: { isDefault: false },
     }),
     prisma.blogTemplate.update({
@@ -197,7 +197,7 @@ export async function resolveBlogTemplate(
       where: {
         tenantId: TENANT_ID,
         pageId: context.pageId,
-        blogTemplate: { type },
+        blogTemplate: { type, customPostTypeId: null },
       },
       include: { blogTemplate: true },
       orderBy: { priority: "desc" },
@@ -213,7 +213,7 @@ export async function resolveBlogTemplate(
       where: {
         tenantId: TENANT_ID,
         pageType: context.pageType,
-        blogTemplate: { type },
+        blogTemplate: { type, customPostTypeId: null },
       },
       include: { blogTemplate: true },
       orderBy: { priority: "desc" },
@@ -229,7 +229,7 @@ export async function resolveBlogTemplate(
       where: {
         tenantId: TENANT_ID,
         pageId: context.pathname,
-        blogTemplate: { type },
+        blogTemplate: { type, customPostTypeId: null },
       },
       include: { blogTemplate: true },
       orderBy: { priority: "desc" },
@@ -241,7 +241,7 @@ export async function resolveBlogTemplate(
 
   // 4. Fall back to global default for this type
   const defaultTemplate = await prisma.blogTemplate.findFirst({
-    where: { tenantId: TENANT_ID, type, isDefault: true },
+    where: { tenantId: TENANT_ID, type, customPostTypeId: null, isDefault: true },
   });
   return defaultTemplate as BlogTemplateRow | null;
 }

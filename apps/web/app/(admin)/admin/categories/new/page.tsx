@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createCategory, type ActionResult } from "../actions";
 import RichTextarea from "@/components/admin/RichTextarea";
 import WordCounter from "@/components/admin/WordCounter";
+import CustomFieldsEditor from "@/components/admin/custom-fields/CustomFieldsEditor";
 
 export default function NewTopicPage() {
   const router = useRouter();
@@ -70,6 +71,8 @@ export default function NewTopicPage() {
             placeholder="Write your topic content..."
           />
         </div>
+
+        <CustomFieldsEditor contentType="topic" />
 
         <button
           type="submit"

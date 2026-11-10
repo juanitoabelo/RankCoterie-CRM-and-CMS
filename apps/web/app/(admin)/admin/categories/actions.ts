@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/modules/auth";
 import { sanitizeHtml } from "@/lib/style-guide";
 import { TENANT_ID } from "@/modules/shared";
+import { saveCustomFieldValues } from "../custom-fields/actions";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -108,7 +109,7 @@ export async function createCategory(formData: FormData): Promise<ActionResult> 
     const existing = await prisma.category.findFirst({ where: { tenantId: TENANT_ID, slug } });
     if (existing) return { ok: false, error: "A topic with that slug already exists." };
 
-    await prisma.category.create({
+    const category = await prisma.category.create({
       data: {
         tenantId: TENANT_ID,
         slug,
@@ -119,6 +120,12 @@ export async function createCategory(formData: FormData): Promise<ActionResult> 
         status: "LIVE",
       },
     });
+    const customFields = await saveCustomFieldValues(
+      "topic",
+      category.id,
+      String(formData.get("customFieldValues") ?? "{}"),
+    );
+    if (!customFields.ok) return customFields;
     await logAudit({ action: "CATEGORY_CREATE", entity: "Category", entityId: slug, meta: { slug, title }, actorId: actor.id });
     revalidatePath("/admin/categories");
     revalidatePath(`/topic/${slug}`);
@@ -183,6 +190,12 @@ export async function updateCategory(id: string, formData: FormData): Promise<Ac
         ...(sections !== undefined ? { sections } : {}),
       },
     });
+    const customFields = await saveCustomFieldValues(
+      "topic",
+      id,
+      String(formData.get("customFieldValues") ?? "{}"),
+    );
+    if (!customFields.ok) return customFields;
 
     // Persist the featured (PRIMARY) image when the form supplies one.
     if (featuredImageAssetId) {

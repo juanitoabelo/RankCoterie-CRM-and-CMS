@@ -63,4 +63,25 @@ describe("ArticleBindingsEditor", () => {
     const select = container.querySelector<HTMLSelectElement>('select[aria-label="Article data for Background image"]');
     expect(select?.querySelector('option[value="featuredImage"]')?.textContent).toBe("Featured image");
   });
+
+  it("uses the supplied post-type fields instead of the general article field list", async () => {
+    await act(async () => {
+      root?.render(
+        <ArticleBindingsEditor
+          blockType="text"
+          props={{ content: "" }}
+          bindingFields={[
+            { key: "customFields.subtitle", label: "Subtitle", valueType: "richText" },
+            { key: "customFields.releaseDate", label: "Release date", valueType: "date" },
+          ]}
+          onChange={() => {}}
+        />,
+      );
+    });
+
+    const select = container.querySelector<HTMLSelectElement>('select[aria-label="Article data for Content"]');
+    expect(select?.querySelector('option[value="customFields.subtitle"]')?.textContent).toBe("Subtitle");
+    expect(select?.querySelector('option[value="customFields.releaseDate"]')?.textContent).toBe("Release date");
+    expect(select?.querySelector('option[value="body"]')).toBeNull();
+  });
 });

@@ -7,6 +7,7 @@ import { createGeoCategory, type ActionResult } from "../actions";
 import RichTextarea from "@/components/admin/RichTextarea";
 import ImageUploader from "@/components/admin/ImageUploader";
 import SeoFields, { DEFAULT_SEO_DATA, type SeoData } from "@/components/admin/SeoFields";
+import CustomFieldsEditor from "@/components/admin/custom-fields/CustomFieldsEditor";
 
 const inputCls = "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm";
 
@@ -80,6 +81,7 @@ export default function NewGeoCategoryForm({
       <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Add New GeoCategory</h1>
 
       <form action={onSubmit} className="mt-8 space-y-8">
+        <CustomFieldsEditor contentType="geo-category" />
         {message && (
           <p className={`text-sm ${message.ok ? "text-emerald-700" : "text-red-600"}`}>
             {message.ok ? "Created." : message.error}

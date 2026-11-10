@@ -60,6 +60,7 @@ model User {
   active      Boolean  @default(true)
   roles       UserRole[] // replaces tblUserPermissions
   createdAt   DateTime @default(now())
+  customPostsAuthored CustomPost[] @relation("CustomPostAuthor")
   // E-commerce relations
   vendorProducts         Product[]        @relation("ProductVendor")
   ordersAsCustomer       Order[]          @relation("OrderCustomer")
@@ -167,6 +168,7 @@ model Category {
   contentSections Section[]
   images CategoryImage[]
   featuredPlacements FeaturedPlacement[]
+  customPosts CustomPost[]
   @@unique([tenantId, slug])
   // Admin topic/geo-category lists: tenant filter + title ordering.
   @@index([tenantId, title])
@@ -668,7 +670,41 @@ model Lead {
   todos         ToDo[]
   client        Client?
   listingLeads  ListingLead[]
+  formSubmissions CustomFormSubmission[]
   @@index([tenantId, status])
+}
+
+model CustomForm {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  status    String   @default("DRAFT")
+  fields    Json     @default("[]")
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  submissions CustomFormSubmission[]
+  @@unique([tenantId, name])
+  @@index([tenantId, status])
+}
+
+model CustomFormSubmission {
+  id        String   @id @default(cuid())
+  tenantId  String
+  formId    String
+  form      CustomForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+  data      Json
+  status    String   @default("NEW")
+  leadId    String?
+  lead      Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  reply     String?
+  repliedAt DateTime?
+  notificationError String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([tenantId, formId, createdAt])
+  @@index([tenantId, status])
+  @@index([leadId])
 }
 
 model LeadNote {
@@ -816,6 +852,144 @@ model PageRevision {
   @@index([pageId, createdAt])
 }
 
+model CustomFieldGroup {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  contentTypes String[] @default([])
+  fields      Json     @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@unique([tenantId, name])
+  @@index([tenantId, updatedAt])
+}
+
+model CustomFieldValue {
+  id          String   @id @default(cuid())
+  tenantId    String
+  contentType String
+  recordId    String
+  values      Json     @default("{}")
+  updatedAt   DateTime @updatedAt
+  @@unique([tenantId, contentType, recordId])
+  @@index([tenantId, contentType])
+}
+
+model CustomPostType {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  slug        String
+  singularLabel String?
+  pluralLabel String?
+  addNewLabel String?
+  archivesLabel String?
+  parentLabel String?
+  description String?
+  isPublic    Boolean  @default(true)
+  hasArchive  Boolean  @default(true)
+  hierarchical Boolean @default(false)
+  rewriteSlug String?
+  showInRest  Boolean  @default(false)
+  defaultTemplateId String?
+  coreFields  String[] @default(["title", "slug", "body", "status"])
+  fieldGroupIds String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  posts       CustomPost[]
+  terms       CustomPostTerm[]
+  @@unique([tenantId, slug])
+  @@unique([tenantId, rewriteSlug])
+  @@index([tenantId, updatedAt])
+}
+
+model CustomPost {
+  id          String   @id @default(cuid())
+  tenantId    String
+  postTypeId  String
+  postType    CustomPostType @relation(fields: [postTypeId], references: [id], onDelete: Cascade)
+  title       String
+  slug        String
+  parentId    String?
+  parent      CustomPost? @relation("CustomPostTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    CustomPost[] @relation("CustomPostTree")
+  excerpt     String?
+  body        String?
+  status      String   @default("DRAFT")
+  values      Json     @default("{}")
+  featuredImageAssetId String?
+  featuredImage Asset? @relation(fields: [featuredImageAssetId], references: [id])
+  authorId    String?
+  author      User? @relation("CustomPostAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  customTermId String?
+  customTerm  CustomPostTerm? @relation(fields: [customTermId], references: [id], onDelete: SetNull)
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  templateId  String?  // BlogTemplate (type=single) for front-end render
+  // SEO fields (shared SeoFields shape)
+  seoTitle        String?
+  metaDesc        String?
+  metaKeywords    String? // JSON array of keywords
+  focusKeyphrase  String?
+  ogImage         String?
+  canonicalUrl    String?
+  robotsIndex     Boolean  @default(true)
+  robotsFollow    Boolean  @default(true)
+  jsonSchema      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  comments    CustomPostComment[]
+  revisions   CustomPostRevision[]
+  @@unique([postTypeId, slug])
+  @@index([tenantId, postTypeId, updatedAt])
+  @@index([parentId])
+  @@index([customTermId])
+  @@index([authorId])
+}
+
+model CustomPostTerm {
+  id         String   @id @default(cuid())
+  tenantId   String
+  postTypeId String
+  postType   CustomPostType @relation(fields: [postTypeId], references: [id], onDelete: Cascade)
+  taxonomy   String   @default("category")
+  name       String
+  slug       String
+  parentId   String?
+  parent     CustomPostTerm? @relation("CustomPostTermTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children   CustomPostTerm[] @relation("CustomPostTermTree")
+  posts      CustomPost[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@unique([postTypeId, taxonomy, slug])
+  @@index([tenantId, postTypeId, taxonomy, name])
+}
+
+model CustomPostComment {
+  id        String   @id @default(cuid())
+  tenantId  String
+  postId    String
+  post      CustomPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  name      String
+  email     String
+  body      String
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([tenantId, postId, status, createdAt])
+}
+
+model CustomPostRevision {
+  id        String   @id @default(cuid())
+  tenantId  String
+  postId    String
+  post      CustomPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  snapshot  Json
+  createdAt DateTime @default(now())
+  @@index([tenantId, postId, createdAt])
+}
+
 model Snippet {
   id        String   @id @default(cuid())
   tenantId  String
@@ -911,6 +1085,7 @@ model BlogTemplate {
   tenantId    String
   name        String
   type        String   @default("listing") // "listing" | "single"
+  customPostTypeId String?
   data        String?  // builder blocks JSON (Block[] + containerSettings)
   isDefault   Boolean  @default(false)
   updatedAt   DateTime @updatedAt
@@ -920,6 +1095,7 @@ model BlogTemplate {
   
   @@unique([tenantId, name, type])
   @@index([tenantId, type])
+  @@index([tenantId, customPostTypeId])
 }
 
 model BlogTemplateRevision {
@@ -1086,6 +1262,7 @@ model Asset {
   productCategoryImages ProductCategory[]
   productAttributeTermImages ProductAttributeTerm[]
   productVariantImages ProductVariant[]
+  customPostFeatured CustomPost[]
 }
 
 /// A user-uploaded font file, grouped into a CSS family by `family`.
