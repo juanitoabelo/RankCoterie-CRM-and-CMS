@@ -10,9 +10,14 @@ import { requireUser, isSubscriberOnly } from "@/modules/auth";
 
 export const revalidate = 0;
 
-export default async function AdminDashboardPage() {
+export default async function AdminDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ forbidden?: string }>;
+}) {
   const user = await requireUser();
   if (isSubscriberOnly(user)) redirect("/admin/my-listing");
+  const { forbidden } = await searchParams;
 
   const stats = await getDashboardStats();
 
@@ -26,6 +31,12 @@ export default async function AdminDashboardPage() {
   return (
     <div>
       <h1 className="text-2xl font-semibold text-zinc-900">Dashboard</h1>
+      {forbidden ? (
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          You do not have permission to access that page. Ask a Super Admin to
+          grant access under System Tools → Tools Permission.
+        </div>
+      ) : null}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((c) => (
           <Link

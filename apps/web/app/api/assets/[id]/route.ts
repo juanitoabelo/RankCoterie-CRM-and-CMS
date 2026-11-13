@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/modules/shared";
-import { canAccessSection, getApiUser } from "@/modules/auth";
+import { canAccessSectionForUser, getApiUser } from "@/modules/auth";
 import { TENANT_ID } from "@/modules/shared";
 
 export const runtime = "nodejs";
@@ -38,7 +38,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const user = await getApiUser();
-  if (!user || !canAccessSection(user, "myCompany")) {
+  if (!user || !(await canAccessSectionForUser(user, "myCompany"))) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
@@ -58,7 +58,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const user = await getApiUser();
-  if (!user || !canAccessSection(user, "myCompany")) {
+  if (!user || !(await canAccessSectionForUser(user, "myCompany"))) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 

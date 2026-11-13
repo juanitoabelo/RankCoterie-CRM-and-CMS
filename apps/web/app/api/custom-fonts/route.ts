@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma, TENANT_ID } from "@/modules/shared";
-import { canAccessSection, getApiUser } from "@/modules/auth";
+import { canAccessSectionForUser, getApiUser } from "@/modules/auth";
 import { logAudit } from "@/lib/audit";
 import { loadCustomFonts, invalidateFontCache } from "@/lib/custom-fonts.server";
 import {
@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 /** List the tenant's uploaded fonts (metadata only — bytes come from /[id]). */
 export async function GET() {
   const user = await getApiUser();
-  if (!user || !canAccessSection(user, "themeSettings")) {
+  if (!user || !(await canAccessSectionForUser(user, "themeSettings"))) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
   return NextResponse.json({ fonts: await loadCustomFonts() });
@@ -26,7 +26,7 @@ export async function GET() {
 /** Upload one font file: a family name plus weight/style metadata. */
 export async function POST(request: Request) {
   const user = await getApiUser();
-  if (!user || !canAccessSection(user, "themeSettings")) {
+  if (!user || !(await canAccessSectionForUser(user, "themeSettings"))) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 

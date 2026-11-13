@@ -97,6 +97,22 @@ model UserRole {
   @@unique([userId, role])
 }
 
+/// Per-tenant, per-role overrides for admin tool visibility.
+/// `target` is either "section:<sectionKey>" (applies to every link in that
+/// section/content type) or "tool:<toolKey>" (one specific menu link/page).
+/// Absence of a row means "use the built-in default for this role".
+model ToolPermissionOverride {
+  id        String   @id @default(cuid())
+  tenantId  String
+  role      Role
+  target    String
+  visible   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([tenantId, role, target])
+  @@index([tenantId])
+}
+
 // ---------------------------------------------------------------------------
 // Localization universe (legacy tblRegions + hierarchy)
 // ---------------------------------------------------------------------------

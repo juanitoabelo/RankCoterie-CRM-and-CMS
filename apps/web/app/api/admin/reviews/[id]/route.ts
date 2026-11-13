@@ -2,11 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { logAudit } from "@/lib/audit";
 import { TENANT_ID } from "@/lib/tenant";
+import { getApiUser, canAccessSectionForUser } from "@/modules/auth";
+
+async function authed(): Promise<boolean> {
+  const user = await getApiUser();
+  return user !== null && (await canAccessSectionForUser(user, "reviews"));
+}
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!(await authed())) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
   const { id } = await params;
 
   const review = await prisma.review.findUnique({
@@ -25,6 +34,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!(await authed())) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
   try {
     const { id } = await params;
     const data = await request.json();
@@ -56,6 +68,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!(await authed())) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
   try {
     const { id } = await params;
 

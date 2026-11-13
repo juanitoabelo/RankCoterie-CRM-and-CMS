@@ -2,8 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { TENANT_ID } from "@/lib/tenant";
+import { getApiUser, canAccessSectionForUser } from "@/modules/auth";
+
+async function authed(): Promise<boolean> {
+  const user = await getApiUser();
+  return user !== null && (await canAccessSectionForUser(user, "products"));
+}
 
 export async function POST(request: NextRequest) {
+  if (!(await authed())) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
   try {
     const formData = await request.formData();
     const action = formData.get("action") as string;
@@ -14,7 +23,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: "No listings selected" }, { status: 400 });
     }
 
-    let updateData: Record<string, any> = {};
+    const updateData: { status?: string; tier?: string; featuredUntil?: Date | null } = {};
 
     switch (action) {
       case "status":
@@ -60,6 +69,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  if (!(await authed())) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
   try {
     const { searchParams } = new URL(request.url);
     const ids = searchParams.get("ids")?.split(",") || [];

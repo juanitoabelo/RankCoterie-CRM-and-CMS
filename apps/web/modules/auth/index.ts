@@ -23,19 +23,28 @@
  * ```
  */
 import { prisma } from "@/lib/directory/prismaCatalog";
+import { TENANT_ID } from "@/lib/tenant";
 import { getSessionUid } from "./session";
-import { isSuperAdmin, canAccessSection } from "./permissions";
-import type { AdminUser, CanAccessSection } from "./types";
+import { isSuperAdmin, canAccessSectionWithOverrides, canAccessTool } from "./permissions";
+import { toolForPath } from "./tools";
+import type { ToolPermissionOverrides } from "./permissions";
+import type { AdminUser } from "./types";
 
 // Re-export types and pure functions
 /** Admin user with roles */
 export type { AdminUser, CanAccessSection, SessionPayload } from "./types";
+/** Persisted permission overrides keyed by `${role}::${target}` */
+export type { ToolPermissionOverrides } from "./permissions";
 /** Check if user is Super Admin */
 export { isSuperAdmin } from "./permissions";
 /** Check if user is a directory subscriber (My Listing only) */
 export { isSubscriberOnly } from "./permissions";
-/** Check if user can access a section */
+/** Check if user can access a section (built-in defaults only) */
 export { canAccessSection } from "./permissions";
+/** Check if a role list can access a section, including persisted overrides */
+export { canAccessSectionWithOverrides } from "./permissions";
+/** Check if a role list can access a specific menu link/page */
+export { canAccessTool } from "./permissions";
 /** Create a session cookie */
 export { createSession } from "./session";
 /** Destroy the session cookie */
@@ -136,7 +145,52 @@ export async function requireUser(): Promise<AdminUser> {
 }
 
 /**
+ * Load persisted tool-permission overrides for the current tenant.
+ * Returns a flat map keyed by `${role}::${target}`.
+ */
+export async function getToolPermissionOverrides(): Promise<ToolPermissionOverrides> {
+  const rows = await prisma.toolPermissionOverride.findMany({
+    where: { tenantId: TENANT_ID },
+    select: { role: true, target: true, visible: true },
+  });
+  const overrides: ToolPermissionOverrides = {};
+  for (const row of rows) {
+    overrides[`${row.role}::${row.target}`] = row.visible;
+  }
+  return overrides;
+}
+
+/**
+ * Async section check for API routes: includes persisted overrides.
+ * Use this instead of the sync `canAccessSection` when the result guards data.
+ */
+export async function canAccessSectionForUser(
+  user: Pick<AdminUser, "roles">,
+  sectionKey: string,
+): Promise<boolean> {
+  if (isSuperAdmin(user)) return true;
+  const overrides = await getToolPermissionOverrides();
+  return canAccessSectionWithOverrides(user.roles, sectionKey, overrides);
+}
+
+/**
+ * Async "any of these sections" check for API routes.
+ */
+export async function canAccessAnySectionForUser(
+  user: Pick<AdminUser, "roles">,
+  sectionKeys: string[],
+): Promise<boolean> {
+  if (isSuperAdmin(user)) return true;
+  const overrides = await getToolPermissionOverrides();
+  return sectionKeys.some((sectionKey) =>
+    canAccessSectionWithOverrides(user.roles, sectionKey, overrides),
+  );
+}
+
+/**
  * Ensure the user can access a section; otherwise redirect.
+ * Includes persisted section-level overrides so hiding a section also blocks
+ * server actions for that section.
  * 
  * @param sectionKey - The section key to check access for
  * @returns The authenticated user with access to the section
@@ -150,8 +204,20 @@ export async function requireUser(): Promise<AdminUser> {
  */
 export async function requireSection(sectionKey: string): Promise<AdminUser> {
   const { redirect } = await import("next/navigation");
+  const { headers } = await import("next/headers");
   const user = await requireUser();
-  if (canAccessSection(user, sectionKey)) return user;
+  const overrides = await getToolPermissionOverrides();
+
+  // When the current request maps to a specific tool in this section, honour
+  // per-link overrides too (so a hidden section can still expose one link).
+  const pathname = (await headers()).get("x-pathname") ?? "";
+  const tool = pathname ? toolForPath(pathname) : null;
+  const allowed =
+    tool !== null && tool.section === sectionKey
+      ? canAccessTool(user.roles, tool, overrides)
+      : canAccessSectionWithOverrides(user.roles, sectionKey, overrides);
+
+  if (allowed) return user;
   redirect("/admin?forbidden=1");
   return user;
 }

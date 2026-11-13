@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/modules/shared";
-import { canAccessSection, getApiUser } from "@/modules/auth";
+import { canAccessSectionForUser, getApiUser } from "@/modules/auth";
 import { toCsv, toIsoCell } from "@/lib/admin/csv";
 import { TENANT_ID } from "@/modules/shared";
 
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   }
 
   const user = await getApiUser();
-  if (!user || !canAccessSection(user, kind)) {
+  if (!user || !(await canAccessSectionForUser(user, kind))) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 

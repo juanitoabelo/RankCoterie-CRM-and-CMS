@@ -77,6 +77,7 @@ export type AuditAction =
   | "USER_CREATE"
   | "USER_UPDATE"
   | "USER_DELETE"
+  | "TOOL_PERMISSION_UPDATE"
   | "SECTION_CREATE"
   | "SECTION_UPDATE"
   | "SECTION_DELETE"

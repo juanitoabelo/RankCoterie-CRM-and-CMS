@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma, TENANT_ID } from "@/modules/shared";
-import { canAccessSection, getApiUser } from "@/modules/auth";
+import { canAccessSectionForUser, getApiUser } from "@/modules/auth";
 import { logAudit } from "@/lib/audit";
 import { invalidateFontCache } from "@/lib/custom-fonts.server";
 
@@ -49,7 +49,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const user = await getApiUser();
-  if (!user || !canAccessSection(user, "themeSettings")) {
+  if (!user || !(await canAccessSectionForUser(user, "themeSettings"))) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 

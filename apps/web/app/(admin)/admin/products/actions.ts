@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { TENANT_ID } from "@/lib/tenant";
+import { requireSection } from "@/modules/auth";
 import { logAudit } from "@/lib/audit";
 import {
   parseProductFormData,
@@ -138,6 +139,7 @@ async function syncProductRelations(
 }
 
 export async function createProduct(formData: FormData): Promise<ActionResult> {
+  await requireSection("products");
   try {
     const name = String(formData.get("name") ?? "").trim();
     if (!name) return fail("Product name is required.");
@@ -183,6 +185,7 @@ export async function createProduct(formData: FormData): Promise<ActionResult> {
 }
 
 export async function updateProduct(id: string, formData: FormData): Promise<ActionResult> {
+  await requireSection("products");
   try {
     const existing = await prisma.product.findFirst({
       where: { id, tenantId: TENANT_ID },
@@ -238,6 +241,7 @@ export async function saveProduct(formData: FormData): Promise<ActionResult> {
 }
 
 export async function deleteProduct(id: string): Promise<ActionResult> {
+  await requireSection("products");
   try {
     const existing = await prisma.product.findFirst({
       where: { id, tenantId: TENANT_ID },
@@ -266,6 +270,7 @@ export async function deleteProduct(id: string): Promise<ActionResult> {
 // ============================================================================
 
 export async function createProductCategory(formData: FormData): Promise<ActionResult> {
+  await requireSection("products");
   try {
     const name = String(formData.get("name") ?? "").trim();
     if (!name) return fail("Category name is required.");
@@ -316,6 +321,7 @@ export async function createProductCategory(formData: FormData): Promise<ActionR
 }
 
 export async function deleteProductCategory(id: string): Promise<ActionResult> {
+  await requireSection("products");
   try {
     const existing = await prisma.productCategory.findFirst({
       where: { id, tenantId: TENANT_ID },
@@ -337,6 +343,7 @@ export async function deleteProductCategory(id: string): Promise<ActionResult> {
 
 /** Set (or clear, with `assetId: null`) the image representing a category. */
 export async function setProductCategoryImage(id: string, assetId: string | null): Promise<ActionResult> {
+  await requireSection("products");
   try {
     const existing = await prisma.productCategory.findFirst({
       where: { id, tenantId: TENANT_ID },
@@ -373,6 +380,7 @@ export async function setProductCategoryImage(id: string, assetId: string | null
 // ============================================================================
 
 export async function createProductTag(formData: FormData): Promise<ActionResult> {
+  await requireSection("products");
   try {
     const name = String(formData.get("name") ?? "").trim();
     if (!name) return fail("Tag name is required.");
@@ -400,6 +408,7 @@ export async function createProductTag(formData: FormData): Promise<ActionResult
 }
 
 export async function deleteProductTag(id: string): Promise<ActionResult> {
+  await requireSection("products");
   try {
     const existing = await prisma.productTag.findFirst({
       where: { id, tenantId: TENANT_ID },
@@ -424,6 +433,7 @@ export async function deleteProductTag(id: string): Promise<ActionResult> {
 // ============================================================================
 
 export async function createProductAttribute(formData: FormData): Promise<ActionResult> {
+  await requireSection("products");
   try {
     const name = String(formData.get("name") ?? "").trim();
     if (!name) return fail("Attribute name is required.");
@@ -460,6 +470,7 @@ export async function createProductAttribute(formData: FormData): Promise<Action
 }
 
 export async function deleteProductAttribute(id: string): Promise<ActionResult> {
+  await requireSection("products");
   try {
     const existing = await prisma.productAttribute.findFirst({
       where: { id, tenantId: TENANT_ID },
@@ -479,6 +490,7 @@ export async function deleteProductAttribute(id: string): Promise<ActionResult> 
 }
 
 export async function createAttributeTerm(formData: FormData): Promise<ActionResult> {
+  await requireSection("products");
   try {
     const attributeId = String(formData.get("attributeId") ?? "").trim();
     const name = String(formData.get("name") ?? "").trim();
@@ -505,6 +517,7 @@ export async function createAttributeTerm(formData: FormData): Promise<ActionRes
 }
 
 export async function deleteAttributeTerm(id: string): Promise<ActionResult> {
+  await requireSection("products");
   try {
     const existing = await prisma.productAttributeTerm.findUnique({ where: { id }, select: { id: true, name: true } });
     if (!existing) return fail("Term not found.");

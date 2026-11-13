@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/modules/shared";
-import { canAccessSection, getApiUser } from "@/modules/auth";
+import { canAccessAnySectionForUser, getApiUser } from "@/modules/auth";
 import { TENANT_ID } from "@/modules/shared";
 
 export const runtime = "nodejs";
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 async function authed(): Promise<boolean> {
   const user = await getApiUser();
-  return user !== null && (canAccessSection(user, "pages") || canAccessSection(user, "templates"));
+  return user !== null && (await canAccessAnySectionForUser(user, ["pages", "templates"]));
 }
 
 export async function GET() {

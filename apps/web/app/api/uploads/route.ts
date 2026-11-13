@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/modules/shared";
-import { canAccessSection, getApiUser } from "@/modules/auth";
+import { canAccessAnySectionForUser, getApiUser } from "@/modules/auth";
 import { TENANT_ID } from "@/modules/shared";
 
 export const runtime = "nodejs";
@@ -18,7 +18,8 @@ const ALLOWED_MIME = new Set([
 
 export async function POST(request: Request) {
   const user = await getApiUser();
-  if (!user || !["pages", "templates", "widgets", "geoImages", "myCompany", "categories", "articles"].some((section) => canAccessSection(user, section))) {
+  const uploadSections = ["pages", "templates", "widgets", "geoImages", "myCompany", "categories", "articles"];
+  if (!user || !(await canAccessAnySectionForUser(user, uploadSections))) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 

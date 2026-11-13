@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/modules/shared";
 import { TENANT_ID } from "@/lib/tenant";
+import { getApiUser, canAccessSectionForUser } from "@/modules/auth";
 
 export async function POST(request: NextRequest) {
+  const user = await getApiUser();
+  if (!user || !(await canAccessSectionForUser(user, "products"))) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
   try {
     const formData = await request.formData();
     const ids = formData.getAll("ids") as string[];

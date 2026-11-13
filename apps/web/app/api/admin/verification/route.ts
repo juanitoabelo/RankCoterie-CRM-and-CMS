@@ -2,11 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { logAudit } from "@/lib/audit";
 import { TENANT_ID } from "@/lib/tenant";
+import { getApiUser, canAccessSectionForUser } from "@/modules/auth";
+
+async function authed(): Promise<boolean> {
+  const user = await getApiUser();
+  return user !== null && (await canAccessSectionForUser(user, "verification"));
+}
 
 export async function GET(request: NextRequest) {
+  if (!(await authed())) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
-  const where: any = { tenantId: TENANT_ID };
+  const where: { tenantId: string; status?: string } = { tenantId: TENANT_ID };
   if (status && status !== "ALL") where.status = status;
 
   const requests = await prisma.verificationRequest.findMany({
@@ -26,6 +35,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!(await authed())) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
   try {
     const { id } = await params;
     const data = await request.json();
@@ -39,7 +51,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const updateData: any = {
+    const updateData: {
+      status: string;
+      reviewedById: string;
+      reviewedAt: Date;
+      rejectionReason?: string;
+    } = {
       status: data.status,
       reviewedById: "admin-user-id", // TODO: get from session
       reviewedAt: new Date(),

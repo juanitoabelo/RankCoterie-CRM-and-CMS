@@ -2,8 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { logAudit } from "@/lib/audit";
 import { TENANT_ID } from "@/lib/tenant";
+import { getApiUser, canAccessSectionForUser } from "@/modules/auth";
+
+async function authed(): Promise<boolean> {
+  const user = await getApiUser();
+  return user !== null && (await canAccessSectionForUser(user, "featuredPlacements"));
+}
 
 export async function GET() {
+  if (!(await authed())) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
   const placements = await prisma.featuredPlacement.findMany({
     where: { tenantId: TENANT_ID },
     include: {
@@ -18,6 +27,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  if (!(await authed())) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
   try {
     const data = await request.json();
 

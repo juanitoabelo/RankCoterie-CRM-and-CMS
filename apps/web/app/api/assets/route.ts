@@ -1,11 +1,27 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/modules/shared";
 import { TENANT_ID } from "@/modules/shared";
+import { getApiUser, canAccessAnySectionForUser } from "@/modules/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const ASSET_SECTIONS = [
+  "myCompany",
+  "products",
+  "pages",
+  "articles",
+  "listings",
+  "categories",
+  "templates",
+  "widgets",
+];
+
 export async function GET(request: Request) {
+  const user = await getApiUser();
+  if (!user || !(await canAccessAnySectionForUser(user, ASSET_SECTIONS))) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
   try {
   const { searchParams } = new URL(request.url);
   const limit = Math.min(Number(searchParams.get("limit") || "50"), 100);

@@ -2,9 +2,12 @@
 
 import { prisma } from "@/modules/shared";
 import { TENANT_ID } from "@/modules/shared";
+import { requireSection } from "@/modules/auth";
 import { format } from "date-fns";
 
 export async function getEcommerceReportData() {
+  await requireSection("products");
+
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -138,15 +141,17 @@ export async function getEcommerceReportData() {
     revenueByCategory: Array.from(categoryRevenue.entries())
       .map(([category, revenue]) => ({ category, revenue }))
       .sort((a, b) => b.revenue - a.revenue),
-    dailySales: (dailySales as any[]).map((d) => ({
+    dailySales: (dailySales as { date: Date; revenue: unknown; orders: unknown }[]).map((d) => ({
       date: format(new Date(d.date), "MMM d"),
       revenue: Number(d.revenue),
       orders: Number(d.orders),
     })),
-    dailyOrders: (dailyOrders as any[]).map((d) => ({
+    dailyOrders: (dailyOrders as { date: Date; orders: unknown }[]).map((d) => ({
       date: format(new Date(d.date), "MMM d"),
       orders: Number(d.orders),
     })),
-    funnel: (conversionData as any[])[0] ?? { total_created: 0, paid: 0, completed: 0 },
+    funnel:
+      (conversionData as { total_created: number; paid: number; completed: number }[])[0] ??
+      { total_created: 0, paid: 0, completed: 0 },
   };
 }

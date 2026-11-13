@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma, TENANT_ID } from "@/modules/shared";
-import { getApiUser, canAccessSection } from "@/modules/auth";
+import { getApiUser, canAccessSectionForUser } from "@/modules/auth";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ function csvEscape(value: unknown): string {
 
 export async function GET(request: NextRequest) {
   const user = await getApiUser();
-  if (!user || !canAccessSection(user, "leads")) {
+  if (!user || !(await canAccessSectionForUser(user, "leads"))) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 

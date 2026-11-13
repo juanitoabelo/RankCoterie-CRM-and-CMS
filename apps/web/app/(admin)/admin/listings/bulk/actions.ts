@@ -4,10 +4,13 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { logAudit } from "@/lib/audit";
 import { TENANT_ID } from "@/lib/tenant";
+import { requireSection } from "@/modules/auth";
 
 export type ActionResult = { ok: true; count?: number } | { ok: false; error: string };
 
 export async function bulkUpdateListings(formData: FormData): Promise<ActionResult> {
+  await requireSection("listings");
+
   const action = formData.get("action") as string;
   const ids = formData.getAll("ids") as string[];
   const value = formData.get("value") as string;
@@ -15,7 +18,7 @@ export async function bulkUpdateListings(formData: FormData): Promise<ActionResu
   if (!ids.length) return { ok: false, error: "No listings selected" };
 
   try {
-    let updateData: Record<string, any> = {};
+    const updateData: { status?: string; tier?: string; featuredUntil?: Date | null } = {};
 
     switch (action) {
       case "status":
@@ -63,6 +66,8 @@ export async function bulkUpdateListings(formData: FormData): Promise<ActionResu
 }
 
 export async function bulkDeleteListings(formData: FormData): Promise<ActionResult> {
+  await requireSection("listings");
+
   const ids = formData.getAll("ids") as string[];
 
   if (!ids.length) return { ok: false, error: "No listings selected" };
@@ -89,8 +94,9 @@ export async function bulkDeleteListings(formData: FormData): Promise<ActionResu
 }
 
 export async function exportListings(formData: FormData): Promise<ActionResult> {
+  await requireSection("listings");
+
   const ids = formData.getAll("ids") as string[];
-  const format = formData.get("format") as string || "csv";
 
   try {
     const where = ids.length ? { id: { in: ids } } : { tenantId: TENANT_ID };
@@ -104,37 +110,6 @@ export async function exportListings(formData: FormData): Promise<ActionResult> 
       },
       orderBy: { createdAt: "desc" },
     });
-
-    const headers = [
-      "ID", "Title", "Slug", "Tier", "Status", "Company Name", "Phone", "Email",
-      "Website", "Address", "City", "State", "Zip", "Summary", "Categories",
-      "Regions", "Tier", "Subscription Status", "Created At", "Updated At"
-    ];
-
-    const rows = listings.map((l) => [
-      l.id,
-      l.title,
-      l.slug,
-      l.tier,
-      l.status,
-      l.companyName || "",
-      l.phone || "",
-      l.email || "",
-      l.website || "",
-      l.address || "",
-      l.city || "",
-      l.state || "",
-      l.zip || "",
-      l.summary || "",
-      l.categories.map((c) => c.category.title).join("; "),
-      l.regions.map((r) => r.regionId).join("; "),
-      l.tier,
-      l.subscription?.status || "NONE",
-      l.createdAt.toISOString(),
-      l.updatedAt.toISOString(),
-    ]);
-
-    const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))].join("\n");
 
     return { ok: true, count: listings.length };
   } catch (e) {
