@@ -16,6 +16,7 @@ import CartIcon from "@/components/storefront/CartIcon";
 import RecaptchaProvider from "@/components/site/RecaptchaProvider";
 import AnalyticsTracker from "@/components/analytics/AnalyticsTracker";
 import ConsentBanner from "@/components/analytics/ConsentBanner";
+import CustomScripts from "@/components/site/CustomScripts";
 import { getAnalyticsConfig } from "@/lib/analytics/config";
 import { getCustomCssJsSettings } from "@/modules/custom-css-js/actions";
 
@@ -398,13 +399,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       </footer>
 
       {/* ── Custom JS ───────────────────────────────────────────────── */}
-      {customCssJs.customJs && (
-        <script
-          dangerouslySetInnerHTML={{
-            __html: customCssJs.customJs,
-          }}
-        />
-      )}
+      {customCssJs.customJs && <CustomScripts html={customCssJs.customJs} />}
 
       <AnalyticsTracker
         enabled={analyticsConfig.enabled}

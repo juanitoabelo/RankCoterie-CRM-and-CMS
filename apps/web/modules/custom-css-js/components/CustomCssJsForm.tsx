@@ -57,14 +57,15 @@ export default function CustomCssJsForm({ settings }: { settings: CustomCssJsSet
       <div className="border-x border-b border-zinc-200 bg-white px-6 py-5">
         <h2 className="mb-4 text-base font-semibold text-zinc-900">Custom JavaScript</h2>
         <p className="mb-4 text-sm text-zinc-500">
-          Add custom JavaScript that will be injected globally before the closing <em className="text-zinc-600">body</em> tag.
-          Useful for analytics, widgets, or custom functionality.
+          Paste raw JavaScript or complete <em className="text-zinc-600">&lt;script&gt;</em> snippets.
+          They will be injected globally before the closing <em className="text-zinc-600">body</em> tag
+          without an extra wrapper, so external libraries and inline scripts work as written.
         </p>
         <textarea
           value={form.customJs}
           onChange={(e) => set("customJs", e.target.value)}
           className={textareaCls}
-          placeholder="// Your custom JS here\n// Example: gtag('config', 'GA_MEASUREMENT_ID');"
+          placeholder={`<script async src="https://www.googletagmanager.com/gtm.js?id=GTM-XXXXXXX"></script>\n<script>\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n</script>`}
         />
       </div>
 
