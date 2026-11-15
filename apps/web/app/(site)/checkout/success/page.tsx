@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ConversionTracker from "@/components/analytics/ConversionTracker";
 import { prisma } from "@/modules/shared";
 import { clearCart, getCartBySession } from "@/modules/ecommerce/queries";
 import { readExistingCartSession } from "@/lib/cart-session";
@@ -36,6 +37,10 @@ export default async function CheckoutSuccessPage({
 
     return (
       <div className="mx-auto max-w-lg text-center">
+        <ConversionTracker
+          eventType="checkout_success"
+          metadata={{ orderId: order.id, orderNumber: order.orderNumber, total: order.total, awaitingPayment }}
+        />
         <h1 className="text-2xl font-semibold text-zinc-900">
           {awaitingPayment ? "Order received" : offlinePayment ? "Order placed" : "Payment confirmed"}
         </h1>

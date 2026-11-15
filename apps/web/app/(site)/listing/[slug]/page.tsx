@@ -9,6 +9,7 @@ import {
   type RegionRow,
 } from "@/components/site/listing/listing-view-model";
 import DefaultListingTemplate from "@/components/site/listing/DefaultListingTemplate";
+import ConversionTracker from "@/components/analytics/ConversionTracker";
 import ListingTemplateRenderer from "@/components/site/listing/ListingTemplateRenderer";
 import ListingTemplateTreeRenderer from "@/components/site/listing/ListingTemplateTreeRenderer";
 import { parseListingTemplateData } from "@/lib/listing-templates/tree-types";
@@ -209,11 +210,14 @@ export default async function ListingDetailPage({
   const parsedTemplate = templateRow ? parseListingTemplateData(templateRow.blocks) : null;
 
   return (
-    <>
+    <div className="contents" data-analytics-content-id={listing.id} data-analytics-content-type="listing">
       {lead === "sent" && (
-        <div className="mx-auto mt-6 max-w-5xl rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          Thanks — your message was sent. This business will get back to you shortly.
-        </div>
+        <>
+          <ConversionTracker eventType="lead_submit" contentId={listing.id} metadata={{ source: "listing" }} />
+          <div className="mx-auto mt-6 max-w-5xl rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            Thanks — your message was sent. This business will get back to you shortly.
+          </div>
+        </>
       )}
       {lead === "error" && (
         <div className="mx-auto mt-6 max-w-5xl rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -291,6 +295,6 @@ export default async function ListingDetailPage({
       ) : (
         <DefaultListingTemplate ctx={ctx} />
       )}
-    </>
+    </div>
   );
 }

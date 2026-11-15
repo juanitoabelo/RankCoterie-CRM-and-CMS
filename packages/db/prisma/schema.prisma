@@ -2477,3 +2477,200 @@ model VerificationRequest {
   @@index([tenantId, status])
   @@index([tenantId, type])
 }
+
+model AnalyticsEvent {
+  id           String   @id @default(cuid())
+  tenantId     String
+  eventId      String   @unique // client-generated dedupe id
+  eventType    String // page_view | engagement | search | lead_submit | ...
+  sessionId    String
+  visitorId    String
+  userId       String?
+  path         String
+  host         String?
+  title        String?
+  contentType  String?
+  contentId    String?
+  referrer     String?
+  referrerHost String?
+  source       String?
+  medium       String?
+  campaign     String?
+  term         String?
+  content      String?
+  country      String?
+  region       String?
+  city         String?
+  latitude     Float?
+  longitude    Float?
+  timezone     String?
+  deviceType   String?
+  browser      String?
+  os           String?
+  isBot        Boolean  @default(false)
+  botName      String?
+  ipHash       String?
+  durationMs   Int?
+  scrollDepth  Int?
+  metadata     Json     @default("{}")
+  occurredAt   DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId, occurredAt])
+  @@index([tenantId, eventType, occurredAt])
+  @@index([tenantId, path, occurredAt])
+  @@index([tenantId, visitorId, occurredAt])
+  @@index([tenantId, country, occurredAt])
+  @@index([tenantId, source, occurredAt])
+  @@index([tenantId, contentType, contentId, occurredAt])
+}
+
+/// Daily page/content rollup. Refreshed by the Inngest rollup job.
+model AnalyticsPageDaily {
+  id             String   @id @default(cuid())
+  tenantId       String
+  date           DateTime @db.Date
+  path           String
+  title          String?
+  contentType    String?
+  contentId      String?
+  views          Int      @default(0)
+  visitors       Int      @default(0)
+  sessions       Int      @default(0)
+  conversions    Int      @default(0)
+  avgDurationMs  Int      @default(0)
+  avgScrollDepth Int      @default(0)
+  bounceRate     Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([tenantId, date, path])
+  @@index([tenantId, date])
+  @@index([tenantId, contentType, contentId, date])
+}
+
+model AnalyticsGeoDaily {
+  id        String   @id @default(cuid())
+  tenantId  String
+  date      DateTime @db.Date
+  country   String   @default("")
+  region    String   @default("")
+  city      String   @default("")
+  views     Int      @default(0)
+  visitors  Int      @default(0)
+  sessions  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, date, country, region, city])
+  @@index([tenantId, date])
+}
+
+model AnalyticsSourceDaily {
+  id          String   @id @default(cuid())
+  tenantId    String
+  date        DateTime @db.Date
+  source      String   @default("")
+  medium      String   @default("")
+  campaign    String   @default("")
+  views       Int      @default(0)
+  visitors    Int      @default(0)
+  sessions    Int      @default(0)
+  conversions Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, date, source, medium, campaign])
+  @@index([tenantId, date])
+}
+
+/// Query metrics from internal site search (`source = "internal"`) or Google
+/// Search Console (`source = "gsc"`).
+model AnalyticsSearchDaily {
+  id           String   @id @default(cuid())
+  tenantId     String
+  date         DateTime @db.Date
+  source       String   @default("internal")
+  query        String
+  page         String   @default("")
+  country      String   @default("")
+  device       String   @default("")
+  impressions  Int      @default(0)
+  clicks       Int      @default(0)
+  ctr          Float    @default(0)
+  position     Float    @default(0)
+  resultsCount Int      @default(0)
+  zeroResults  Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([tenantId, date, source, query, page, country, device])
+  @@index([tenantId, date, source])
+  @@index([tenantId, query])
+}
+
+model AnalyticsGoalDaily {
+  id          String   @id @default(cuid())
+  tenantId    String
+  date        DateTime @db.Date
+  goal        String
+  conversions Int      @default(0)
+  revenue     Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, date, goal])
+  @@index([tenantId, date])
+}
+
+model CompetitorRankingDaily {
+  id               String   @id @default(cuid())
+  tenantId         String
+  date             DateTime @db.Date
+  competitorDomain String
+  keyword          String
+  position         Int?
+  url              String?
+  country          String   @default("")
+  device           String   @default("")
+  source           String   @default("dataforseo")
+  createdAt        DateTime @default(now())
+
+  @@unique([tenantId, date, competitorDomain, keyword, country, device, source])
+  @@index([tenantId, date])
+  @@index([tenantId, competitorDomain, date])
+}
+
+model AnalyticsSetting {
+  id                            String   @id @default(cuid())
+  tenantId                      String   @unique
+  enabled                       Boolean  @default(true)
+  gscSiteUrl                    String?
+  ga4PropertyId                 String?
+  googleServiceAccountEmail     String?
+  googleServiceAccountPrivateKey String?
+  dataForSeoLogin               String?
+  dataForSeoPassword            String?
+  competitorDomains             Json     @default("[]")
+  targetKeywords                Json     @default("[]")
+  retentionDays                 Int      @default(90)
+  consentRequired               Boolean  @default(false)
+  excludedPaths                 Json     @default("[]")
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+}
+
+model AnalyticsSyncState {
+  id            String    @id @default(cuid())
+  tenantId      String
+  kind          String // gsc | dataforseo | rollup
+  lastRunAt     DateTime?
+  lastSuccessAt DateTime?
+  cursor        String?
+  lastError     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([tenantId, kind])
+  @@index([tenantId])
+}

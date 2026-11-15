@@ -5,8 +5,23 @@ import { feedSyncAllJob, feedSyncOneJob } from "jobs/feedSync";
 import { dunningJob } from "jobs/dunning";
 import { invoiceRebillingJob } from "jobs/invoiceRebilling";
 import { abandonedOrdersJob } from "jobs/abandonedOrders";
+import {
+  analyticsCompetitorsSyncJob,
+  analyticsGscSyncJob,
+  analyticsRollupJob,
+} from "jobs/analytics";
 
 export const { GET, POST } = serve({
   client: inngest,
-  functions: [variantPublishJob, feedSyncAllJob, feedSyncOneJob, dunningJob, invoiceRebillingJob, abandonedOrdersJob],
+  functions: [
+    variantPublishJob,
+    feedSyncAllJob,
+    feedSyncOneJob,
+    dunningJob,
+    invoiceRebillingJob,
+    abandonedOrdersJob,
+    analyticsRollupJob,
+    analyticsGscSyncJob,
+    analyticsCompetitorsSyncJob,
+  ],
 });

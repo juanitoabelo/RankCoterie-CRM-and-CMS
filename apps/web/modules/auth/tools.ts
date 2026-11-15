@@ -56,6 +56,15 @@ export const ADMIN_TOOL_GROUPS: AdminToolGroup[] = [
     ],
   },
   {
+    title: "Analytics",
+    items: [
+      { key: "analytics.dashboard", section: "analytics", href: "/admin/analytics", label: "Overview" },
+      { key: "analytics.search", section: "analytics", href: "/admin/analytics/search", label: "Search Performance" },
+      { key: "analytics.competitors", section: "analytics", href: "/admin/analytics/competitors", label: "Competitors" },
+      { key: "analytics.settings", section: "analytics", href: "/admin/analytics/settings", label: "Analytics Settings" },
+    ],
+  },
+  {
     title: "Geo-Targeting",
     items: [
       { key: "categories.list", section: "categories", href: "/admin/geo-categories", label: "GeoCategory Pages" },
@@ -154,6 +163,7 @@ export const SECTION_LABELS: Record<string, string> = {
   products: "Products",
   categories: "Geo Categories",
   regions: "Regions",
+  analytics: "Analytics",
   geoImages: "Geo Images",
   listings: "Listings",
   reports: "Reports",
@@ -204,6 +214,7 @@ export const DEFAULT_SECTION_ROLES: Record<string, string[]> = {
   styleGuide: ["SUPER_ADMIN", "ADMIN", "MARKETING"],
   exclusions: ["SUPER_ADMIN", "ADMIN", "MARKETING"],
   feeds: ["SUPER_ADMIN", "ADMIN", "MARKETING"],
+  analytics: ["SUPER_ADMIN", "ADMIN", "MARKETING"],
   reports: ["SUPER_ADMIN", "ADMIN", "MARKETING"],
   sitemap: ["SUPER_ADMIN", "ADMIN", "MARKETING"],
   myCompany: ["SUPER_ADMIN", "ADMIN"],

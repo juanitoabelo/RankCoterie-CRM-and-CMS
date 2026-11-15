@@ -14,6 +14,9 @@ import type { PageLayoutBlock } from "@/lib/page-layout/types";
 import PageLayoutRenderer from "@/components/admin/page-layout-builder/PageLayoutRenderer";
 import CartIcon from "@/components/storefront/CartIcon";
 import RecaptchaProvider from "@/components/site/RecaptchaProvider";
+import AnalyticsTracker from "@/components/analytics/AnalyticsTracker";
+import ConsentBanner from "@/components/analytics/ConsentBanner";
+import { getAnalyticsConfig } from "@/lib/analytics/config";
 import { getCustomCssJsSettings } from "@/modules/custom-css-js/actions";
 
 // Cache for layout data (tenant, menu, company) - avoids repeated DB hits
@@ -214,6 +217,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       : "";
 
   const customCssJs = await getCustomCssJsSettings();
+  const analyticsConfig = await getAnalyticsConfig();
 
   return (
     <div className="min-h-full flex flex-col">
@@ -260,6 +264,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
               <nav className="flex items-center gap-6 text-sm text-zinc-600">
                 {(headerMenu?.items.length ? headerMenu.items : [
                   { id: "home", label: "Home", href: "/", target: null },
+                  { id: "search", label: "Search", href: "/search", target: null },
                   { id: "directory", label: "Directory", href: "/", target: null },
                   { id: "apply", label: "Apply to list", href: "/apply", target: null },
                 ]).map((item) => (
@@ -400,6 +405,13 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           }}
         />
       )}
+
+      <AnalyticsTracker
+        enabled={analyticsConfig.enabled}
+        consentRequired={analyticsConfig.consentRequired}
+        excludedPaths={analyticsConfig.excludedPaths}
+      />
+      <ConsentBanner enabled={analyticsConfig.enabled && analyticsConfig.consentRequired} />
 
     </div>
   );
