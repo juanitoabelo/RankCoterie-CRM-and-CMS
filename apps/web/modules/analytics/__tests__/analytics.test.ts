@@ -9,6 +9,7 @@ import {
   sanitizeReferrer,
 } from "@/lib/analytics/privacy";
 import { parseDays, resolveAnalyticsRange, dayKey } from "../range";
+import { parseCompetitorProvider } from "../constants";
 
 describe("normalizePath", () => {
   it("strips query strings and hashes", () => {
@@ -111,5 +112,17 @@ describe("range helpers", () => {
 describe("parseStringArray", () => {
   it("dedupes and trims", () => {
     expect(parseStringArray([" a ", "a", "", 3, "b"])).toEqual(["a", "b"]);
+  });
+});
+
+describe("parseCompetitorProvider", () => {
+  it("accepts known providers", () => {
+    expect(parseCompetitorProvider("searxng")).toBe("searxng");
+    expect(parseCompetitorProvider("dataforseo")).toBe("dataforseo");
+  });
+
+  it("defaults unknown or missing providers to manual", () => {
+    expect(parseCompetitorProvider("paid-api")).toBe("manual");
+    expect(parseCompetitorProvider(null)).toBe("manual");
   });
 });

@@ -1,3 +1,5 @@
+import type { CompetitorProvider } from "./types";
+
 export const ANALYTICS_EVENT_TYPES = [
   "page_view",
   "engagement",
@@ -38,6 +40,14 @@ export const DEFAULT_EXCLUDED_PATHS = [
   "/robots.txt",
   "/sitemap",
 ];
+
+export const COMPETITOR_PROVIDERS = ["manual", "searxng", "dataforseo"] as const;
+
+export function parseCompetitorProvider(value: unknown): CompetitorProvider {
+  return COMPETITOR_PROVIDERS.includes(value as CompetitorProvider)
+    ? (value as CompetitorProvider)
+    : "manual";
+}
 
 export const MAX_EVENTS_PER_BATCH = 20;
 export const MAX_EVENT_BYTES = 32 * 1024;

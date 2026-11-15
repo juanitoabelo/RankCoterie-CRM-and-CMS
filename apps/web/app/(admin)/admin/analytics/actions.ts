@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { resetAnalyticsConfigCache } from "@/lib/analytics/config";
 import {
   getAnalyticsSettings,
+  parseCompetitorProvider,
   saveAnalyticsSettings,
   syncCompetitorRankings,
   syncGsc,
@@ -40,10 +41,13 @@ export async function saveAnalyticsSettingsAction(
     const text = (key: string) => String(formData.get(key) ?? "").trim();
     const secret = (key: string, clearKey: string) =>
       formData.get(clearKey) === "on" ? null : text(key) || undefined;
+    const competitorProvider = parseCompetitorProvider(formData.get("competitorProvider"));
     const data: AnalyticsSettingsData = {
       enabled: formData.get("enabled") === "on",
       gscSiteUrl: text("gscSiteUrl"),
       ga4PropertyId: text("ga4PropertyId"),
+      competitorProvider,
+      searxngUrl: competitorProvider === "searxng" ? text("searxngUrl") : current.searxngUrl,
       competitorDomains: lines(formData.get("competitorDomains")),
       targetKeywords: lines(formData.get("targetKeywords")),
       retentionDays: Number.isFinite(retention) ? Math.min(3650, Math.max(7, Math.round(retention))) : current.retentionDays,
@@ -56,8 +60,12 @@ export async function saveAnalyticsSettingsAction(
         "googleServiceAccountPrivateKey",
         "clearGoogleServiceAccountPrivateKey",
       ),
-      dataForSeoLogin: text("dataForSeoLogin") || null,
-      dataForSeoPassword: secret("dataForSeoPassword", "clearDataForSeoPassword"),
+      dataForSeoLogin:
+        competitorProvider === "dataforseo" ? text("dataForSeoLogin") || null : undefined,
+      dataForSeoPassword:
+        competitorProvider === "dataforseo"
+          ? secret("dataForSeoPassword", "clearDataForSeoPassword")
+          : undefined,
     };
     await saveAnalyticsSettings(data, secrets);
     resetAnalyticsConfigCache();
@@ -68,6 +76,7 @@ export async function saveAnalyticsSettingsAction(
       actorId: actor.id,
       meta: {
         enabled: data.enabled,
+        competitorProvider: data.competitorProvider,
         consentRequired: data.consentRequired,
         retentionDays: data.retentionDays,
       },

@@ -147,6 +147,7 @@ export type CompetitorRow = {
   keyword: string;
   position: number | null;
   url: string | null;
+  source: string;
   date: string;
 };
 
@@ -161,6 +162,7 @@ export type TrackingHealth = {
   gscLastSyncAt: string | null;
   gscLastError: string | null;
   competitorConfigured: boolean;
+  competitorProvider: CompetitorProvider;
   competitorLastSyncAt: string | null;
   competitorLastError: string | null;
   ga4: string | null;
@@ -174,6 +176,8 @@ export type AnalyticsSettingsData = {
   enabled: boolean;
   gscSiteUrl: string;
   ga4PropertyId: string;
+  competitorProvider: CompetitorProvider;
+  searxngUrl: string;
   competitorDomains: string[];
   targetKeywords: string[];
   retentionDays: number;
@@ -186,11 +190,13 @@ export type AnalyticsSecretStatus = {
   hasGoogleServiceAccountPrivateKey: boolean;
   dataForSeoLogin: string;
   hasDataForSeoPassword: boolean;
+  searxngUrl: string;
   env: {
     googleServiceAccountEmail: boolean;
     googleServiceAccountPrivateKey: boolean;
     dataForSeoLogin: boolean;
     dataForSeoPassword: boolean;
+    searxngUrl: boolean;
     enabled: boolean;
     consentRequired: boolean;
   };
@@ -202,6 +208,8 @@ export type AnalyticsSecretsInput = {
   dataForSeoLogin?: string | null;
   dataForSeoPassword?: string | null;
 };
+
+export type CompetitorProvider = "manual" | "searxng" | "dataforseo";
 
 export type SyncResult = {
   ok: boolean;

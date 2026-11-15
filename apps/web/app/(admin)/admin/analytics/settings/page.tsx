@@ -78,8 +78,9 @@ export default async function AdminAnalyticsSettingsPage() {
         <ul className="mt-3 space-y-1 font-mono text-xs">
           <li>GOOGLE_SERVICE_ACCOUNT_EMAIL</li>
           <li>GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY</li>
-          <li>DATAFORSEO_LOGIN</li>
-          <li>DATAFORSEO_PASSWORD</li>
+          <li>DATAFORSEO_LOGIN (only for DataForSEO)</li>
+          <li>DATAFORSEO_PASSWORD (only for DataForSEO)</li>
+          <li>SEARXNG_URL (only for SearXNG)</li>
           <li>NEXT_PUBLIC_ANALYTICS_ENABLED=false (default before DB row)</li>
           <li>NEXT_PUBLIC_ANALYTICS_CONSENT_REQUIRED=true (default before DB row)</li>
         </ul>

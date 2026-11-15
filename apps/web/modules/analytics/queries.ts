@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma, TENANT_ID } from "@/modules/shared";
 import { CONVERSION_EVENTS } from "./constants";
 import { getAnalyticsSettingsRecord, resolveAnalyticsSecret } from "./settings";
+import { parseCompetitorProvider } from "./constants";
 import { addDays, dayKey, formatDayLabel, startOfUtcDay } from "./range";
 import type {
   AnalyticsRange,
@@ -603,6 +604,7 @@ type CompetitorSqlRow = {
   keyword: string;
   position: number | null;
   url: string | null;
+  source: string;
   date: string;
 };
 
@@ -616,6 +618,7 @@ export async function getCompetitorRankings(
       keyword,
       position,
       url,
+      source,
       to_char(date, 'YYYY-MM-DD') AS date
     FROM "CompetitorRankingDaily"
     WHERE "tenantId" = ${TENANT_ID}
@@ -629,6 +632,7 @@ export async function getCompetitorRankings(
     keyword: row.keyword,
     position: row.position,
     url: row.url,
+    source: row.source,
     date: row.date,
   }));
 }
@@ -658,18 +662,32 @@ export async function getTrackingHealth(): Promise<TrackingHealth> {
     `,
     getAnalyticsSettingsRecord(),
     prisma.analyticsSyncState.findMany({
-      where: { tenantId: TENANT_ID, kind: { in: ["gsc", "dataforseo"] } },
+      where: { tenantId: TENANT_ID, kind: { in: ["gsc", "competitors", "dataforseo"] } },
     }),
     prisma.company.findFirst({ where: { tenantId: TENANT_ID } }),
   ]);
 
   const count = counts[0] ?? { events_today: 0, pageviews_today: 0, bot_events_today: 0 };
   const gscState = syncStates.find((state) => state.kind === "gsc");
-  const competitorState = syncStates.find((state) => state.kind === "dataforseo");
+  const competitorState =
+    syncStates.find((state) => state.kind === "competitors") ??
+    syncStates.find((state) => state.kind === "dataforseo");
+  const competitorProvider = parseCompetitorProvider(settings.competitorProvider);
   const competitorDomains = Array.isArray(settings.competitorDomains)
     ? settings.competitorDomains
     : [];
   const targetKeywords = Array.isArray(settings.targetKeywords) ? settings.targetKeywords : [];
+  const searxngUrl = resolveAnalyticsSecret(settings.searxngUrl, process.env.SEARXNG_URL);
+  const dataForSeoConfigured = Boolean(
+    resolveAnalyticsSecret(settings.dataForSeoLogin, process.env.DATAFORSEO_LOGIN) &&
+      resolveAnalyticsSecret(settings.dataForSeoPassword, process.env.DATAFORSEO_PASSWORD),
+  );
+  const competitorConfigured =
+    competitorProvider === "manual"
+      ? competitorDomains.length > 0
+      : competitorDomains.length > 0 &&
+        targetKeywords.length > 0 &&
+        (competitorProvider === "searxng" ? Boolean(searxngUrl) : dataForSeoConfigured);
 
   return {
     lastEventAt: lastEvent?.occurredAt?.toISOString() ?? null,
@@ -694,14 +712,11 @@ export async function getTrackingHealth(): Promise<TrackingHealth> {
     gscSiteUrl: settings.gscSiteUrl,
     gscLastSyncAt: gscState?.lastSuccessAt?.toISOString() ?? null,
     gscLastError: gscState?.lastError ?? null,
-    competitorConfigured: Boolean(
-      competitorDomains.length > 0 &&
-        targetKeywords.length > 0 &&
-        resolveAnalyticsSecret(settings.dataForSeoLogin, process.env.DATAFORSEO_LOGIN) &&
-        resolveAnalyticsSecret(settings.dataForSeoPassword, process.env.DATAFORSEO_PASSWORD),
-    ),
-    competitorLastSyncAt: competitorState?.lastSuccessAt?.toISOString() ?? null,
-    competitorLastError: competitorState?.lastError ?? null,
+    competitorConfigured,
+    competitorProvider,
+    competitorLastSyncAt:
+      competitorProvider === "manual" ? null : competitorState?.lastSuccessAt?.toISOString() ?? null,
+    competitorLastError: competitorProvider === "manual" ? null : competitorState?.lastError ?? null,
     ga4: company?.ga4 ?? null,
     gtm: company?.gtm ?? null,
     gscVerificationTag: company?.gscVerificationTag ?? null,

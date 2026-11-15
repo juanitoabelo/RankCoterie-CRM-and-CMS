@@ -1,5 +1,5 @@
 import { prisma, TENANT_ID } from "@/modules/shared";
-import { DEFAULT_EXCLUDED_PATHS } from "./constants";
+import { DEFAULT_EXCLUDED_PATHS, parseCompetitorProvider } from "./constants";
 import { parseStringArray } from "@/lib/analytics/privacy";
 import type {
   AnalyticsSecretStatus,
@@ -11,6 +11,8 @@ function mapSettings(row: {
   enabled: boolean;
   gscSiteUrl: string | null;
   ga4PropertyId: string | null;
+  competitorProvider: string;
+  searxngUrl: string | null;
   competitorDomains: unknown;
   targetKeywords: unknown;
   retentionDays: number;
@@ -21,6 +23,8 @@ function mapSettings(row: {
     enabled: row.enabled,
     gscSiteUrl: row.gscSiteUrl ?? "",
     ga4PropertyId: row.ga4PropertyId ?? "",
+    competitorProvider: parseCompetitorProvider(row.competitorProvider),
+    searxngUrl: row.searxngUrl ?? "",
     competitorDomains: parseStringArray(row.competitorDomains),
     targetKeywords: parseStringArray(row.targetKeywords),
     retentionDays: row.retentionDays,
@@ -73,11 +77,13 @@ export async function getAnalyticsSecretStatus(): Promise<AnalyticsSecretStatus>
     hasGoogleServiceAccountPrivateKey: Boolean(row.googleServiceAccountPrivateKey),
     dataForSeoLogin: row.dataForSeoLogin ?? "",
     hasDataForSeoPassword: Boolean(row.dataForSeoPassword),
+    searxngUrl: row.searxngUrl ?? "",
     env: {
       googleServiceAccountEmail: Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL),
       googleServiceAccountPrivateKey: Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY),
       dataForSeoLogin: Boolean(process.env.DATAFORSEO_LOGIN),
       dataForSeoPassword: Boolean(process.env.DATAFORSEO_PASSWORD),
+      searxngUrl: Boolean(process.env.SEARXNG_URL),
       enabled: process.env.NEXT_PUBLIC_ANALYTICS_ENABLED !== "false",
       consentRequired: process.env.NEXT_PUBLIC_ANALYTICS_CONSENT_REQUIRED === "true",
     },
@@ -95,6 +101,8 @@ export async function saveAnalyticsSettings(
       enabled: data.enabled,
       gscSiteUrl: data.gscSiteUrl || null,
       ga4PropertyId: data.ga4PropertyId || null,
+      competitorProvider: data.competitorProvider,
+      searxngUrl: data.searxngUrl || null,
       googleServiceAccountEmail: secretValue(
         secrets.googleServiceAccountEmail,
         current.googleServiceAccountEmail,

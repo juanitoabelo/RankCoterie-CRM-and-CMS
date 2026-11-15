@@ -2647,6 +2647,8 @@ model AnalyticsSetting {
   enabled                       Boolean  @default(true)
   gscSiteUrl                    String?
   ga4PropertyId                 String?
+  competitorProvider            String   @default("manual") // manual | searxng | dataforseo
+  searxngUrl                    String?
   googleServiceAccountEmail     String?
   googleServiceAccountPrivateKey String?
   dataForSeoLogin               String?

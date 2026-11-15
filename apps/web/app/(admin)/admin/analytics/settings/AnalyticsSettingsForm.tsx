@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type {
   AnalyticsSecretStatus,
   AnalyticsSettingsData,
@@ -26,6 +26,7 @@ export default function AnalyticsSettingsForm({
   secretStatus: AnalyticsSecretStatus;
 }) {
   const [state, action, pending] = useActionState(saveAnalyticsSettingsAction, initial);
+  const [provider, setProvider] = useState(settings.competitorProvider);
 
   const labelCls = "block text-sm";
   const labelTextCls = "font-medium text-zinc-700";
@@ -128,6 +129,41 @@ export default function AnalyticsSettingsForm({
       <section className="rounded-xl border border-zinc-200 bg-white p-5">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">Competitor tracking</h2>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <label className={`${labelCls} md:col-span-2`}>
+            <span className={labelTextCls}>Rank tracking provider</span>
+            <select
+              name="competitorProvider"
+              value={provider}
+              onChange={(event) => setProvider(event.target.value as typeof provider)}
+              className={inputCls}
+            >
+              <option value="manual">Manual watchlist (free)</option>
+              <option value="searxng">Self-hosted SearXNG (free)</option>
+              <option value="dataforseo">DataForSEO (paid)</option>
+            </select>
+            <span className={hintCls}>
+              {provider === "manual"
+                ? "No external API calls. Internal peers are always shown; domains and keywords become manual check links."
+                : provider === "searxng"
+                  ? "Queries your SearXNG instance's JSON API. Results are metasearch and may not match exact Google positions."
+                  : "Uses DataForSEO's paid Google SERP API for organic positions."}
+            </span>
+          </label>
+          {provider === "searxng" && (
+            <label className={`${labelCls} md:col-span-2`}>
+              <span className={labelTextCls}>SearXNG URL</span>
+              <input
+                name="searxngUrl"
+                defaultValue={settings.searxngUrl}
+                placeholder="https://searxng.example.com/"
+                className={inputCls}
+              />
+              <span className={hintCls}>
+                {sourceHint(settings.searxngUrl, secretStatus.env.searxngUrl, "SEARXNG_URL")} Enable JSON
+                output in SearXNG&apos;s <code>settings.yml</code>.
+              </span>
+            </label>
+          )}
           <label className={labelCls}>
             <span className={labelTextCls}>Competitor domains</span>
             <textarea
@@ -137,6 +173,10 @@ export default function AnalyticsSettingsForm({
               placeholder={"competitor-one.com\ncompetitor-two.com"}
               className={`${inputCls} font-mono text-xs`}
             />
+            <span className={hintCls}>
+              Internal peers are discovered automatically. Add external competitors here for watchlist,
+              SearXNG, or DataForSEO checks.
+            </span>
           </label>
           <label className={labelCls}>
             <span className={labelTextCls}>Target keywords</span>
@@ -147,49 +187,56 @@ export default function AnalyticsSettingsForm({
               placeholder={"wilderness therapy\nfamily therapist near me"}
               className={`${inputCls} font-mono text-xs`}
             />
-            <span className={hintCls}>Up to 10 keywords per sync.</span>
-          </label>
-          <label className={labelCls}>
-            <span className={labelTextCls}>DataForSEO login</span>
-            <input
-              name="dataForSeoLogin"
-              defaultValue={secretStatus.dataForSeoLogin}
-              placeholder="you@example.com"
-              className={inputCls}
-            />
             <span className={hintCls}>
-              {sourceHint(
-                secretStatus.dataForSeoLogin,
-                secretStatus.env.dataForSeoLogin,
-                "DATAFORSEO_LOGIN",
-              )}
+              Required for SearXNG and DataForSEO. Manual mode uses these to build check links. Up to 10 per
+              sync.
             </span>
           </label>
-          <label className={labelCls}>
-            <span className={labelTextCls}>DataForSEO password</span>
-            <input
-              type="password"
-              name="dataForSeoPassword"
-              defaultValue=""
-              placeholder={
-                secretStatus.hasDataForSeoPassword
-                  ? "Stored in the database — leave blank to keep the current password"
-                  : secretStatus.env.dataForSeoPassword
-                    ? "Using DATAFORSEO_PASSWORD — enter a value to override"
-                    : "DataForSEO API password"
-              }
-              className={inputCls}
-            />
-            <span className={hintCls}>
-              Leave blank to keep the stored password. Stored values override DATAFORSEO_PASSWORD.
-            </span>
-            {secretStatus.hasDataForSeoPassword && (
-              <label className="mt-2 flex items-center gap-2 text-xs text-zinc-600">
-                <input type="checkbox" name="clearDataForSeoPassword" />
-                Clear the stored password
+          {provider === "dataforseo" && (
+            <>
+              <label className={labelCls}>
+                <span className={labelTextCls}>DataForSEO login</span>
+                <input
+                  name="dataForSeoLogin"
+                  defaultValue={secretStatus.dataForSeoLogin}
+                  placeholder="you@example.com"
+                  className={inputCls}
+                />
+                <span className={hintCls}>
+                  {sourceHint(
+                    secretStatus.dataForSeoLogin,
+                    secretStatus.env.dataForSeoLogin,
+                    "DATAFORSEO_LOGIN",
+                  )}
+                </span>
               </label>
-            )}
-          </label>
+              <label className={labelCls}>
+                <span className={labelTextCls}>DataForSEO password</span>
+                <input
+                  type="password"
+                  name="dataForSeoPassword"
+                  defaultValue=""
+                  placeholder={
+                    secretStatus.hasDataForSeoPassword
+                      ? "Stored in the database — leave blank to keep the current password"
+                      : secretStatus.env.dataForSeoPassword
+                        ? "Using DATAFORSEO_PASSWORD — enter a value to override"
+                        : "DataForSEO API password"
+                  }
+                  className={inputCls}
+                />
+                <span className={hintCls}>
+                  Leave blank to keep the stored password. Stored values override DATAFORSEO_PASSWORD.
+                </span>
+                {secretStatus.hasDataForSeoPassword && (
+                  <label className="mt-2 flex items-center gap-2 text-xs text-zinc-600">
+                    <input type="checkbox" name="clearDataForSeoPassword" />
+                    Clear the stored password
+                  </label>
+                )}
+              </label>
+            </>
+          )}
         </div>
       </section>
 
