@@ -4,7 +4,7 @@ import { filterIndexableRegions } from "@/lib/directory/indexGate";
 import { prisma } from "@/modules/shared";
 import { TENANT_ID } from "@/lib/tenant";
 
-export const SITE_URL = process.env.SITE_URL ?? "https://masternet.org";
+export const SITE_URL = (process.env.SITE_URL ?? "https://masternet.org").replace(/\/+$/, "");
 
 /** One labelled slice of the sitemap, used by the admin report view. */
 export type SitemapGroup = {
