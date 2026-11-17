@@ -111,6 +111,11 @@ export const ADMIN_TOOL_GROUPS: AdminToolGroup[] = [
   {
     title: "Sales & Billing",
     items: [
+      { key: "crm.dashboard", section: "crm", href: "/admin/crm", label: "CRM Dashboard" },
+      { key: "crm.pipeline", section: "crm", href: "/admin/crm/pipeline", label: "Pipeline" },
+      { key: "crm.deals", section: "crm", href: "/admin/crm/deals", label: "Deals" },
+      { key: "crm.activities", section: "crm", href: "/admin/crm/activities", label: "Activities" },
+      { key: "crm.settings", section: "crm", href: "/admin/crm/settings", label: "CRM Settings" },
       { key: "leads.list", section: "leads", href: "/admin/leads", label: "Leads" },
       { key: "clients.list", section: "clients", href: "/admin/clients", label: "Clients" },
       { key: "invoices.list", section: "invoices", href: "/admin/invoices", label: "Invoices" },
@@ -174,6 +179,7 @@ export const SECTION_LABELS: Record<string, string> = {
   exclusions: "Exclusions",
   feeds: "Feeds",
   widgets: "Widgets",
+  crm: "CRM",
   leads: "Leads",
   clients: "Clients",
   invoices: "Invoices",
@@ -219,6 +225,7 @@ export const DEFAULT_SECTION_ROLES: Record<string, string[]> = {
   sitemap: ["SUPER_ADMIN", "ADMIN", "MARKETING"],
   myCompany: ["SUPER_ADMIN", "ADMIN"],
   users: ["SUPER_ADMIN"],
+  crm: ["SUPER_ADMIN", "ADMIN", "SALES_REP"],
   leads: ["SUPER_ADMIN", "ADMIN", "SALES_REP"],
   clients: ["SUPER_ADMIN", "ADMIN", "SALES_REP"],
   invoices: ["SUPER_ADMIN", "ADMIN", "SALES_REP"],

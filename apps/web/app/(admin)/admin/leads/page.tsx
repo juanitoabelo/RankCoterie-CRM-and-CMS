@@ -149,6 +149,7 @@ export default async function AdminLeadsPage({
           <tr>
             <th className="py-2 pr-4">Lead</th>
             <th className="py-2 pr-4">Status</th>
+            <th className="py-2 pr-4">Score</th>
             <th className="py-2 pr-4">Disposition</th>
             <th className="py-2 pr-4">Campaign</th>
             <th className="py-2 pr-4">Source</th>
@@ -170,6 +171,17 @@ export default async function AdminLeadsPage({
                   {lead.status}
                 </span>
               </td>
+              <td className="py-3 pr-4">
+                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                  lead.score >= 70
+                    ? "bg-emerald-50 text-emerald-700"
+                    : lead.score >= 40
+                      ? "bg-sky-50 text-sky-700"
+                      : "bg-zinc-100 text-zinc-500"
+                }`}>
+                  {lead.score}
+                </span>
+              </td>
               <td className="py-3 pr-4 text-zinc-600">{lead.disposition ?? "—"}</td>
               <td className="py-3 pr-4 text-zinc-600">{lead.campaignId ?? "—"}</td>
               <td className="py-3 pr-4 text-zinc-600">
@@ -187,7 +199,7 @@ export default async function AdminLeadsPage({
           ))}
           {leads.length === 0 && (
             <tr>
-              <td colSpan={7} className="py-10 text-center text-sm text-zinc-400">
+              <td colSpan={8} className="py-10 text-center text-sm text-zinc-400">
                 No leads match these filters.{" "}
                 <Link href="/admin/leads/new" className="text-zinc-600 underline hover:text-zinc-900">
                   Add the first lead

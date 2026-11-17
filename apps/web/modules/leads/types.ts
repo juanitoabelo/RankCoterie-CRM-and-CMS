@@ -14,6 +14,7 @@ export interface LeadWithRelations {
   lastName: string | null;
   email: string | null;
   status: string;
+  score: number;
   disposition: string | null;
   campaignId: string | null;
   landingPageId: string | null;

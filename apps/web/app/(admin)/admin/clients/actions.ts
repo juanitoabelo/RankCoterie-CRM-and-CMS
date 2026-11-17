@@ -7,6 +7,7 @@ import { prisma, TENANT_ID } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/modules/auth";
 import { saveCustomFieldValues } from "../custom-fields/actions";
+import { logCrmActivity } from "@/modules/crm/activity";
 
 export type ActionResult = { ok: boolean; error?: string; message?: string; id?: string };
 
@@ -138,6 +139,13 @@ export async function addClient(input: {
     entityId: client.id,
     actorId: user.id,
     reason: `Client "${input.firstName} ${input.lastName}" created manually`,
+  });
+  await logCrmActivity({
+    type: "NOTE",
+    subject: "Client created",
+    userId: user.id,
+    clientId: client.id,
+    leadId: client.leadId,
   });
   revalidatePath("/admin/clients");
   return { ok: true, message: "Client created.", id: client.id };
@@ -288,6 +296,14 @@ export async function addClientNote(clientId: string, note: string): Promise<Act
     entityId: clientId,
     actorId: user.id,
     reason: `Note added to client ${client.firstName} ${client.lastName}`.trim(),
+  });
+  await logCrmActivity({
+    type: "NOTE",
+    subject: "Client note added",
+    body: trimmed,
+    userId: user.id,
+    clientId,
+    leadId: client.leadId,
   });
   revalidatePath(`/admin/clients/${clientId}`);
   return { ok: true };

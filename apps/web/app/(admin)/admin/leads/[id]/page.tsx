@@ -9,6 +9,11 @@ import {
   formatIntakeValue,
 } from "@/modules/leads";
 import { FlashBanner } from "@/components/admin/FlashBanner";
+import CrmTimeline from "@/components/admin/crm/CrmTimeline";
+import { getDealsForLead } from "@/modules/crm/queries";
+import { findLeadDuplicates } from "@/modules/crm/duplicates";
+import { getCrmTimeline } from "@/modules/crm/activity";
+import { crmDealFromLeadForm } from "@/modules/crm/actions";
 import { IntakeSectionFields } from "@/components/admin/LeadIntakeFields";
 import { normalizeCustomFormFields } from "@/modules/custom-forms/types";
 import CustomFieldsPanel from "@/components/admin/custom-fields/CustomFieldsPanel";
@@ -50,7 +55,7 @@ export default async function AdminLeadDetailPage({
       notes: { orderBy: { createdAt: "desc" } },
       todos: { orderBy: { createdAt: "asc" } },
       client: { select: { id: true } },
-      formSubmissions: { include: { form: { select: { name: true } } }, orderBy: { createdAt: "desc" } },
+      formSubmissions: { include: { form: { select: { name: true, fields: true } } }, orderBy: { createdAt: "desc" } },
     },
   });
   if (!lead) notFound();
@@ -74,6 +79,12 @@ export default async function AdminLeadDetailPage({
           select: { id: true, firstName: true, lastName: true, email: true },
         })
       : Promise.resolve([]),
+  ]);
+
+  const [leadDeals, duplicateLeads, timeline] = await Promise.all([
+    getDealsForLead(lead.id),
+    findLeadDuplicates({ leadId: lead.id, email: lead.email, phones: lead.phones }),
+    getCrmTimeline({ leadId: lead.id, pageSize: 25 }),
   ]);
 
   const userName = (u: { firstName: string | null; lastName: string | null; email: string } | null) =>
@@ -122,6 +133,9 @@ export default async function AdminLeadDetailPage({
             {lead.status}
             {lead.disposition ? ` · ${lead.disposition}` : ""}
             {assignedName ? ` · assigned to ${assignedName}` : " · unassigned"}
+            <span className="ml-2 rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700">
+              score {lead.score}
+            </span>
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
@@ -184,6 +198,51 @@ export default async function AdminLeadDetailPage({
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <section className="rounded-xl border border-zinc-200 bg-white p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">Deals</h2>
+            <form action={crmDealFromLeadForm}>
+              <input type="hidden" name="leadId" value={lead.id} />
+              <button className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50">
+                Create deal
+              </button>
+            </form>
+          </div>
+          <ul className="mt-3 space-y-2">
+            {leadDeals.map((deal) => (
+              <li key={deal.id} className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2">
+                <div>
+                  <Link href={`/admin/crm/deals/${deal.id}`} className="text-sm font-medium text-zinc-900 hover:underline">
+                    {deal.title}
+                  </Link>
+                  <p className="text-xs text-zinc-400">
+                    {deal.stage.label} · ${deal.value.toFixed(2)} · {deal.probability ?? deal.stage.probability}%
+                  </p>
+                </div>
+                <span className="text-xs text-zinc-500">{deal.expectedCloseDate?.toISOString().slice(0, 10) ?? ""}</span>
+              </li>
+            ))}
+            {leadDeals.length === 0 && <li className="text-sm text-zinc-400">No deal yet.</li>}
+          </ul>
+        </section>
+
+        <section className="rounded-xl border border-zinc-200 bg-white p-5">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">Possible duplicates</h2>
+          <ul className="mt-3 space-y-2">
+            {duplicateLeads.map((duplicate) => (
+              <li key={duplicate.id} className="rounded-lg border border-amber-200 bg-amber-50/40 px-3 py-2">
+                <Link href={`/admin/leads/${duplicate.id}`} className="text-sm font-medium text-zinc-900 hover:underline">
+                  {duplicate.name}
+                </Link>
+                <p className="text-xs text-zinc-500">
+                  matched on {duplicate.matchedOn} · {duplicate.email ?? duplicate.phone ?? "no contact"} · score {duplicate.score ?? 0}
+                </p>
+              </li>
+            ))}
+            {duplicateLeads.length === 0 && <li className="text-sm text-zinc-400">No duplicates found.</li>}
+          </ul>
+        </section>
+
         <section className="rounded-xl border border-zinc-200 bg-white p-5">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">Contact</h2>
           <form action={leadContactForm} className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -462,6 +521,16 @@ export default async function AdminLeadDetailPage({
         Campaign: {lead.campaignId ?? "—"}, Date: {lead.createdAt.toISOString().slice(0, 10)}, Lead
         ID: {lead.id}
       </p>
+
+      <section className="mt-6 rounded-xl border border-zinc-200 bg-white p-5">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">CRM timeline</h2>
+          <span className="text-xs text-zinc-400">{timeline.total} entries</span>
+        </div>
+        <div className="mt-4">
+          <CrmTimeline items={timeline.items} emptyText="No CRM activity yet. Create a deal or log activity from it." />
+        </div>
+      </section>
 
       <section className="mt-6 rounded-xl border border-red-200 bg-white p-5">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-red-500">Danger zone</h2>

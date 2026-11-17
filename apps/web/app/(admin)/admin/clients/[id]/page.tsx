@@ -5,6 +5,11 @@ import { prisma } from "@/modules/shared";
 import { requireSection } from "@/modules/auth";
 import { FlashBanner } from "@/components/admin/FlashBanner";
 import CustomFieldsPanel from "@/components/admin/custom-fields/CustomFieldsPanel";
+import CrmTimeline from "@/components/admin/crm/CrmTimeline";
+import { getDealsForClient } from "@/modules/crm/queries";
+import { findClientDuplicates } from "@/modules/crm/duplicates";
+import { getCrmTimeline } from "@/modules/crm/activity";
+import { crmDealFromClientForm } from "@/modules/crm/actions";
 import {
   clientEditForm,
   clientNoteForm,
@@ -74,6 +79,12 @@ export default async function AdminClientDetailPage({
   const userName = (u: { firstName: string | null; lastName: string | null; email: string } | null) =>
     u ? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || u.email : null;
   const noteUserById = new Map(noteUsers.map((u) => [u.id, userName(u)]));
+
+  const [clientDeals, duplicateClients, timeline] = await Promise.all([
+    getDealsForClient(client.id),
+    findClientDuplicates({ clientId: client.id, email: client.email, phones: client.phones }),
+    getCrmTimeline({ clientId: client.id, pageSize: 25 }),
+  ]);
 
   const totalBilled = client.invoices
     .filter((i) => i.status === "APPROVED")
@@ -164,6 +175,51 @@ export default async function AdminClientDetailPage({
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <section className="rounded-xl border border-zinc-200 bg-white p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">Deals</h2>
+            <form action={crmDealFromClientForm}>
+              <input type="hidden" name="clientId" value={client.id} />
+              <button className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50">
+                Create deal
+              </button>
+            </form>
+          </div>
+          <ul className="mt-3 space-y-2">
+            {clientDeals.map((deal) => (
+              <li key={deal.id} className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2">
+                <div>
+                  <Link href={`/admin/crm/deals/${deal.id}`} className="text-sm font-medium text-zinc-900 hover:underline">
+                    {deal.title}
+                  </Link>
+                  <p className="text-xs text-zinc-400">
+                    {deal.stage.label} · ${deal.value.toFixed(2)} · {deal.probability ?? deal.stage.probability}%
+                  </p>
+                </div>
+                <span className="text-xs text-zinc-500">{deal.expectedCloseDate?.toISOString().slice(0, 10) ?? ""}</span>
+              </li>
+            ))}
+            {clientDeals.length === 0 && <li className="text-sm text-zinc-400">No deal yet.</li>}
+          </ul>
+        </section>
+
+        <section className="rounded-xl border border-zinc-200 bg-white p-5">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">Possible duplicates</h2>
+          <ul className="mt-3 space-y-2">
+            {duplicateClients.map((duplicate) => (
+              <li key={duplicate.id} className="rounded-lg border border-amber-200 bg-amber-50/40 px-3 py-2">
+                <Link href={`/admin/clients/${duplicate.id}`} className="text-sm font-medium text-zinc-900 hover:underline">
+                  {duplicate.name}
+                </Link>
+                <p className="text-xs text-zinc-500">
+                  matched on {duplicate.matchedOn} · {duplicate.email ?? duplicate.phone ?? "no contact"}
+                </p>
+              </li>
+            ))}
+            {duplicateClients.length === 0 && <li className="text-sm text-zinc-400">No duplicates found.</li>}
+          </ul>
+        </section>
+
         <section className="rounded-xl border border-zinc-200 bg-white p-5">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">Edit client</h2>
           <form action={clientEditForm} className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -345,6 +401,16 @@ export default async function AdminClientDetailPage({
           )}
         </tbody>
       </table>
+
+      <section className="mt-8 rounded-xl border border-zinc-200 bg-white p-5">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">CRM timeline</h2>
+          <span className="text-xs text-zinc-400">{timeline.total} entries</span>
+        </div>
+        <div className="mt-4">
+          <CrmTimeline items={timeline.items} emptyText="No CRM activity yet. Create a deal or log activity from it." />
+        </div>
+      </section>
 
       <section className="mt-8 rounded-xl border border-red-200 bg-white p-5">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-red-500">Danger zone</h2>

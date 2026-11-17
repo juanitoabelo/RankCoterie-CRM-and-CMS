@@ -13,6 +13,9 @@ import {
   parseIntakeValue,
 } from "@/modules/leads";
 import { saveCustomFieldValues } from "../custom-fields/actions";
+import { updateLeadScore } from "@/modules/crm/scoring";
+import { logCrmActivity } from "@/modules/crm/activity";
+import { getCrmSettings } from "@/modules/crm/settings";
 
 export type ActionResult = { ok: boolean; error?: string; message?: string; id?: string };
 
@@ -31,6 +34,10 @@ function leadsListError(error: string): never {
 }
 function newLeadError(error: string): never {
   redirect(`/admin/leads/new?error=${encodeURIComponent(error)}`);
+}
+
+async function refreshLeadScore(leadId: string): Promise<void> {
+  await updateLeadScore(leadId).catch(() => null);
 }
 
 function buildPhones(home?: string, work?: string, cell?: string, fallback?: unknown) {
@@ -98,10 +105,38 @@ export async function addLead(input: {
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, error: "Enter a valid email address." };
   }
-  const assignedToId = input.assignedToId?.trim() || null;
+  let assignedToId = input.assignedToId?.trim() || null;
   if (assignedToId) {
     const assignee = await prisma.user.findUnique({ where: { id: assignedToId } });
     if (!assignee) return { ok: false, error: "Assigned user not found." };
+  } else {
+    const settings = await getCrmSettings();
+    if (settings.autoAssignLeads) {
+      const candidates = await prisma.user.findMany({
+        where: {
+          tenantId: TENANT_ID,
+          active: true,
+          roles: { some: { role: { in: ["SALES_REP", "ADMIN", "SUPER_ADMIN"] } } },
+        },
+        select: { id: true },
+      });
+      const ids = candidates.map((candidate) => candidate.id);
+      if (ids.length > 0) {
+        const counts = await prisma.lead.groupBy({
+          by: ["assignedToId"],
+          where: {
+            tenantId: TENANT_ID,
+            assignedToId: { in: ids },
+            status: { notIn: ["CLOSED", "ARCHIVED"] },
+          },
+          _count: { _all: true },
+        });
+        const countById = new Map(counts.map((row) => [row.assignedToId, row._count._all]));
+        assignedToId = ids.reduce((best, id) =>
+          (countById.get(id) ?? 0) < (countById.get(best) ?? 0) ? id : best,
+        );
+      }
+    }
   }
 
   const phones = buildPhones(input.phoneHome, input.phoneWork, input.phoneCell);
@@ -148,6 +183,7 @@ export async function addLead(input: {
     actorId: user.id,
     reason: `Lead "${firstName} ${lastName}" created manually`,
   });
+  await refreshLeadScore(lead.id);
   revalidatePath("/admin/leads");
   return { ok: true, message: `Lead ${firstName} ${lastName} created.`, id: lead.id };
 }
@@ -205,6 +241,7 @@ export async function updateLeadContact(
     actorId: user.id,
     reason: `Lead contact updated`,
   });
+  await refreshLeadScore(leadId);
   revalidatePath("/admin/leads");
   revalidatePath(`/admin/leads/${leadId}`);
   return { ok: true, message: "Contact updated." };
@@ -252,6 +289,13 @@ export async function assignLead(leadId: string, userId: string): Promise<Action
     reason: `Lead assigned to ${assigneeName}`,
     meta: { from: lead.assignedToId, to: assigneeId },
   });
+  await logCrmActivity({
+    type: "ASSIGNMENT",
+    subject: `Assigned to ${assigneeName}`,
+    userId: actor.id,
+    leadId,
+  });
+  await refreshLeadScore(leadId);
   revalidatePath("/admin/leads");
   revalidatePath(`/admin/leads/${leadId}`);
   return { ok: true, message: `Lead assigned to ${assigneeName}.` };
@@ -307,6 +351,15 @@ export async function convertLeadToClient(leadId: string): Promise<ActionResult>
       reason: `Lead converted to client ${client.id}`,
       meta: { clientId: client.id },
     });
+    await logCrmActivity({
+      type: "STAGE_CHANGE",
+      subject: "Lead converted to client",
+      body: `Client ${client.id} created.`,
+      userId: user.id,
+      leadId,
+      clientId: client.id,
+    });
+    await refreshLeadScore(leadId);
     revalidatePath("/admin/leads");
     revalidatePath(`/admin/leads/${leadId}`);
     revalidatePath("/admin/clients");
@@ -351,6 +404,14 @@ export async function changeLeadStatus(
     reason: `Status ${lead.status} → ${status}${cleanDisposition ? ` (${cleanDisposition})` : ""}`,
     meta: { from: lead.status, to: status, disposition: cleanDisposition },
   });
+  await logCrmActivity({
+    type: "STAGE_CHANGE",
+    subject: `Status ${lead.status} → ${status}`,
+    body: cleanDisposition ? `Disposition: ${cleanDisposition}` : null,
+    userId: user.id,
+    leadId,
+  });
+  await refreshLeadScore(leadId);
   revalidatePath("/admin/leads");
   revalidatePath(`/admin/leads/${leadId}`);
   return { ok: true, message: `Lead moved to ${status}.` };
@@ -371,6 +432,14 @@ export async function addLeadNote(leadId: string, note: string): Promise<ActionR
     actorId: user.id,
     reason: `Note added to lead ${lead.firstName} ${lead.lastName}`.trim(),
   });
+  await logCrmActivity({
+    type: "NOTE",
+    subject: "Lead note added",
+    body: trimmed,
+    userId: user.id,
+    leadId,
+  });
+  await refreshLeadScore(leadId);
   revalidatePath(`/admin/leads/${leadId}`);
   return { ok: true };
 }
@@ -387,6 +456,7 @@ export async function deleteLeadNote(noteId: string): Promise<ActionResult> {
     actorId: user.id,
     reason: `Note deleted from lead ${note.leadId}`,
   });
+  await refreshLeadScore(note.leadId);
   revalidatePath(`/admin/leads/${note.leadId}`);
   return { ok: true };
 }
@@ -425,6 +495,14 @@ export async function addTodo(
     actorId: user.id,
     reason: `To-do "${trimmed}" added to lead`,
   });
+  await logCrmActivity({
+    type: "TASK",
+    subject: "Task created",
+    body: trimmed,
+    userId: user.id,
+    leadId,
+  });
+  await refreshLeadScore(leadId);
   revalidatePath(`/admin/leads/${leadId}`);
   return { ok: true };
 }
@@ -445,6 +523,7 @@ export async function toggleTodo(todoId: string): Promise<ActionResult> {
     actorId: user.id,
     reason: nowFinished ? `Completed todo "${todo.text}"` : `Reopened todo "${todo.text}"`,
   });
+  if (todo.leadId) await refreshLeadScore(todo.leadId);
   revalidatePath("/admin/leads");
   if (todo.leadId) revalidatePath(`/admin/leads/${todo.leadId}`);
   return { ok: true };
@@ -462,7 +541,10 @@ export async function deleteTodo(todoId: string): Promise<ActionResult> {
     actorId: user.id,
     reason: `To-do "${todo.text}" deleted`,
   });
-  if (todo.leadId) revalidatePath(`/admin/leads/${todo.leadId}`);
+  if (todo.leadId) {
+    await refreshLeadScore(todo.leadId);
+    revalidatePath(`/admin/leads/${todo.leadId}`);
+  }
   return { ok: true };
 }
 
@@ -523,6 +605,7 @@ export async function updateLeadIntake(leadId: string, intakeJson: string): Prom
     actorId: user.id,
     reason: `Lead intake/custom fields updated`,
   });
+  await refreshLeadScore(leadId);
   revalidatePath("/admin/leads");
   revalidatePath(`/admin/leads/${leadId}`);
   return { ok: true, message: "Intake updated." };
@@ -564,6 +647,7 @@ export async function updateLeadIntakeFields(
     actorId: user.id,
     reason: `Lead intake sections updated (${Object.keys(schemaValues).length} fields)`,
   });
+  await refreshLeadScore(leadId);
   revalidatePath("/admin/leads");
   revalidatePath(`/admin/leads/${leadId}`);
   return { ok: true, message: "Intake saved." };

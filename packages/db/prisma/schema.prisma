@@ -679,15 +679,21 @@ model Lead {
   subId         String?
   clickId       String?
   landingPageId String?
+  // CRM scoring
+  score         Int      @default(0)
+  scoreUpdatedAt DateTime?
   // clinical intake (legacy extended fields)
   intake        Json     @default("{}") // patient/insurance/diagnosis/trauma/court flags...
   createdAt     DateTime @default(now())
   notes         LeadNote[]
   todos         ToDo[]
   client        Client?
+  deals         Deal[]
+  activities    CrmActivity[]
   listingLeads  ListingLead[]
   formSubmissions CustomFormSubmission[]
   @@index([tenantId, status])
+  @@index([tenantId, score])
 }
 
 model CustomForm {
@@ -736,12 +742,20 @@ model ToDo {
   id        String   @id @default(cuid())
   leadId    String?
   lead      Lead?    @relation(fields: [leadId], references: [id])
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  dealId    String?
+  deal      Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
   assigneeId String?
   text      String
+  priority  String   @default("NORMAL") // LOW | NORMAL | HIGH
   dueAt     DateTime?
   finishedAt DateTime?
   status    String   @default("OPEN")
   createdAt DateTime @default(now())
+  @@index([assigneeId, status])
+  @@index([clientId])
+  @@index([dealId])
 }
 
 model Client {
@@ -766,6 +780,9 @@ model Client {
   createdAt DateTime @default(now())
   invoices  Invoice[]
   notes     ClientNote[]
+  deals     Deal[]
+  activities CrmActivity[]
+  tasks     ToDo[]
   @@index([tenantId])
 }
 
@@ -777,6 +794,98 @@ model ClientNote {
   userId    String?
   createdAt DateTime @default(now())
   @@index([clientId])
+}
+
+// ---------------------------------------------------------------------------
+// CRM — pipeline, deals, activity timeline, settings
+// ---------------------------------------------------------------------------
+
+model CrmSetting {
+  id               String   @id @default(cuid())
+  tenantId         String   @unique
+  autoAssignLeads  Boolean  @default(false)
+  staleDealDays    Int      @default(14)
+  defaultCurrency  String   @default("USD")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model CrmStage {
+  id          String   @id @default(cuid())
+  tenantId    String
+  key         String
+  label       String
+  order       Int      @default(0)
+  probability Int      @default(0)
+  isWon       Boolean  @default(false)
+  isLost      Boolean  @default(false)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deals       Deal[]
+  @@unique([tenantId, key])
+  @@index([tenantId, order])
+}
+
+model Deal {
+  id                String   @id @default(cuid())
+  tenantId          String
+  title             String
+  stageId           String
+  stage             CrmStage @relation(fields: [stageId], references: [id])
+  value             Decimal  @default(0) @db.Decimal(12, 2)
+  currency          String   @default("USD")
+  probability       Int?     // overrides the stage probability when set
+  expectedCloseDate DateTime?
+  source            String?
+  ownerId           String?
+  leadId            String?
+  lead              Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  clientId          String?
+  client            Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  companyName       String?
+  contactName       String?
+  contactEmail      String?
+  contactPhone      String?
+  notes             String?
+  lostReason        String?
+  wonAt             DateTime?
+  closedAt          DateTime?
+  stageChangedAt    DateTime @default(now())
+  lastActivityAt    DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  activities        CrmActivity[]
+  tasks             ToDo[]
+  @@index([tenantId, stageId])
+  @@index([tenantId, ownerId])
+  @@index([tenantId, expectedCloseDate])
+  @@index([tenantId, lastActivityAt])
+  @@index([leadId])
+  @@index([clientId])
+}
+
+model CrmActivity {
+  id         String   @id @default(cuid())
+  tenantId   String
+  type       String // NOTE | CALL | EMAIL | MEETING | STAGE_CHANGE | TASK | ASSIGNMENT | SYSTEM
+  subject    String?
+  body       String?
+  occurredAt DateTime @default(now())
+  userId     String?
+  leadId     String?
+  lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  clientId   String?
+  client     Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  dealId     String?
+  deal       Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now())
+  @@index([tenantId, occurredAt])
+  @@index([tenantId, leadId])
+  @@index([tenantId, clientId])
+  @@index([tenantId, dealId])
+  @@index([userId])
 }
 
 model Invoice {
