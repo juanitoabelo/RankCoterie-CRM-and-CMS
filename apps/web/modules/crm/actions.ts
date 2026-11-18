@@ -15,6 +15,16 @@ import {
 import { getCrmStages, getDefaultCrmStage } from "./stages";
 import { saveCrmSettings } from "./settings";
 import { recalculateLeadScores, updateLeadScore } from "./scoring";
+import {
+  clientAccessWhere,
+  dealAccessWhere,
+  getCrmAccessForUser,
+  leadAccessWhere,
+  taskAccessWhere,
+  type CrmAccess,
+} from "./access";
+import { notifyCrmUser } from "./notifications";
+import { mergeClients, mergeLeads } from "./merge";
 
 export type CrmActionResult = {
   ok: boolean;
@@ -56,7 +66,11 @@ function slugify(value: string): string {
 
 function safeCrmReturn(value: FormDataEntryValue | null, fallback: string): string {
   const raw = String(value ?? "");
-  return raw.startsWith("/admin/crm") ? raw : fallback;
+  return raw.startsWith("/admin/crm") ||
+    raw.startsWith("/admin/leads/") ||
+    raw.startsWith("/admin/clients/")
+    ? raw
+    : fallback;
 }
 
 function dealError(dealId: string, error: string): never {
@@ -73,7 +87,13 @@ function revalidateCrm(dealId?: string) {
   revalidatePath("/admin/crm/deals");
   revalidatePath("/admin/crm/activities");
   revalidatePath("/admin/crm/settings");
+  revalidatePath("/admin/crm/reports");
   if (dealId) revalidatePath(`/admin/crm/deals/${dealId}`);
+}
+
+async function crmActor(): Promise<{ user: Awaited<ReturnType<typeof requireSection>>; access: CrmAccess }> {
+  const user = await requireSection("crm");
+  return { user, access: await getCrmAccessForUser(user) };
 }
 
 function revalidateEntity(entity: {
@@ -102,28 +122,28 @@ async function validateOwner(ownerId: string | null) {
   return Boolean(user);
 }
 
-async function validateLead(leadId: string | null) {
+async function validateLead(leadId: string | null, access?: CrmAccess) {
   if (!leadId) return true;
   const lead = await prisma.lead.findFirst({
-    where: { id: leadId, tenantId: TENANT_ID },
+    where: { id: leadId, tenantId: TENANT_ID, ...leadAccessWhere(access) },
     select: { id: true },
   });
   return Boolean(lead);
 }
 
-async function validateClient(clientId: string | null) {
+async function validateClient(clientId: string | null, access?: CrmAccess) {
   if (!clientId) return true;
   const client = await prisma.client.findFirst({
-    where: { id: clientId, tenantId: TENANT_ID },
+    where: { id: clientId, tenantId: TENANT_ID, ...clientAccessWhere(access) },
     select: { id: true },
   });
   return Boolean(client);
 }
 
-async function validateDeal(dealId: string | null) {
+async function validateDeal(dealId: string | null, access?: CrmAccess) {
   if (!dealId) return true;
   const deal = await prisma.deal.findFirst({
-    where: { id: dealId, tenantId: TENANT_ID },
+    where: { id: dealId, tenantId: TENANT_ID, ...dealAccessWhere(access) },
     select: { id: true },
   });
   return Boolean(deal);
@@ -146,7 +166,7 @@ export async function createDeal(input: {
   contactPhone?: string;
   notes?: string;
 }): Promise<CrmActionResult> {
-  const user = await requireSection("crm");
+  const { user, access } = await crmActor();
   const title = input.title.trim();
   if (!title) return { ok: false, error: "Deal title is required." };
 
@@ -164,45 +184,64 @@ export async function createDeal(input: {
     : await getDefaultCrmStage();
   if (!stage) return { ok: false, error: "No pipeline stage is available." };
 
-  const ownerId = input.ownerId?.trim() || null;
+  let ownerId = input.ownerId?.trim() || null;
+  if (!access.isAdmin) {
+    ownerId = ownerId || access.userId;
+    if (ownerId !== access.userId) {
+      return { ok: false, error: "You can only assign deals to yourself." };
+    }
+  }
   if (!(await validateOwner(ownerId))) return { ok: false, error: "Owner not found." };
   const leadId = input.leadId?.trim() || null;
-  if (!(await validateLead(leadId))) return { ok: false, error: "Linked lead not found." };
+  if (!(await validateLead(leadId, access))) return { ok: false, error: "Linked lead not found." };
   const clientId = input.clientId?.trim() || null;
-  if (!(await validateClient(clientId))) return { ok: false, error: "Linked client not found." };
+  if (!(await validateClient(clientId, access))) return { ok: false, error: "Linked client not found." };
 
-  const deal = await prisma.deal.create({
-    data: {
-      tenantId: TENANT_ID,
-      title,
-      value: new Prisma.Decimal(value.toFixed(2)),
-      currency: input.currency?.trim().toUpperCase().slice(0, 3) || "USD",
-      stageId: stage.id,
-      probability,
-      expectedCloseDate,
-      source: input.source?.trim() || null,
-      ownerId,
+  const deal = await prisma.$transaction(async (tx) => {
+    const row = await tx.deal.create({
+      data: {
+        tenantId: TENANT_ID,
+        title,
+        value: new Prisma.Decimal(value.toFixed(2)),
+        currency: input.currency?.trim().toUpperCase().slice(0, 3) || "USD",
+        stageId: stage.id,
+        probability,
+        expectedCloseDate,
+        source: input.source?.trim() || null,
+        ownerId,
+        leadId,
+        clientId,
+        companyName: input.companyName?.trim() || null,
+        contactName: input.contactName?.trim() || null,
+        contactEmail: input.contactEmail?.trim() || null,
+        contactPhone: input.contactPhone?.trim() || null,
+        notes: input.notes?.trim() || null,
+        lastActivityAt: new Date(),
+      },
+    });
+    await logCrmActivity({
+      type: "SYSTEM",
+      subject: "Deal created",
+      body: `${title} created in ${stage.label}.`,
+      userId: user.id,
       leadId,
       clientId,
-      companyName: input.companyName?.trim() || null,
-      contactName: input.contactName?.trim() || null,
-      contactEmail: input.contactEmail?.trim() || null,
-      contactPhone: input.contactPhone?.trim() || null,
-      notes: input.notes?.trim() || null,
-      lastActivityAt: new Date(),
-    },
+      dealId: row.id,
+      metadata: { stageId: stage.id },
+      client: tx,
+    });
+    return row;
   });
 
-  await logCrmActivity({
-    type: "SYSTEM",
-    subject: "Deal created",
-    body: `${title} created in ${stage.label}.`,
-    userId: user.id,
-    leadId,
-    clientId,
-    dealId: deal.id,
-    metadata: { stageId: stage.id },
-  });
+  if (ownerId && ownerId !== user.id) {
+    await notifyCrmUser({
+      userId: ownerId,
+      type: "DEAL_ASSIGNED",
+      title: "New deal assigned",
+      body: title,
+      link: `/admin/crm/deals/${deal.id}`,
+    }).catch(() => null);
+  }
   await logAudit({
     action: "DEAL_CREATE",
     entity: "Deal",
@@ -236,9 +275,9 @@ export async function updateDeal(
     lostReason?: string;
   },
 ): Promise<CrmActionResult> {
-  const user = await requireSection("crm");
+  const { user, access } = await crmActor();
   const deal = await prisma.deal.findFirst({
-    where: { id: dealId, tenantId: TENANT_ID },
+    where: { id: dealId, tenantId: TENANT_ID, ...dealAccessWhere(access) },
     include: { stage: true },
   });
   if (!deal) return { ok: false, error: "Deal not found." };
@@ -285,17 +324,20 @@ export async function updateDeal(
   }
   if (input.ownerId !== undefined) {
     const ownerId = input.ownerId.trim() || null;
+    if (!access.isAdmin && ownerId && ownerId !== access.userId) {
+      return { ok: false, error: "You can only assign deals to yourself." };
+    }
     if (!(await validateOwner(ownerId))) return { ok: false, error: "Owner not found." };
     data.ownerId = ownerId;
   }
   if (input.leadId !== undefined) {
     const leadId = input.leadId.trim() || null;
-    if (!(await validateLead(leadId))) return { ok: false, error: "Linked lead not found." };
+    if (!(await validateLead(leadId, access))) return { ok: false, error: "Linked lead not found." };
     data.lead = leadId ? { connect: { id: leadId } } : { disconnect: true };
   }
   if (input.clientId !== undefined) {
     const clientId = input.clientId.trim() || null;
-    if (!(await validateClient(clientId))) return { ok: false, error: "Linked client not found." };
+    if (!(await validateClient(clientId, access))) return { ok: false, error: "Linked client not found." };
     data.client = clientId ? { connect: { id: clientId } } : { disconnect: true };
   }
 
@@ -318,19 +360,32 @@ export async function updateDeal(
     }
   }
 
-  const updated = await prisma.deal.update({ where: { id: dealId }, data });
+  const updated = await prisma.$transaction(async (tx) => {
+    const row = await tx.deal.update({ where: { id: dealId }, data });
+    if (stageChanged) {
+      await logCrmActivity({
+        type: "STAGE_CHANGE",
+        subject: `${deal.stage.label} → ${nextStage.label}`,
+        body: input.lostReason?.trim() || null,
+        userId: user.id,
+        leadId: row.leadId,
+        clientId: row.clientId,
+        dealId: row.id,
+        metadata: { from: deal.stageId, to: nextStage.id },
+        client: tx,
+      });
+    }
+    return row;
+  });
 
-  if (stageChanged) {
-    await logCrmActivity({
-      type: "STAGE_CHANGE",
-      subject: `${deal.stage.label} → ${nextStage.label}`,
-      body: input.lostReason?.trim() || null,
-      userId: user.id,
-      leadId: updated.leadId,
-      clientId: updated.clientId,
-      dealId: updated.id,
-      metadata: { from: deal.stageId, to: nextStage.id },
-    });
+  if (updated.ownerId && updated.ownerId !== user.id && updated.ownerId !== deal.ownerId) {
+    await notifyCrmUser({
+      userId: updated.ownerId,
+      type: "DEAL_ASSIGNED",
+      title: "Deal assigned to you",
+      body: updated.title,
+      link: `/admin/crm/deals/${updated.id}`,
+    }).catch(() => null);
   }
 
   await logAudit({
@@ -355,8 +410,10 @@ export async function changeDealStage(
 }
 
 export async function deleteDeal(dealId: string): Promise<CrmActionResult> {
-  const user = await requireSection("crm");
-  const deal = await prisma.deal.findFirst({ where: { id: dealId, tenantId: TENANT_ID } });
+  const { user, access } = await crmActor();
+  const deal = await prisma.deal.findFirst({
+    where: { id: dealId, tenantId: TENANT_ID, ...dealAccessWhere(access) },
+  });
   if (!deal) return { ok: false, error: "Deal not found." };
   await prisma.deal.delete({ where: { id: dealId } });
   await logAudit({
@@ -379,7 +436,7 @@ export async function addCrmActivity(input: {
   clientId?: string;
   dealId?: string;
 }): Promise<CrmActionResult> {
-  const user = await requireSection("crm");
+  const { user, access } = await crmActor();
   if (!(CRM_ACTIVITY_TYPES as readonly string[]).includes(input.type)) {
     return { ok: false, error: "Unknown activity type." };
   }
@@ -392,9 +449,9 @@ export async function addCrmActivity(input: {
   if (!leadId && !clientId && !dealId) {
     return { ok: false, error: "Link the activity to a lead, client, or deal." };
   }
-  if (!(await validateLead(leadId))) return { ok: false, error: "Lead not found." };
-  if (!(await validateClient(clientId))) return { ok: false, error: "Client not found." };
-  if (!(await validateDeal(dealId))) return { ok: false, error: "Deal not found." };
+  if (!(await validateLead(leadId, access))) return { ok: false, error: "Lead not found." };
+  if (!(await validateClient(clientId, access))) return { ok: false, error: "Client not found." };
+  if (!(await validateDeal(dealId, access))) return { ok: false, error: "Deal not found." };
 
   let occurredAt: Date | undefined;
   if (input.occurredAt?.trim()) {
@@ -403,16 +460,19 @@ export async function addCrmActivity(input: {
     occurredAt = date;
   }
 
-  const activity = await logCrmActivity({
-    type: input.type as CrmActivityType,
-    subject: subject || null,
-    body: body || null,
-    occurredAt,
-    userId: user.id,
-    leadId,
-    clientId,
-    dealId,
-  });
+  const activity = await prisma.$transaction(async (tx) =>
+    logCrmActivity({
+      type: input.type as CrmActivityType,
+      subject: subject || null,
+      body: body || null,
+      occurredAt,
+      userId: user.id,
+      leadId,
+      clientId,
+      dealId,
+      client: tx,
+    }),
+  );
   await logAudit({
     action: "CRM_ACTIVITY_ADD",
     entity: "CrmActivity",
@@ -434,7 +494,7 @@ export async function addCrmTask(input: {
   clientId?: string;
   dealId?: string;
 }): Promise<CrmActionResult> {
-  const user = await requireSection("crm");
+  const { user, access } = await crmActor();
   const text = input.text.trim();
   if (!text) return { ok: false, error: "Task text is required." };
   const leadId = input.leadId?.trim() || null;
@@ -443,9 +503,9 @@ export async function addCrmTask(input: {
   if (!leadId && !clientId && !dealId) {
     return { ok: false, error: "Link the task to a lead, client, or deal." };
   }
-  if (!(await validateLead(leadId))) return { ok: false, error: "Lead not found." };
-  if (!(await validateClient(clientId))) return { ok: false, error: "Client not found." };
-  if (!(await validateDeal(dealId))) return { ok: false, error: "Deal not found." };
+  if (!(await validateLead(leadId, access))) return { ok: false, error: "Lead not found." };
+  if (!(await validateClient(clientId, access))) return { ok: false, error: "Client not found." };
+  if (!(await validateDeal(dealId, access))) return { ok: false, error: "Deal not found." };
   const priority = (input.priority ?? "NORMAL").toUpperCase();
   if (!(CRM_TASK_PRIORITIES as readonly string[]).includes(priority)) {
     return { ok: false, error: "Unknown task priority." };
@@ -455,22 +515,38 @@ export async function addCrmTask(input: {
     dueAt = new Date(input.dueAt);
     if (Number.isNaN(dueAt.getTime())) return { ok: false, error: "Invalid task due date." };
   }
-  const assigneeId = input.assigneeId?.trim() || null;
+  let assigneeId = input.assigneeId?.trim() || (access.isAdmin ? null : access.userId);
+  if (!access.isAdmin && assigneeId && assigneeId !== access.userId) {
+    return { ok: false, error: "You can only assign tasks to yourself." };
+  }
   if (!(await validateOwner(assigneeId))) return { ok: false, error: "Assignee not found." };
 
-  const task = await prisma.toDo.create({
-    data: { leadId, clientId, dealId, assigneeId, text, dueAt, priority, status: "OPEN" },
+  const task = await prisma.$transaction(async (tx) => {
+    const row = await tx.toDo.create({
+      data: { leadId, clientId, dealId, assigneeId, text, dueAt, priority, status: "OPEN" },
+    });
+    await logCrmActivity({
+      type: "TASK",
+      subject: `Task created: ${text}`,
+      body: dueAt ? `Due ${dueAt.toISOString().slice(0, 10)}` : null,
+      userId: user.id,
+      leadId,
+      clientId,
+      dealId,
+      metadata: { taskId: row.id, priority },
+      client: tx,
+    });
+    return row;
   });
-  await logCrmActivity({
-    type: "TASK",
-    subject: `Task created: ${text}`,
-    body: dueAt ? `Due ${dueAt.toISOString().slice(0, 10)}` : null,
-    userId: user.id,
-    leadId,
-    clientId,
-    dealId,
-    metadata: { taskId: task.id, priority },
-  });
+  if (assigneeId && assigneeId !== user.id) {
+    await notifyCrmUser({
+      userId: assigneeId,
+      type: "TASK_ASSIGNED",
+      title: "New CRM task assigned",
+      body: text,
+      link: dealId ? `/admin/crm/deals/${dealId}` : leadId ? `/admin/leads/${leadId}` : clientId ? `/admin/clients/${clientId}` : "/admin/crm",
+    }).catch(() => null);
+  }
   await logAudit({
     action: "CRM_TASK_CREATE",
     entity: "ToDo",
@@ -484,25 +560,43 @@ export async function addCrmTask(input: {
 }
 
 export async function toggleCrmTask(taskId: string): Promise<CrmActionResult> {
-  const user = await requireSection("crm");
-  const task = await prisma.toDo.findUnique({ where: { id: taskId } });
-  if (!task) return { ok: false, error: "Task not found." };
-  const nowFinished = task.finishedAt === null;
-  const updated = await prisma.toDo.update({
-    where: { id: taskId },
-    data: {
-      finishedAt: nowFinished ? new Date() : null,
-      status: nowFinished ? "DONE" : "OPEN",
+  const { user, access } = await crmActor();
+  const task = await prisma.toDo.findFirst({
+    where: {
+      id: taskId,
+      AND: [
+        {
+          OR: [
+            { lead: { tenantId: TENANT_ID } },
+            { client: { tenantId: TENANT_ID } },
+            { deal: { tenantId: TENANT_ID } },
+          ],
+        },
+        taskAccessWhere(access),
+      ],
     },
   });
-  await logCrmActivity({
-    type: "TASK",
-    subject: nowFinished ? `Task completed: ${task.text}` : `Task reopened: ${task.text}`,
-    userId: user.id,
-    leadId: task.leadId,
-    clientId: task.clientId,
-    dealId: task.dealId,
-    metadata: { taskId },
+  if (!task) return { ok: false, error: "Task not found." };
+  const nowFinished = task.finishedAt === null;
+  const updated = await prisma.$transaction(async (tx) => {
+    const row = await tx.toDo.update({
+      where: { id: taskId },
+      data: {
+        finishedAt: nowFinished ? new Date() : null,
+        status: nowFinished ? "DONE" : "OPEN",
+      },
+    });
+    await logCrmActivity({
+      type: "TASK",
+      subject: nowFinished ? `Task completed: ${task.text}` : `Task reopened: ${task.text}`,
+      userId: user.id,
+      leadId: task.leadId,
+      clientId: task.clientId,
+      dealId: task.dealId,
+      metadata: { taskId },
+      client: tx,
+    });
+    return row;
   });
   await logAudit({
     action: "CRM_TASK_TOGGLE",
@@ -520,8 +614,22 @@ export async function toggleCrmTask(taskId: string): Promise<CrmActionResult> {
 }
 
 export async function deleteCrmTask(taskId: string): Promise<CrmActionResult> {
-  const user = await requireSection("crm");
-  const task = await prisma.toDo.findUnique({ where: { id: taskId } });
+  const { user, access } = await crmActor();
+  const task = await prisma.toDo.findFirst({
+    where: {
+      id: taskId,
+      AND: [
+        {
+          OR: [
+            { lead: { tenantId: TENANT_ID } },
+            { client: { tenantId: TENANT_ID } },
+            { deal: { tenantId: TENANT_ID } },
+          ],
+        },
+        taskAccessWhere(access),
+      ],
+    },
+  });
   if (!task) return { ok: false, error: "Task not found." };
   await prisma.toDo.delete({ where: { id: taskId } });
   await logAudit({
@@ -536,8 +644,10 @@ export async function deleteCrmTask(taskId: string): Promise<CrmActionResult> {
 }
 
 export async function createDealFromLead(leadId: string): Promise<CrmActionResult> {
-  const user = await requireSection("crm");
-  const lead = await prisma.lead.findFirst({ where: { id: leadId, tenantId: TENANT_ID } });
+  const { user, access } = await crmActor();
+  const lead = await prisma.lead.findFirst({
+    where: { id: leadId, tenantId: TENANT_ID, ...leadAccessWhere(access) },
+  });
   if (!lead) return { ok: false, error: "Lead not found." };
   const stage = await getDefaultCrmStage();
   if (!stage) return { ok: false, error: "No pipeline stage is available." };
@@ -545,28 +655,32 @@ export async function createDealFromLead(leadId: string): Promise<CrmActionResul
     ? (lead.phones as { number?: string }[])
     : [];
   const name = `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || lead.email || "Lead";
-  const deal = await prisma.deal.create({
-    data: {
-      tenantId: TENANT_ID,
-      title: name,
-      stageId: stage.id,
-      value: new Prisma.Decimal(0),
-      ownerId: lead.assignedToId,
+  const deal = await prisma.$transaction(async (tx) => {
+    const row = await tx.deal.create({
+      data: {
+        tenantId: TENANT_ID,
+        title: name,
+        stageId: stage.id,
+        value: new Prisma.Decimal(0),
+        ownerId: access.isAdmin ? lead.assignedToId : access.userId,
+        leadId: lead.id,
+        contactName: name,
+        contactEmail: lead.email,
+        contactPhone: phones.find((phone) => phone.number)?.number ?? null,
+        source: "Lead",
+        lastActivityAt: new Date(),
+      },
+    });
+    await logCrmActivity({
+      type: "SYSTEM",
+      subject: "Deal created from lead",
+      body: `${name} moved into the pipeline.`,
+      userId: user.id,
       leadId: lead.id,
-      contactName: name,
-      contactEmail: lead.email,
-      contactPhone: phones.find((phone) => phone.number)?.number ?? null,
-      source: "Lead",
-      lastActivityAt: new Date(),
-    },
-  });
-  await logCrmActivity({
-    type: "SYSTEM",
-    subject: "Deal created from lead",
-    body: `${name} moved into the pipeline.`,
-    userId: user.id,
-    leadId: lead.id,
-    dealId: deal.id,
+      dealId: row.id,
+      client: tx,
+    });
+    return row;
   });
   await updateLeadScore(lead.id);
   await logAudit({
@@ -582,8 +696,10 @@ export async function createDealFromLead(leadId: string): Promise<CrmActionResul
 }
 
 export async function createDealFromClient(clientId: string): Promise<CrmActionResult> {
-  const user = await requireSection("crm");
-  const client = await prisma.client.findFirst({ where: { id: clientId, tenantId: TENANT_ID } });
+  const { user, access } = await crmActor();
+  const client = await prisma.client.findFirst({
+    where: { id: clientId, tenantId: TENANT_ID, ...clientAccessWhere(access) },
+  });
   if (!client) return { ok: false, error: "Client not found." };
   const stage = await getDefaultCrmStage();
   if (!stage) return { ok: false, error: "No pipeline stage is available." };
@@ -591,28 +707,32 @@ export async function createDealFromClient(clientId: string): Promise<CrmActionR
     ? (client.phones as { number?: string }[])
     : [];
   const name = `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() || client.email || "Client";
-  const deal = await prisma.deal.create({
-    data: {
-      tenantId: TENANT_ID,
-      title: name,
-      stageId: stage.id,
-      value: new Prisma.Decimal(0),
-      ownerId: client.assignedToId,
+  const deal = await prisma.$transaction(async (tx) => {
+    const row = await tx.deal.create({
+      data: {
+        tenantId: TENANT_ID,
+        title: name,
+        stageId: stage.id,
+        value: new Prisma.Decimal(0),
+        ownerId: access.isAdmin ? client.assignedToId : access.userId,
+        clientId: client.id,
+        contactName: name,
+        contactEmail: client.email,
+        contactPhone: phones.find((phone) => phone.number)?.number ?? null,
+        source: "Client",
+        lastActivityAt: new Date(),
+      },
+    });
+    await logCrmActivity({
+      type: "SYSTEM",
+      subject: "Deal created from client",
+      body: `${name} added to the pipeline.`,
+      userId: user.id,
       clientId: client.id,
-      contactName: name,
-      contactEmail: client.email,
-      contactPhone: phones.find((phone) => phone.number)?.number ?? null,
-      source: "Client",
-      lastActivityAt: new Date(),
-    },
-  });
-  await logCrmActivity({
-    type: "SYSTEM",
-    subject: "Deal created from client",
-    body: `${name} added to the pipeline.`,
-    userId: user.id,
-    clientId: client.id,
-    dealId: deal.id,
+      dealId: row.id,
+      client: tx,
+    });
+    return row;
   });
   await logAudit({
     action: "DEAL_CREATE",
@@ -637,7 +757,8 @@ export async function updateCrmStage(
     active?: boolean;
   },
 ): Promise<CrmActionResult> {
-  const user = await requireSection("crm");
+  const { user, access } = await crmActor();
+  if (!access.isAdmin) return { ok: false, error: "Only admins can edit pipeline stages." };
   const stage = await prisma.crmStage.findFirst({
     where: { id: stageId, tenantId: TENANT_ID },
   });
@@ -683,7 +804,8 @@ export async function createCrmStage(input: {
   isWon?: boolean;
   isLost?: boolean;
 }): Promise<CrmActionResult> {
-  const user = await requireSection("crm");
+  const { user, access } = await crmActor();
+  if (!access.isAdmin) return { ok: false, error: "Only admins can create pipeline stages." };
   const label = input.label.trim();
   if (!label) return { ok: false, error: "Stage label is required." };
   const stages = await getCrmStages();
@@ -723,10 +845,12 @@ export async function createCrmStage(input: {
 
 export async function updateCrmSettings(input: {
   autoAssignLeads?: boolean;
+  restrictSalesRepsToOwned?: boolean;
   staleDealDays?: number;
   defaultCurrency?: string;
 }): Promise<CrmActionResult> {
-  const user = await requireSection("crm");
+  const { user, access } = await crmActor();
+  if (!access.isAdmin) return { ok: false, error: "Only admins can change CRM settings." };
   const settings = await saveCrmSettings(input);
   await logAudit({
     action: "CRM_SETTINGS_UPDATE",
@@ -741,7 +865,8 @@ export async function updateCrmSettings(input: {
 }
 
 export async function recalculateScores(): Promise<CrmActionResult> {
-  const user = await requireSection("crm");
+  const { user, access } = await crmActor();
+  if (!access.isAdmin) return { ok: false, error: "Only admins can recalculate all lead scores." };
   const count = await recalculateLeadScores();
   await logAudit({
     action: "LEAD_SCORE_RECALCULATE",
@@ -885,6 +1010,9 @@ export async function crmSettingsForm(formData: FormData): Promise<void> {
   const result = await updateCrmSettings({
     autoAssignLeads:
       formData.get("autoAssignLeads") === "on" || formData.get("autoAssignLeads") === "true",
+    restrictSalesRepsToOwned:
+      formData.get("restrictSalesRepsToOwned") === "on" ||
+      formData.get("restrictSalesRepsToOwned") === "true",
     staleDealDays: Number(formData.get("staleDealDays") ?? 14),
     defaultCurrency: String(formData.get("defaultCurrency") ?? "USD"),
   });
@@ -928,4 +1056,487 @@ export async function crmDealDeleteForm(formData: FormData): Promise<void> {
   const result = await deleteDeal(dealId);
   if (!result.ok) redirect(`/admin/crm/deals/${dealId}?error=${encodeURIComponent(result.error ?? "Could not delete deal.")}`);
   redirect(`/admin/crm/deals?ok=${encodeURIComponent("Deal deleted.")}`);
+}
+
+// ---------------------------------------------------------------------------
+// Duplicate merge
+// ---------------------------------------------------------------------------
+
+export async function mergeLeadRecords(
+  sourceId: string,
+  targetId: string,
+): Promise<CrmActionResult> {
+  const { user, access } = await crmActor();
+  const [source, target] = await Promise.all([
+    prisma.lead.findFirst({ where: { id: sourceId, tenantId: TENANT_ID, ...leadAccessWhere(access) } }),
+    prisma.lead.findFirst({ where: { id: targetId, tenantId: TENANT_ID, ...leadAccessWhere(access) } }),
+  ]);
+  if (!source || !target) return { ok: false, error: "Lead not found." };
+  const result = await mergeLeads(sourceId, targetId, user.id);
+  if (!result.ok) return { ok: false, error: result.error };
+  await logAudit({
+    action: "LEAD_MERGE",
+    entity: "Lead",
+    entityId: targetId,
+    actorId: user.id,
+    reason: `Lead ${sourceId} merged into ${targetId}`,
+    meta: result.moved ?? {},
+  });
+  revalidateEntity({ leadId: targetId });
+  revalidatePath("/admin/leads");
+  return { ok: true, message: "Leads merged.", id: targetId };
+}
+
+export async function mergeClientRecords(
+  sourceId: string,
+  targetId: string,
+): Promise<CrmActionResult> {
+  const { user, access } = await crmActor();
+  const [source, target] = await Promise.all([
+    prisma.client.findFirst({ where: { id: sourceId, tenantId: TENANT_ID, ...clientAccessWhere(access) } }),
+    prisma.client.findFirst({ where: { id: targetId, tenantId: TENANT_ID, ...clientAccessWhere(access) } }),
+  ]);
+  if (!source || !target) return { ok: false, error: "Client not found." };
+  const result = await mergeClients(sourceId, targetId, user.id);
+  if (!result.ok) return { ok: false, error: result.error };
+  await logAudit({
+    action: "CLIENT_MERGE",
+    entity: "Client",
+    entityId: targetId,
+    actorId: user.id,
+    reason: `Client ${sourceId} merged into ${targetId}`,
+    meta: result.moved ?? {},
+  });
+  revalidateEntity({ clientId: targetId });
+  revalidatePath("/admin/clients");
+  return { ok: true, message: "Clients merged.", id: targetId };
+}
+
+// ---------------------------------------------------------------------------
+// Bulk deal actions
+// ---------------------------------------------------------------------------
+
+export async function bulkDealAction(input: {
+  dealIds: string[];
+  action: "stage" | "owner" | "delete";
+  stageId?: string;
+  ownerId?: string;
+}): Promise<CrmActionResult> {
+  const { user, access } = await crmActor();
+  const ids = [...new Set(input.dealIds.filter(Boolean))].slice(0, 200);
+  if (ids.length === 0) return { ok: false, error: "Select at least one deal." };
+  const deals = await prisma.deal.findMany({
+    where: { id: { in: ids }, tenantId: TENANT_ID, ...dealAccessWhere(access) },
+    include: { stage: true },
+  });
+  if (deals.length === 0) return { ok: false, error: "No accessible deals selected." };
+
+  if (input.action === "delete") {
+    await prisma.$transaction(async (tx) => {
+      for (const deal of deals) await tx.deal.delete({ where: { id: deal.id } });
+    });
+    await logAudit({
+      action: "DEAL_BULK_DELETE",
+      entity: "Deal",
+      entityId: deals[0].id,
+      actorId: user.id,
+      reason: `Bulk deleted ${deals.length} deal(s)`,
+      meta: { ids: deals.map((deal) => deal.id) },
+    });
+    revalidateCrm();
+    return { ok: true, message: `${deals.length} deal(s) deleted.` };
+  }
+
+  if (input.action === "stage") {
+    const stage = await validateStage(input.stageId?.trim() ?? "");
+    if (!stage) return { ok: false, error: "Pipeline stage not found." };
+    const now = new Date();
+    await prisma.$transaction(async (tx) => {
+      for (const deal of deals) {
+        const stageChanged = deal.stageId !== stage.id;
+        await tx.deal.update({
+          where: { id: deal.id },
+          data: {
+            stageId: stage.id,
+            ...(stageChanged
+              ? {
+                  stageChangedAt: now,
+                  lastActivityAt: now,
+                  wonAt: stage.isWon ? now : null,
+                  closedAt: stage.isWon || stage.isLost ? now : null,
+                  lostReason: stage.isLost ? deal.lostReason : null,
+                }
+              : {}),
+          },
+        });
+        if (stageChanged) {
+          await logCrmActivity({
+            type: "STAGE_CHANGE",
+            subject: `${deal.stage.label} → ${stage.label}`,
+            body: "Bulk stage update.",
+            userId: user.id,
+            leadId: deal.leadId,
+            clientId: deal.clientId,
+            dealId: deal.id,
+            metadata: { from: deal.stageId, to: stage.id, bulk: true },
+            client: tx,
+          });
+        }
+      }
+    });
+    await logAudit({
+      action: "DEAL_BULK_UPDATE",
+      entity: "Deal",
+      entityId: deals[0].id,
+      actorId: user.id,
+      reason: `Bulk moved ${deals.length} deal(s) to ${stage.label}`,
+      meta: { ids: deals.map((deal) => deal.id), stageId: stage.id },
+    });
+    revalidateCrm();
+    return { ok: true, message: `${deals.length} deal(s) moved to ${stage.label}.` };
+  }
+
+  const ownerId = input.ownerId?.trim() || null;
+  if (!access.isAdmin && ownerId && ownerId !== access.userId) {
+    return { ok: false, error: "You can only assign deals to yourself." };
+  }
+  if (!(await validateOwner(ownerId))) return { ok: false, error: "Owner not found." };
+  await prisma.deal.updateMany({
+    where: { id: { in: deals.map((deal) => deal.id) } },
+    data: { ownerId },
+  });
+  await logAudit({
+    action: "DEAL_BULK_UPDATE",
+    entity: "Deal",
+    entityId: deals[0].id,
+    actorId: user.id,
+    reason: `Bulk reassigned ${deals.length} deal(s)`,
+    meta: { ids: deals.map((deal) => deal.id), ownerId },
+  });
+  revalidateCrm();
+  return { ok: true, message: `${deals.length} deal(s) reassigned.` };
+}
+
+// ---------------------------------------------------------------------------
+// Deal line items and product catalog
+// ---------------------------------------------------------------------------
+
+async function syncDealValue(tx: Prisma.TransactionClient, dealId: string): Promise<void> {
+  const items = await tx.dealLineItem.findMany({
+    where: { dealId },
+    select: { quantity: true, unitPrice: true },
+  });
+  const total = items.reduce((sum, item) => sum + item.quantity * Number(item.unitPrice), 0);
+  await tx.deal.update({
+    where: { id: dealId },
+    data: { value: new Prisma.Decimal(total.toFixed(2)) },
+  });
+}
+
+export async function addDealLineItem(
+  dealId: string,
+  input: { description: string; quantity?: string; unitPrice?: string; productId?: string },
+): Promise<CrmActionResult> {
+  const { user, access } = await crmActor();
+  const deal = await prisma.deal.findFirst({
+    where: { id: dealId, tenantId: TENANT_ID, ...dealAccessWhere(access) },
+  });
+  if (!deal) return { ok: false, error: "Deal not found." };
+  const description = input.description.trim();
+  if (!description) return { ok: false, error: "Line item description is required." };
+  const quantity = Number.parseInt(input.quantity ?? "1", 10);
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100_000) {
+    return { ok: false, error: "Quantity must be a whole number between 1 and 100000." };
+  }
+  const unitPrice = parseMoney(input.unitPrice ?? "0");
+  if (unitPrice === null) return { ok: false, error: "Unit price must be a positive number." };
+  const productId = input.productId?.trim() || null;
+  if (productId) {
+    const product = await prisma.crmProduct.findFirst({
+      where: { id: productId, tenantId: TENANT_ID, active: true },
+    });
+    if (!product) return { ok: false, error: "Product not found." };
+  }
+  const item = await prisma.$transaction(async (tx) => {
+    const row = await tx.dealLineItem.create({
+      data: {
+        dealId,
+        productId,
+        description,
+        quantity,
+        unitPrice: new Prisma.Decimal(unitPrice.toFixed(2)),
+      },
+    });
+    await syncDealValue(tx, dealId);
+    return row;
+  });
+  await logAudit({
+    action: "CRM_LINE_ITEM_ADD",
+    entity: "DealLineItem",
+    entityId: item.id,
+    actorId: user.id,
+    reason: `Line item "${description}" added`,
+    meta: { dealId, quantity, unitPrice },
+  });
+  revalidateCrm(dealId);
+  return { ok: true, message: "Line item added.", id: item.id };
+}
+
+export async function updateDealLineItem(
+  itemId: string,
+  input: { description?: string; quantity?: string; unitPrice?: string },
+): Promise<CrmActionResult> {
+  const { user, access } = await crmActor();
+  const item = await prisma.dealLineItem.findFirst({
+    where: { id: itemId, deal: { tenantId: TENANT_ID, ...dealAccessWhere(access) } },
+  });
+  if (!item) return { ok: false, error: "Line item not found." };
+  const description = input.description?.trim() || item.description;
+  if (!description) return { ok: false, error: "Line item description is required." };
+  const quantity =
+    input.quantity === undefined ? item.quantity : Number.parseInt(input.quantity, 10);
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100_000) {
+    return { ok: false, error: "Quantity must be a whole number between 1 and 100000." };
+  }
+  const unitPrice = input.unitPrice === undefined ? Number(item.unitPrice) : parseMoney(input.unitPrice);
+  if (unitPrice === null) return { ok: false, error: "Unit price must be a positive number." };
+  await prisma.$transaction(async (tx) => {
+    await tx.dealLineItem.update({
+      where: { id: itemId },
+      data: { description, quantity, unitPrice: new Prisma.Decimal(unitPrice.toFixed(2)) },
+    });
+    await syncDealValue(tx, item.dealId);
+  });
+  await logAudit({
+    action: "CRM_LINE_ITEM_UPDATE",
+    entity: "DealLineItem",
+    entityId: itemId,
+    actorId: user.id,
+    reason: `Line item "${description}" updated`,
+    meta: { dealId: item.dealId, quantity, unitPrice },
+  });
+  revalidateCrm(item.dealId);
+  return { ok: true, message: "Line item updated.", id: itemId };
+}
+
+export async function deleteDealLineItem(itemId: string): Promise<CrmActionResult> {
+  const { user, access } = await crmActor();
+  const item = await prisma.dealLineItem.findFirst({
+    where: { id: itemId, deal: { tenantId: TENANT_ID, ...dealAccessWhere(access) } },
+  });
+  if (!item) return { ok: false, error: "Line item not found." };
+  await prisma.$transaction(async (tx) => {
+    await tx.dealLineItem.delete({ where: { id: itemId } });
+    await syncDealValue(tx, item.dealId);
+  });
+  await logAudit({
+    action: "CRM_LINE_ITEM_DELETE",
+    entity: "DealLineItem",
+    entityId: itemId,
+    actorId: user.id,
+    reason: `Line item "${item.description}" deleted`,
+    meta: { dealId: item.dealId },
+  });
+  revalidateCrm(item.dealId);
+  return { ok: true, message: "Line item deleted." };
+}
+
+export async function createCrmProduct(input: {
+  name: string;
+  sku?: string;
+  description?: string;
+  unitPrice?: string;
+  currency?: string;
+}): Promise<CrmActionResult> {
+  const { user, access } = await crmActor();
+  if (!access.isAdmin) return { ok: false, error: "Only admins can manage the product catalog." };
+  const name = input.name.trim();
+  if (!name) return { ok: false, error: "Product name is required." };
+  const unitPrice = parseMoney(input.unitPrice ?? "0");
+  if (unitPrice === null) return { ok: false, error: "Unit price must be a positive number." };
+  try {
+    const product = await prisma.crmProduct.create({
+      data: {
+        tenantId: TENANT_ID,
+        name,
+        sku: input.sku?.trim() || null,
+        description: input.description?.trim() || null,
+        unitPrice: new Prisma.Decimal(unitPrice.toFixed(2)),
+        currency: input.currency?.trim().toUpperCase().slice(0, 3) || "USD",
+      },
+    });
+    await logAudit({
+      action: "CRM_PRODUCT_CREATE",
+      entity: "CrmProduct",
+      entityId: product.id,
+      actorId: user.id,
+      reason: `Product "${name}" created`,
+    });
+    revalidateCrm();
+    return { ok: true, message: "Product created.", id: product.id };
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { ok: false, error: "That SKU is already in use." };
+    }
+    throw error;
+  }
+}
+
+export async function deleteCrmProduct(productId: string): Promise<CrmActionResult> {
+  const { user, access } = await crmActor();
+  if (!access.isAdmin) return { ok: false, error: "Only admins can manage the product catalog." };
+  const product = await prisma.crmProduct.findFirst({
+    where: { id: productId, tenantId: TENANT_ID },
+  });
+  if (!product) return { ok: false, error: "Product not found." };
+  await prisma.crmProduct.delete({ where: { id: productId } });
+  await logAudit({
+    action: "CRM_PRODUCT_DELETE",
+    entity: "CrmProduct",
+    entityId: productId,
+    actorId: user.id,
+    reason: `Product "${product.name}" deleted`,
+  });
+  revalidateCrm();
+  return { ok: true, message: "Product deleted." };
+}
+
+// ---------------------------------------------------------------------------
+// Attachments and notifications
+// ---------------------------------------------------------------------------
+
+export async function deleteCrmAttachment(attachmentId: string): Promise<CrmActionResult> {
+  const { user, access } = await crmActor();
+  const attachment = await prisma.crmAttachment.findFirst({
+    where: {
+      id: attachmentId,
+      tenantId: TENANT_ID,
+      ...(access.ownedOnly
+        ? {
+            OR: [
+              { deal: { ownerId: access.userId } },
+              { lead: { assignedToId: access.userId } },
+              { client: { assignedToId: access.userId } },
+            ],
+          }
+        : {}),
+    },
+  });
+  if (!attachment) return { ok: false, error: "Attachment not found." };
+  await prisma.$transaction(async (tx) => {
+    await tx.crmAttachment.delete({ where: { id: attachmentId } });
+    await tx.asset.delete({ where: { id: attachment.assetId } });
+  });
+  await logAudit({
+    action: "CRM_ATTACHMENT_DELETE",
+    entity: "CrmAttachment",
+    entityId: attachmentId,
+    actorId: user.id,
+    reason: `Attachment "${attachment.filename}" deleted`,
+  });
+  revalidateEntity({
+    dealId: attachment.dealId,
+    leadId: attachment.leadId,
+    clientId: attachment.clientId,
+  });
+  return { ok: true, message: "Attachment deleted." };
+}
+
+export async function markCrmNotificationsRead(): Promise<CrmActionResult> {
+  const { user } = await crmActor();
+  const count = await prisma.crmNotification.updateMany({
+    where: { tenantId: TENANT_ID, userId: user.id, readAt: null },
+    data: { readAt: new Date() },
+  });
+  revalidatePath("/admin/crm");
+  return { ok: true, message: `${count} notification(s) marked read.` };
+}
+
+// ---------------------------------------------------------------------------
+// Extra form-action wrappers
+// ---------------------------------------------------------------------------
+
+function safeAdminReturn(value: FormDataEntryValue | null, fallback: string): string {
+  const raw = String(value ?? "");
+  return raw.startsWith("/admin/") ? raw : fallback;
+}
+
+export async function crmLeadMergeForm(formData: FormData): Promise<void> {
+  const targetId = String(formData.get("targetId") ?? "");
+  const result = await mergeLeadRecords(String(formData.get("sourceId") ?? ""), targetId);
+  const returnTo = safeAdminReturn(formData.get("returnTo"), `/admin/leads/${targetId}`);
+  if (!result.ok) redirect(`${returnTo}?error=${encodeURIComponent(result.error ?? "Could not merge leads.")}`);
+  redirect(`${returnTo}?ok=${encodeURIComponent(result.message ?? "Leads merged.")}`);
+}
+
+export async function crmClientMergeForm(formData: FormData): Promise<void> {
+  const targetId = String(formData.get("targetId") ?? "");
+  const result = await mergeClientRecords(String(formData.get("sourceId") ?? ""), targetId);
+  const returnTo = safeAdminReturn(formData.get("returnTo"), `/admin/clients/${targetId}`);
+  if (!result.ok) redirect(`${returnTo}?error=${encodeURIComponent(result.error ?? "Could not merge clients.")}`);
+  redirect(`${returnTo}?ok=${encodeURIComponent(result.message ?? "Clients merged.")}`);
+}
+
+export async function crmDealBulkForm(formData: FormData): Promise<void> {
+  const action = String(formData.get("bulkAction") ?? "");
+  if (action !== "stage" && action !== "owner" && action !== "delete") {
+    redirect(`/admin/crm/deals?error=${encodeURIComponent("Choose a bulk action.")}`);
+  }
+  const result = await bulkDealAction({
+    dealIds: formData.getAll("dealIds").map((value) => String(value)),
+    action,
+    stageId: String(formData.get("bulkStageId") ?? ""),
+    ownerId: String(formData.get("bulkOwnerId") ?? ""),
+  });
+  if (!result.ok) redirect(`/admin/crm/deals?error=${encodeURIComponent(result.error ?? "Bulk action failed.")}`);
+  redirect(`/admin/crm/deals?ok=${encodeURIComponent(result.message ?? "Bulk action complete.")}`);
+}
+
+export async function crmLineItemAddForm(formData: FormData): Promise<void> {
+  const dealId = String(formData.get("dealId") ?? "");
+  const result = await addDealLineItem(dealId, {
+    description: String(formData.get("description") ?? ""),
+    quantity: String(formData.get("quantity") ?? ""),
+    unitPrice: String(formData.get("unitPrice") ?? ""),
+    productId: String(formData.get("productId") ?? ""),
+  });
+  if (!result.ok) dealError(dealId, result.error ?? "Could not add line item.");
+  redirect(`/admin/crm/deals/${dealId}?ok=${encodeURIComponent("Line item added.")}`);
+}
+
+export async function crmLineItemDeleteForm(formData: FormData): Promise<void> {
+  const dealId = String(formData.get("dealId") ?? "");
+  const result = await deleteDealLineItem(String(formData.get("itemId") ?? ""));
+  if (!result.ok) dealError(dealId, result.error ?? "Could not delete line item.");
+  redirect(`/admin/crm/deals/${dealId}?ok=${encodeURIComponent("Line item deleted.")}`);
+}
+
+export async function crmProductCreateForm(formData: FormData): Promise<void> {
+  const result = await createCrmProduct({
+    name: String(formData.get("name") ?? ""),
+    sku: String(formData.get("sku") ?? ""),
+    description: String(formData.get("description") ?? ""),
+    unitPrice: String(formData.get("unitPrice") ?? ""),
+    currency: String(formData.get("currency") ?? ""),
+  });
+  if (!result.ok) redirect(`/admin/crm/settings?error=${encodeURIComponent(result.error ?? "Could not create product.")}`);
+  redirect(`/admin/crm/settings?ok=${encodeURIComponent("Product created.")}`);
+}
+
+export async function crmProductDeleteForm(formData: FormData): Promise<void> {
+  const result = await deleteCrmProduct(String(formData.get("productId") ?? ""));
+  if (!result.ok) redirect(`/admin/crm/settings?error=${encodeURIComponent(result.error ?? "Could not delete product.")}`);
+  redirect(`/admin/crm/settings?ok=${encodeURIComponent("Product deleted.")}`);
+}
+
+export async function crmAttachmentDeleteForm(formData: FormData): Promise<void> {
+  const returnTo = safeAdminReturn(formData.get("returnTo"), "/admin/crm");
+  const result = await deleteCrmAttachment(String(formData.get("attachmentId") ?? ""));
+  if (!result.ok) redirect(`${returnTo}?error=${encodeURIComponent(result.error ?? "Could not delete attachment.")}`);
+  redirect(`${returnTo}?ok=${encodeURIComponent("Attachment deleted.")}`);
+}
+
+export async function crmNotificationsReadForm(): Promise<void> {
+  const result = await markCrmNotificationsRead();
+  redirect(`/admin/crm?ok=${encodeURIComponent(result.message ?? "Notifications marked read.")}`);
 }

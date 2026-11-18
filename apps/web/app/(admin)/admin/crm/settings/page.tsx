@@ -1,11 +1,14 @@
 import { requireSection } from "@/modules/auth";
+import { getCrmAccessForUser } from "@/modules/crm/access";
 import { getCrmSettings } from "@/modules/crm/settings";
-import { getCrmStagesWithCounts } from "@/modules/crm/queries";
+import { getCrmProducts, getCrmStagesWithCounts } from "@/modules/crm/queries";
 import {
   crmRecalculateScoresForm,
   crmSettingsForm,
   crmStageCreateForm,
   crmStageUpdateForm,
+  crmProductCreateForm,
+  crmProductDeleteForm,
 } from "@/modules/crm/actions";
 import { FlashBanner } from "@/components/admin/FlashBanner";
 
@@ -20,9 +23,14 @@ export default async function CrmSettingsPage({
 }: {
   searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
-  await requireSection("crm");
+  const user = await requireSection("crm");
+  const access = await getCrmAccessForUser(user);
   const { error, ok } = await searchParams;
-  const [settings, stages] = await Promise.all([getCrmSettings(), getCrmStagesWithCounts()]);
+  const [settings, stages, products] = await Promise.all([
+    getCrmSettings(),
+    getCrmStagesWithCounts(access),
+    getCrmProducts(),
+  ]);
 
   return (
     <div>
@@ -47,6 +55,21 @@ export default async function CrmSettingsPage({
                 <span className="font-medium text-zinc-800">Auto-assign new leads</span>
                 <span className="block text-xs text-zinc-500">
                   Assign new leads to the active rep with the fewest open leads.
+                </span>
+              </span>
+            </label>
+            <label className="flex items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                name="restrictSalesRepsToOwned"
+                defaultChecked={settings.restrictSalesRepsToOwned}
+                className="mt-0.5 rounded border-zinc-300"
+              />
+              <span>
+                <span className="font-medium text-zinc-800">Restrict reps to owned records</span>
+                <span className="block text-xs text-zinc-500">
+                  Sales reps only see deals, leads, and clients assigned to them. Admins always
+                  see everything.
                 </span>
               </span>
             </label>
@@ -92,6 +115,70 @@ export default async function CrmSettingsPage({
           </form>
         </section>
       </div>
+
+      {access.isAdmin && (
+        <section className="mt-6 rounded-xl border border-zinc-200 bg-white p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
+              Product catalog
+            </h2>
+            <span className="text-xs text-zinc-400">{products.length} product(s)</span>
+          </div>
+          <div className="mt-4 space-y-2">
+            {products.map((product) => (
+              <div
+                key={product.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+              >
+                <div>
+                  <p className="font-medium text-zinc-800">
+                    {product.name}
+                    {product.sku ? <span className="ml-2 text-xs text-zinc-400">{product.sku}</span> : null}
+                  </p>
+                  <p className="text-xs text-zinc-500">
+                    {product.currency} {Number(product.unitPrice).toFixed(2)}
+                    {product.description ? ` · ${product.description}` : ""}
+                  </p>
+                </div>
+                <form action={crmProductDeleteForm}>
+                  <input type="hidden" name="productId" value={product.id} />
+                  <button className="text-xs text-red-600 hover:underline">Delete</button>
+                </form>
+              </div>
+            ))}
+            {products.length === 0 && (
+              <p className="text-sm text-zinc-400">No products yet.</p>
+            )}
+          </div>
+          <form action={crmProductCreateForm} className="mt-4 grid gap-2 sm:grid-cols-12">
+            <label className="block text-xs text-zinc-500 sm:col-span-4">
+              Name
+              <input name="name" required className={inputCls} />
+            </label>
+            <label className="block text-xs text-zinc-500 sm:col-span-2">
+              SKU
+              <input name="sku" className={inputCls} />
+            </label>
+            <label className="block text-xs text-zinc-500 sm:col-span-2">
+              Unit price
+              <input name="unitPrice" type="number" min="0" step="0.01" defaultValue="0" className={inputCls} />
+            </label>
+            <label className="block text-xs text-zinc-500 sm:col-span-1">
+              Currency
+              <input name="currency" maxLength={3} defaultValue={settings.defaultCurrency} className={inputCls} />
+            </label>
+            <label className="block text-xs text-zinc-500 sm:col-span-3">
+              Description
+              <input name="description" className={inputCls} />
+            </label>
+            <div className="sm:col-span-12">
+              <button className="rounded-lg bg-zinc-900 px-4 py-1.5 text-sm text-white">
+                Add product
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
 
       <section className="mt-6 rounded-xl border border-zinc-200 bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">

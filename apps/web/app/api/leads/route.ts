@@ -12,6 +12,7 @@ import { prisma, TENANT_ID } from "@/modules/shared";
 import { rateLimit } from "@/lib/rate-limit";
 import { consumeLeadCredit, enqueueLeadCreatedDeliveries } from "@/lib/billing/lead-credit";
 import { verifyRecaptchaToken } from "@/lib/recaptcha";
+import { applyLeadAutomation } from "@/modules/crm/automation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -140,6 +141,10 @@ export async function POST(request: NextRequest) {
         },
       });
       return { lead: leadRow, listingLead: listingLeadRow };
+    });
+
+    await applyLeadAutomation(lead.id).catch((e) => {
+      console.error("Lead automation failed:", e);
     });
 
     if (listing) {

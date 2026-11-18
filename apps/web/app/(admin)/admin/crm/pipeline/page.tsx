@@ -1,4 +1,5 @@
 import { requireSection } from "@/modules/auth";
+import { getCrmAccessForUser } from "@/modules/crm/access";
 import { getCrmPipeline } from "@/modules/crm/queries";
 import { FlashBanner } from "@/components/admin/FlashBanner";
 import PipelineBoard from "./PipelineBoard";
@@ -12,9 +13,10 @@ export default async function CrmPipelinePage({
 }: {
   searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
-  await requireSection("crm");
+  const user = await requireSection("crm");
+  const access = await getCrmAccessForUser(user);
   const { error, ok } = await searchParams;
-  const { stages, settings } = await getCrmPipeline();
+  const { stages, settings } = await getCrmPipeline(access);
   return (
     <div>
       <FlashBanner error={error} ok={ok} />

@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma, TENANT_ID } from "@/modules/shared";
 import type { CrmActivityType } from "./constants";
+import { activityAccessWhere, type CrmAccess } from "./access";
 
 export type CrmActivityItem = {
   id: string;
@@ -46,9 +47,13 @@ export async function logCrmActivity(input: {
   dealId?: string | null;
   occurredAt?: Date;
   metadata?: Prisma.InputJsonValue;
+  externalId?: string | null;
+  source?: string | null;
+  client?: Prisma.TransactionClient;
 }): Promise<{ id: string }> {
   const occurredAt = input.occurredAt ?? new Date();
-  const activity = await prisma.crmActivity.create({
+  const db = input.client ?? prisma;
+  const activity = await db.crmActivity.create({
     data: {
       tenantId: TENANT_ID,
       type: input.type,
@@ -60,10 +65,12 @@ export async function logCrmActivity(input: {
       clientId: input.clientId ?? null,
       dealId: input.dealId ?? null,
       metadata: input.metadata ?? {},
+      externalId: input.externalId?.trim() || null,
+      source: input.source?.trim() || null,
     },
   });
   if (input.dealId) {
-    await prisma.deal.update({
+    await db.deal.update({
       where: { id: input.dealId },
       data: { lastActivityAt: occurredAt },
     });
@@ -79,11 +86,13 @@ export async function getCrmTimeline(input: {
   search?: string;
   page?: number;
   pageSize?: number;
+  access?: CrmAccess;
 }): Promise<{ items: CrmActivityItem[]; total: number; totalPages: number }> {
   const page = Math.max(1, input.page ?? 1);
   const pageSize = Math.min(100, Math.max(1, input.pageSize ?? 50));
   const where: Prisma.CrmActivityWhereInput = {
     tenantId: TENANT_ID,
+    AND: [activityAccessWhere(input.access)],
     ...(input.leadId ? { leadId: input.leadId } : {}),
     ...(input.clientId ? { clientId: input.clientId } : {}),
     ...(input.dealId ? { dealId: input.dealId } : {}),
@@ -116,7 +125,7 @@ export async function getCrmTimeline(input: {
   const userIds = [...new Set(activities.map((a) => a.userId).filter(Boolean))] as string[];
   const users = userIds.length
     ? await prisma.user.findMany({
-        where: { id: { in: userIds } },
+        where: { id: { in: userIds }, tenantId: TENANT_ID },
         select: { id: true, firstName: true, lastName: true, email: true },
       })
     : [];

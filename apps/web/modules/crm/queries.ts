@@ -3,6 +3,13 @@ import { prisma, TENANT_ID } from "@/modules/shared";
 import { getCrmStages } from "./stages";
 import { getCrmSettings } from "./settings";
 import { getCrmTimeline, type CrmActivityItem } from "./activity";
+import {
+  clientAccessWhere,
+  dealAccessWhere,
+  leadAccessWhere,
+  taskAccessWhere,
+  type CrmAccess,
+} from "./access";
 
 export type CrmUser = {
   id: string;
@@ -56,6 +63,8 @@ export type CrmPipelineStage = {
   isWon: boolean;
   isLost: boolean;
   deals: CrmDealCard[];
+  totalCount: number;
+  truncated: boolean;
   totalValue: number;
   weightedValue: number;
 };
@@ -73,11 +82,11 @@ export async function getCrmUsers(): Promise<CrmUser[]> {
   });
 }
 
-export async function getCrmStagesWithCounts() {
+export async function getCrmStagesWithCounts(access?: CrmAccess) {
   const stages = await getCrmStages();
   const counts = await prisma.deal.groupBy({
     by: ["stageId"],
-    where: { tenantId: TENANT_ID },
+    where: { tenantId: TENANT_ID, ...dealAccessWhere(access) },
     _count: { _all: true },
     _sum: { value: true },
   });
@@ -89,29 +98,50 @@ export async function getCrmStagesWithCounts() {
   }));
 }
 
-export async function getCrmPipeline(): Promise<{
+export async function getCrmPipeline(
+  access?: CrmAccess,
+  options: { perStageLimit?: number } = {},
+): Promise<{
   stages: CrmPipelineStage[];
   settings: Awaited<ReturnType<typeof getCrmSettings>>;
 }> {
+  const perStageLimit = Math.max(1, Math.min(500, options.perStageLimit ?? 100));
   const [stages, users, settings] = await Promise.all([
     getCrmStages(),
     getCrmUsers(),
     getCrmSettings(),
   ]);
   const userById = new Map(users.map((user) => [user.id, user]));
-  const deals = await prisma.deal.findMany({
-    where: { tenantId: TENANT_ID, stageId: { in: stages.map((stage) => stage.id) } },
-    include: {
-      stage: true,
-      tasks: {
-        where: { finishedAt: null },
-        orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
-        take: 1,
-      },
-      _count: { select: { activities: true } },
+  const stageDeals = await Promise.all(
+    stages.map((stage) =>
+      prisma.deal.findMany({
+        where: { tenantId: TENANT_ID, stageId: stage.id, ...dealAccessWhere(access) },
+        include: {
+          stage: true,
+          tasks: {
+            where: { finishedAt: null },
+            orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
+            take: 1,
+          },
+          _count: { select: { activities: true } },
+        },
+        orderBy: [{ value: "desc" }, { createdAt: "desc" }],
+        take: perStageLimit + 1,
+      }),
+    ),
+  );
+  const counts = await prisma.deal.groupBy({
+    by: ["stageId"],
+    where: {
+      tenantId: TENANT_ID,
+      stageId: { in: stages.map((stage) => stage.id) },
+      ...dealAccessWhere(access),
     },
-    orderBy: [{ value: "desc" }, { createdAt: "desc" }],
+    _count: { _all: true },
+    _sum: { value: true },
   });
+  const countByStage = new Map(counts.map((row) => [row.stageId, row]));
+  const deals = stageDeals.flatMap((rows) => rows.slice(0, perStageLimit));
 
   const cards = deals.map((deal) => {
     const probability = deal.probability ?? deal.stage.probability;
@@ -144,18 +174,16 @@ export async function getCrmPipeline(): Promise<{
 
   const byStage = new Map<string, CrmDealCard[]>();
   for (const card of cards) {
-    const deal = deals.find((row) => row.id === card.id);
-    if (!deal) continue;
-    const list = byStage.get(deal.stageId) ?? [];
+    const list = byStage.get(card.stageId) ?? [];
     list.push(card);
-    byStage.set(deal.stageId, list);
+    byStage.set(card.stageId, list);
   }
 
   return {
     settings,
     stages: stages.map((stage) => {
-      const stageDeals = byStage.get(stage.id) ?? [];
-      const totalValue = stageDeals.reduce((sum, deal) => sum + deal.value, 0);
+      const stageCards = byStage.get(stage.id) ?? [];
+      const totalCount = countByStage.get(stage.id)?._count._all ?? stageCards.length;
       return {
         id: stage.id,
         key: stage.key,
@@ -164,9 +192,11 @@ export async function getCrmPipeline(): Promise<{
         probability: stage.probability,
         isWon: stage.isWon,
         isLost: stage.isLost,
-        deals: stageDeals,
-        totalValue,
-        weightedValue: stageDeals.reduce(
+        deals: stageCards,
+        totalCount,
+        truncated: totalCount > stageCards.length,
+        totalValue: Number(countByStage.get(stage.id)?._sum.value ?? 0),
+        weightedValue: stageCards.reduce(
           (sum, deal) => sum + deal.value * (deal.probability / 100),
           0,
         ),
@@ -181,12 +211,14 @@ export async function getCrmDeals(input: {
   ownerId?: string;
   page?: number;
   pageSize?: number;
+  access?: CrmAccess;
 }): Promise<{ items: CrmDealCard[]; total: number; totalPages: number }> {
   const page = Math.max(1, input.page ?? 1);
   const pageSize = Math.min(100, Math.max(1, input.pageSize ?? 50));
   const search = input.search?.trim();
   const where: Prisma.DealWhereInput = {
     tenantId: TENANT_ID,
+    ...dealAccessWhere(input.access),
     ...(input.stageId ? { stageId: input.stageId } : {}),
     ...(input.ownerId ? { ownerId: input.ownerId } : {}),
     ...(search
@@ -250,14 +282,16 @@ export async function getCrmDeals(input: {
   return { items, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
 }
 
-export async function getCrmDeal(dealId: string) {
+export async function getCrmDeal(dealId: string, access?: CrmAccess) {
   const deal = await prisma.deal.findFirst({
-    where: { id: dealId, tenantId: TENANT_ID },
+    where: { id: dealId, tenantId: TENANT_ID, ...dealAccessWhere(access) },
     include: {
       stage: true,
       lead: { select: { id: true, firstName: true, lastName: true, email: true } },
       client: { select: { id: true, firstName: true, lastName: true, email: true } },
       tasks: { orderBy: [{ finishedAt: "asc" }, { dueAt: "asc" }, { createdAt: "asc" }] },
+      lineItems: { orderBy: [{ order: "asc" }, { createdAt: "asc" }], include: { product: true } },
+      attachments: { orderBy: { createdAt: "desc" } },
       _count: { select: { activities: true } },
     },
   });
@@ -271,17 +305,17 @@ export async function getCrmDeal(dealId: string) {
   };
 }
 
-export async function getDealsForLead(leadId: string) {
+export async function getDealsForLead(leadId: string, access?: CrmAccess) {
   return prisma.deal.findMany({
-    where: { tenantId: TENANT_ID, leadId },
+    where: { tenantId: TENANT_ID, leadId, ...dealAccessWhere(access) },
     include: { stage: true },
     orderBy: [{ updatedAt: "desc" }],
   });
 }
 
-export async function getDealsForClient(clientId: string) {
+export async function getDealsForClient(clientId: string, access?: CrmAccess) {
   return prisma.deal.findMany({
-    where: { tenantId: TENANT_ID, clientId },
+    where: { tenantId: TENANT_ID, clientId, ...dealAccessWhere(access) },
     include: { stage: true },
     orderBy: [{ updatedAt: "desc" }],
   });
@@ -317,16 +351,17 @@ export type CrmDashboard = {
   }>;
 };
 
-export async function getCrmDashboard(): Promise<CrmDashboard> {
+export async function getCrmDashboard(access?: CrmAccess): Promise<CrmDashboard> {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const weekEnd = new Date(now.getTime() + 7 * 86_400_000);
+  const leadScope = leadAccessWhere(access);
   const [settings, stages, deals, users, tasks, recentActivities, leadGroups, newLeadsThisMonth, convertedThisMonth, scoreAgg] =
     await Promise.all([
       getCrmSettings(),
       getCrmStages(),
       prisma.deal.findMany({
-        where: { tenantId: TENANT_ID },
+        where: { tenantId: TENANT_ID, ...dealAccessWhere(access) },
         include: {
           stage: true,
           tasks: {
@@ -343,10 +378,15 @@ export async function getCrmDashboard(): Promise<CrmDashboard> {
         where: {
           finishedAt: null,
           dueAt: { not: null },
-          OR: [
-            { lead: { tenantId: TENANT_ID } },
-            { client: { tenantId: TENANT_ID } },
-            { deal: { tenantId: TENANT_ID } },
+          AND: [
+            {
+              OR: [
+                { lead: { tenantId: TENANT_ID } },
+                { client: { tenantId: TENANT_ID } },
+                { deal: { tenantId: TENANT_ID } },
+              ],
+            },
+            ...(access ? [taskAccessWhere(access)] : []),
           ],
         },
         include: {
@@ -357,17 +397,27 @@ export async function getCrmDashboard(): Promise<CrmDashboard> {
         orderBy: [{ dueAt: "asc" }],
         take: 100,
       }),
-      getCrmTimeline({ pageSize: 8 }),
+      getCrmTimeline({ pageSize: 8, access }),
       prisma.lead.groupBy({
         by: ["status"],
-        where: { tenantId: TENANT_ID },
+        where: { tenantId: TENANT_ID, ...leadScope },
         _count: { _all: true },
       }),
-      prisma.lead.count({ where: { tenantId: TENANT_ID, createdAt: { gte: monthStart } } }),
       prisma.lead.count({
-        where: { tenantId: TENANT_ID, disposition: "CONVERTED", statusDate: { gte: monthStart } },
+        where: { tenantId: TENANT_ID, ...leadScope, createdAt: { gte: monthStart } },
       }),
-      prisma.lead.aggregate({ where: { tenantId: TENANT_ID }, _avg: { score: true } }),
+      prisma.lead.count({
+        where: {
+          tenantId: TENANT_ID,
+          ...leadScope,
+          disposition: "CONVERTED",
+          statusDate: { gte: monthStart },
+        },
+      }),
+      prisma.lead.aggregate({
+        where: { tenantId: TENANT_ID, ...leadScope },
+        _avg: { score: true },
+      }),
     ]);
 
   const userById = new Map(users.map((user) => [user.id, user]));
@@ -484,20 +534,137 @@ export async function getCrmDashboard(): Promise<CrmDashboard> {
   };
 }
 
-export async function getCrmLinkOptions() {
+export async function getCrmLinkOptions(access?: CrmAccess) {
   const [leads, clients] = await Promise.all([
     prisma.lead.findMany({
-      where: { tenantId: TENANT_ID },
+      where: { tenantId: TENANT_ID, ...leadAccessWhere(access) },
       select: { id: true, firstName: true, lastName: true, email: true },
       orderBy: { createdAt: "desc" },
       take: 100,
     }),
     prisma.client.findMany({
-      where: { tenantId: TENANT_ID },
+      where: { tenantId: TENANT_ID, ...clientAccessWhere(access) },
       select: { id: true, firstName: true, lastName: true, email: true },
       orderBy: { createdAt: "desc" },
       take: 100,
     }),
   ]);
   return { leads, clients };
+}
+
+export async function getCrmProducts(includeInactive = false) {
+  return prisma.crmProduct.findMany({
+    where: { tenantId: TENANT_ID, ...(includeInactive ? {} : { active: true }) },
+    orderBy: [{ active: "desc" }, { name: "asc" }],
+  });
+}
+
+export async function getCrmUnreadNotifications(userId: string) {
+  return prisma.crmNotification.findMany({
+    where: { tenantId: TENANT_ID, userId, readAt: null },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+  });
+}
+
+export type CrmReportRow = {
+  key: string;
+  label: string;
+  count: number;
+  value: number;
+  wonCount: number;
+  wonValue: number;
+};
+
+export async function getCrmReports(access?: CrmAccess) {
+  const [stages, users, all, won] = await Promise.all([
+    getCrmStagesWithCounts(access),
+    getCrmUsers(),
+    prisma.deal.groupBy({
+      by: ["source"],
+      where: { tenantId: TENANT_ID, ...dealAccessWhere(access) },
+      _count: { _all: true },
+      _sum: { value: true },
+    }),
+    prisma.deal.findMany({
+      where: {
+        tenantId: TENANT_ID,
+        ...dealAccessWhere(access),
+        stage: { isWon: true },
+      },
+      select: { source: true, ownerId: true, value: true },
+    }),
+  ]);
+  const userById = new Map(users.map((user) => [user.id, user]));
+  const ownerGroups = await prisma.deal.groupBy({
+    by: ["ownerId"],
+    where: { tenantId: TENANT_ID, ...dealAccessWhere(access) },
+    _count: { _all: true },
+    _sum: { value: true },
+  });
+
+  const wonBySource = new Map<string, { count: number; value: number }>();
+  const wonByOwner = new Map<string, { count: number; value: number }>();
+  for (const deal of won) {
+    const source = deal.source ?? "—";
+    const sourceRow = wonBySource.get(source) ?? { count: 0, value: 0 };
+    sourceRow.count += 1;
+    sourceRow.value += Number(deal.value);
+    wonBySource.set(source, sourceRow);
+    const owner = deal.ownerId ?? "—";
+    const ownerRow = wonByOwner.get(owner) ?? { count: 0, value: 0 };
+    ownerRow.count += 1;
+    ownerRow.value += Number(deal.value);
+    wonByOwner.set(owner, ownerRow);
+  }
+
+  const sources: CrmReportRow[] = all
+    .map((row) => {
+      const source = row.source ?? "—";
+      const wonRow = wonBySource.get(source);
+      return {
+        key: source,
+        label: source,
+        count: row._count._all,
+        value: Number(row._sum.value ?? 0),
+        wonCount: wonRow?.count ?? 0,
+        wonValue: wonRow?.value ?? 0,
+      };
+    })
+    .sort((a, b) => b.value - a.value);
+
+  const owners: CrmReportRow[] = ownerGroups
+    .map((row) => {
+      const ownerId = row.ownerId ?? "—";
+      const wonRow = wonByOwner.get(ownerId);
+      const user = row.ownerId ? userById.get(row.ownerId) : undefined;
+      return {
+        key: ownerId,
+        label: user
+          ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email
+          : "Unassigned",
+        count: row._count._all,
+        value: Number(row._sum.value ?? 0),
+        wonCount: wonRow?.count ?? 0,
+        wonValue: wonRow?.value ?? 0,
+      };
+    })
+    .sort((a, b) => b.wonValue - a.wonValue);
+
+  return {
+    stages: stages.map((stage) => ({
+      id: stage.id,
+      label: stage.label,
+      count: stage.dealCount,
+      value: stage.totalValue,
+      probability: stage.probability,
+      isWon: stage.isWon,
+      isLost: stage.isLost,
+    })),
+    sources,
+    owners,
+    totalDeals: sources.reduce((sum, row) => sum + row.count, 0),
+    totalValue: sources.reduce((sum, row) => sum + row.value, 0),
+    wonValue: sources.reduce((sum, row) => sum + row.wonValue, 0),
+  };
 }

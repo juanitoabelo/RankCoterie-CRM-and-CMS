@@ -11,9 +11,10 @@ import {
 import { FlashBanner } from "@/components/admin/FlashBanner";
 import CrmTimeline from "@/components/admin/crm/CrmTimeline";
 import { getDealsForLead } from "@/modules/crm/queries";
+import { getCrmAccessForUser } from "@/modules/crm/access";
 import { findLeadDuplicates } from "@/modules/crm/duplicates";
 import { getCrmTimeline } from "@/modules/crm/activity";
-import { crmDealFromLeadForm } from "@/modules/crm/actions";
+import { crmDealFromLeadForm, crmLeadMergeForm } from "@/modules/crm/actions";
 import { IntakeSectionFields } from "@/components/admin/LeadIntakeFields";
 import { normalizeCustomFormFields } from "@/modules/custom-forms/types";
 import CustomFieldsPanel from "@/components/admin/custom-fields/CustomFieldsPanel";
@@ -46,7 +47,8 @@ export default async function AdminLeadDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
-  await requireSection("leads");
+  const user = await requireSection("leads");
+  const access = await getCrmAccessForUser(user);
   const { id } = await params;
   const { error, ok } = await searchParams;
   const lead = await prisma.lead.findUnique({
@@ -82,9 +84,9 @@ export default async function AdminLeadDetailPage({
   ]);
 
   const [leadDeals, duplicateLeads, timeline] = await Promise.all([
-    getDealsForLead(lead.id),
-    findLeadDuplicates({ leadId: lead.id, email: lead.email, phones: lead.phones }),
-    getCrmTimeline({ leadId: lead.id, pageSize: 25 }),
+    getDealsForLead(lead.id, access),
+    findLeadDuplicates({ leadId: lead.id, email: lead.email, phones: lead.phones, access }),
+    getCrmTimeline({ leadId: lead.id, pageSize: 25, access }),
   ]);
 
   const userName = (u: { firstName: string | null; lastName: string | null; email: string } | null) =>
@@ -237,6 +239,14 @@ export default async function AdminLeadDetailPage({
                 <p className="text-xs text-zinc-500">
                   matched on {duplicate.matchedOn} · {duplicate.email ?? duplicate.phone ?? "no contact"} · score {duplicate.score ?? 0}
                 </p>
+                <form action={crmLeadMergeForm} className="mt-2">
+                  <input type="hidden" name="sourceId" value={duplicate.id} />
+                  <input type="hidden" name="targetId" value={lead.id} />
+                  <input type="hidden" name="returnTo" value={`/admin/leads/${lead.id}`} />
+                  <button className="text-xs text-amber-700 underline hover:text-amber-900">
+                    Merge into this lead
+                  </button>
+                </form>
               </li>
             ))}
             {duplicateLeads.length === 0 && <li className="text-sm text-zinc-400">No duplicates found.</li>}

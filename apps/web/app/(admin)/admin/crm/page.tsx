@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { requireSection } from "@/modules/auth";
-import { getCrmDashboard } from "@/modules/crm/queries";
+import { getCrmAccessForUser } from "@/modules/crm/access";
+import { getCrmDashboard, getCrmUnreadNotifications } from "@/modules/crm/queries";
+import { crmNotificationsReadForm } from "@/modules/crm/actions";
 import { FlashBanner } from "@/components/admin/FlashBanner";
 import CrmTaskList from "@/components/admin/crm/CrmTaskList";
 import CrmTimeline from "@/components/admin/crm/CrmTimeline";
@@ -43,9 +45,13 @@ export default async function CrmDashboardPage({
 }: {
   searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
-  await requireSection("crm");
+  const user = await requireSection("crm");
+  const access = await getCrmAccessForUser(user);
   const { error, ok } = await searchParams;
-  const dashboard = await getCrmDashboard();
+  const [dashboard, notifications] = await Promise.all([
+    getCrmDashboard(access),
+    getCrmUnreadNotifications(user.id),
+  ]);
   const currency = dashboard.settings.defaultCurrency;
 
   return (
@@ -70,6 +76,12 @@ export default async function CrmDashboardPage({
             className="rounded-lg border border-zinc-300 px-4 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
           >
             New deal
+          </Link>
+          <Link
+            href="/admin/crm/reports"
+            className="rounded-lg border border-zinc-300 px-4 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
+          >
+            Reports
           </Link>
           <Link
             href="/admin/crm/settings"
@@ -164,6 +176,37 @@ export default async function CrmDashboardPage({
                   showContext
                 />
               </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-medium text-zinc-500">
+                  Notifications ({notifications.length})
+                </p>
+                {notifications.length > 0 && (
+                  <form action={crmNotificationsReadForm}>
+                    <button className="text-xs text-zinc-500 underline">Mark all read</button>
+                  </form>
+                )}
+              </div>
+              <ul className="mt-2 space-y-1 text-sm">
+                {notifications.slice(0, 6).map((notification) => (
+                  <li key={notification.id}>
+                    {notification.link ? (
+                      <Link href={notification.link} className="text-zinc-700 hover:underline">
+                        {notification.title}
+                      </Link>
+                    ) : (
+                      <span className="text-zinc-700">{notification.title}</span>
+                    )}
+                    {notification.body && (
+                      <span className="block text-xs text-zinc-400">{notification.body}</span>
+                    )}
+                  </li>
+                ))}
+                {notifications.length === 0 && (
+                  <li className="text-sm text-zinc-400">No unread notifications.</li>
+                )}
+              </ul>
             </div>
             <div>
               <p className="text-xs font-medium text-zinc-500">

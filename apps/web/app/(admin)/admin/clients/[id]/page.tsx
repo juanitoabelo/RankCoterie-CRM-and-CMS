@@ -7,9 +7,10 @@ import { FlashBanner } from "@/components/admin/FlashBanner";
 import CustomFieldsPanel from "@/components/admin/custom-fields/CustomFieldsPanel";
 import CrmTimeline from "@/components/admin/crm/CrmTimeline";
 import { getDealsForClient } from "@/modules/crm/queries";
+import { getCrmAccessForUser } from "@/modules/crm/access";
 import { findClientDuplicates } from "@/modules/crm/duplicates";
 import { getCrmTimeline } from "@/modules/crm/activity";
-import { crmDealFromClientForm } from "@/modules/crm/actions";
+import { crmDealFromClientForm, crmClientMergeForm } from "@/modules/crm/actions";
 import {
   clientEditForm,
   clientNoteForm,
@@ -49,7 +50,8 @@ export default async function AdminClientDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
-  await requireSection("clients");
+  const user = await requireSection("clients");
+  const access = await getCrmAccessForUser(user);
   const { id } = await params;
   const { error, ok } = await searchParams;
   const [client, users] = await Promise.all([
@@ -81,9 +83,9 @@ export default async function AdminClientDetailPage({
   const noteUserById = new Map(noteUsers.map((u) => [u.id, userName(u)]));
 
   const [clientDeals, duplicateClients, timeline] = await Promise.all([
-    getDealsForClient(client.id),
-    findClientDuplicates({ clientId: client.id, email: client.email, phones: client.phones }),
-    getCrmTimeline({ clientId: client.id, pageSize: 25 }),
+    getDealsForClient(client.id, access),
+    findClientDuplicates({ clientId: client.id, email: client.email, phones: client.phones, access }),
+    getCrmTimeline({ clientId: client.id, pageSize: 25, access }),
   ]);
 
   const totalBilled = client.invoices
@@ -214,6 +216,14 @@ export default async function AdminClientDetailPage({
                 <p className="text-xs text-zinc-500">
                   matched on {duplicate.matchedOn} · {duplicate.email ?? duplicate.phone ?? "no contact"}
                 </p>
+                <form action={crmClientMergeForm} className="mt-2">
+                  <input type="hidden" name="sourceId" value={duplicate.id} />
+                  <input type="hidden" name="targetId" value={client.id} />
+                  <input type="hidden" name="returnTo" value={`/admin/clients/${client.id}`} />
+                  <button className="text-xs text-amber-700 underline hover:text-amber-900">
+                    Merge into this client
+                  </button>
+                </form>
               </li>
             ))}
             {duplicateClients.length === 0 && <li className="text-sm text-zinc-400">No duplicates found.</li>}

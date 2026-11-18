@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { requireSection } from "@/modules/auth";
+import { getCrmAccessForUser } from "@/modules/crm/access";
 import { getCrmDeals, getCrmStagesWithCounts, getCrmUsers } from "@/modules/crm/queries";
 import { getCrmSettings } from "@/modules/crm/settings";
+import { crmDealBulkForm } from "@/modules/crm/actions";
 import { FlashBanner } from "@/components/admin/FlashBanner";
 
 export const dynamic = "force-dynamic";
@@ -28,15 +30,22 @@ export default async function CrmDealsPage({
     ok?: string;
   }>;
 }) {
-  await requireSection("crm");
+  const user = await requireSection("crm");
+  const access = await getCrmAccessForUser(user);
   const params = await searchParams;
   const query = params.q?.trim() ?? "";
   const stageFilter = params.stage?.trim() ?? "";
   const ownerFilter = params.owner?.trim() ?? "";
   const page = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
   const [{ items, total, totalPages }, stages, users, settings] = await Promise.all([
-    getCrmDeals({ search: query, stageId: stageFilter || undefined, ownerId: ownerFilter || undefined, page }),
-    getCrmStagesWithCounts(),
+    getCrmDeals({
+      search: query,
+      stageId: stageFilter || undefined,
+      ownerId: ownerFilter || undefined,
+      page,
+      access,
+    }),
+    getCrmStagesWithCounts(access),
     getCrmUsers(),
     getCrmSettings(),
   ]);
@@ -113,9 +122,50 @@ export default async function CrmDealsPage({
         </div>
       </div>
 
-      <table className="mt-6 w-full text-left text-sm">
+      <form
+        id="crm-bulk-form"
+        action={crmDealBulkForm}
+        className="mt-6 flex flex-wrap items-end gap-2 rounded-xl border border-zinc-200 bg-white p-3"
+      >
+        <label className="block text-xs text-zinc-500">
+          Bulk action
+          <select name="bulkAction" defaultValue="stage" className="mt-1 rounded-lg border border-zinc-300 px-2 py-1.5 text-sm">
+            <option value="stage">Move stage</option>
+            <option value="owner">Reassign owner</option>
+            <option value="delete">Delete deals</option>
+          </select>
+        </label>
+        <label className="block text-xs text-zinc-500">
+          Stage
+          <select name="bulkStageId" defaultValue="" className="mt-1 rounded-lg border border-zinc-300 px-2 py-1.5 text-sm">
+            <option value="">— choose stage —</option>
+            {stages.map((stage) => (
+              <option key={stage.id} value={stage.id}>{stage.label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-xs text-zinc-500">
+          Owner
+          <select name="bulkOwnerId" defaultValue="" className="mt-1 rounded-lg border border-zinc-300 px-2 py-1.5 text-sm">
+            <option value="">— unassigned —</option>
+            {users.map((user) => (
+              <option key={user.id} value={user.id}>
+                {`${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button className="rounded-lg bg-zinc-900 px-4 py-1.5 text-sm text-white">
+          Apply to selected
+        </button>
+      </form>
+
+      <table className="mt-4 w-full text-left text-sm">
         <thead className="border-b border-zinc-200 text-xs uppercase text-zinc-400">
           <tr>
+            <th className="py-2 pr-4">
+              <span className="sr-only">Select</span>
+            </th>
             <th className="py-2 pr-4">Deal</th>
             <th className="py-2 pr-4">Stage</th>
             <th className="py-2 pr-4">Value</th>
@@ -128,6 +178,15 @@ export default async function CrmDealsPage({
         <tbody className="divide-y divide-zinc-100">
           {items.map((deal) => (
             <tr key={deal.id} className="hover:bg-zinc-50">
+              <td className="py-3 pr-4">
+                <input
+                  type="checkbox"
+                  name="dealIds"
+                  value={deal.id}
+                  form="crm-bulk-form"
+                  className="rounded border-zinc-300"
+                />
+              </td>
               <td className="py-3 pr-4">
                 <Link
                   href={`/admin/crm/deals/${deal.id}`}
@@ -169,7 +228,7 @@ export default async function CrmDealsPage({
           ))}
           {items.length === 0 && (
             <tr>
-              <td colSpan={7} className="py-10 text-center text-sm text-zinc-400">
+              <td colSpan={8} className="py-10 text-center text-sm text-zinc-400">
                 No deals match these filters.{" "}
                 <Link href="/admin/crm/deals/new" className="text-zinc-600 underline hover:text-zinc-900">
                   Create the first deal

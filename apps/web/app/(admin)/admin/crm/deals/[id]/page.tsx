@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSection } from "@/modules/auth";
-import { getCrmDeal, getCrmUsers } from "@/modules/crm/queries";
+import { getCrmAccessForUser } from "@/modules/crm/access";
+import { getCrmDeal, getCrmProducts, getCrmUsers } from "@/modules/crm/queries";
 import { getCrmTimeline } from "@/modules/crm/activity";
 import { getCrmStages } from "@/modules/crm/stages";
 import {
@@ -16,10 +17,14 @@ import {
   crmDealUpdateForm,
   crmTaskForm,
   crmDealDeleteForm,
+  crmLineItemAddForm,
+  crmLineItemDeleteForm,
+  crmAttachmentDeleteForm,
 } from "@/modules/crm/actions";
 import { FlashBanner } from "@/components/admin/FlashBanner";
 import CrmTaskList from "@/components/admin/crm/CrmTaskList";
 import CrmTimeline from "@/components/admin/crm/CrmTimeline";
+import CrmAttachmentUpload from "@/components/admin/crm/CrmAttachmentUpload";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -51,14 +56,16 @@ export default async function CrmDealDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
-  await requireSection("crm");
+  const user = await requireSection("crm");
+  const access = await getCrmAccessForUser(user);
   const { id } = await params;
   const { error, ok } = await searchParams;
-  const [deal, stages, users, timeline] = await Promise.all([
-    getCrmDeal(id),
+  const [deal, stages, users, timeline, products] = await Promise.all([
+    getCrmDeal(id, access),
     getCrmStages(),
     getCrmUsers(),
-    getCrmTimeline({ dealId: id, pageSize: 30 }),
+    getCrmTimeline({ dealId: id, pageSize: 30, access }),
+    getCrmProducts(),
   ]);
   if (!deal) notFound();
 
@@ -326,6 +333,117 @@ export default async function CrmDealDetailPage({
             </form>
           </section>
         </div>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <section className="rounded-xl border border-zinc-200 bg-white p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
+              Line items
+            </h2>
+            <span className="text-xs text-zinc-400">
+              Deal value: {money(deal.valueNumber, deal.currency)}
+            </span>
+          </div>
+          <div className="mt-3 space-y-2">
+            {deal.lineItems.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-zinc-800">{item.description}</p>
+                  <p className="text-xs text-zinc-500">
+                    {item.quantity} × {money(Number(item.unitPrice), deal.currency)}
+                    {item.product ? ` · ${item.product.name}` : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-medium text-zinc-800">
+                    {money(item.quantity * Number(item.unitPrice), deal.currency)}
+                  </span>
+                  <form action={crmLineItemDeleteForm}>
+                    <input type="hidden" name="dealId" value={deal.id} />
+                    <input type="hidden" name="itemId" value={item.id} />
+                    <button className="text-xs text-red-600 hover:underline">Remove</button>
+                  </form>
+                </div>
+              </div>
+            ))}
+            {deal.lineItems.length === 0 && (
+              <p className="text-sm text-zinc-400">No line items yet.</p>
+            )}
+          </div>
+          <form action={crmLineItemAddForm} className="mt-4 grid gap-2 sm:grid-cols-2">
+            <input type="hidden" name="dealId" value={deal.id} />
+            <label className="block text-xs text-zinc-500 sm:col-span-2">
+              Product (optional)
+              <select name="productId" defaultValue="" className={selectCls}>
+                <option value="">— custom line item —</option>
+                {products.map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.name} ({money(Number(product.unitPrice), product.currency)})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-xs text-zinc-500 sm:col-span-2">
+              Description
+              <input name="description" required className={inputCls} />
+            </label>
+            <label className="block text-xs text-zinc-500">
+              Quantity
+              <input name="quantity" type="number" min="1" defaultValue="1" className={inputCls} />
+            </label>
+            <label className="block text-xs text-zinc-500">
+              Unit price
+              <input name="unitPrice" type="number" min="0" step="0.01" defaultValue="0" className={inputCls} />
+            </label>
+            <button className="rounded-lg bg-zinc-900 px-4 py-1.5 text-sm text-white sm:col-span-2">
+              Add line item
+            </button>
+          </form>
+        </section>
+
+        <section className="rounded-xl border border-zinc-200 bg-white p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
+              Attachments
+            </h2>
+            <span className="text-xs text-zinc-400">{deal.attachments.length} file(s)</span>
+          </div>
+          <div className="mt-3 space-y-2">
+            {deal.attachments.map((attachment) => (
+              <div
+                key={attachment.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+              >
+                <div className="min-w-0">
+                  <a
+                    href={`/api/crm/attachments/${attachment.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="truncate font-medium text-zinc-800 hover:underline"
+                  >
+                    {attachment.filename}
+                  </a>
+                  <p className="text-xs text-zinc-500">
+                    {attachment.mimeType} · {(attachment.size / 1024).toFixed(0)} KB
+                  </p>
+                </div>
+                <form action={crmAttachmentDeleteForm}>
+                  <input type="hidden" name="attachmentId" value={attachment.id} />
+                  <input type="hidden" name="returnTo" value={returnTo} />
+                  <button className="text-xs text-red-600 hover:underline">Delete</button>
+                </form>
+              </div>
+            ))}
+            {deal.attachments.length === 0 && (
+              <p className="text-sm text-zinc-400">No attachments yet.</p>
+            )}
+          </div>
+          <CrmAttachmentUpload dealId={deal.id} />
+        </section>
       </div>
 
       <section className="mt-6 rounded-xl border border-zinc-200 bg-white p-5">

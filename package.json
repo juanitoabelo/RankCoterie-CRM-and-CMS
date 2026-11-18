@@ -23,7 +23,8 @@
     "verify:paypal": "npx tsx scripts/verify/paypal.ts",
     "verify:square": "npx tsx scripts/verify/square.ts",
     "verify:all": "npx tsx scripts/verify/all.ts",
-    "config:track": "npx tsx scripts/admin-config-tracker.ts"
+    "config:track": "npx tsx scripts/admin-config-tracker.ts",
+    "crm:backfill": "npx tsx --tsconfig apps/web/tsconfig.json apps/web/scripts/crm-backfill.ts"
   },
   "devDependencies": {
     "@types/node": "26.2.0",

@@ -15,7 +15,7 @@ import {
 import { saveCustomFieldValues } from "../custom-fields/actions";
 import { updateLeadScore } from "@/modules/crm/scoring";
 import { logCrmActivity } from "@/modules/crm/activity";
-import { getCrmSettings } from "@/modules/crm/settings";
+import { applyLeadAutomation } from "@/modules/crm/automation";
 
 export type ActionResult = { ok: boolean; error?: string; message?: string; id?: string };
 
@@ -105,38 +105,10 @@ export async function addLead(input: {
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, error: "Enter a valid email address." };
   }
-  let assignedToId = input.assignedToId?.trim() || null;
+  const assignedToId = input.assignedToId?.trim() || null;
   if (assignedToId) {
     const assignee = await prisma.user.findUnique({ where: { id: assignedToId } });
     if (!assignee) return { ok: false, error: "Assigned user not found." };
-  } else {
-    const settings = await getCrmSettings();
-    if (settings.autoAssignLeads) {
-      const candidates = await prisma.user.findMany({
-        where: {
-          tenantId: TENANT_ID,
-          active: true,
-          roles: { some: { role: { in: ["SALES_REP", "ADMIN", "SUPER_ADMIN"] } } },
-        },
-        select: { id: true },
-      });
-      const ids = candidates.map((candidate) => candidate.id);
-      if (ids.length > 0) {
-        const counts = await prisma.lead.groupBy({
-          by: ["assignedToId"],
-          where: {
-            tenantId: TENANT_ID,
-            assignedToId: { in: ids },
-            status: { notIn: ["CLOSED", "ARCHIVED"] },
-          },
-          _count: { _all: true },
-        });
-        const countById = new Map(counts.map((row) => [row.assignedToId, row._count._all]));
-        assignedToId = ids.reduce((best, id) =>
-          (countById.get(id) ?? 0) < (countById.get(best) ?? 0) ? id : best,
-        );
-      }
-    }
   }
 
   const phones = buildPhones(input.phoneHome, input.phoneWork, input.phoneCell);
@@ -183,7 +155,7 @@ export async function addLead(input: {
     actorId: user.id,
     reason: `Lead "${firstName} ${lastName}" created manually`,
   });
-  await refreshLeadScore(lead.id);
+  await applyLeadAutomation(lead.id).catch(() => null);
   revalidatePath("/admin/leads");
   return { ok: true, message: `Lead ${firstName} ${lastName} created.`, id: lead.id };
 }

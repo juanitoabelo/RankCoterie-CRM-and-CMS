@@ -690,6 +690,7 @@ model Lead {
   client        Client?
   deals         Deal[]
   activities    CrmActivity[]
+  attachments   CrmAttachment[]
   listingLeads  ListingLead[]
   formSubmissions CustomFormSubmission[]
   @@index([tenantId, status])
@@ -783,6 +784,7 @@ model Client {
   deals     Deal[]
   activities CrmActivity[]
   tasks     ToDo[]
+  attachments CrmAttachment[]
   @@index([tenantId])
 }
 
@@ -804,6 +806,7 @@ model CrmSetting {
   id               String   @id @default(cuid())
   tenantId         String   @unique
   autoAssignLeads  Boolean  @default(false)
+  restrictSalesRepsToOwned Boolean @default(true)
   staleDealDays    Int      @default(14)
   defaultCurrency  String   @default("USD")
   createdAt        DateTime @default(now())
@@ -857,6 +860,8 @@ model Deal {
   updatedAt         DateTime @updatedAt
   activities        CrmActivity[]
   tasks             ToDo[]
+  attachments       CrmAttachment[]
+  lineItems         DealLineItem[]
   @@index([tenantId, stageId])
   @@index([tenantId, ownerId])
   @@index([tenantId, expectedCloseDate])
@@ -880,12 +885,82 @@ model CrmActivity {
   dealId     String?
   deal       Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
   metadata   Json     @default("{}")
+  externalId String?
+  source     String?
   createdAt  DateTime @default(now())
+  @@unique([tenantId, externalId])
   @@index([tenantId, occurredAt])
   @@index([tenantId, leadId])
   @@index([tenantId, clientId])
   @@index([tenantId, dealId])
   @@index([userId])
+}
+
+model CrmAttachment {
+  id           String   @id @default(cuid())
+  tenantId     String
+  dealId       String?
+  deal         Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  leadId       String?
+  lead         Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  clientId     String?
+  client       Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  assetId      String
+  asset        Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  filename     String
+  mimeType     String
+  size         Int
+  uploadedById String?
+  createdAt    DateTime @default(now())
+  @@index([tenantId, dealId])
+  @@index([tenantId, leadId])
+  @@index([tenantId, clientId])
+}
+
+model CrmProduct {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  sku         String?
+  description String?
+  unitPrice   Decimal  @default(0) @db.Decimal(12, 2)
+  currency    String   @default("USD")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  lineItems   DealLineItem[]
+  @@unique([tenantId, sku])
+  @@index([tenantId, active])
+}
+
+model DealLineItem {
+  id          String   @id @default(cuid())
+  dealId      String
+  deal        Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     CrmProduct? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  description String
+  quantity    Int      @default(1)
+  unitPrice   Decimal  @default(0) @db.Decimal(12, 2)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([dealId])
+  @@index([productId])
+}
+
+model CrmNotification {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  type      String
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+  @@index([tenantId, userId, readAt])
+  @@index([tenantId, createdAt])
 }
 
 model Invoice {
@@ -1388,6 +1463,7 @@ model Asset {
   productAttributeTermImages ProductAttributeTerm[]
   productVariantImages ProductVariant[]
   customPostFeatured CustomPost[]
+  crmAttachments CrmAttachment[]
 }
 
 /// A user-uploaded font file, grouped into a CSS family by `family`.

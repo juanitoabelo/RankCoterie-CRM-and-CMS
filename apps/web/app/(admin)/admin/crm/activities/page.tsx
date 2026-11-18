@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireSection } from "@/modules/auth";
+import { getCrmAccessForUser } from "@/modules/crm/access";
 import { getCrmTimeline } from "@/modules/crm/activity";
 import {
   CRM_ACTIVITY_LABELS,
@@ -18,14 +19,15 @@ export default async function CrmActivitiesPage({
 }: {
   searchParams: Promise<{ q?: string; type?: string; page?: string; error?: string; ok?: string }>;
 }) {
-  await requireSection("crm");
+  const user = await requireSection("crm");
+  const access = await getCrmAccessForUser(user);
   const params = await searchParams;
   const search = params.q?.trim() ?? "";
   const type = (CRM_ACTIVITY_TYPES as readonly string[]).includes(params.type ?? "")
     ? (params.type as string)
     : "";
   const page = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
-  const timeline = await getCrmTimeline({ search, type: type || undefined, page, pageSize: 50 });
+  const timeline = await getCrmTimeline({ search, type: type || undefined, page, pageSize: 50, access });
 
   const pageHref = (nextPage: number) => {
     const query = new URLSearchParams();

@@ -1,4 +1,5 @@
 import { prisma, TENANT_ID } from "@/modules/shared";
+import { leadAccessWhere, clientAccessWhere, type CrmAccess } from "./access";
 
 export type DuplicateMatch = {
   id: string;
@@ -42,13 +43,14 @@ export async function findLeadDuplicates(input: {
   leadId: string;
   email?: string | null;
   phones?: unknown;
+  access?: CrmAccess;
 }): Promise<DuplicateMatch[]> {
   const email = normalizeEmail(input.email);
   const phones = new Set(phonesOf(input.phones));
   if (!email && phones.size === 0) return [];
 
   const recent = await prisma.lead.findMany({
-    where: { tenantId: TENANT_ID, id: { not: input.leadId } },
+    where: { tenantId: TENANT_ID, id: { not: input.leadId }, ...leadAccessWhere(input.access) },
     orderBy: { createdAt: "desc" },
     take: 1000,
     select: {
@@ -89,13 +91,14 @@ export async function findClientDuplicates(input: {
   clientId: string;
   email?: string | null;
   phones?: unknown;
+  access?: CrmAccess;
 }): Promise<DuplicateMatch[]> {
   const email = normalizeEmail(input.email);
   const phones = new Set(phonesOf(input.phones));
   if (!email && phones.size === 0) return [];
 
   const recent = await prisma.client.findMany({
-    where: { tenantId: TENANT_ID, id: { not: input.clientId } },
+    where: { tenantId: TENANT_ID, id: { not: input.clientId }, ...clientAccessWhere(input.access) },
     orderBy: { createdAt: "desc" },
     take: 1000,
     select: {

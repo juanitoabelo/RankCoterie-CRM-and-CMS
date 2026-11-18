@@ -154,7 +154,7 @@ export default function PipelineBoard({
 
       <div className="mt-5 flex gap-4 overflow-x-auto pb-4">
         {columns.map((column) => {
-          const total = column.deals.reduce((sum, deal) => sum + deal.value, 0);
+          const total = column.totalValue;
           const weighted = column.deals.reduce(
             (sum, deal) => sum + deal.value * (deal.probability / 100),
             0,
@@ -179,12 +179,17 @@ export default function PipelineBoard({
                 <div className="flex items-center justify-between gap-2">
                   <h2 className="text-sm font-semibold text-zinc-800">{column.label}</h2>
                   <span className="rounded-full bg-white px-2 py-0.5 text-xs text-zinc-500">
-                    {column.deals.length}
+                    {column.totalCount}
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-zinc-500">
                   {money(total)} · weighted {money(weighted)}
                 </p>
+                {column.truncated && (
+                  <p className="mt-1 text-[11px] text-amber-700">
+                    Showing {column.deals.length} of {column.totalCount} deals.
+                  </p>
+                )}
               </header>
               <div className="flex min-h-24 flex-1 flex-col gap-2">
                 {column.deals.map((deal) => (

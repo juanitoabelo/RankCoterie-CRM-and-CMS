@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma, TENANT_ID } from "@/modules/shared";
 import { rateLimit } from "@/lib/rate-limit";
 import { sendEmail } from "@/lib/email/send";
+import { applyLeadAutomation } from "@/modules/crm/automation";
 import {
   escapeHtml,
   normalizeCustomFormFields,
@@ -88,6 +89,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   const settings = normalizeCustomFormSettings(form.settings);
   const values = validated.data;
 
+  let createdLeadId: string | null = null;
   const submission = await prisma.$transaction(async (tx) => {
     let leadId: string | null = null;
     if (settings.createLead) {
@@ -135,6 +137,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
           },
         });
       leadId = lead.id;
+      createdLeadId = lead.id;
       if (message) {
         await tx.leadNote.create({
           data: { leadId: lead.id, note: `Custom form "${form.name}": ${message}` },
@@ -151,6 +154,12 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       },
     });
   });
+
+  if (createdLeadId) {
+    await applyLeadAutomation(createdLeadId).catch((e) => {
+      console.error("Lead automation failed:", e);
+    });
+  }
 
   const errors: string[] = [];
   const notifyBody = renderTemplate(settings.body, values, form.name, fields);

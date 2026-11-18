@@ -26,6 +26,7 @@ export async function GET(
         "Content-Length": String(asset.size),
         "Cache-Control": "public, max-age=31536000, immutable",
         "Content-Disposition": `inline; filename="${safeFilename}"`,
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch {
