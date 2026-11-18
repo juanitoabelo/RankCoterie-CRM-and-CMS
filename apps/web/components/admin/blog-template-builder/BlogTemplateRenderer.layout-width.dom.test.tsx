@@ -71,20 +71,36 @@ describe("BlogTemplateRenderer layout widths", () => {
 
     await renderBlocks([row]);
 
+    const rowStyleText = (element: HTMLElement | null) => {
+      const className = element?.className
+        .split(/\s+/)
+        .find((name) => name.startsWith("pbx-") && name.includes("-row-"));
+      if (!className) return "";
+      return (
+        Array.from(document.querySelectorAll("style[data-pb-dyn]"))
+          .map((node) => node.textContent ?? "")
+          .find((css) => css.includes(`.${className} {`)) ?? ""
+      );
+    };
+
     const boxedRow = container.querySelector<HTMLElement>("#layout-row");
-    expect(boxedRow?.style.width).toBe("100%");
-    expect(boxedRow?.style.maxWidth).toBe("1200px");
-    expect(boxedRow?.style.marginLeft).toBe("auto");
-    expect(boxedRow?.style.marginRight).toBe("auto");
+    const boxedCss = rowStyleText(boxedRow);
+    expect(boxedRow?.className).toMatch(/pbx-/);
+    expect(boxedCss).toMatch(/width:\s*100%/);
+    expect(boxedCss).toMatch(/max-width:\s*1200px/);
+    expect(boxedCss).toMatch(/margin-left:\s*auto/);
+    expect(boxedCss).toMatch(/margin-right:\s*auto/);
 
     row.props = { ...row.props, width: "full" };
     await renderBlocks([row]);
 
     const fullRow = container.querySelector<HTMLElement>("#layout-row");
-    expect(fullRow?.style.width).toBe("100%");
-    expect(fullRow?.style.maxWidth).toBe("");
-    expect(fullRow?.style.marginLeft).toBe("");
-    expect(fullRow?.style.marginRight).toBe("");
+    const fullCss = rowStyleText(fullRow);
+    expect(fullRow?.className).toMatch(/pbx-/);
+    expect(fullCss).toMatch(/width:\s*100%/);
+    expect(fullCss).not.toMatch(/max-width:\s*1200px/);
+    expect(fullCss).not.toMatch(/margin-left:\s*auto/);
+    expect(fullCss).not.toMatch(/margin-right:\s*auto/);
   });
 
   it("centers the overall boxed template canvas at its configured max width", async () => {

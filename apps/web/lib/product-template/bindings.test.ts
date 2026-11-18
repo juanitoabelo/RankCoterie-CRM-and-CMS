@@ -50,7 +50,11 @@ describe("product template data bindings", () => {
   });
 
   it("exposes bindable properties for standard page-builder blocks", () => {
-    expect(productBindingTargets("hero").map((target) => target.key)).toEqual(["heading", "subheading"]);
+    expect(productBindingTargets("hero").map((target) => target.key)).toEqual([
+      "heading",
+      "subheading",
+      "bgImage",
+    ]);
     expect(productBindingTargets("image").map((target) => target.key)).toContain("src");
     expect(productBindingTargets("unknown")).toEqual([]);
   });

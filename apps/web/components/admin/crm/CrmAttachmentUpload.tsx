@@ -23,7 +23,7 @@ export default function CrmAttachmentUpload({
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch("/api/crm/attachments", { method: "POST", body: data });
+      const response = await fetch("/api/crm/attachments/", { method: "POST", body: data });
       const payload = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Upload failed.");
       form.reset();

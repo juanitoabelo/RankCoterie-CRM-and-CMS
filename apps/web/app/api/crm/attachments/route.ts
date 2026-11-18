@@ -4,6 +4,8 @@ import { canAccessAnySectionForUser, getApiUser } from "@/modules/auth";
 import { getCrmAccessForUser } from "@/modules/crm/access";
 import { logAudit } from "@/lib/audit";
 import { logCrmActivity } from "@/modules/crm/activity";
+import { deleteCrmFile, isObjectStorageConfigured, storeCrmFile } from "@/lib/crm-storage";
+import { reportCrmIssue } from "@/lib/monitoring";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,26 +82,39 @@ export async function POST(request: Request) {
     if (!client) return NextResponse.json({ error: "Client not found." }, { status: 404 });
   }
 
-  const bytes = Buffer.from(await file.arrayBuffer());
+  const storageProvider = isObjectStorageConfigured() ? "vercel-blob" : null;
+  let stored: { provider: "vercel-blob"; key: string } | null = null;
+  let bytes: Buffer | null = null;
   try {
+    if (storageProvider) {
+      stored = await storeCrmFile(file);
+    } else {
+      bytes = Buffer.from(await file.arrayBuffer());
+    }
+
+    const attachmentBytes = bytes;
     const attachment = await prisma.$transaction(async (tx) => {
-      const asset = await tx.asset.create({
-        data: {
-          tenantId: TENANT_ID,
-          kind: "file",
-          mimeType: file.type,
-          size: file.size,
-          filename: file.name,
-          bytes,
-        },
-      });
+      const asset = attachmentBytes
+        ? await tx.asset.create({
+            data: {
+              tenantId: TENANT_ID,
+              kind: "file",
+              mimeType: file.type,
+              size: file.size,
+              filename: file.name,
+              bytes: attachmentBytes,
+            },
+          })
+        : null;
       const row = await tx.crmAttachment.create({
         data: {
           tenantId: TENANT_ID,
           dealId,
           leadId,
           clientId,
-          assetId: asset.id,
+          assetId: asset?.id ?? null,
+          storageProvider: stored?.provider ?? null,
+          storageKey: stored?.key ?? null,
           filename: file.name,
           mimeType: file.type,
           size: file.size,
@@ -114,7 +129,12 @@ export async function POST(request: Request) {
         dealId,
         leadId,
         clientId,
-        metadata: { attachmentId: row.id, mimeType: file.type, size: file.size },
+        metadata: {
+          attachmentId: row.id,
+          mimeType: file.type,
+          size: file.size,
+          storage: stored?.provider ?? "database",
+        },
         client: tx,
       });
       return row;
@@ -126,15 +146,30 @@ export async function POST(request: Request) {
       entityId: attachment.id,
       actorId: user.id,
       reason: `Attachment "${file.name}" uploaded`,
-      meta: { dealId, leadId, clientId, size: file.size, mimeType: file.type },
+      meta: {
+        dealId,
+        leadId,
+        clientId,
+        size: file.size,
+        mimeType: file.type,
+        storage: stored?.provider ?? "database",
+      },
     });
 
     return NextResponse.json({
       id: attachment.id,
-      url: `/api/crm/attachments/${attachment.id}`,
+      url: `/api/crm/attachments/${attachment.id}/`,
       filename: attachment.filename,
     });
   } catch (error) {
+    if (stored) await deleteCrmFile(stored.provider, stored.key).catch(() => null);
+    reportCrmIssue("error", "crm.attachments.upload", error, {
+      dealId,
+      leadId,
+      clientId,
+      size: file.size,
+      mimeType: file.type,
+    });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to save attachment." },
       { status: 500 },

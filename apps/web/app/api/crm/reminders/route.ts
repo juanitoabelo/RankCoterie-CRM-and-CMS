@@ -2,15 +2,20 @@ import { NextResponse } from "next/server";
 import { prisma, TENANT_ID } from "@/modules/shared";
 import { sendEmail } from "@/lib/email/send";
 import { logAudit } from "@/lib/audit";
+import { reportCrmIssue } from "@/lib/monitoring";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 function authorized(request: Request): boolean {
-  const secret = process.env.CRM_REMINDER_SECRET;
-  if (!secret) return false;
+  const secrets = [process.env.CRM_REMINDER_SECRET, process.env.CRON_SECRET].filter(
+    (value): value is string => Boolean(value),
+  );
   const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  return bearer === secret || request.headers.get("x-crm-reminder-secret") === secret;
+  return secrets.some(
+    (secret) => bearer === secret || request.headers.get("x-crm-reminder-secret") === secret,
+  );
 }
 
 function escapeHtml(value: string): string {
@@ -32,7 +37,7 @@ function taskLink(task: {
   return "/admin/crm";
 }
 
-export async function POST(request: Request) {
+async function runReminders(request: Request) {
   if (!authorized(request)) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
@@ -113,7 +118,9 @@ export async function POST(request: Request) {
       text: fresh.map((task) => `- ${task.text}`).join("\n"),
     });
     if (!result.ok) {
-      errors.push({ userId: user.id, error: result.error ?? "send failed" });
+      const error = result.error ?? "send failed";
+      errors.push({ userId: user.id, error });
+      reportCrmIssue("error", "crm.reminders.email", new Error(error), { userId: user.id });
       continue;
     }
 
@@ -140,4 +147,12 @@ export async function POST(request: Request) {
   }).catch(() => null);
 
   return NextResponse.json({ tasks: tasks.length, users: users.length, sent, skipped, errors });
+}
+
+export async function GET(request: Request) {
+  return runReminders(request);
+}
+
+export async function POST(request: Request) {
+  return runReminders(request);
 }

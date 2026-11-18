@@ -420,7 +420,7 @@ export default async function CrmDealDetailPage({
               >
                 <div className="min-w-0">
                   <a
-                    href={`/api/crm/attachments/${attachment.id}`}
+                    href={`/api/crm/attachments/${attachment.id}/`}
                     target="_blank"
                     rel="noreferrer"
                     className="truncate font-medium text-zinc-800 hover:underline"

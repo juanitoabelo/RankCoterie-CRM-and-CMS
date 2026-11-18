@@ -9,7 +9,7 @@ describe("product card template settings", () => {
     expect(normalizeProductCardTemplate(null)).toEqual(DEFAULT_PRODUCT_CARD_TEMPLATE);
     expect(normalizeProductCardTemplate({ imageAspect: "unexpected", radius: -12 })).toMatchObject({
       imageAspect: "landscape",
-      radius: 14,
+      radius: 0,
     });
   });
 

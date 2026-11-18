@@ -14,6 +14,7 @@ describe("ROLE_LABELS", () => {
     expect(ROLE_LABELS.REVIEWER).toBe("Reviewer");
     expect(ROLE_LABELS.SALES_REP).toBe("Sales Rep");
     expect(ROLE_LABELS.GRACE_COACH).toBe("Grace Coach");
+    expect(ROLE_LABELS.SUBSCRIBER).toBe("Subscriber");
   });
 });
 
@@ -28,7 +29,8 @@ describe("ALL_ROLES", () => {
     expect(ALL_ROLES).toContain(Role.GRACE_COACH);
   });
 
-  it("has 7 roles", () => {
-    expect(ALL_ROLES).toHaveLength(7);
+  it("has 8 roles", () => {
+    expect(ALL_ROLES).toHaveLength(8);
+    expect(ALL_ROLES).toContain(Role.SUBSCRIBER);
   });
 });

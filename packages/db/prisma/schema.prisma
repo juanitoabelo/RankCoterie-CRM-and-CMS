@@ -905,8 +905,10 @@ model CrmAttachment {
   lead         Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
   clientId     String?
   client       Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  assetId      String
-  asset        Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  assetId      String?
+  asset        Asset?   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  storageProvider String? // "vercel-blob" when bytes live outside Postgres
+  storageKey   String?  // provider pathname/URL used to fetch/delete the object
   filename     String
   mimeType     String
   size         Int
@@ -915,6 +917,29 @@ model CrmAttachment {
   @@index([tenantId, dealId])
   @@index([tenantId, leadId])
   @@index([tenantId, clientId])
+}
+
+/// A user's connected mailbox/calendar. Tokens are AES-GCM encrypted at rest
+/// with CRM_TOKEN_ENCRYPTION_KEY (falling back to SESSION_SECRET locally).
+model CrmEmailConnection {
+  id            String   @id @default(cuid())
+  tenantId      String
+  userId        String
+  provider      String // google | microsoft
+  email         String
+  accessToken   String // encrypted
+  refreshToken  String? // encrypted
+  expiresAt     DateTime?
+  scope         String?
+  syncCursor    DateTime?
+  lastSyncAt    DateTime?
+  lastSyncError String?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  @@unique([tenantId, userId, provider])
+  @@index([tenantId, active])
+  @@index([tenantId, lastSyncAt])
 }
 
 model CrmProduct {

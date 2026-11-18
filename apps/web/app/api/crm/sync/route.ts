@@ -4,6 +4,7 @@ import { prisma, TENANT_ID } from "@/modules/shared";
 import { logCrmActivity } from "@/modules/crm/activity";
 import { CRM_ACTIVITY_TYPES, type CrmActivityType } from "@/modules/crm/constants";
 import { logAudit } from "@/lib/audit";
+import { reportCrmIssue } from "@/lib/monitoring";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,10 +41,13 @@ function activityType(input: SyncActivity): CrmActivityType {
 }
 
 function authorized(request: Request): boolean {
-  const secret = process.env.CRM_SYNC_SECRET;
-  if (!secret) return false;
+  const secrets = [process.env.CRM_SYNC_SECRET, process.env.CRON_SECRET].filter(
+    (value): value is string => Boolean(value),
+  );
   const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  return bearer === secret || request.headers.get("x-crm-sync-secret") === secret;
+  return secrets.some(
+    (secret) => bearer === secret || request.headers.get("x-crm-sync-secret") === secret,
+  );
 }
 
 export async function POST(request: Request) {
@@ -144,6 +148,7 @@ export async function POST(request: Request) {
           externalId,
           error: error instanceof Error ? error.message : "Import failed.",
         });
+        reportCrmIssue("error", "crm.sync.import", error, { externalId });
       }
     }
   }

@@ -11,6 +11,16 @@ import {
   crmProductDeleteForm,
 } from "@/modules/crm/actions";
 import { FlashBanner } from "@/components/admin/FlashBanner";
+import Link from "next/link";
+import { getCrmEmailConnections } from "@/modules/crm/oauth-sync";
+import {
+  OAUTH_PROVIDERS,
+  oauthMissingEnv,
+  oauthProviderConfigured,
+  oauthProviderLabel,
+} from "@/modules/crm/oauth-providers";
+import { getCrmHealth } from "@/modules/crm/health";
+import { crmEmailDisconnectForm, crmEmailSyncForm } from "@/modules/crm/actions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -26,10 +36,12 @@ export default async function CrmSettingsPage({
   const user = await requireSection("crm");
   const access = await getCrmAccessForUser(user);
   const { error, ok } = await searchParams;
-  const [settings, stages, products] = await Promise.all([
+  const [settings, stages, products, connections, health] = await Promise.all([
     getCrmSettings(),
     getCrmStagesWithCounts(access),
     getCrmProducts(),
+    getCrmEmailConnections(access.isAdmin ? undefined : user.id),
+    getCrmHealth(),
   ]);
 
   return (
@@ -100,6 +112,104 @@ export default async function CrmSettingsPage({
               Save settings
             </button>
           </form>
+        </section>
+
+        <section className="rounded-xl border border-zinc-200 bg-white p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
+              Mailbox &amp; calendar sync
+            </h2>
+            <Link href="/admin/crm/audit" className="text-xs text-zinc-500 underline">
+              Audit trail
+            </Link>
+          </div>
+          <p className="mt-2 text-sm text-zinc-500">
+            Connect a Google or Microsoft mailbox to import emails and meetings for matching leads,
+            clients, and deals. Tokens are encrypted at rest; the cron endpoint syncs every 15
+            minutes.
+          </p>
+          <div className="mt-4 space-y-2">
+            {OAUTH_PROVIDERS.map((provider) => {
+              const existing = connections.find((connection) => connection.provider === provider);
+              const configured = oauthProviderConfigured(provider);
+              return (
+                <div
+                  key={provider}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-zinc-800">{oauthProviderLabel(provider)}</p>
+                    {existing ? (
+                      <p className="truncate text-xs text-zinc-500">
+                        {existing.email} · last sync{" "}
+                        {existing.lastSyncAt ? existing.lastSyncAt.toLocaleString() : "never"}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-zinc-500">
+                        {configured
+                          ? "Not connected"
+                          : `Missing: ${oauthMissingEnv(provider).join(", ")}`}
+                      </p>
+                    )}
+                    {existing?.lastSyncError && (
+                      <p className="mt-1 text-xs text-red-600">{existing.lastSyncError}</p>
+                    )}
+                  </div>
+                  {existing ? (
+                    <form action={crmEmailDisconnectForm}>
+                      <input type="hidden" name="connectionId" value={existing.id} />
+                      <input type="hidden" name="returnTo" value="/admin/crm/settings" />
+                      <button className="text-xs text-red-600 hover:underline">Disconnect</button>
+                    </form>
+                  ) : configured ? (
+                    <a
+                      href={`/api/crm/oauth/${provider}/start`}
+                      className="rounded-lg border border-zinc-300 px-3 py-1 text-xs text-zinc-700 hover:bg-zinc-50"
+                    >
+                      Connect
+                    </a>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+          <form action={crmEmailSyncForm} className="mt-4">
+            <input type="hidden" name="returnTo" value="/admin/crm/settings" />
+            <button className="rounded-lg bg-zinc-900 px-4 py-1.5 text-sm text-white">
+              Sync connected mailboxes now
+            </button>
+          </form>
+        </section>
+
+        <section className="rounded-xl border border-zinc-200 bg-white p-5">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
+            Operations
+          </h2>
+          <div className="mt-3 space-y-2 text-sm text-zinc-600">
+            <p>
+              Status: <span className="font-medium">{health.status}</span> · storage:{" "}
+              <span className="font-medium">{health.config.attachmentStorage}</span>
+            </p>
+            <p>
+              Last activity import:{" "}
+              {health.lastSyncAt ? health.lastSyncAt.toLocaleString() : "never"}
+              <br />
+              Last reminder run:{" "}
+              {health.lastReminderAt ? health.lastReminderAt.toLocaleString() : "never"}
+            </p>
+            <p>
+              <Link href="/api/crm/health" target="_blank" className="text-zinc-700 underline">
+                Health endpoint (JSON)
+              </Link>
+            </p>
+          </div>
+          {health.warnings.length > 0 && (
+            <ul className="mt-3 space-y-1 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              {health.warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          )}
         </section>
 
         <section className="rounded-xl border border-zinc-200 bg-white p-5">

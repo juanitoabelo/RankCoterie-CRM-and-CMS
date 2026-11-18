@@ -25,6 +25,9 @@ import {
 } from "./access";
 import { notifyCrmUser } from "./notifications";
 import { mergeClients, mergeLeads } from "./merge";
+import { deleteCrmFile } from "@/lib/crm-storage";
+import { reportCrmIssue } from "@/lib/monitoring";
+import { syncUserCrmEmailConnections } from "./oauth-sync";
 
 export type CrmActionResult = {
   ok: boolean;
@@ -1425,8 +1428,17 @@ export async function deleteCrmAttachment(attachmentId: string): Promise<CrmActi
   if (!attachment) return { ok: false, error: "Attachment not found." };
   await prisma.$transaction(async (tx) => {
     await tx.crmAttachment.delete({ where: { id: attachmentId } });
-    await tx.asset.delete({ where: { id: attachment.assetId } });
+    if (attachment.assetId) {
+      await tx.asset.delete({ where: { id: attachment.assetId } });
+    }
   });
+  if (attachment.storageProvider && attachment.storageKey) {
+    try {
+      await deleteCrmFile(attachment.storageProvider, attachment.storageKey);
+    } catch (error) {
+      reportCrmIssue("error", "crm.attachments.delete", error, { attachmentId });
+    }
+  }
   await logAudit({
     action: "CRM_ATTACHMENT_DELETE",
     entity: "CrmAttachment",
@@ -1450,6 +1462,56 @@ export async function markCrmNotificationsRead(): Promise<CrmActionResult> {
   });
   revalidatePath("/admin/crm");
   return { ok: true, message: `${count} notification(s) marked read.` };
+}
+
+// ---------------------------------------------------------------------------
+// Mailbox / calendar connections
+// ---------------------------------------------------------------------------
+
+export async function syncMyCrmEmail(): Promise<CrmActionResult> {
+  const user = await requireSection("crm");
+  const results = await syncUserCrmEmailConnections(user.id);
+  const imported = results.reduce((sum, result) => sum + result.imported, 0);
+  const failed = results.filter((result) => result.error).length;
+  await logAudit({
+    action: "CRM_EMAIL_SYNC",
+    entity: "CrmEmailConnection",
+    entityId: user.id,
+    actorId: user.id,
+    reason: `Manually synced ${results.length} mailbox(es)`,
+    meta: { connections: results.length, imported, failed },
+  }).catch(() => null);
+  revalidatePath("/admin/crm/settings");
+  return {
+    ok: failed === 0,
+    message: `Synced ${results.length} mailbox(es); imported ${imported} activity item(s).`,
+    error: failed ? `${failed} connection(s) failed to sync.` : undefined,
+  };
+}
+
+export async function disconnectCrmEmail(connectionId: string): Promise<CrmActionResult> {
+  const user = await requireSection("crm");
+  const access = await getCrmAccessForUser(user);
+  const connection = await prisma.crmEmailConnection.findFirst({
+    where: {
+      id: connectionId,
+      tenantId: TENANT_ID,
+      ...(access.isAdmin ? {} : { userId: user.id }),
+    },
+    select: { id: true, email: true, provider: true },
+  });
+  if (!connection) return { ok: false, error: "Mail connection not found." };
+  await prisma.crmEmailConnection.delete({ where: { id: connection.id } });
+  await logAudit({
+    action: "CRM_EMAIL_DISCONNECT",
+    entity: "CrmEmailConnection",
+    entityId: connection.id,
+    actorId: user.id,
+    reason: `Disconnected ${connection.provider} mailbox ${connection.email}`,
+    meta: { provider: connection.provider, email: connection.email },
+  }).catch(() => null);
+  revalidatePath("/admin/crm/settings");
+  return { ok: true, message: "Mailbox disconnected." };
 }
 
 // ---------------------------------------------------------------------------
@@ -1539,4 +1601,18 @@ export async function crmAttachmentDeleteForm(formData: FormData): Promise<void>
 export async function crmNotificationsReadForm(): Promise<void> {
   const result = await markCrmNotificationsRead();
   redirect(`/admin/crm?ok=${encodeURIComponent(result.message ?? "Notifications marked read.")}`);
+}
+
+export async function crmEmailSyncForm(formData: FormData): Promise<void> {
+  const result = await syncMyCrmEmail();
+  const returnTo = safeCrmReturn(formData.get("returnTo"), "/admin/crm/settings");
+  if (!result.ok) redirect(`${returnTo}?error=${encodeURIComponent(result.error ?? "Mail sync failed.")}`);
+  redirect(`${returnTo}?ok=${encodeURIComponent(result.message ?? "Mail synced.")}`);
+}
+
+export async function crmEmailDisconnectForm(formData: FormData): Promise<void> {
+  const result = await disconnectCrmEmail(String(formData.get("connectionId") ?? ""));
+  const returnTo = safeCrmReturn(formData.get("returnTo"), "/admin/crm/settings");
+  if (!result.ok) redirect(`${returnTo}?error=${encodeURIComponent(result.error ?? "Could not disconnect mailbox.")}`);
+  redirect(`${returnTo}?ok=${encodeURIComponent(result.message ?? "Mailbox disconnected.")}`);
 }
