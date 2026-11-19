@@ -18,18 +18,30 @@ interface WebhookFormProps {
 }
 
 const EVENT_CATEGORIES = {
-  Leads: ["lead.created", "lead.updated"],
+  CRM: [
+    "lead.created",
+    "lead.updated",
+    "deal.created",
+    "deal.updated",
+    "deal.stage_changed",
+    "activity.created",
+    "sequence.sent",
+  ],
+  Email: [
+    "email.sent",
+    "email.failed",
+    "email.opened",
+    "email.clicked",
+    "email.bounced",
+    "email.unsubscribed",
+  ],
   Orders: ["order.paid", "order.refunded"],
   Listings: ["listing.created", "listing.updated"],
   Payments: ["payment.failed"],
   Subscriptions: ["subscription.cancelled"],
 } as const;
 
-export default function WebhookForm({
-  endpoint,
-  events,
-  submitLabel,
-}: WebhookFormProps) {
+export default function WebhookForm({ endpoint, submitLabel }: WebhookFormProps) {
   const [message, setMessage] = useState<ActionResult | null>(null);
   const [isPending, startTransition] = useTransition();
   const [selectedEvents, setSelectedEvents] = useState<string[]>(

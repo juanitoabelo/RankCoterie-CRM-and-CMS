@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireSection } from "@/modules/auth";
 import { getCrmAccessForUser } from "@/modules/crm/access";
 import { getCrmDashboard, getCrmUnreadNotifications } from "@/modules/crm/queries";
+import { evaluateCrmHealthAlerts, getCrmHealth } from "@/modules/crm/health";
 import { crmNotificationsReadForm } from "@/modules/crm/actions";
 import { FlashBanner } from "@/components/admin/FlashBanner";
 import CrmTaskList from "@/components/admin/crm/CrmTaskList";
@@ -48,11 +49,13 @@ export default async function CrmDashboardPage({
   const user = await requireSection("crm");
   const access = await getCrmAccessForUser(user);
   const { error, ok } = await searchParams;
-  const [dashboard, notifications] = await Promise.all([
+  const [dashboard, notifications, health] = await Promise.all([
     getCrmDashboard(access),
     getCrmUnreadNotifications(user.id),
+    getCrmHealth(),
   ]);
   const currency = dashboard.settings.defaultCurrency;
+  const operationsAlerts = evaluateCrmHealthAlerts(health, health.checkedAt);
 
   return (
     <div>
@@ -164,6 +167,41 @@ export default async function CrmDashboardPage({
             Needs attention
           </h2>
           <div className="mt-3 space-y-3">
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-medium text-zinc-500">
+                  Operations alerts ({operationsAlerts.length})
+                </p>
+                <Link href="/admin/crm/settings" className="text-xs text-zinc-500 underline">
+                  settings
+                </Link>
+              </div>
+              {operationsAlerts.length === 0 ? (
+                <p className="mt-2 text-sm text-zinc-400">No operations alerts.</p>
+              ) : (
+                <ul className="mt-2 space-y-2">
+                  {operationsAlerts.map((alert) => (
+                    <li
+                      key={alert.id}
+                      className={`rounded-lg border px-3 py-2 ${
+                        alert.level === "error"
+                          ? "border-red-200 bg-red-50"
+                          : "border-amber-200 bg-amber-50"
+                      }`}
+                    >
+                      <p
+                        className={`text-sm font-medium ${
+                          alert.level === "error" ? "text-red-800" : "text-amber-800"
+                        }`}
+                      >
+                        {alert.level === "error" ? "Error" : "Warning"}: {alert.title}
+                      </p>
+                      <p className="mt-0.5 text-xs text-zinc-600">{alert.details}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
             <div>
               <p className="text-xs font-medium text-zinc-500">
                 Overdue tasks ({dashboard.tasksDue.length})

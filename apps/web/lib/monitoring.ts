@@ -36,10 +36,21 @@ export function reportCrmIssue(
       text: `[Canopy CRM] ${context}: ${message}`,
       ...record,
     }),
+    signal: AbortSignal.timeout(5000),
     cache: "no-store",
-  }).catch((sendError) => {
-    console.error(
-      JSON.stringify(payload("warning", "crm.alert.webhook", String(sendError))),
-    );
-  });
+  })
+    .then((response) => {
+      if (!response.ok) {
+        console.warn(
+          JSON.stringify(
+            payload("warning", "crm.alert.webhook", `Webhook returned HTTP ${response.status}`),
+          ),
+        );
+      }
+    })
+    .catch((sendError) => {
+      console.warn(
+        JSON.stringify(payload("warning", "crm.alert.webhook", String(sendError))),
+      );
+    });
 }

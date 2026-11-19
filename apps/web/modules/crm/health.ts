@@ -4,6 +4,15 @@ import { tokenEncryptionConfigured } from "./oauth-crypto";
 import { OAUTH_PROVIDERS, oauthProviderConfigured } from "./oauth-providers";
 import { getCrmSettings } from "./settings";
 
+export type CrmHealthAlertLevel = "warning" | "error";
+
+export type CrmHealthAlert = {
+  id: string;
+  level: CrmHealthAlertLevel;
+  title: string;
+  details: string;
+};
+
 export type CrmHealth = {
   status: "ok" | "degraded";
   checkedAt: Date;
@@ -31,7 +40,109 @@ export type CrmHealth = {
   lastAuditAt: Date | null;
   syncErrors: Array<{ provider: string; email: string; error: string }>;
   warnings: string[];
+  alerts: CrmHealthAlert[];
 };
+
+const MINUTE_MS = 60_000;
+const SYNC_WARN_MINUTES = 45;
+const SYNC_ERROR_MINUTES = 120;
+const REMINDER_WARN_MINUTES = 120;
+const REMINDER_ERROR_MINUTES = 360;
+const SYNC_ERROR_WARN_COUNT = 1;
+const SYNC_ERROR_ERROR_COUNT = 3;
+
+function minutesSince(timestamp: Date | null, nowMs: number): number | null {
+  if (!timestamp) return null;
+  return Math.max(0, (nowMs - timestamp.getTime()) / MINUTE_MS);
+}
+
+export function evaluateCrmHealthAlerts(
+  health: CrmHealth,
+  now: Date = new Date(),
+): CrmHealthAlert[] {
+  const nowMs = now.getTime();
+  const alerts: CrmHealthAlert[] = [];
+
+  if (health.counts.mailConnections > 0) {
+    const staleMinutes = minutesSince(health.lastSyncAt, nowMs);
+    if (staleMinutes === null || staleMinutes >= SYNC_ERROR_MINUTES) {
+      alerts.push({
+        id: "crm.sync.stale",
+        level: "error",
+        title: "Mail sync has stopped",
+        details:
+          staleMinutes === null
+            ? `No mailbox sync has ever completed; thresholds are warning at ${SYNC_WARN_MINUTES}m and error at ${SYNC_ERROR_MINUTES}m.`
+            : `Last mailbox sync was ${Math.round(staleMinutes)} minute(s) ago; thresholds are warning at ${SYNC_WARN_MINUTES}m and error at ${SYNC_ERROR_MINUTES}m.`,
+      });
+    } else if (staleMinutes >= SYNC_WARN_MINUTES) {
+      alerts.push({
+        id: "crm.sync.stale",
+        level: "warning",
+        title: "Mail sync is stale",
+        details: `Last mailbox sync was ${Math.round(staleMinutes)} minute(s) ago; warning at ${SYNC_WARN_MINUTES}m, error at ${SYNC_ERROR_MINUTES}m.`,
+      });
+    }
+  }
+
+  const reminderMinutes = minutesSince(health.lastReminderAt, nowMs);
+  if (reminderMinutes === null || reminderMinutes >= REMINDER_ERROR_MINUTES) {
+    alerts.push({
+      id: "crm.reminders.stale",
+      level: "error",
+      title: "Reminder run has stopped",
+      details:
+        reminderMinutes === null
+          ? `No reminder run has ever completed; thresholds are warning at ${REMINDER_WARN_MINUTES}m and error at ${REMINDER_ERROR_MINUTES}m.`
+          : `Last reminder run was ${Math.round(reminderMinutes)} minute(s) ago; thresholds are warning at ${REMINDER_WARN_MINUTES}m and error at ${REMINDER_ERROR_MINUTES}m.`,
+    });
+  } else if (reminderMinutes >= REMINDER_WARN_MINUTES) {
+    alerts.push({
+      id: "crm.reminders.stale",
+      level: "warning",
+      title: "Reminder run is stale",
+      details: `Last reminder run was ${Math.round(reminderMinutes)} minute(s) ago; warning at ${REMINDER_WARN_MINUTES}m, error at ${REMINDER_ERROR_MINUTES}m.`,
+    });
+  }
+
+  if (health.syncErrors.length >= SYNC_ERROR_WARN_COUNT) {
+    const level: CrmHealthAlertLevel =
+      health.syncErrors.length >= SYNC_ERROR_ERROR_COUNT ? "error" : "warning";
+    alerts.push({
+      id: "crm.sync.errors",
+      level,
+      title: `Mail sync errors on ${health.syncErrors.length} connection(s)`,
+      details: health.syncErrors
+        .slice(0, 10)
+        .map((item) => `${item.provider} (${item.email}): ${item.error}`)
+        .join("; "),
+    });
+  }
+
+  health.warnings.forEach((warning, index) => {
+    alerts.push({
+      id: `crm.config.${index}`,
+      level: "warning",
+      title: "CRM configuration warning",
+      details: warning,
+    });
+  });
+
+  if (
+    process.env.NODE_ENV === "production" &&
+    health.config.attachmentStorage === "database"
+  ) {
+    alerts.push({
+      id: "crm.storage.database",
+      level: "error",
+      title: "Attachments use database storage in production",
+      details:
+        "BLOB_READ_WRITE_TOKEN is not configured; new attachments are stored in Postgres. Configure object storage before cutover.",
+    });
+  }
+
+  return alerts;
+}
 
 export async function getCrmHealth(): Promise<CrmHealth> {
   const [
@@ -109,9 +220,10 @@ export async function getCrmHealth(): Promise<CrmHealth> {
     if (!oauthProviderConfigured(provider)) warnings.push(`${provider} OAuth is not configured.`);
   }
 
-  return {
+  const checkedAt = new Date();
+  const health: CrmHealth = {
     status: warnings.length === 0 ? "ok" : "degraded",
-    checkedAt: new Date(),
+    checkedAt,
     counts: {
       leads,
       clients,
@@ -140,5 +252,9 @@ export async function getCrmHealth(): Promise<CrmHealth> {
       error: connection.lastSyncError ?? "Unknown error",
     })),
     warnings,
+    alerts: [],
   };
+
+  health.alerts = evaluateCrmHealthAlerts(health, checkedAt);
+  return health;
 }

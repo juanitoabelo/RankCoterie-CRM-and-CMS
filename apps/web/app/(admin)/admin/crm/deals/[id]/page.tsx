@@ -5,6 +5,7 @@ import { getCrmAccessForUser } from "@/modules/crm/access";
 import { getCrmDeal, getCrmProducts, getCrmUsers } from "@/modules/crm/queries";
 import { getCrmTimeline } from "@/modules/crm/activity";
 import { getCrmStages } from "@/modules/crm/stages";
+import { getCrmEmailConnections } from "@/modules/crm/oauth-sync";
 import {
   CRM_ACTIVITY_TYPES,
   CRM_ACTIVITY_LABELS,
@@ -20,6 +21,7 @@ import {
   crmLineItemAddForm,
   crmLineItemDeleteForm,
   crmAttachmentDeleteForm,
+  crmDealEmailForm,
 } from "@/modules/crm/actions";
 import { FlashBanner } from "@/components/admin/FlashBanner";
 import CrmTaskList from "@/components/admin/crm/CrmTaskList";
@@ -49,6 +51,11 @@ function personName(person: {
   return `${person.firstName ?? ""} ${person.lastName ?? ""}`.trim() || person.email || "Unnamed";
 }
 
+function formatWhen(value: Date | null): string {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(value);
+}
+
 export default async function CrmDealDetailPage({
   params,
   searchParams,
@@ -60,12 +67,13 @@ export default async function CrmDealDetailPage({
   const access = await getCrmAccessForUser(user);
   const { id } = await params;
   const { error, ok } = await searchParams;
-  const [deal, stages, users, timeline, products] = await Promise.all([
+  const [deal, stages, users, timeline, products, connections] = await Promise.all([
     getCrmDeal(id, access),
     getCrmStages(),
     getCrmUsers(),
     getCrmTimeline({ dealId: id, pageSize: 30, access }),
     getCrmProducts(),
+    getCrmEmailConnections(access.isAdmin ? undefined : user.id),
   ]);
   if (!deal) notFound();
 
@@ -148,6 +156,87 @@ export default async function CrmDealDetailPage({
           </form>
         </div>
       </div>
+
+      <section className="mt-6 rounded-xl border border-zinc-200 bg-white p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
+            Email engagement
+          </h2>
+          <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">
+            {deal.emailEngagement.status ?? "NO EMAIL"}
+          </span>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div>
+            <p className="text-xs text-zinc-400">Sent</p>
+            <p className="text-sm text-zinc-700">{formatWhen(deal.emailEngagement.sentAt)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-zinc-400">Delivered</p>
+            <p className="text-sm text-zinc-700">{formatWhen(deal.emailEngagement.deliveredAt)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-zinc-400">Opens</p>
+            <p className="text-sm text-zinc-700">
+              {deal.emailEngagement.openCount}
+              {deal.emailEngagement.lastOpenedAt ? ` · ${formatWhen(deal.emailEngagement.lastOpenedAt)}` : ""}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-zinc-400">Clicks</p>
+            <p className="text-sm text-zinc-700">
+              {deal.emailEngagement.clickCount}
+              {deal.emailEngagement.lastClickedAt ? ` · ${formatWhen(deal.emailEngagement.lastClickedAt)}` : ""}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-zinc-400">Bounced</p>
+            <p className="text-sm text-zinc-700">
+              {deal.emailEngagement.bouncedAt ? formatWhen(deal.emailEngagement.bouncedAt) : "—"}
+              {deal.emailEngagement.bounceType ? ` · ${deal.emailEngagement.bounceType}` : ""}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-zinc-400">Unsubscribed / failed</p>
+            <p className="text-sm text-zinc-700">
+              {deal.emailEngagement.unsubscribedAt
+                ? `Unsubscribed ${formatWhen(deal.emailEngagement.unsubscribedAt)}`
+                : deal.emailEngagement.failedAt
+                  ? `Failed ${formatWhen(deal.emailEngagement.failedAt)}`
+                  : "—"}
+            </p>
+          </div>
+        </div>
+        {deal.emailMessages.length > 0 && (
+          <details className="mt-4 border-t border-zinc-100 pt-3">
+            <summary className="cursor-pointer text-xs text-zinc-500">
+              Recent email messages ({deal.emailMessages.length})
+            </summary>
+            <div className="mt-2 space-y-2">
+              {deal.emailMessages.slice(0, 10).map((message) => (
+                <div key={message.id} className="rounded-lg border border-zinc-200 px-3 py-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="truncate text-sm text-zinc-800">{message.subject}</p>
+                    <span className="text-xs text-zinc-400">{message.status}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {formatWhen(message.sentAt)} · {message.toEmail} · {message.openCount} open(s) ·{" "}
+                    {message.clickCount} click(s)
+                  </p>
+                  {message.events.length > 0 && (
+                    <p className="mt-1 text-xs text-zinc-400">
+                      {message.events
+                        .slice(0, 5)
+                        .map((event) => `${event.type.toLowerCase()} ${formatWhen(event.occurredAt)}`)
+                        .join(" · ")}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+      </section>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <section className="rounded-xl border border-zinc-200 bg-white p-5">
@@ -331,6 +420,53 @@ export default async function CrmDealDetailPage({
                 Log activity
               </button>
             </form>
+          </section>
+
+          <section className="rounded-xl border border-zinc-200 bg-white p-5">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
+              Send email
+            </h2>
+            <form action={crmDealEmailForm} className="mt-3 grid gap-2 sm:grid-cols-2">
+              <input type="hidden" name="dealId" value={deal.id} />
+              <input type="hidden" name="returnTo" value={returnTo} />
+              <select name="connectionId" required className="rounded-lg border border-zinc-300 px-2 py-1.5 text-sm sm:col-span-2">
+                <option value="">Choose a connected mailbox</option>
+                {connections.map((connection) => (
+                  <option key={connection.id} value={connection.id}>
+                    {connection.email} ({connection.provider})
+                  </option>
+                ))}
+              </select>
+              <input
+                name="toEmail"
+                type="email"
+                required
+                defaultValue={deal.contactEmail ?? ""}
+                placeholder="Recipient email"
+                className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm sm:col-span-2"
+              />
+              <input
+                name="subject"
+                required
+                placeholder="Subject"
+                className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm sm:col-span-2"
+              />
+              <textarea
+                name="body"
+                required
+                rows={4}
+                placeholder="Email body"
+                className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm sm:col-span-2"
+              />
+              <button className="rounded-lg bg-zinc-900 px-4 py-1.5 text-sm text-white sm:col-span-2">
+                Send email
+              </button>
+            </form>
+            {connections.length === 0 ? (
+              <p className="mt-3 text-xs text-amber-700">
+                Connect a mailbox in CRM settings before sending email.
+              </p>
+            ) : null}
           </section>
         </div>
       </div>

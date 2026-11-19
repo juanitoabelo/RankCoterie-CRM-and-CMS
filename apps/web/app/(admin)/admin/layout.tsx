@@ -59,7 +59,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           subscriberOnly={subscriberOnly}
           logoutAction={adminLogout}
         />
-        <main className="ml-60 min-w-0 flex-1 px-6 py-8">{children}</main>
+        <main className="min-w-0 flex-1 px-4 pb-8 pt-16 md:ml-60 md:px-6 md:pt-8">
+          {children}
+        </main>
       </div>
     </CustomFontProvider>
   );

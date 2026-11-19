@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import Link from "next/link";
 import type { CrmActivityItem } from "@/modules/crm/activity";
 import { CRM_ACTIVITY_LABELS, type CrmActivityType } from "@/modules/crm/constants";
@@ -21,6 +22,17 @@ function formatWhen(value: Date): string {
   return value.toISOString().slice(0, 16).replace("T", " ");
 }
 
+function metadataText(value: Prisma.JsonValue, key: string): string | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = (value as Record<string, unknown>)[key];
+  return typeof raw === "string" || typeof raw === "number" ? String(raw) : null;
+}
+
+function metadataFlag(value: Prisma.JsonValue, key: string): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  return (value as Record<string, unknown>)[key] === true;
+}
+
 export default function CrmTimeline({
   items,
   emptyText = "No CRM activity yet.",
@@ -36,7 +48,11 @@ export default function CrmTimeline({
 
   return (
     <ol className={compact ? "space-y-3" : "space-y-4"}>
-      {items.map((item) => (
+      {items.map((item) => {
+        const emailTo = item.type === "EMAIL" ? metadataText(item.metadata, "to") : null;
+        const emailFrom = item.type === "EMAIL" ? metadataText(item.metadata, "from") : null;
+        const emailTracked = item.type === "EMAIL" && metadataFlag(item.metadata, "trackingEnabled");
+        return (
         <li key={item.id} className="relative border-l border-zinc-200 pl-4">
           <span className="absolute -left-1.5 top-1.5 h-3 w-3 rounded-full border-2 border-white bg-zinc-300" />
           <div className="flex flex-wrap items-center gap-2">
@@ -53,6 +69,9 @@ export default function CrmTimeline({
           {item.subject && <p className="mt-1 text-sm font-medium text-zinc-800">{item.subject}</p>}
           {item.body && <p className="mt-0.5 whitespace-pre-wrap text-sm text-zinc-600">{item.body}</p>}
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-400">
+            {emailTo && <span>To: {emailTo}</span>}
+            {emailFrom && <span>From: {emailFrom}</span>}
+            {emailTracked && <span className="text-indigo-600">Tracked</span>}
             {item.dealId && item.dealTitle && (
               <Link href={`/admin/crm/deals/${item.dealId}`} className="underline hover:text-zinc-700">
                 {item.dealTitle}
@@ -70,7 +89,8 @@ export default function CrmTimeline({
             )}
           </div>
         </li>
-      ))}
+        );
+      })}
     </ol>
   );
 }

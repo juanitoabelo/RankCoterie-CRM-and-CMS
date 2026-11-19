@@ -19,7 +19,7 @@ import {
   oauthProviderConfigured,
   oauthProviderLabel,
 } from "@/modules/crm/oauth-providers";
-import { getCrmHealth } from "@/modules/crm/health";
+import { evaluateCrmHealthAlerts, getCrmHealth } from "@/modules/crm/health";
 import { crmEmailDisconnectForm, crmEmailSyncForm } from "@/modules/crm/actions";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +43,7 @@ export default async function CrmSettingsPage({
     getCrmEmailConnections(access.isAdmin ? undefined : user.id),
     getCrmHealth(),
   ]);
+  const operationsAlerts = evaluateCrmHealthAlerts(health, health.checkedAt);
 
   return (
     <div>
@@ -203,12 +204,26 @@ export default async function CrmSettingsPage({
               </Link>
             </p>
           </div>
-          {health.warnings.length > 0 && (
-            <ul className="mt-3 space-y-1 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              {health.warnings.map((warning) => (
-                <li key={warning}>{warning}</li>
+          {operationsAlerts.length > 0 ? (
+            <ul className="mt-3 space-y-2">
+              {operationsAlerts.map((alert) => (
+                <li
+                  key={alert.id}
+                  className={`rounded-lg border px-3 py-2 text-xs ${
+                    alert.level === "error"
+                      ? "border-red-200 bg-red-50 text-red-800"
+                      : "border-amber-200 bg-amber-50 text-amber-800"
+                  }`}
+                >
+                  <p className="font-medium">
+                    {alert.level === "error" ? "Error" : "Warning"}: {alert.title}
+                  </p>
+                  <p className="mt-0.5 text-zinc-600">{alert.details}</p>
+                </li>
               ))}
             </ul>
+          ) : (
+            <p className="mt-3 text-xs text-zinc-400">No operations alerts.</p>
           )}
         </section>
 

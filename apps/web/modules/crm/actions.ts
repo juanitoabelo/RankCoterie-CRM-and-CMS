@@ -27,7 +27,15 @@ import { notifyCrmUser } from "./notifications";
 import { mergeClients, mergeLeads } from "./merge";
 import { deleteCrmFile } from "@/lib/crm-storage";
 import { reportCrmIssue } from "@/lib/monitoring";
-import { syncUserCrmEmailConnections } from "./oauth-sync";
+import { sendCrmEmail, syncUserCrmEmailConnections } from "./oauth-sync";
+import { runCrmWorkflows } from "./workflow-runner";
+import {
+  generateTrackingToken,
+  isEmailSuppressed,
+  prepareTrackedEmail,
+  recordEmailEvent,
+  recordEmailFailure,
+} from "./email-tracking";
 
 export type CrmActionResult = {
   ok: boolean;
@@ -67,6 +75,22 @@ function slugify(value: string): string {
   );
 }
 
+function resolveRecordSource(input: {
+  intake?: Prisma.JsonValue | null;
+  publisherId?: string | null;
+  campaignId?: string | null;
+  fallback: string;
+}): string {
+  const intake = input.intake;
+  if (intake && typeof intake === "object" && !Array.isArray(intake)) {
+    const raw = (intake as Record<string, unknown>).source;
+    if (typeof raw === "string" && raw.trim()) return raw.trim();
+  }
+  if (input.publisherId) return `publisher:${input.publisherId}`;
+  if (input.campaignId) return `campaign:${input.campaignId}`;
+  return input.fallback;
+}
+
 function safeCrmReturn(value: FormDataEntryValue | null, fallback: string): string {
   const raw = String(value ?? "");
   return raw.startsWith("/admin/crm") ||
@@ -91,6 +115,7 @@ function revalidateCrm(dealId?: string) {
   revalidatePath("/admin/crm/activities");
   revalidatePath("/admin/crm/settings");
   revalidatePath("/admin/crm/reports");
+  revalidatePath("/admin/crm/reports/forecasting");
   if (dealId) revalidatePath(`/admin/crm/deals/${dealId}`);
 }
 
@@ -254,6 +279,18 @@ export async function createDeal(input: {
     meta: { value, stageId: stage.id, ownerId, leadId, clientId },
   });
   revalidateEntity({ leadId, clientId, dealId: deal.id });
+  await runCrmWorkflows("deal.created", {
+    dealId: deal.id,
+    title: deal.title,
+    value: Number(deal.value),
+    stageId: deal.stageId,
+    stageLabel: stage.label,
+    leadId,
+    clientId,
+    ownerId,
+    source: deal.source,
+    userId: user.id,
+  }).catch((error) => reportCrmIssue("error", "crm.workflow.dealCreated", error));
   return { ok: true, message: "Deal created.", id: deal.id };
 }
 
@@ -402,6 +439,20 @@ export async function updateDeal(
     meta: { stageChanged, fromStage: deal.stageId, toStage: nextStage.id },
   });
   revalidateEntity({ leadId: updated.leadId, clientId: updated.clientId, dealId });
+  await runCrmWorkflows(stageChanged ? "deal.stage_changed" : "deal.updated", {
+    dealId: updated.id,
+    title: updated.title,
+    value: Number(updated.value),
+    stageId: nextStage.id,
+    stageLabel: nextStage.label,
+    previousStageId: deal.stageId,
+    previousStageLabel: deal.stage.label,
+    leadId: updated.leadId,
+    clientId: updated.clientId,
+    ownerId: updated.ownerId,
+    source: updated.source,
+    userId: user.id,
+  }).catch((error) => reportCrmIssue("error", "crm.workflow.dealUpdated", error));
   return { ok: true, message: "Deal updated.", id: updated.id };
 }
 
@@ -485,6 +536,15 @@ export async function addCrmActivity(input: {
     meta: { leadId, clientId, dealId },
   });
   revalidateEntity({ leadId, clientId, dealId });
+  await runCrmWorkflows("activity.created", {
+    activityId: activity.id,
+    activityType: input.type,
+    subject: subject || null,
+    leadId,
+    clientId,
+    dealId,
+    userId: user.id,
+  }).catch((error) => reportCrmIssue("error", "crm.workflow.activityCreated", error));
   return { ok: true, message: "Activity logged.", id: activity.id };
 }
 
@@ -518,7 +578,7 @@ export async function addCrmTask(input: {
     dueAt = new Date(input.dueAt);
     if (Number.isNaN(dueAt.getTime())) return { ok: false, error: "Invalid task due date." };
   }
-  let assigneeId = input.assigneeId?.trim() || (access.isAdmin ? null : access.userId);
+  const assigneeId = input.assigneeId?.trim() || (access.isAdmin ? null : access.userId);
   if (!access.isAdmin && assigneeId && assigneeId !== access.userId) {
     return { ok: false, error: "You can only assign tasks to yourself." };
   }
@@ -650,6 +710,17 @@ export async function createDealFromLead(leadId: string): Promise<CrmActionResul
   const { user, access } = await crmActor();
   const lead = await prisma.lead.findFirst({
     where: { id: leadId, tenantId: TENANT_ID, ...leadAccessWhere(access) },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      phones: true,
+      assignedToId: true,
+      intake: true,
+      publisherId: true,
+      campaignId: true,
+    },
   });
   if (!lead) return { ok: false, error: "Lead not found." };
   const stage = await getDefaultCrmStage();
@@ -670,7 +741,12 @@ export async function createDealFromLead(leadId: string): Promise<CrmActionResul
         contactName: name,
         contactEmail: lead.email,
         contactPhone: phones.find((phone) => phone.number)?.number ?? null,
-        source: "Lead",
+        source: resolveRecordSource({
+          intake: lead.intake,
+          publisherId: lead.publisherId,
+          campaignId: lead.campaignId,
+          fallback: "Lead",
+        }),
         lastActivityAt: new Date(),
       },
     });
@@ -702,6 +778,16 @@ export async function createDealFromClient(clientId: string): Promise<CrmActionR
   const { user, access } = await crmActor();
   const client = await prisma.client.findFirst({
     where: { id: clientId, tenantId: TENANT_ID, ...clientAccessWhere(access) },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      phones: true,
+      assignedToId: true,
+      publisherId: true,
+      campaignId: true,
+    },
   });
   if (!client) return { ok: false, error: "Client not found." };
   const stage = await getDefaultCrmStage();
@@ -722,7 +808,11 @@ export async function createDealFromClient(clientId: string): Promise<CrmActionR
         contactName: name,
         contactEmail: client.email,
         contactPhone: phones.find((phone) => phone.number)?.number ?? null,
-        source: "Client",
+        source: resolveRecordSource({
+          publisherId: client.publisherId,
+          campaignId: client.campaignId,
+          fallback: "Client",
+        }),
         lastActivityAt: new Date(),
       },
     });
@@ -959,6 +1049,126 @@ export async function crmActivityForm(formData: FormData): Promise<void> {
   const returnTo = safeCrmReturn(formData.get("returnTo"), fallback);
   if (!result.ok) redirect(`${returnTo}?error=${encodeURIComponent(result.error ?? "Could not log activity.")}`);
   redirect(`${returnTo}?ok=${encodeURIComponent("Activity logged.")}`);
+}
+
+export async function crmDealEmailForm(formData: FormData): Promise<void> {
+  const user = await requireSection("crm");
+  const access = await getCrmAccessForUser(user);
+  const dealId = String(formData.get("dealId") ?? "");
+  const returnTo = safeCrmReturn(formData.get("returnTo"), `/admin/crm/deals/${dealId}`);
+  const deal = await prisma.deal.findFirst({
+    where: { id: dealId, tenantId: TENANT_ID, ...dealAccessWhere(access) },
+    select: {
+      id: true,
+      contactEmail: true,
+      contactName: true,
+      leadId: true,
+      clientId: true,
+    },
+  });
+  if (!deal) redirect(`${returnTo}?error=${encodeURIComponent("Deal not found.")}`);
+
+  const connectionId = String(formData.get("connectionId") ?? "").trim();
+  const to = String(formData.get("toEmail") ?? deal.contactEmail ?? "").trim();
+  const subject = String(formData.get("subject") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+  if (!connectionId || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to) || !subject || !body) {
+    redirect(`${returnTo}?error=${encodeURIComponent("Mailbox, recipient, subject, and body are required.")}`);
+  }
+
+  if (await isEmailSuppressed(to)) {
+    redirect(
+      `${returnTo}?error=${encodeURIComponent("This recipient has unsubscribed from CRM email.")}`,
+    );
+  }
+
+  const trackingToken = generateTrackingToken();
+  const tracked = prepareTrackedEmail({ body, htmlBody: null, token: trackingToken });
+  const headers = {
+    "List-Unsubscribe": `<${tracked.unsubscribeUrl}>`,
+    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+  };
+  const messageRow = await prisma.crmEmailMessage.create({
+    data: {
+      tenantId: TENANT_ID,
+      connectionId,
+      dealId: deal.id,
+      leadId: deal.leadId,
+      clientId: deal.clientId,
+      toEmail: to,
+      subject,
+      body: tracked.body,
+      bodyHtml: tracked.htmlBody,
+      trackingToken,
+      trackingEnabled: true,
+      status: "QUEUED",
+    },
+  });
+
+  let errorMessage: string | null = null;
+  try {
+    const sent = await sendCrmEmail({
+      connectionId,
+      userId: access.isAdmin ? undefined : user.id,
+      to,
+      subject,
+      body: tracked.body,
+      htmlBody: tracked.htmlBody,
+      headers,
+    });
+    const sentAt = new Date();
+    await prisma.crmEmailMessage.update({
+      where: { id: messageRow.id },
+      data: { status: "SENT", providerMessageId: sent.providerMessageId, sentAt },
+    });
+    await recordEmailEvent({
+      messageId: messageRow.id,
+      type: "SENT",
+      occurredAt: sentAt,
+      providerEventId: sent.providerMessageId ?? `sent:${messageRow.id}`,
+      recipient: to,
+      provider: sent.providerMessageId ? "mailbox" : null,
+    });
+    await logCrmActivity({
+      type: "EMAIL",
+      subject,
+      body,
+      userId: user.id,
+      dealId: deal.id,
+      leadId: deal.leadId,
+      clientId: deal.clientId,
+      source: "manual",
+      metadata: {
+        to,
+        from: sent.fromEmail,
+        messageId: messageRow.id,
+        trackingEnabled: true,
+      },
+    });
+    await logAudit({
+      action: "CRM_EMAIL_SEND",
+      entity: "Deal",
+      entityId: deal.id,
+      actorId: user.id,
+      reason: `Email sent to ${to}`,
+      meta: { subject, providerMessageId: sent.providerMessageId, messageId: messageRow.id },
+    });
+    revalidateEntity({ dealId: deal.id, leadId: deal.leadId, clientId: deal.clientId });
+  } catch (error) {
+    await reportCrmIssue("error", "crm.email.send", error);
+    const messageText = error instanceof Error ? error.message : "Could not send email.";
+    await recordEmailFailure({
+      messageId: messageRow.id,
+      recipient: to,
+      failureCode: "SEND_FAILED",
+      metadata: { error: messageText.slice(0, 500) },
+    }).catch(() => null);
+    errorMessage = messageText;
+  }
+  if (errorMessage) {
+    redirect(`${returnTo}?error=${encodeURIComponent(errorMessage)}`);
+  }
+  redirect(`${returnTo}?ok=${encodeURIComponent("Email sent.")}`);
 }
 
 export async function crmTaskForm(formData: FormData): Promise<void> {

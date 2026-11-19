@@ -39,6 +39,8 @@
 
 ## Production Cutover
 
+- [ ] Complete the CRM-specific gates in `docs/CRM-PRODUCTION-ROLLOUT-CHECKLIST.md` (secrets,
+      migrations/indexes, cron, health alerts, 24h/7d canary, rollback thresholds).
 - [ ] Switch Stripe keys from test to **live** mode (`sk_live_*` / `pk_live_*`)
 - [ ] Create live products + prices in Stripe Dashboard
 - [ ] Update `STRIPE_*` env vars in production with live keys

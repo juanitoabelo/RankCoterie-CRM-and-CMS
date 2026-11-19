@@ -17,6 +17,8 @@ downtime for public SEO traffic, and a single atomic DNS switch.
 - [ ] Production deploy of `canopy-v2` (build, migrations via `prisma migrate deploy`,
       Inngest routes served, Postgres reachable, backups verified).
 - [ ] A dry-run of this runbook on the staging reference DB with masked fixtures.
+- [ ] CRM rollout gates in `docs/CRM-PRODUCTION-ROLLOUT-CHECKLIST.md` are green (notably its
+      migration/index verification, the `/api/crm/health` cron probe, and the alert thresholds).
 
 ## 1. Pre-cutover verification (parity gate)
 
@@ -55,6 +57,9 @@ downtime for public SEO traffic, and a single atomic DNS switch.
 
 ## 4. Post-cutover watchlist (first 7 days)
 
+- [ ] CRM health JSON (`/api/crm/health`) parsed for `status` and `alerts` — degraded returns HTTP
+      200; follow the 24h/7d canary and numeric rollback triggers in
+      `docs/CRM-PRODUCTION-ROLLOUT-CHECKLIST.md` §§6–7.
 - [ ] Stripe webhook delivery failures (Inngest run logs) — every event must be acked.
 - [ ] `invoice.payment_failed` / dunning expiry rate vs legacy rebill failure baseline.
 - [ ] Suppression leakage: any page rendering a `SUPPRESSED`/`EXPIRED` listing = bug (alert).

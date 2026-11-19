@@ -7,6 +7,18 @@
     {
       "path": "/api/crm/oauth/sync",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/crm/sequences/process",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/crm/webhooks/dispatch",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/crm/health",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

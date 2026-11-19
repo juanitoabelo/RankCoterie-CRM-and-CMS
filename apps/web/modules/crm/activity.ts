@@ -21,6 +21,13 @@ export type CrmActivityItem = {
   dealTitle: string | null;
 };
 
+export type StageChangeActivity = {
+  id: string;
+  dealId: string | null;
+  occurredAt: Date;
+  metadata: Prisma.JsonValue;
+};
+
 function displayName(
   user: { firstName: string | null; lastName: string | null; email: string } | null,
 ): string | null {
@@ -76,6 +83,20 @@ export async function logCrmActivity(input: {
     });
   }
   return { id: activity.id };
+}
+
+export async function getStageChangeActivities(
+  access?: CrmAccess,
+): Promise<StageChangeActivity[]> {
+  return prisma.crmActivity.findMany({
+    where: {
+      tenantId: TENANT_ID,
+      type: "STAGE_CHANGE",
+      AND: [activityAccessWhere(access)],
+    },
+    select: { id: true, dealId: true, occurredAt: true, metadata: true },
+    orderBy: { occurredAt: "asc" },
+  });
 }
 
 export async function getCrmTimeline(input: {

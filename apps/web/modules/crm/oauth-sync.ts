@@ -8,6 +8,7 @@ import {
   isOAuthProvider,
   oauthProviderLabel,
   refreshOAuthToken,
+  sendOAuthEmail,
   type OAuthActivity,
 } from "./oauth-providers";
 
@@ -28,6 +29,16 @@ export type CrmSyncSummary = {
   skipped: number;
   unmatched: number;
   error?: string;
+};
+
+export type CrmOutboundEmailInput = {
+  connectionId: string;
+  userId?: string;
+  to: string;
+  subject: string;
+  body: string;
+  htmlBody?: string | null;
+  headers?: Record<string, string> | null;
 };
 
 export async function getCrmEmailConnections(userId?: string): Promise<CrmEmailConnectionPublic[]> {
@@ -80,6 +91,41 @@ async function connectionAccessToken(connection: {
   return refreshed.accessToken;
 }
 
+export async function sendCrmEmail(
+  input: CrmOutboundEmailInput,
+): Promise<{ providerMessageId: string | null; fromEmail: string }> {
+  const connection = await prisma.crmEmailConnection.findFirst({
+    where: {
+      id: input.connectionId,
+      tenantId: TENANT_ID,
+      active: true,
+      ...(input.userId ? { userId: input.userId } : {}),
+    },
+  });
+  if (!connection) throw new Error("Mail connection not found.");
+  if (!isOAuthProvider(connection.provider)) {
+    throw new Error(`Unsupported mail provider "${connection.provider}".`);
+  }
+
+  try {
+    const accessToken = await connectionAccessToken(connection);
+    const result = await sendOAuthEmail(connection.provider, accessToken, {
+      to: input.to,
+      subject: input.subject,
+      body: input.body,
+      htmlBody: input.htmlBody,
+      headers: input.headers,
+    });
+    return { ...result, fromEmail: connection.email };
+  } catch (error) {
+    reportCrmIssue("error", "crm.oauth.send", error, {
+      connectionId: connection.id,
+      provider: connection.provider,
+    });
+    throw error;
+  }
+}
+
 async function resolveActivityLinks(addresses: string[]) {
   const emails = [...new Set(addresses.map((email) => email.toLowerCase()).filter(Boolean))].slice(
     0,
@@ -91,12 +137,11 @@ async function resolveActivityLinks(addresses: string[]) {
     prisma.lead.findFirst({
       where: { tenantId: TENANT_ID, email: { in: emails, mode: "insensitive" } },
       select: { id: true },
-      orderBy: { updatedAt: "desc" },
+      orderBy: { lastModified: "desc" },
     }),
     prisma.client.findFirst({
       where: { tenantId: TENANT_ID, email: { in: emails, mode: "insensitive" } },
       select: { id: true },
-      orderBy: { updatedAt: "desc" },
     }),
   ]);
   if (!lead && !client) return null;

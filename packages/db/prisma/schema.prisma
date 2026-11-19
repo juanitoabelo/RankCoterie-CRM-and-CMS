@@ -695,6 +695,8 @@ model Lead {
   formSubmissions CustomFormSubmission[]
   @@index([tenantId, status])
   @@index([tenantId, score])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, assignedToId, createdAt])
 }
 
 model CustomForm {
@@ -757,6 +759,9 @@ model ToDo {
   @@index([assigneeId, status])
   @@index([clientId])
   @@index([dealId])
+  @@index([leadId, finishedAt])
+  @@index([finishedAt, dueAt])
+  @@index([assigneeId, finishedAt, dueAt])
 }
 
 model Client {
@@ -786,6 +791,8 @@ model Client {
   tasks     ToDo[]
   attachments CrmAttachment[]
   @@index([tenantId])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, assignedToId, createdAt])
 }
 
 model ClientNote {
@@ -868,6 +875,9 @@ model Deal {
   @@index([tenantId, lastActivityAt])
   @@index([leadId])
   @@index([clientId])
+  @@index([tenantId, updatedAt, createdAt])
+  @@index([tenantId, stageId, value, createdAt])
+  @@index([tenantId, createdAt])
 }
 
 model CrmActivity {
@@ -940,6 +950,184 @@ model CrmEmailConnection {
   @@unique([tenantId, userId, provider])
   @@index([tenantId, active])
   @@index([tenantId, lastSyncAt])
+  @@index([tenantId, active, lastSyncAt])
+}
+
+model CrmEmailSequence {
+  id          String                        @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  subject     String
+  body        String
+  status      String                        @default("DRAFT")
+  createdById String?
+  createdAt   DateTime                      @default(now())
+  updatedAt   DateTime                      @updatedAt
+  steps       CrmEmailSequenceStep[]
+  enrollments CrmEmailSequenceEnrollment[]
+  @@index([tenantId, status])
+}
+
+model CrmEmailSequenceStep {
+  id           String            @id @default(cuid())
+  tenantId     String
+  sequenceId   String
+  sequence     CrmEmailSequence  @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  position     Int
+  subject      String
+  body         String
+  delayMinutes Int               @default(0)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  @@unique([sequenceId, position])
+  @@index([tenantId, sequenceId])
+}
+
+model CrmEmailSequenceEnrollment {
+  id         String                   @id @default(cuid())
+  tenantId   String
+  sequenceId String
+  sequence   CrmEmailSequence         @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  leadId     String?
+  clientId   String?
+  dealId     String?
+  connectionId String?
+  toEmail    String
+  status     String                   @default("ACTIVE")
+  currentStep Int                     @default(0)
+  nextSendAt DateTime                 @default(now())
+  createdAt  DateTime                 @default(now())
+  updatedAt  DateTime                 @updatedAt
+  messages   CrmEmailMessage[]
+  @@unique([tenantId, sequenceId, toEmail])
+  @@index([tenantId, status, nextSendAt])
+}
+
+model CrmEmailMessage {
+  id               String                      @id @default(cuid())
+  tenantId         String
+  enrollmentId     String?
+  enrollment       CrmEmailSequenceEnrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+  connectionId     String?
+  dealId           String?
+  leadId           String?
+  clientId         String?
+  toEmail          String
+  subject          String
+  body             String
+  bodyHtml         String?
+  trackingToken    String?                     @unique
+  trackingEnabled  Boolean                     @default(true)
+  providerMessageId String?
+  status           String                      @default("QUEUED")
+  error            String?
+  failureCode      String?
+  failedAt         DateTime?
+  deliveredAt      DateTime?
+  openCount        Int                         @default(0)
+  firstOpenedAt    DateTime?
+  lastOpenedAt     DateTime?
+  clickCount       Int                         @default(0)
+  firstClickedAt   DateTime?
+  lastClickedAt    DateTime?
+  bouncedAt        DateTime?
+  bounceType       String?
+  bounceReason     String?
+  unsubscribedAt   DateTime?
+  createdAt        DateTime                    @default(now())
+  sentAt           DateTime?
+  events           CrmEmailEvent[]
+  @@unique([tenantId, providerMessageId])
+  @@index([tenantId, enrollmentId])
+  @@index([tenantId, dealId])
+  @@index([tenantId, leadId])
+  @@index([tenantId, clientId])
+  @@index([tenantId, status, sentAt])
+  @@index([tenantId, toEmail])
+}
+
+model CrmEmailEvent {
+  id              String          @id @default(cuid())
+  tenantId        String
+  messageId       String
+  message         CrmEmailMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  enrollmentId    String?
+  type            String
+  occurredAt      DateTime        @default(now())
+  url             String?
+  recipient       String?
+  provider        String?
+  providerEventId String?
+  ipHash          String?
+  userAgent       String?
+  metadata        Json            @default("{}")
+  @@index([tenantId, messageId, type, occurredAt])
+  @@index([tenantId, enrollmentId, occurredAt])
+  @@index([tenantId, type, occurredAt])
+  @@index([tenantId, providerEventId])
+}
+
+model CrmEmailSuppression {
+  id           String   @id @default(cuid())
+  tenantId     String
+  email        String
+  reason       String
+  source       String?
+  messageId    String?
+  enrollmentId String?
+  leadId       String?
+  clientId     String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  @@unique([tenantId, email])
+  @@index([tenantId, active, updatedAt])
+}
+
+model CrmWorkflow {
+  id          String           @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  event       String
+  conditions  Json             @default("[]")
+  actions     Json             @default("[]")
+  enabled     Boolean          @default(true)
+  createdById String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  runs        CrmWorkflowRun[]
+  @@index([tenantId, event, enabled])
+}
+
+model CrmWorkflowRun {
+  id         String     @id @default(cuid())
+  tenantId   String
+  workflowId String
+  workflow   CrmWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  event      String
+  payload    Json       @default("{}")
+  matched    Boolean    @default(false)
+  actions    Json       @default("[]")
+  status     String     @default("COMPLETED")
+  error      String?
+  createdAt  DateTime   @default(now())
+  @@index([tenantId, createdAt])
+}
+
+model CrmApiKey {
+  id          String    @id @default(cuid())
+  tenantId    String
+  name        String
+  keyPrefix   String
+  keyHash     String    @unique
+  scopes      String[]
+  createdById String?
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  @@index([tenantId, revokedAt])
 }
 
 model CrmProduct {
@@ -986,6 +1174,7 @@ model CrmNotification {
   createdAt DateTime @default(now())
   @@index([tenantId, userId, readAt])
   @@index([tenantId, createdAt])
+  @@index([tenantId, userId, title, createdAt])
 }
 
 model Invoice {
@@ -1525,6 +1714,7 @@ model AuditLog {
   createdAt DateTime @default(now())
   @@index([tenantId, entity, entityId])
   @@index([createdAt])
+  @@index([tenantId, action, createdAt])
 }
 
 // ---------------------------------------------------------------------------

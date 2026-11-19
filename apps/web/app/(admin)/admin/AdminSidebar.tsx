@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -34,6 +35,7 @@ export default function AdminSidebar({
   logoutAction: () => Promise<void>;
 }) {
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
 
   // Determine if on admin dashboard page
   const isAdminPage =
@@ -42,14 +44,45 @@ export default function AdminSidebar({
   const myListingActive = pathname === "/admin/my-listing" || pathname.startsWith("/admin/my-listing/");
 
   return (
-    <aside
-      className="fixed inset-y-0 left-0 z-30 flex w-60 flex-col border-r-2 border-zinc-200 bg-white overflow-y-auto min-h-screen"
-    >
-      <Link
-        href="/admin"
-        className="flex items-center justify-center h-16 border-b border-zinc-200 px-4 text-sm font-semibold text-zinc-900"
+    <>
+      <button
+        type="button"
+        aria-label="Open admin navigation"
+        onClick={() => setOpen(true)}
+        className="fixed left-3 top-3 z-50 rounded-lg border border-zinc-200 bg-white p-2 shadow-sm md:hidden"
       >
-        <span className="flex items-center gap-2">
+        <svg className="h-5 w-5 text-zinc-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" d="M4 7h16M4 12h16M4 17h16" />
+        </svg>
+      </button>
+
+      {open ? (
+        <button
+          type="button"
+          aria-label="Close admin navigation"
+          onClick={() => setOpen(false)}
+          className="fixed inset-0 z-30 bg-zinc-900/40 md:hidden"
+        />
+      ) : null}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 max-w-[85vw] flex-col border-r-2 border-zinc-200 bg-white overflow-y-auto min-h-screen transition-transform duration-200 md:w-60 md:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}
+      >
+        <button
+          type="button"
+          aria-label="Close admin navigation"
+          onClick={() => setOpen(false)}
+          className="absolute right-2 top-4 z-10 rounded p-1 text-zinc-500 md:hidden"
+        >
+          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+        <Link
+          href="/admin"
+          className="flex items-center justify-center h-16 border-b border-zinc-200 px-4 text-sm font-semibold text-zinc-900"
+        >
+          <span className="flex items-center gap-2">
           <svg
             className="h-6 w-6 text-zinc-900"
             viewBox="0 0 24 24"
@@ -67,6 +100,7 @@ export default function AdminSidebar({
             <li>
               <Link
                 href="/admin/my-listing"
+                onClick={() => setOpen(false)}
                 className={[
                   "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150",
                   myListingActive
@@ -92,6 +126,7 @@ export default function AdminSidebar({
             <li>
               <Link
                 href="/admin"
+                onClick={() => setOpen(false)}
                 className={[
                   "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150",
                   isAdminPage ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
@@ -137,6 +172,7 @@ export default function AdminSidebar({
                     ) : (
                       <Link
                         href={n.href ?? "#"}
+                        onClick={() => setOpen(false)}
                         className={[
                           "flex cursor-pointer items-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150",
                           active ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
@@ -185,6 +221,7 @@ export default function AdminSidebar({
           </button>
         </form>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

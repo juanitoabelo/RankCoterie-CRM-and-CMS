@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+
 export const OAUTH_PROVIDERS = ["google", "microsoft"] as const;
 export type OAuthProvider = (typeof OAUTH_PROVIDERS)[number];
 
@@ -23,6 +25,7 @@ const GOOGLE_SCOPES = [
   "email",
   "profile",
   "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/gmail.send",
   "https://www.googleapis.com/auth/calendar.readonly",
 ].join(" ");
 
@@ -30,6 +33,7 @@ const MICROSOFT_SCOPES = [
   "offline_access",
   "User.Read",
   "Mail.Read",
+  "Mail.Send",
   "Calendars.Read",
 ].join(" ");
 
@@ -416,4 +420,130 @@ export async function fetchOAuthActivities(
   return provider === "google"
     ? googleActivities(accessToken, cursor)
     : microsoftActivities(accessToken, cursor);
+}
+
+export type OutboundOAuthEmail = {
+  to: string;
+  subject: string;
+  body: string;
+  htmlBody?: string | null;
+  headers?: Record<string, string> | null;
+};
+
+function validateRecipient(to: string): string {
+  const email = to.trim();
+  if (!/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(email)) {
+    throw new Error("A valid recipient email address is required.");
+  }
+  return email;
+}
+
+async function oauthPost<T>(
+  url: string,
+  accessToken: string,
+  body: Record<string, unknown>,
+): Promise<T | null> {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  const text = await response.text().catch(() => "");
+  if (!response.ok) {
+    throw new Error(`Provider send failed (${response.status}): ${text.slice(0, 200)}`);
+  }
+  return text ? (JSON.parse(text) as T) : null;
+}
+
+function listUnsubscribeHeaders(headers: Record<string, string> | null | undefined): Array<[string, string]> {
+  return Object.entries(headers ?? {}).filter(([name]) =>
+    /^List-Unsubscribe(-Post)?$/i.test(name),
+  );
+}
+
+function base64MimeBody(value: string): string {
+  return Buffer.from(value.replace(/\r?\n/g, "\r\n"), "utf8").toString("base64");
+}
+
+export async function sendOAuthEmail(
+  provider: OAuthProvider,
+  accessToken: string,
+  message: OutboundOAuthEmail,
+): Promise<{ providerMessageId: string | null }> {
+  const to = validateRecipient(message.to);
+  const subject = message.subject.trim() || "(no subject)";
+  const htmlBody = message.htmlBody?.trim() || null;
+  const extraHeaders = listUnsubscribeHeaders(message.headers);
+
+  if (provider === "google") {
+    const subjectHeader = `=?UTF-8?B?${Buffer.from(subject, "utf8").toString("base64")}?=`;
+    let raw: string;
+    if (!htmlBody) {
+      raw = [
+        `To: ${to}`,
+        `Subject: ${subjectHeader}`,
+        "MIME-Version: 1.0",
+        "Content-Type: text/plain; charset=UTF-8",
+        "",
+        message.body.replace(/\r?\n/g, "\r\n"),
+      ].join("\r\n");
+    } else {
+      const boundary = `----=canopy_${randomBytes(12).toString("hex")}`;
+      raw = [
+        `To: ${to}`,
+        `Subject: ${subjectHeader}`,
+        "MIME-Version: 1.0",
+        `Content-Type: multipart/alternative; boundary="${boundary}"`,
+        ...extraHeaders.map(([name, value]) => `${name}: ${value.replace(/[\r\n]+/g, " ")}`),
+        "",
+        `--${boundary}`,
+        "Content-Type: text/plain; charset=UTF-8",
+        "Content-Transfer-Encoding: base64",
+        "",
+        base64MimeBody(message.body),
+        "",
+        `--${boundary}`,
+        "Content-Type: text/html; charset=UTF-8",
+        "Content-Transfer-Encoding: base64",
+        "",
+        base64MimeBody(htmlBody),
+        "",
+        `--${boundary}--`,
+      ].join("\r\n");
+    }
+    const result = await oauthPost<{ id?: string }>(
+      "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+      accessToken,
+      { raw: Buffer.from(raw, "utf8").toString("base64url") },
+    );
+    return { providerMessageId: result?.id ?? null };
+  }
+
+  const email: Record<string, unknown> = {
+    subject,
+    body: {
+      contentType: htmlBody ? "HTML" : "Text",
+      content: htmlBody || message.body,
+    },
+    toRecipients: [{ emailAddress: { address: to } }],
+  };
+  if (extraHeaders.length > 0) {
+    email.internetMessageHeaders = extraHeaders.map(([name, value]) => ({ name, value }));
+  }
+  const draft = await oauthPost<{ id?: string }>(
+    "https://graph.microsoft.com/v1.0/me/messages",
+    accessToken,
+    email,
+  );
+  if (!draft?.id) return { providerMessageId: null };
+  await oauthPost(
+    `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(draft.id)}/send`,
+    accessToken,
+    {},
+  );
+  return { providerMessageId: draft.id };
 }

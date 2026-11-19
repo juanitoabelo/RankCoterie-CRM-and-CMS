@@ -58,3 +58,55 @@ export const CRM_DEAL_SOURCES = [
   "Website",
   "Other",
 ] as const;
+
+export const FORECAST_ATTRIBUTION_FIELDS = [
+  "source",
+  "campaignId",
+  "publisherId",
+  "subId",
+  "clickId",
+  "landingPageId",
+  "rawLeadSource",
+] as const;
+
+export type ForecastAttributionField = (typeof FORECAST_ATTRIBUTION_FIELDS)[number];
+
+export const FORECAST_ATTRIBUTION_DIMENSIONS = {
+  source: { label: "Source", fields: ["rawLeadSource", "source"] },
+  campaign: { label: "Campaign", fields: ["campaignId"] },
+  publisher: { label: "Publisher", fields: ["publisherId"] },
+  subId: { label: "Sub ID", fields: ["subId"] },
+  clickId: { label: "Click ID", fields: ["clickId"] },
+  landingPage: { label: "Landing page", fields: ["landingPageId"] },
+  rawSource: { label: "Raw lead source", fields: ["rawLeadSource", "source"] },
+} as const satisfies Record<
+  string,
+  { label: string; fields: readonly ForecastAttributionField[] }
+>;
+
+export type ForecastAttributionDimension = keyof typeof FORECAST_ATTRIBUTION_DIMENSIONS;
+
+export const FORECAST_ATTRIBUTION_ALIASES: Record<string, string> = {
+  fb: "facebook",
+  facebookads: "facebook",
+  ig: "instagram",
+  googleads: "google ads",
+  adwords: "google ads",
+  web: "website",
+  site: "website",
+};
+
+export const FORECAST_ATTRIBUTION_LABELS: Record<string, string> = {
+  facebook: "Facebook",
+  "google ads": "Google Ads",
+  google: "Google",
+  instagram: "Instagram",
+  website: "Website",
+  referral: "Referral",
+  inbound: "Inbound",
+  outbound: "Outbound",
+  lead: "Lead",
+  client: "Client",
+  other: "Other",
+  unassigned: "Unassigned",
+};

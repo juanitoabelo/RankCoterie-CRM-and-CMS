@@ -144,7 +144,8 @@ export default async function AdminLeadsPage({
         </div>
       </div>
 
-      <table className="mt-6 w-full text-left text-sm">
+      <div className="mt-6 overflow-x-auto">
+      <table className="w-full text-left text-sm">
         <thead className="border-b border-zinc-200 text-xs uppercase text-zinc-400">
           <tr>
             <th className="py-2 pr-4">Lead</th>
@@ -210,6 +211,7 @@ export default async function AdminLeadsPage({
           )}
         </tbody>
       </table>
+      </div>
 
       {totalPages > 1 && (
         <nav className="mt-6 flex items-center justify-between">

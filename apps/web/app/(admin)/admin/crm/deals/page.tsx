@@ -160,7 +160,8 @@ export default async function CrmDealsPage({
         </button>
       </form>
 
-      <table className="mt-4 w-full text-left text-sm">
+      <div className="mt-4 overflow-x-auto">
+      <table className="w-full text-left text-sm">
         <thead className="border-b border-zinc-200 text-xs uppercase text-zinc-400">
           <tr>
             <th className="py-2 pr-4">
@@ -239,6 +240,7 @@ export default async function CrmDealsPage({
           )}
         </tbody>
       </table>
+      </div>
 
       <div className="mt-4 flex items-center justify-between text-sm">
         <span className="text-zinc-500">

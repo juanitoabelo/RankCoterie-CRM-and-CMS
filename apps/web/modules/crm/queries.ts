@@ -4,6 +4,12 @@ import { getCrmStages } from "./stages";
 import { getCrmSettings } from "./settings";
 import { getCrmTimeline, type CrmActivityItem } from "./activity";
 import {
+  emptyEmailEngagementSummary,
+  isEmailEventType,
+  summarizeEmailEvents,
+  type EmailEventRecord,
+} from "./email-tracking";
+import {
   clientAccessWhere,
   dealAccessWhere,
   leadAccessWhere,
@@ -297,11 +303,123 @@ export async function getCrmDeal(dealId: string, access?: CrmAccess) {
   });
   if (!deal) return null;
   const users = await getCrmUsers();
+  const messages = await prisma.crmEmailMessage.findMany({
+    where: { tenantId: TENANT_ID, dealId },
+    select: {
+      id: true,
+      toEmail: true,
+      subject: true,
+      status: true,
+      providerMessageId: true,
+      sentAt: true,
+      deliveredAt: true,
+      openCount: true,
+      firstOpenedAt: true,
+      lastOpenedAt: true,
+      clickCount: true,
+      firstClickedAt: true,
+      lastClickedAt: true,
+      bouncedAt: true,
+      bounceType: true,
+      bounceReason: true,
+      unsubscribedAt: true,
+      failedAt: true,
+      failureCode: true,
+      trackingEnabled: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  });
+  const eventRows = messages.length
+    ? await prisma.crmEmailEvent.findMany({
+        where: { tenantId: TENANT_ID, messageId: { in: messages.map((message) => message.id) } },
+        select: {
+          messageId: true,
+          type: true,
+          occurredAt: true,
+          url: true,
+          recipient: true,
+          providerEventId: true,
+          metadata: true,
+        },
+        orderBy: { occurredAt: "desc" },
+        take: 5000,
+      })
+    : [];
+  const eventDetails = eventRows.flatMap((row) => {
+    if (!isEmailEventType(row.type)) return [];
+    const metadata =
+      row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+        ? (row.metadata as Record<string, unknown>)
+        : {};
+    const event: EmailEventRecord & { messageId: string } = {
+      messageId: row.messageId,
+      type: row.type,
+      occurredAt: row.occurredAt,
+      url: row.url,
+      recipient: row.recipient,
+      providerEventId: row.providerEventId,
+      bounceType: typeof metadata.bounceType === "string" ? metadata.bounceType : null,
+      bounceReason: typeof metadata.bounceReason === "string" ? metadata.bounceReason : null,
+      failureCode: typeof metadata.failureCode === "string" ? metadata.failureCode : null,
+    };
+    return [event];
+  });
+  const summarized = summarizeEmailEvents(eventDetails, emptyEmailEngagementSummary());
+  const emailEngagement = {
+    ...summarized,
+    sentAt: summarized.sentAt ?? messages.find((message) => message.sentAt)?.sentAt ?? null,
+    status: summarized.status ?? messages[0]?.status ?? null,
+    openCount: summarized.openCount || messages.reduce((total, message) => total + message.openCount, 0),
+    clickCount: summarized.clickCount || messages.reduce((total, message) => total + message.clickCount, 0),
+    firstOpenedAt:
+      summarized.firstOpenedAt ??
+      messages.find((message) => message.firstOpenedAt)?.firstOpenedAt ??
+      null,
+    lastOpenedAt:
+      summarized.lastOpenedAt ??
+      [...messages].reverse().find((message) => message.lastOpenedAt)?.lastOpenedAt ??
+      null,
+    firstClickedAt:
+      summarized.firstClickedAt ??
+      messages.find((message) => message.firstClickedAt)?.firstClickedAt ??
+      null,
+    lastClickedAt:
+      summarized.lastClickedAt ??
+      [...messages].reverse().find((message) => message.lastClickedAt)?.lastClickedAt ??
+      null,
+    deliveredAt: summarized.deliveredAt ?? messages.find((message) => message.deliveredAt)?.deliveredAt ?? null,
+    bouncedAt: summarized.bouncedAt ?? messages.find((message) => message.bouncedAt)?.bouncedAt ?? null,
+    unsubscribedAt:
+      summarized.unsubscribedAt ??
+      messages.find((message) => message.unsubscribedAt)?.unsubscribedAt ??
+      null,
+    failedAt: summarized.failedAt ?? messages.find((message) => message.failedAt)?.failedAt ?? null,
+  };
+  const emailMessages = messages.map((message) => ({
+    ...message,
+    events: eventDetails
+      .filter((event) => event.messageId === message.id)
+      .slice(0, 10)
+      .map((event) => ({
+        type: event.type,
+        occurredAt: event.occurredAt,
+        url: event.url,
+        recipient: event.recipient,
+        providerEventId: event.providerEventId,
+        bounceType: event.bounceType,
+        bounceReason: event.bounceReason,
+        failureCode: event.failureCode,
+      })),
+  }));
   return {
     ...deal,
     valueNumber: Number(deal.value),
     ownerName: deal.ownerId ? userName(users.find((user) => user.id === deal.ownerId)) : null,
     users,
+    emailEngagement,
+    emailMessages,
   };
 }
 

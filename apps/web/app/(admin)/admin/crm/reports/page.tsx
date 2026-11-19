@@ -42,6 +42,12 @@ export default async function CrmReportsPage() {
             {money(reports.wonValue, currency)} won
           </p>
         </div>
+        <Link
+          href="/admin/crm/reports/forecasting"
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
+        >
+          Forecasting &amp; attribution →
+        </Link>
       </div>
 
       <section className="mt-6 rounded-xl border border-zinc-200 bg-white p-5">
@@ -75,7 +81,8 @@ export default async function CrmReportsPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
             Source performance
           </h2>
-          <table className="mt-3 w-full text-left text-sm">
+          <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-left text-sm">
             <thead className="border-b border-zinc-200 text-xs uppercase text-zinc-400">
               <tr>
                 <th className="py-2 pr-3">Source</th>
@@ -106,13 +113,15 @@ export default async function CrmReportsPage() {
               )}
             </tbody>
           </table>
+          </div>
         </section>
 
         <section className="rounded-xl border border-zinc-200 bg-white p-5">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
             Owner leaderboard
           </h2>
-          <table className="mt-3 w-full text-left text-sm">
+          <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-left text-sm">
             <thead className="border-b border-zinc-200 text-xs uppercase text-zinc-400">
               <tr>
                 <th className="py-2 pr-3">Owner</th>
@@ -143,6 +152,7 @@ export default async function CrmReportsPage() {
               )}
             </tbody>
           </table>
+          </div>
         </section>
       </div>
     </div>

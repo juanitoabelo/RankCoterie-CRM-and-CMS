@@ -1,5 +1,4 @@
-import { prisma } from "@/lib/directory/prismaCatalog";
-import { getWebhookEndpoints, getWebhookEvents } from "./actions";
+import { getWebhookEndpoints } from "./actions";
 import Link from "next/link";
 
 export const revalidate = 0;
@@ -7,10 +6,7 @@ export const revalidate = 0;
 export const metadata = { title: "Webhooks | Admin" };
 
 export default async function WebhooksPage() {
-  const [endpoints, events] = await Promise.all([
-    getWebhookEndpoints(),
-    getWebhookEvents(),
-  ]);
+  const endpoints = await getWebhookEndpoints();
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -19,15 +15,23 @@ export default async function WebhooksPage() {
           <h1 className="text-2xl font-semibold text-zinc-900">Webhook Endpoints</h1>
           <p className="text-zinc-500 mt-1">Manage webhook endpoints for event notifications</p>
         </div>
-        <Link
-          href="/admin/webhooks/new"
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-        >
-          Create Endpoint
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/webhooks/deliveries"
+            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+          >
+            View Deliveries
+          </Link>
+          <Link
+            href="/admin/webhooks/new"
+            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+          >
+            Create Endpoint
+          </Link>
+        </div>
       </div>
 
-      <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
+      <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-zinc-50 border-b border-zinc-200">
             <tr>
