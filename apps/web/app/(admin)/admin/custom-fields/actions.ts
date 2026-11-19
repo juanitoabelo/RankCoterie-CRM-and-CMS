@@ -31,6 +31,7 @@ const SECTION_BY_CONTENT_TYPE: Record<ContentType, string> = {
   listing: "listings",
   "company-listing": "listings",
   lead: "leads",
+  deal: "crm",
   client: "clients",
   company: "myCompany",
   region: "regions",
@@ -565,6 +566,7 @@ async function recordBelongsToTenant(contentType: ContentType, recordId: string)
       select: { id: true },
     }));
     case "lead": return Boolean(await prisma.lead.findFirst({ where: { id: recordId, tenantId: TENANT_ID }, select: { id: true } }));
+    case "deal": return Boolean(await prisma.deal.findFirst({ where: { id: recordId, tenantId: TENANT_ID }, select: { id: true } }));
     case "client": return Boolean(await prisma.client.findFirst({ where: { id: recordId, tenantId: TENANT_ID }, select: { id: true } }));
     case "company": return Boolean(await prisma.company.findFirst({ where: { id: recordId, tenantId: TENANT_ID }, select: { id: true } }));
     case "region": return Boolean(await prisma.region.findFirst({ where: { id: recordId, tenantId: TENANT_ID }, select: { id: true } }));
@@ -753,7 +755,7 @@ export async function getCustomPostEditorData(typeId: string, postId?: string) {
     post: post ? { ...post, values } : null,
     categories: categories.map((category) => ({
       id: category.id,
-      title: "name" in category ? category.name : category.title,
+      title: category.name,
       slug: category.slug,
     })),
     templates,
@@ -885,7 +887,7 @@ export async function saveCustomPost(formData: FormData): Promise<CustomFieldsAc
         return { ok: false, error: "The selected parent would create a hierarchy cycle." };
       }
       seen.add(ancestorId);
-      const ancestor = await prisma.customPost.findFirst({
+      const ancestor: { id: string; parentId: string | null } | null = await prisma.customPost.findFirst({
         where: { id: ancestorId, tenantId: TENANT_ID, postTypeId: typeId },
         select: { id: true, parentId: true },
       });
@@ -1105,12 +1107,12 @@ export async function restoreCustomPostRevision(
       return tx.customPost.updateMany({
         where: { id: postId, postTypeId, tenantId: TENANT_ID },
         data: {
-          title: snapshot.title,
-          slug: snapshot.slug,
+          title: snapshot.title as string,
+          slug: snapshot.slug as string,
           parentId: optionalString("parentId"),
           excerpt: optionalString("excerpt"),
           body: optionalString("body"),
-          status: snapshot.status,
+          status: snapshot.status as string,
           values: snapshot.values as Prisma.InputJsonValue,
           featuredImageAssetId: optionalString("featuredImageAssetId"),
           customTermId: optionalString("customTermId"),

@@ -55,3 +55,9 @@ export { getLeadStats } from "./queries";
 export { getLeadStatsInRange } from "./queries";
 /** Get a single lead by ID */
 export { getLeadById } from "./queries";
+
+// Capture
+/** Public form lead capture with dedupe and routing */
+export { captureLead } from "./capture";
+export type { CaptureLeadResult } from "./capture";
+export type { LeadCaptureInput, LeadDedupeMode } from "./capture-helpers";

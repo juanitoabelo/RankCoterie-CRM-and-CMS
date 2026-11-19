@@ -30,6 +30,8 @@ export interface CustomFormSettings {
     phone?: string;
     message?: string;
   };
+  dedupeMode: "email" | "emailOrPhone" | "none";
+  assignToUserId: string;
 }
 
 export const DEFAULT_CUSTOM_FORM_SETTINGS: CustomFormSettings = {
@@ -43,6 +45,8 @@ export const DEFAULT_CUSTOM_FORM_SETTINGS: CustomFormSettings = {
   confirmationBody: "Thank you for contacting us. We will be in touch soon.",
   createLead: false,
   leadFields: {},
+  dedupeMode: "email",
+  assignToUserId: "",
 };
 
 export function normalizeCustomFormFields(value: unknown): CustomFormField[] {
@@ -151,6 +155,10 @@ export function normalizeCustomFormSettings(value: unknown): CustomFormSettings 
     confirmationBody: typeof raw.confirmationBody === "string" ? raw.confirmationBody : DEFAULT_CUSTOM_FORM_SETTINGS.confirmationBody,
     createLead: raw.createLead === true,
     leadFields,
+    dedupeMode: raw.dedupeMode === "none" || raw.dedupeMode === "emailOrPhone"
+      ? raw.dedupeMode
+      : "email",
+    assignToUserId: typeof raw.assignToUserId === "string" ? raw.assignToUserId : "",
   };
 }
 

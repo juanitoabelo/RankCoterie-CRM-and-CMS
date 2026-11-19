@@ -27,6 +27,7 @@ import { FlashBanner } from "@/components/admin/FlashBanner";
 import CrmTaskList from "@/components/admin/crm/CrmTaskList";
 import CrmTimeline from "@/components/admin/crm/CrmTimeline";
 import CrmAttachmentUpload from "@/components/admin/crm/CrmAttachmentUpload";
+import CustomFieldsPanel from "@/components/admin/custom-fields/CustomFieldsPanel";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -469,6 +470,10 @@ export default async function CrmDealDetailPage({
             ) : null}
           </section>
         </div>
+      </div>
+
+      <div className="mt-6">
+        <CustomFieldsPanel contentType="deal" recordId={deal.id} />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">

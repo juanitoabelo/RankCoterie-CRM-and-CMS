@@ -40,7 +40,13 @@ export function NewCustomForm() {
   );
 }
 
-export function CustomFormEditor({ initial }: { initial: FormDataState }) {
+export function CustomFormEditor({
+  initial,
+  users,
+}: {
+  initial: FormDataState;
+  users: Array<{ id: string; name: string }>;
+}) {
   const router = useRouter();
   const [name, setName] = useState(initial.name);
   const [status, setStatus] = useState(initial.status);
@@ -207,6 +213,19 @@ export function CustomFormEditor({ initial }: { initial: FormDataState }) {
               </select>
             </label>
           ))}
+          <label className={label}>Duplicate check
+            <select className={input} value={settings.dedupeMode} onChange={(e) => setSettingsPatch({ dedupeMode: e.target.value as CustomFormSettings["dedupeMode"] })}>
+              <option value="email">Match email</option>
+              <option value="emailOrPhone">Match email or phone</option>
+              <option value="none">Always create a new lead</option>
+            </select>
+          </label>
+          <label className={label}>Route to owner
+            <select className={input} value={settings.assignToUserId} onChange={(e) => setSettingsPatch({ assignToUserId: e.target.value })}>
+              <option value="">Use CRM auto-assign</option>
+              {users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
+            </select>
+          </label>
         </div>}
       </section>
 

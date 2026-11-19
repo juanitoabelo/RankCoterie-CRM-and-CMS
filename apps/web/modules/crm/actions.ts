@@ -13,6 +13,8 @@ import {
   type CrmActivityType,
 } from "./constants";
 import { getCrmStages, getDefaultCrmStage } from "./stages";
+import { ensureCrmPipelines } from "./pipelines";
+import { normalizeDealTemplateDefaults } from "./deal-template-helpers";
 import { saveCrmSettings } from "./settings";
 import { recalculateLeadScores, updateLeadScore } from "./scoring";
 import {
@@ -182,12 +184,15 @@ export async function createDeal(input: {
   value?: string;
   currency?: string;
   stageId?: string;
+  pipelineId?: string;
+  templateId?: string;
   probability?: string;
   expectedCloseDate?: string;
   source?: string;
   ownerId?: string;
   leadId?: string;
   clientId?: string;
+  lineItemsJson?: string;
   companyName?: string;
   contactName?: string;
   contactEmail?: string;
@@ -212,6 +217,29 @@ export async function createDeal(input: {
     : await getDefaultCrmStage();
   if (!stage) return { ok: false, error: "No pipeline stage is available." };
 
+  const pipelineId = input.pipelineId?.trim() || stage.pipelineId || (await ensureCrmPipelines()).id;
+  const templateId = input.templateId?.trim() || null;
+  if (templateId) {
+    const template = await prisma.crmDealTemplate.findFirst({
+      where: { id: templateId, tenantId: TENANT_ID, active: true },
+      select: { id: true },
+    });
+    if (!template) return { ok: false, error: "Deal template not found." };
+  }
+
+  const lineItems = (() => {
+    const raw = input.lineItemsJson?.trim();
+    if (!raw) return [];
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return "invalid" as const;
+      return normalizeDealTemplateDefaults({ lineItems: parsed }).lineItems;
+    } catch {
+      return "invalid" as const;
+    }
+  })();
+  if (lineItems === "invalid") return { ok: false, error: "Template line items are invalid." };
+
   let ownerId = input.ownerId?.trim() || null;
   if (!access.isAdmin) {
     ownerId = ownerId || access.userId;
@@ -233,6 +261,8 @@ export async function createDeal(input: {
         value: new Prisma.Decimal(value.toFixed(2)),
         currency: input.currency?.trim().toUpperCase().slice(0, 3) || "USD",
         stageId: stage.id,
+        pipelineId,
+        templateId,
         probability,
         expectedCloseDate,
         source: input.source?.trim() || null,
@@ -247,6 +277,17 @@ export async function createDeal(input: {
         lastActivityAt: new Date(),
       },
     });
+    if (lineItems.length > 0) {
+      await tx.dealLineItem.createMany({
+        data: lineItems.map((item, index) => ({
+          dealId: row.id,
+          description: item.name,
+          quantity: item.quantity,
+          unitPrice: new Prisma.Decimal(item.unitPrice.toFixed(2)),
+          order: index,
+        })),
+      });
+    }
     await logCrmActivity({
       type: "SYSTEM",
       subject: "Deal created",
@@ -914,9 +955,11 @@ export async function createCrmStage(input: {
       ? Math.round(input.order)
       : Math.max(0, ...stages.map((stage) => stage.order)) + 10;
   const isWon = Boolean(input.isWon);
+  const pipeline = await ensureCrmPipelines();
   const stage = await prisma.crmStage.create({
     data: {
       tenantId: TENANT_ID,
+      pipelineId: pipeline.id,
       key,
       label,
       probability,
@@ -984,6 +1027,9 @@ export async function crmDealCreateForm(formData: FormData): Promise<void> {
     value: String(formData.get("value") ?? ""),
     currency: String(formData.get("currency") ?? ""),
     stageId: String(formData.get("stageId") ?? ""),
+    pipelineId: String(formData.get("pipelineId") ?? ""),
+    templateId: String(formData.get("templateId") ?? ""),
+    lineItemsJson: String(formData.get("lineItemsJson") ?? ""),
     probability: String(formData.get("probability") ?? ""),
     expectedCloseDate: String(formData.get("expectedCloseDate") ?? ""),
     source: String(formData.get("source") ?? ""),

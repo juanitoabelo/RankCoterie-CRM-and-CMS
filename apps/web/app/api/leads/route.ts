@@ -7,12 +7,11 @@
  * `lead.created` webhook deliveries.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
 import { prisma, TENANT_ID } from "@/modules/shared";
 import { rateLimit } from "@/lib/rate-limit";
 import { consumeLeadCredit, enqueueLeadCreatedDeliveries } from "@/lib/billing/lead-credit";
 import { verifyRecaptchaToken } from "@/lib/recaptcha";
-import { applyLeadAutomation } from "@/modules/crm/automation";
+import { captureLead } from "@/modules/leads/capture";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -101,50 +100,32 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const [firstName, ...rest] = name.split(/\s+/);
-  const lastName = rest.join(" ") || null;
-
   try {
-    const { lead, listingLead } = await prisma.$transaction(async (tx) => {
-      const leadRow = await tx.lead.create({
-        data: {
-          tenantId: TENANT_ID,
-          firstName: firstName || null,
-          lastName,
-          email,
-          phones: phone ? [{ number: phone, kind: "unknown" }] : [],
-          status: "NEW",
-          disposition: "NEW_INQUIRY",
-          initialDisposition: "NEW_INQUIRY",
-          statusDate: new Date(),
-          landingPageId: listing?.id ?? null,
-          intake: {
-            source,
-            subject,
-            message,
-            ...(listing ? { listingTitle: listing.title } : {}),
-          } as Prisma.InputJsonValue,
-        },
-      });
-      const listingLeadRow = await tx.listingLead.create({
-        data: {
-          tenantId: TENANT_ID,
-          listingId: listing?.id ?? null,
-          name,
-          email,
-          phone: phone || null,
-          message,
-          subject: subject || null,
-          source,
-          status: "NEW",
-          leadId: leadRow.id,
-        },
-      });
-      return { lead: leadRow, listingLead: listingLeadRow };
+    const captured = await captureLead({
+      tenantId: TENANT_ID,
+      name,
+      email,
+      phone,
+      subject,
+      message,
+      source,
+      listingId: listing?.id ?? null,
     });
+    const lead = captured.lead;
 
-    await applyLeadAutomation(lead.id).catch((e) => {
-      console.error("Lead automation failed:", e);
+    const listingLead = await prisma.listingLead.create({
+      data: {
+        tenantId: TENANT_ID,
+        listingId: listing?.id ?? null,
+        name,
+        email,
+        phone: phone || null,
+        message,
+        subject: subject || null,
+        source,
+        status: "NEW",
+        leadId: lead.id,
+      },
     });
 
     if (listing) {

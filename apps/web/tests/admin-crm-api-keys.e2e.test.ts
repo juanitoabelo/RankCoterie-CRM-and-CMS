@@ -52,9 +52,13 @@ test.describe.serial("Admin CRM API keys", () => {
       headers: { Authorization: `Bearer ${token}` },
     });
     expect(response.ok()).toBeTruthy();
-    const body = (await response.json()) as { items: unknown[]; total: number };
-    expect(Array.isArray(body.items)).toBeTruthy();
-    expect(typeof body.total).toBe("number");
+    const body = (await response.json()) as {
+      ok: boolean;
+      data: { items: unknown[]; total: number };
+    };
+    expect(body.ok).toBeTruthy();
+    expect(Array.isArray(body.data.items)).toBeTruthy();
+    expect(typeof body.data.total).toBe("number");
     await waitForRow(() =>
       prisma.crmApiKey.findFirst({
         where: { id: key.id, tenantId: TENANT_ID, lastUsedAt: { not: null } },

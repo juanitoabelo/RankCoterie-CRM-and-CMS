@@ -8,6 +8,7 @@ export const CONTENT_TYPES = [
   { value: "listing", label: "Listing" },
   { value: "company-listing", label: "Company Listing" },
   { value: "lead", label: "Lead" },
+  { value: "deal", label: "Deal" },
   { value: "client", label: "Client" },
   { value: "company", label: "Company Profile" },
   { value: "region", label: "Region" },

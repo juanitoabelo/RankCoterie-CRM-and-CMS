@@ -1,14 +1,23 @@
 import { prisma, TENANT_ID } from "@/modules/shared";
 import { DEFAULT_CRM_STAGES } from "./constants";
+import { ensureCrmPipelines } from "./pipelines";
 
 export async function ensureCrmStages() {
+  const pipeline = await ensureCrmPipelines();
   await Promise.all(
     DEFAULT_CRM_STAGES.map((stage) =>
       prisma.crmStage.upsert({
-        where: { tenantId_key: { tenantId: TENANT_ID, key: stage.key } },
+        where: {
+          tenantId_pipelineId_key: {
+            tenantId: TENANT_ID,
+            pipelineId: pipeline.id,
+            key: stage.key,
+          },
+        },
         update: {},
         create: {
           tenantId: TENANT_ID,
+          pipelineId: pipeline.id,
           key: stage.key,
           label: stage.label,
           order: stage.order,
@@ -35,8 +44,9 @@ export async function getDefaultCrmStage() {
 }
 
 export async function getCrmStageByKey(key: string) {
+  const pipeline = await ensureCrmPipelines();
   await ensureCrmStages();
-  return prisma.crmStage.findUnique({
-    where: { tenantId_key: { tenantId: TENANT_ID, key } },
+  return prisma.crmStage.findFirst({
+    where: { tenantId: TENANT_ID, pipelineId: pipeline.id, key },
   });
 }

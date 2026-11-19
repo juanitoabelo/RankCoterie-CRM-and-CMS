@@ -98,6 +98,7 @@ test.describe.serial("Admin CRM HubSpot import and export", () => {
       await prisma.lead.count({ where: { tenantId: TENANT_ID, email: CONTACT_EMAIL } }),
     ).toBe(1);
 
+    await goto(page, "/admin/crm/import-export");
     await page.locator('select[name="type"]').selectOption("engagements");
     await page.locator('input[type="file"][name="file"]').setInputFiles({
       name: "hubspot-engagements-e2e.csv",
@@ -115,6 +116,8 @@ test.describe.serial("Admin CRM HubSpot import and export", () => {
       }),
     );
 
+    await goto(page, "/admin/crm/import-export");
+    await page.locator('select[name="type"]').selectOption("engagements");
     await page.locator('input[type="file"][name="file"]').setInputFiles({
       name: "hubspot-engagements-e2e.csv",
       mimeType: "text/csv",

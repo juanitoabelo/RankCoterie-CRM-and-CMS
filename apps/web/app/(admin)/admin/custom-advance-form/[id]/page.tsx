@@ -12,6 +12,15 @@ export default async function EditCustomFormPage({ params }: { params: Promise<{
   const { id } = await params;
   const form = await prisma.customForm.findFirst({ where: { id, tenantId: TENANT_ID } });
   if (!form) notFound();
+  const users = await prisma.user.findMany({
+    where: { tenantId: TENANT_ID, active: true },
+    select: { id: true, firstName: true, lastName: true, email: true },
+    orderBy: { firstName: "asc" },
+  });
+  const userOptions = users.map((user) => ({
+    id: user.id,
+    name: `${user.firstName} ${user.lastName}`.trim() || user.email,
+  }));
   return (
     <div className="space-y-5">
       <div>
@@ -24,7 +33,7 @@ export default async function EditCustomFormPage({ params }: { params: Promise<{
         status: form.status,
         fields: normalizeCustomFormFields(form.fields),
         settings: normalizeCustomFormSettings(form.settings),
-      }} />
+      }} users={userOptions} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { prisma, TENANT_ID } from "@/modules/shared";
 import { rateLimit } from "@/lib/rate-limit";
 import { sendEmail } from "@/lib/email/send";
 import { applyLeadAutomation } from "@/modules/crm/automation";
+import { leadDedupeWhere, normalizeLeadCapture } from "@/modules/leads/capture-helpers";
 import {
   escapeHtml,
   normalizeCustomFormFields,
@@ -99,8 +100,24 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       const lastName = readMappedValue(settings.leadFields.lastName);
       const phone = readMappedValue(settings.leadFields.phone);
       const message = readMappedValue(settings.leadFields.message);
-      const existing = email
-        ? await tx.lead.findFirst({ where: { tenantId: TENANT_ID, email }, orderBy: { createdAt: "desc" } })
+      const normalized = normalizeLeadCapture({
+        tenantId: TENANT_ID,
+        firstName,
+        lastName,
+        email,
+        phone,
+        message,
+        source: "custom-form",
+        formId: form.id,
+        dedupeMode: settings.dedupeMode,
+        assignedToId: settings.assignToUserId || null,
+      });
+      const dedupeWhere = leadDedupeWhere(normalized);
+      const existing = dedupeWhere
+        ? await tx.lead.findFirst({
+          where: dedupeWhere as Prisma.LeadWhereInput,
+          orderBy: { createdAt: "desc" },
+        })
         : null;
       const existingIntake = existing?.intake && typeof existing.intake === "object" && !Array.isArray(existing.intake)
         ? existing.intake as Record<string, Prisma.JsonValue>
@@ -120,6 +137,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
             lastName: lastName || existing.lastName,
             phones: phone ? [{ number: phone, kind: "unknown" }] : existing.phones as Prisma.InputJsonValue,
             intake,
+            ...(settings.assignToUserId ? { assignedToId: settings.assignToUserId } : {}),
           },
         })
         : await tx.lead.create({
@@ -133,6 +151,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
             disposition: "NEW_INQUIRY",
             initialDisposition: "NEW_INQUIRY",
             statusDate: new Date(),
+            assignedToId: settings.assignToUserId || null,
             intake,
           },
         });
@@ -156,7 +175,9 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   });
 
   if (createdLeadId) {
-    await applyLeadAutomation(createdLeadId).catch((e) => {
+    await applyLeadAutomation(createdLeadId, {
+      autoAssign: !settings.assignToUserId,
+    }).catch((e) => {
       console.error("Lead automation failed:", e);
     });
   }

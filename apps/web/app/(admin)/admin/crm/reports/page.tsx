@@ -42,12 +42,26 @@ export default async function CrmReportsPage() {
             {money(reports.wonValue, currency)} won
           </p>
         </div>
-        <Link
-          href="/admin/crm/reports/forecasting"
-          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
-        >
-          Forecasting &amp; attribution →
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/admin/crm/reports/builder"
+            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
+          >
+            Report builder →
+          </Link>
+          <Link
+            href="/admin/crm/reports/dashboards"
+            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
+          >
+            Dashboards →
+          </Link>
+          <Link
+            href="/admin/crm/reports/forecasting"
+            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
+          >
+            Forecasting &amp; attribution →
+          </Link>
+        </div>
       </div>
 
       <section className="mt-6 rounded-xl border border-zinc-200 bg-white p-5">

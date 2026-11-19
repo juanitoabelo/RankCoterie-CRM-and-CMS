@@ -3,6 +3,7 @@ import { requireSection } from "@/modules/auth";
 import { getCrmLinkOptions, getCrmUsers } from "@/modules/crm/queries";
 import { getCrmStages } from "@/modules/crm/stages";
 import { getCrmSettings } from "@/modules/crm/settings";
+import { getDealTemplate } from "@/modules/crm/deal-templates";
 import { CRM_DEAL_SOURCES } from "@/modules/crm/constants";
 import { crmDealCreateForm } from "@/modules/crm/actions";
 import { FlashBanner } from "@/components/admin/FlashBanner";
@@ -21,17 +22,25 @@ function personName(person: { firstName: string | null; lastName: string | null;
 export default async function NewDealPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; ok?: string }>;
+  searchParams: Promise<{ error?: string; ok?: string; template?: string }>;
 }) {
   await requireSection("crm");
-  const { error, ok } = await searchParams;
-  const [stages, users, settings, links] = await Promise.all([
+  const { error, ok, template: templateId } = await searchParams;
+  const [stages, users, settings, links, template] = await Promise.all([
     getCrmStages(),
     getCrmUsers(),
     getCrmSettings(),
     getCrmLinkOptions(),
+    templateId ? getDealTemplate(templateId) : Promise.resolve(null),
   ]);
-  const defaultStage = stages.find((stage) => !stage.isWon && !stage.isLost) ?? stages[0];
+  const defaults = template?.defaults;
+  const fallbackStage = stages.find((stage) => !stage.isWon && !stage.isLost) ?? stages[0];
+  const defaultStage = defaults?.stageKey
+    ? stages.find((stage) => stage.key.toLowerCase() === defaults.stageKey?.toLowerCase()) ?? fallbackStage
+    : fallbackStage;
+  const defaultSource = defaults?.source && CRM_DEAL_SOURCES.includes(defaults.source as (typeof CRM_DEAL_SOURCES)[number])
+    ? defaults.source
+    : "Inbound";
 
   return (
     <div>
@@ -45,18 +54,21 @@ export default async function NewDealPage({
       </p>
 
       <form action={crmDealCreateForm} className="mt-6 grid gap-4 rounded-xl border border-zinc-200 bg-white p-5 lg:grid-cols-2">
+        {template ? <input type="hidden" name="templateId" value={template.id} /> : null}
+        {template ? <input type="hidden" name="lineItemsJson" value={JSON.stringify(defaults?.lineItems ?? [])} /> : null}
+        {defaultStage?.pipelineId ? <input type="hidden" name="pipelineId" value={defaultStage.pipelineId} /> : null}
         <label className="block text-sm lg:col-span-2">
           <span className="text-zinc-600">Deal title *</span>
-          <input name="title" required placeholder="e.g. Annual listing package" className={inputCls} />
+          <input name="title" required defaultValue={defaults?.title ?? ""} placeholder="e.g. Annual listing package" className={inputCls} />
         </label>
 
         <label className="block text-sm">
           <span className="text-zinc-600">Value</span>
-          <input name="value" type="number" min="0" step="0.01" defaultValue="0" className={inputCls} />
+          <input name="value" type="number" min="0" step="0.01" defaultValue={defaults?.value ?? 0} className={inputCls} />
         </label>
         <label className="block text-sm">
           <span className="text-zinc-600">Currency</span>
-          <input name="currency" defaultValue={settings.defaultCurrency} maxLength={3} className={inputCls} />
+          <input name="currency" defaultValue={defaults?.currency || settings.defaultCurrency} maxLength={3} className={inputCls} />
         </label>
 
         <label className="block text-sm">
@@ -71,7 +83,7 @@ export default async function NewDealPage({
         </label>
         <label className="block text-sm">
           <span className="text-zinc-600">Probability override</span>
-          <input name="probability" type="number" min="0" max="100" placeholder="Use stage default" className={inputCls} />
+          <input name="probability" type="number" min="0" max="100" defaultValue={defaults?.probability ?? ""} placeholder="Use stage default" className={inputCls} />
         </label>
 
         <label className="block text-sm">
@@ -92,7 +104,7 @@ export default async function NewDealPage({
 
         <label className="block text-sm">
           <span className="text-zinc-600">Source</span>
-          <select name="source" defaultValue="Inbound" className={selectCls}>
+          <select name="source" defaultValue={defaultSource} className={selectCls}>
             {CRM_DEAL_SOURCES.map((source) => (
               <option key={source}>{source}</option>
             ))}
@@ -140,7 +152,7 @@ export default async function NewDealPage({
 
         <label className="block text-sm lg:col-span-2">
           <span className="text-zinc-600">Notes</span>
-          <textarea name="notes" rows={3} className={inputCls} />
+          <textarea name="notes" rows={3} defaultValue={defaults?.notes ?? ""} className={inputCls} />
         </label>
 
         <div className="flex items-center gap-3 lg:col-span-2">
