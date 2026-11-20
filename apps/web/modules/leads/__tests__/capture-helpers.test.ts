@@ -46,7 +46,10 @@ describe("leadDedupeWhere", () => {
 
     expect(leadDedupeWhere(input)).toEqual({
       tenantId: "tenant-1",
-      email: { equals: "ada@example.com", mode: "insensitive" },
+      OR: [
+        { email: { equals: "ada@example.com", mode: "insensitive" } },
+        { intake: { path: ["dedupeEmails"], array_contains: "ada@example.com" } },
+      ],
     });
   });
 
@@ -62,7 +65,10 @@ describe("leadDedupeWhere", () => {
       tenantId: "tenant-1",
       OR: [
         { email: { equals: "ada@example.com", mode: "insensitive" } },
+        { intake: { path: ["dedupeEmails"], array_contains: "ada@example.com" } },
+        { phones: { string_contains: "(555) 123-9876" } },
         { phones: { string_contains: "5551239876" } },
+        { intake: { path: ["dedupePhones"], array_contains: "5551239876" } },
       ],
     });
   });
@@ -79,12 +85,12 @@ describe("leadDedupeWhere", () => {
 });
 
 describe("mergeCapturedLeadData", () => {
-  it("keeps existing values and adds only missing contact details", () => {
+  it("keeps existing values and appends distinct contact details", () => {
     const existing = {
       firstName: "Ada",
       lastName: "Lovelace",
       email: "ada@example.com",
-      phones: [{ number: "555-000-0000", kind: "mobile" }],
+      phones: [{ number: "555-000-0000", kind: "mobile", digits: "5550000000" }],
     };
     const input = normalizeLeadCapture({
       tenantId: "tenant-1",
@@ -99,7 +105,10 @@ describe("mergeCapturedLeadData", () => {
       firstName: "Ada",
       lastName: "Lovelace",
       email: "ada@example.com",
-      phones: [{ number: "555-000-0000", kind: "mobile" }],
+      phones: [
+        { number: "555-000-0000", kind: "mobile", digits: "5550000000" },
+        { number: "5551239876", kind: "unknown", digits: "5551239876" },
+      ],
     });
   });
 
@@ -121,7 +130,7 @@ describe("mergeCapturedLeadData", () => {
       firstName: "Ada",
       lastName: "Lovelace",
       email: "ada@example.com",
-      phones: [{ number: "5551239876", kind: "unknown" }],
+      phones: [{ number: "5551239876", kind: "unknown", digits: "5551239876" }],
     });
   });
 });

@@ -34,12 +34,16 @@ export async function ensureCrmStages() {
   });
 }
 
-export async function getCrmStages() {
-  return ensureCrmStages();
+export async function getCrmStages(pipelineId?: string) {
+  await ensureCrmStages();
+  return prisma.crmStage.findMany({
+    where: { tenantId: TENANT_ID, active: true, ...(pipelineId ? { pipelineId } : {}) },
+    orderBy: [{ order: "asc" }, { label: "asc" }],
+  });
 }
 
-export async function getDefaultCrmStage() {
-  const stages = await getCrmStages();
+export async function getDefaultCrmStage(pipelineId?: string) {
+  const stages = await getCrmStages(pipelineId);
   return stages[0] ?? null;
 }
 

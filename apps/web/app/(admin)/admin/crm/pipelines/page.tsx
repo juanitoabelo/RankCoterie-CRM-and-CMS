@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireSection } from "@/modules/auth";
+import { getCrmAccessForUser } from "@/modules/crm/access";
 import { getCrmPipelines } from "@/modules/crm/pipelines";
 import { crmPipelineCreateForm, crmPipelineDefaultForm, crmStageCreateForm } from "@/modules/crm/parity-actions";
 import { FlashBanner } from "@/components/admin/FlashBanner";
@@ -15,7 +17,9 @@ export default async function CrmPipelinesPage({
 }: {
   searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
-  await requireSection("crm");
+  const user = await requireSection("crm");
+  const access = await getCrmAccessForUser(user);
+  if (!access.isAdmin) redirect("/admin/crm?error=Only+CRM+admins+can+manage+pipelines.");
   const { error, ok } = await searchParams;
   const pipelines = await getCrmPipelines();
 

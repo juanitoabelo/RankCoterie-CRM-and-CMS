@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
+import { getRecaptchaConfig, isRecaptchaActive, verifyRecaptchaToken } from "@/lib/recaptcha";
 import { TENANT_ID } from "@/modules/shared";
 import { captureLead } from "@/modules/leads/capture";
 import { getLiveChatSettings } from "@/modules/live-chat/settings";
@@ -54,6 +55,15 @@ export async function POST(request: NextRequest) {
   const settings = await getLiveChatSettings();
   if (!settings.enabled) {
     return NextResponse.json({ error: "Live chat is unavailable." }, { status: 404 });
+  }
+
+  const recaptchaConfig = await getRecaptchaConfig();
+  if (isRecaptchaActive(recaptchaConfig)) {
+    const token = typeof raw.recaptchaToken === "string" ? raw.recaptchaToken : "";
+    const recaptcha = await verifyRecaptchaToken(token, ip, recaptchaConfig);
+    if (!recaptcha.ok) {
+      return NextResponse.json({ error: "Verification failed. Please try again." }, { status: 403 });
+    }
   }
 
   const result = await captureLead({

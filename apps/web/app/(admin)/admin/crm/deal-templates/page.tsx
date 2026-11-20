@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireSection } from "@/modules/auth";
+import { getCrmAccessForUser } from "@/modules/crm/access";
 import { listDealTemplates } from "@/modules/crm/deal-templates";
 import { crmDealTemplateCreateForm, crmDealTemplateDeleteForm } from "@/modules/crm/parity-actions";
 import { FlashBanner } from "@/components/admin/FlashBanner";
@@ -25,7 +27,9 @@ export default async function DealTemplatesPage({
 }: {
   searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
-  await requireSection("crm");
+  const user = await requireSection("crm");
+  const access = await getCrmAccessForUser(user);
+  if (!access.isAdmin) redirect("/admin/crm?error=Only+CRM+admins+can+manage+deal+templates.");
   const { error, ok } = await searchParams;
   const templates = await listDealTemplates();
 

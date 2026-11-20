@@ -99,7 +99,7 @@ export default async function NewDealPage({
         </label>
         <label className="block text-sm">
           <span className="text-zinc-600">Expected close date</span>
-          <input name="expectedCloseDate" type="date" className={inputCls} />
+          <input name="expectedCloseDate" type="date" defaultValue={defaults?.expectedCloseDate ?? ""} className={inputCls} />
         </label>
 
         <label className="block text-sm">
@@ -135,19 +135,19 @@ export default async function NewDealPage({
 
         <label className="block text-sm">
           <span className="text-zinc-600">Company</span>
-          <input name="companyName" className={inputCls} />
+          <input name="companyName" defaultValue={defaults?.companyName ?? ""} className={inputCls} />
         </label>
         <label className="block text-sm">
           <span className="text-zinc-600">Contact name</span>
-          <input name="contactName" className={inputCls} />
+          <input name="contactName" defaultValue={defaults?.contactName ?? ""} className={inputCls} />
         </label>
         <label className="block text-sm">
           <span className="text-zinc-600">Contact email</span>
-          <input name="contactEmail" type="email" className={inputCls} />
+          <input name="contactEmail" type="email" defaultValue={defaults?.contactEmail ?? ""} className={inputCls} />
         </label>
         <label className="block text-sm">
           <span className="text-zinc-600">Contact phone</span>
-          <input name="contactPhone" type="tel" className={inputCls} />
+          <input name="contactPhone" type="tel" defaultValue={defaults?.contactPhone ?? ""} className={inputCls} />
         </label>
 
         <label className="block text-sm lg:col-span-2">

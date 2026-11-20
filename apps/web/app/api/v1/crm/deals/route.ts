@@ -110,6 +110,7 @@ export async function POST(request: NextRequest) {
       value: new Prisma.Decimal(value.toFixed(2)),
       currency: String(body?.currency ?? "USD").toUpperCase().slice(0, 3) || "USD",
       stageId,
+      pipelineId: stage.pipelineId,
       probability:
         body?.probability === null || body?.probability === undefined
           ? null

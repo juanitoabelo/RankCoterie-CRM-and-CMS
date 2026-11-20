@@ -1,4 +1,8 @@
 import { randomBytes } from "node:crypto";
+import {
+  resolveCrmIntegrationSecret,
+  resolveCrmIntegrationText,
+} from "./integration-settings";
 
 export const OAUTH_PROVIDERS = ["google", "microsoft"] as const;
 export type OAuthProvider = (typeof OAUTH_PROVIDERS)[number];
@@ -45,46 +49,57 @@ export function oauthProviderLabel(provider: OAuthProvider): string {
   return provider === "google" ? "Google Workspace" : "Microsoft 365";
 }
 
-export function oauthMissingEnv(provider: OAuthProvider): string[] {
-  const names =
-    provider === "google"
-      ? ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]
-      : ["MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET"];
-  return names.filter((name) => !process.env[name]);
+export async function oauthMissingEnv(provider: OAuthProvider): Promise<string[]> {
+  const [id, secret] = await Promise.all([
+    resolveCrmIntegrationText(provider === "google" ? "googleClientId" : "microsoftClientId"),
+    resolveCrmIntegrationSecret(
+      provider === "google" ? "googleClientSecret" : "microsoftClientSecret",
+    ),
+  ]);
+  const missing: string[] = [];
+  if (!id) missing.push(provider === "google" ? "GOOGLE_CLIENT_ID" : "MICROSOFT_CLIENT_ID");
+  if (!secret) {
+    missing.push(provider === "google" ? "GOOGLE_CLIENT_SECRET" : "MICROSOFT_CLIENT_SECRET");
+  }
+  return missing;
 }
 
-export function oauthProviderConfigured(provider: OAuthProvider): boolean {
-  return oauthMissingEnv(provider).length === 0;
+export async function oauthProviderConfigured(provider: OAuthProvider): Promise<boolean> {
+  return (await oauthMissingEnv(provider)).length === 0;
 }
 
-function client(provider: OAuthProvider): { id: string; secret: string } {
-  const id =
-    provider === "google" ? process.env.GOOGLE_CLIENT_ID : process.env.MICROSOFT_CLIENT_ID;
-  const secret =
-    provider === "google"
-      ? process.env.GOOGLE_CLIENT_SECRET
-      : process.env.MICROSOFT_CLIENT_SECRET;
+async function client(provider: OAuthProvider): Promise<{ id: string; secret: string }> {
+  const [id, secret] = await Promise.all([
+    resolveCrmIntegrationText(provider === "google" ? "googleClientId" : "microsoftClientId"),
+    resolveCrmIntegrationSecret(
+      provider === "google" ? "googleClientSecret" : "microsoftClientSecret",
+    ),
+  ]);
   if (!id || !secret) {
     throw new Error(`${oauthProviderLabel(provider)} OAuth is not configured.`);
   }
   return { id, secret };
 }
 
-function microsoftTenant(): string {
-  return process.env.MICROSOFT_TENANT_ID?.trim() || "common";
+async function microsoftTenant(): Promise<string> {
+  return (await resolveCrmIntegrationText("microsoftTenantId")) || "common";
 }
 
-export function oauthRedirectUri(provider: OAuthProvider, requestUrl: string): string {
-  const base = process.env.CRM_OAUTH_REDIRECT_BASE_URL?.trim() || new URL(requestUrl).origin;
+export async function oauthRedirectUri(
+  provider: OAuthProvider,
+  requestUrl: string,
+): Promise<string> {
+  const base =
+    (await resolveCrmIntegrationText("oauthRedirectBaseUrl")) || new URL(requestUrl).origin;
   return new URL(`/api/crm/oauth/${provider}/callback`, base).toString();
 }
 
-export function oauthAuthorizationUrl(
+export async function oauthAuthorizationUrl(
   provider: OAuthProvider,
   redirectUri: string,
   state: string,
-): string {
-  const { id } = client(provider);
+): Promise<string> {
+  const { id } = await client(provider);
   if (provider === "google") {
     const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
     url.searchParams.set("client_id", id);
@@ -98,7 +113,7 @@ export function oauthAuthorizationUrl(
     return url.toString();
   }
   const url = new URL(
-    `https://login.microsoftonline.com/${microsoftTenant()}/oauth2/v2.0/authorize`,
+    `https://login.microsoftonline.com/${await microsoftTenant()}/oauth2/v2.0/authorize`,
   );
   url.searchParams.set("client_id", id);
   url.searchParams.set("redirect_uri", redirectUri);
@@ -147,7 +162,7 @@ export async function exchangeOAuthCode(
   code: string,
   redirectUri: string,
 ): Promise<OAuthTokenSet> {
-  const { id, secret } = client(provider);
+  const { id, secret } = await client(provider);
   if (provider === "google") {
     return tokenRequest("https://oauth2.googleapis.com/token", {
       code,
@@ -158,7 +173,7 @@ export async function exchangeOAuthCode(
     });
   }
   return tokenRequest(
-    `https://login.microsoftonline.com/${microsoftTenant()}/oauth2/v2.0/token`,
+    `https://login.microsoftonline.com/${await microsoftTenant()}/oauth2/v2.0/token`,
     {
       code,
       client_id: id,
@@ -174,7 +189,7 @@ export async function refreshOAuthToken(
   provider: OAuthProvider,
   refreshToken: string,
 ): Promise<OAuthTokenSet> {
-  const { id, secret } = client(provider);
+  const { id, secret } = await client(provider);
   if (provider === "google") {
     return tokenRequest("https://oauth2.googleapis.com/token", {
       refresh_token: refreshToken,
@@ -184,7 +199,7 @@ export async function refreshOAuthToken(
     });
   }
   return tokenRequest(
-    `https://login.microsoftonline.com/${microsoftTenant()}/oauth2/v2.0/token`,
+    `https://login.microsoftonline.com/${await microsoftTenant()}/oauth2/v2.0/token`,
     {
       refresh_token: refreshToken,
       client_id: id,

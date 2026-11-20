@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireSection } from "@/modules/auth";
+import { getCrmAccessForUser } from "@/modules/crm/access";
 import { FlashBanner } from "@/components/admin/FlashBanner";
 import { getLiveChatSettings } from "@/modules/live-chat/settings";
 import { saveLiveChatSettings } from "@/modules/live-chat/actions";
@@ -16,7 +18,9 @@ export default async function LiveChatPage({
 }: {
   searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
-  await requireSection("crm");
+  const user = await requireSection("crm");
+  const access = await getCrmAccessForUser(user);
+  if (!access.isAdmin) redirect("/admin/crm?error=Only+CRM+admins+can+manage+live+chat.");
   const { error, ok } = await searchParams;
   const settings = await getLiveChatSettings();
 

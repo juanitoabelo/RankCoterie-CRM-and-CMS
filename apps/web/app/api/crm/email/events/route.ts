@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
+import { resolveCrmIntegrationSecret } from "@/modules/crm/integration-settings";
 import {
   emailEventKey,
   isEmailEventType,
@@ -64,10 +65,14 @@ type InboundEvent = {
   metadata?: Record<string, unknown>;
 };
 
-function authorized(request: Request): boolean {
-  const secrets = [process.env.CRM_EMAIL_EVENTS_SECRET, process.env.CRON_SECRET].filter(
+async function authorized(request: Request): Promise<boolean> {
+  const envSecrets = [process.env.CRM_EMAIL_EVENTS_SECRET, process.env.CRON_SECRET].filter(
     (value): value is string => Boolean(value),
   );
+  const savedSecret = envSecrets.length
+    ? null
+    : await resolveCrmIntegrationSecret("emailEventsSecret");
+  const secrets = envSecrets.length ? envSecrets : savedSecret ? [savedSecret] : [];
   if (secrets.length === 0) return false;
   const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   return secrets.some(

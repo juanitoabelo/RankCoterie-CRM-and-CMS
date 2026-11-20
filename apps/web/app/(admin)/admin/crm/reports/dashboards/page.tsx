@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { requireSection } from "@/modules/auth";
+import { getCrmAccessForUser } from "@/modules/crm/access";
 import { FlashBanner } from "@/components/admin/FlashBanner";
-import { dashboardSaveForm } from "@/modules/reports/actions";
+import { dashboardDeleteForm, dashboardSaveForm } from "@/modules/reports/actions";
 import { listSavedDashboards, listSavedReports } from "@/modules/reports/saved";
 
 export const dynamic = "force-dynamic";
@@ -15,9 +16,14 @@ export default async function DashboardsPage({
 }: {
   searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
-  await requireSection("reports");
+  const user = await requireSection("crm");
+  const access = await getCrmAccessForUser(user);
+  const viewer = { userId: user.id, isAdmin: access.isAdmin };
   const { error, ok } = await searchParams;
-  const [dashboards, reports] = await Promise.all([listSavedDashboards(), listSavedReports()]);
+  const [dashboards, reports] = await Promise.all([
+    listSavedDashboards(viewer),
+    listSavedReports(viewer),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -34,15 +40,33 @@ export default async function DashboardsPage({
           {dashboards.length === 0 ? <p className="py-3 text-sm text-zinc-500">No dashboards yet.</p> : null}
           {dashboards.map((dashboard) => (
             <div key={dashboard.id} className="py-3">
-              <p className="font-medium text-zinc-900">
-                {dashboard.name}
-                {dashboard.shared ? <span className="ml-2 text-xs text-emerald-700">shared</span> : null}
-              </p>
-              <p className="text-xs text-zinc-500">
-                {dashboard.widgets.length > 0
-                  ? dashboard.widgets.map((widget) => widget.title).join(" · ")
-                  : "No widgets"}
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-medium text-zinc-900">
+                    {dashboard.name}
+                    {dashboard.shared ? <span className="ml-2 text-xs text-emerald-700">shared</span> : null}
+                    {access.isAdmin || dashboard.ownerId === user.id ? "" : (
+                      <span className="ml-2 text-xs text-zinc-500">shared by another user</span>
+                    )}
+                  </p>
+                  <p className="text-xs text-zinc-500">
+                    {dashboard.widgets.length > 0
+                      ? dashboard.widgets.map((widget) => widget.title).join(" · ")
+                      : "No widgets"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Link href={`/admin/crm/reports/dashboards/${dashboard.id}`} className="text-sm text-zinc-700 underline">
+                    View
+                  </Link>
+                  {access.isAdmin || dashboard.ownerId === user.id ? (
+                    <form action={dashboardDeleteForm}>
+                      <input type="hidden" name="dashboardId" value={dashboard.id} />
+                      <button className="text-sm text-red-700 underline">Delete</button>
+                    </form>
+                  ) : null}
+                </div>
+              </div>
             </div>
           ))}
         </div>

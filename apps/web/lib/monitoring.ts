@@ -27,30 +27,37 @@ export function reportCrmIssue(
   if (level === "error") console.error(line);
   else console.warn(line);
 
-  const webhook = process.env.CRM_ALERT_WEBHOOK_URL;
-  if (!webhook) return;
-  void fetch(webhook, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      text: `[Canopy CRM] ${context}: ${message}`,
-      ...record,
-    }),
-    signal: AbortSignal.timeout(5000),
-    cache: "no-store",
-  })
-    .then((response) => {
-      if (!response.ok) {
-        console.warn(
-          JSON.stringify(
-            payload("warning", "crm.alert.webhook", `Webhook returned HTTP ${response.status}`),
-          ),
-        );
-      }
+  const envWebhook = process.env.CRM_ALERT_WEBHOOK_URL?.trim() || null;
+  void (async () => {
+    const webhook =
+      envWebhook ??
+      (await import("../modules/crm/integration-settings").then((module) =>
+        module.resolveCrmIntegrationSecret("alertWebhookUrl"),
+      ));
+    if (!webhook) return;
+    await fetch(webhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: `[Canopy CRM] ${context}: ${message}`,
+        ...record,
+      }),
+      signal: AbortSignal.timeout(5000),
+      cache: "no-store",
     })
-    .catch((sendError) => {
-      console.warn(
-        JSON.stringify(payload("warning", "crm.alert.webhook", String(sendError))),
-      );
-    });
+      .then((response) => {
+        if (!response.ok) {
+          console.warn(
+            JSON.stringify(
+              payload("warning", "crm.alert.webhook", `Webhook returned HTTP ${response.status}`),
+            ),
+          );
+        }
+      })
+      .catch((sendError) => {
+        console.warn(
+          JSON.stringify(payload("warning", "crm.alert.webhook", String(sendError))),
+        );
+      });
+  })();
 }

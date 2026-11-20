@@ -44,6 +44,16 @@ export default async function CrmSettingsPage({
     getCrmHealth(),
   ]);
   const operationsAlerts = evaluateCrmHealthAlerts(health, health.checkedAt);
+  const oauthStatus = await Promise.all(
+    OAUTH_PROVIDERS.map(async (provider) => {
+      const configured = await oauthProviderConfigured(provider);
+      return {
+        provider,
+        configured,
+        missing: configured ? [] : await oauthMissingEnv(provider),
+      };
+    }),
+  );
 
   return (
     <div>
@@ -52,6 +62,13 @@ export default async function CrmSettingsPage({
       <p className="mt-1 text-sm text-zinc-500">
         Pipeline stages, stale-deal thresholds, lead assignment, and score maintenance.
       </p>
+      {access.isAdmin && (
+        <p className="mt-2 text-sm">
+          <Link href="/admin/crm/settings/integrations" className="text-zinc-700 underline">
+            Integration settings
+          </Link>
+        </p>
+      )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <section className="rounded-xl border border-zinc-200 bg-white p-5">
@@ -130,9 +147,8 @@ export default async function CrmSettingsPage({
             minutes.
           </p>
           <div className="mt-4 space-y-2">
-            {OAUTH_PROVIDERS.map((provider) => {
+            {oauthStatus.map(({ provider, configured, missing }) => {
               const existing = connections.find((connection) => connection.provider === provider);
-              const configured = oauthProviderConfigured(provider);
               return (
                 <div
                   key={provider}
@@ -149,7 +165,7 @@ export default async function CrmSettingsPage({
                       <p className="text-xs text-zinc-500">
                         {configured
                           ? "Not connected"
-                          : `Missing: ${oauthMissingEnv(provider).join(", ")}`}
+                          : `Missing: ${missing.join(", ")}`}
                       </p>
                     )}
                     {existing?.lastSyncError && (

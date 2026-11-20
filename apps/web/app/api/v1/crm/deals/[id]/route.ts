@@ -130,6 +130,7 @@ export async function PATCH(
     nextStage = { id: stage.id, label: stage.label };
     stageChanged = true;
     data.stageId = stage.id;
+    data.pipelineId = stage.pipelineId;
     data.stageChangedAt = new Date();
     data.lastActivityAt = new Date();
     if (stage.isWon) {

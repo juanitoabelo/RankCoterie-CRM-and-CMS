@@ -76,12 +76,18 @@ function DealCard({
   );
 }
 
+type PipelineOption = { id: string; name: string; key: string; isDefault: boolean };
+
 export default function PipelineBoard({
   initialStages,
   staleDays,
+  pipeline,
+  pipelines,
 }: {
   initialStages: CrmPipelineStage[];
   staleDays: number;
+  pipeline: PipelineOption;
+  pipelines: PipelineOption[];
 }) {
   const router = useRouter();
   const [columns, setColumns] = useState(initialStages);
@@ -117,7 +123,7 @@ export default function PipelineBoard({
     );
 
     startTransition(async () => {
-      const result = await changeDealStage(dealId, stageId);
+      const result = await changeDealStage(dealId, stageId, pipeline.id);
       if (!result.ok) {
         setError(result.error ?? "Could not move deal.");
         setColumns(initialStages);
@@ -137,6 +143,22 @@ export default function PipelineBoard({
         </div>
         <div className="flex items-center gap-2">
           {isPending && <span className="text-xs text-zinc-400">Saving…</span>}
+          {pipelines.length > 1 && (
+            <select
+              aria-label="Pipeline"
+              value={pipeline.id}
+              onChange={(event) => {
+                router.push(`/admin/crm/pipeline?pipeline=${event.target.value}`);
+              }}
+              className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700"
+            >
+              {pipelines.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
+                </option>
+              ))}
+            </select>
+          )}
           <Link
             href="/admin/crm/deals/new"
             className="rounded-lg bg-zinc-900 px-4 py-1.5 text-sm text-white hover:bg-zinc-700"

@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma, TENANT_ID } from "@/modules/shared";
+import { dealAccessWhere, leadAccessWhere, type CrmAccess } from "@/modules/crm/access";
 import type { ReportConfig } from "./report-config";
 import { aggregateReportPoints, type ReportPoint } from "./report-data";
 
@@ -43,7 +44,7 @@ function dealMetric(row: DealRow, metric: ReportConfig["metric"]): number {
   return value * (probability / 100);
 }
 
-export async function runReport(config: ReportConfig): Promise<ReportResult> {
+export async function runReport(config: ReportConfig, access?: CrmAccess): Promise<ReportResult> {
   const users = await prisma.user.findMany({
     where: { tenantId: TENANT_ID },
     select: { id: true, firstName: true, lastName: true, email: true },
@@ -60,7 +61,7 @@ export async function runReport(config: ReportConfig): Promise<ReportResult> {
 
   if (config.dataset === "leadsBySource") {
     const leads: LeadRow[] = await prisma.lead.findMany({
-      where: { tenantId: TENANT_ID },
+      where: { tenantId: TENANT_ID, ...leadAccessWhere(access) },
       select: { status: true, intake: true, createdAt: true },
       orderBy: { createdAt: "desc" },
       take: 5000,
@@ -71,7 +72,7 @@ export async function runReport(config: ReportConfig): Promise<ReportResult> {
     }));
   } else {
     const deals: DealRow[] = await prisma.deal.findMany({
-      where: { tenantId: TENANT_ID },
+      where: { tenantId: TENANT_ID, ...dealAccessWhere(access) },
       select: {
         value: true,
         probability: true,

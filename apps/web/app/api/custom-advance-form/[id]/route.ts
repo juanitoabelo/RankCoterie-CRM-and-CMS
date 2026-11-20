@@ -3,8 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma, TENANT_ID } from "@/modules/shared";
 import { rateLimit } from "@/lib/rate-limit";
 import { sendEmail } from "@/lib/email/send";
-import { applyLeadAutomation } from "@/modules/crm/automation";
-import { leadDedupeWhere, normalizeLeadCapture } from "@/modules/leads/capture-helpers";
+import { captureLead } from "@/modules/leads/capture";
 import {
   escapeHtml,
   normalizeCustomFormFields,
@@ -90,97 +89,36 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   const settings = normalizeCustomFormSettings(form.settings);
   const values = validated.data;
 
-  let createdLeadId: string | null = null;
-  const submission = await prisma.$transaction(async (tx) => {
-    let leadId: string | null = null;
-    if (settings.createLead) {
-      const readMappedValue = (key?: string) => key ? String(values[key] ?? "").trim() : "";
-      const email = readMappedValue(settings.leadFields.email).toLowerCase();
-      const firstName = readMappedValue(settings.leadFields.firstName);
-      const lastName = readMappedValue(settings.leadFields.lastName);
-      const phone = readMappedValue(settings.leadFields.phone);
-      const message = readMappedValue(settings.leadFields.message);
-      const normalized = normalizeLeadCapture({
-        tenantId: TENANT_ID,
-        firstName,
-        lastName,
-        email,
-        phone,
-        message,
-        source: "custom-form",
-        formId: form.id,
-        dedupeMode: settings.dedupeMode,
-        assignedToId: settings.assignToUserId || null,
-      });
-      const dedupeWhere = leadDedupeWhere(normalized);
-      const existing = dedupeWhere
-        ? await tx.lead.findFirst({
-          where: dedupeWhere as Prisma.LeadWhereInput,
-          orderBy: { createdAt: "desc" },
-        })
-        : null;
-      const existingIntake = existing?.intake && typeof existing.intake === "object" && !Array.isArray(existing.intake)
-        ? existing.intake as Record<string, Prisma.JsonValue>
-        : {};
-      const intake = {
-        ...existingIntake,
-        source: "custom-form",
-        customFormId: form.id,
+  let leadId: string | null = null;
+  if (settings.createLead) {
+    const readMappedValue = (key?: string) => key ? String(values[key] ?? "").trim() : "";
+    const captured = await captureLead({
+      tenantId: TENANT_ID,
+      firstName: readMappedValue(settings.leadFields.firstName),
+      lastName: readMappedValue(settings.leadFields.lastName),
+      email: readMappedValue(settings.leadFields.email).toLowerCase(),
+      phone: readMappedValue(settings.leadFields.phone),
+      message: readMappedValue(settings.leadFields.message),
+      source: "custom-form",
+      formId: form.id,
+      dedupeMode: settings.dedupeMode,
+      assignedToId: settings.assignToUserId || null,
+      intakeExtras: {
         customFormName: form.name,
         customFormData: values,
-      } as Prisma.InputJsonValue;
-      const lead = existing
-        ? await tx.lead.update({
-          where: { id: existing.id },
-          data: {
-            firstName: firstName || existing.firstName,
-            lastName: lastName || existing.lastName,
-            phones: phone ? [{ number: phone, kind: "unknown" }] : existing.phones as Prisma.InputJsonValue,
-            intake,
-            ...(settings.assignToUserId ? { assignedToId: settings.assignToUserId } : {}),
-          },
-        })
-        : await tx.lead.create({
-          data: {
-            tenantId: TENANT_ID,
-            firstName: firstName || null,
-            lastName: lastName || null,
-            email: email || null,
-            phones: phone ? [{ number: phone, kind: "unknown" }] : [],
-            status: "NEW",
-            disposition: "NEW_INQUIRY",
-            initialDisposition: "NEW_INQUIRY",
-            statusDate: new Date(),
-            assignedToId: settings.assignToUserId || null,
-            intake,
-          },
-        });
-      leadId = lead.id;
-      createdLeadId = lead.id;
-      if (message) {
-        await tx.leadNote.create({
-          data: { leadId: lead.id, note: `Custom form "${form.name}": ${message}` },
-        });
-      }
-    }
-
-    return tx.customFormSubmission.create({
-      data: {
-        tenantId: TENANT_ID,
-        formId: form.id,
-        data: values as Prisma.InputJsonValue,
-        leadId,
       },
     });
-  });
-
-  if (createdLeadId) {
-    await applyLeadAutomation(createdLeadId, {
-      autoAssign: !settings.assignToUserId,
-    }).catch((e) => {
-      console.error("Lead automation failed:", e);
-    });
+    leadId = captured.lead.id;
   }
+
+  const submission = await prisma.customFormSubmission.create({
+    data: {
+      tenantId: TENANT_ID,
+      formId: form.id,
+      data: values as Prisma.InputJsonValue,
+      leadId,
+    },
+  });
 
   const errors: string[] = [];
   const notifyBody = renderTemplate(settings.body, values, form.name, fields);

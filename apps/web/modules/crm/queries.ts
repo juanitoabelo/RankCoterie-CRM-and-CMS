@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma, TENANT_ID } from "@/modules/shared";
 import { getCrmStages } from "./stages";
+import { getCrmPipelines } from "./pipelines";
 import { getCrmSettings } from "./settings";
 import { getCrmTimeline, type CrmActivityItem } from "./activity";
 import {
@@ -106,14 +107,23 @@ export async function getCrmStagesWithCounts(access?: CrmAccess) {
 
 export async function getCrmPipeline(
   access?: CrmAccess,
-  options: { perStageLimit?: number } = {},
+  options: { perStageLimit?: number; pipelineId?: string } = {},
 ): Promise<{
   stages: CrmPipelineStage[];
   settings: Awaited<ReturnType<typeof getCrmSettings>>;
+  pipeline: { id: string; name: string; key: string; isDefault: boolean };
+  pipelines: Array<{ id: string; name: string; key: string; isDefault: boolean }>;
 }> {
   const perStageLimit = Math.max(1, Math.min(500, options.perStageLimit ?? 100));
+  const allPipelines = await getCrmPipelines();
+  const selectedPipeline =
+    (options.pipelineId ? allPipelines.find((item) => item.id === options.pipelineId) : null) ??
+    allPipelines.find((item) => item.isDefault) ??
+    allPipelines[0];
+  if (!selectedPipeline) throw new Error("No CRM pipeline is available.");
+
   const [stages, users, settings] = await Promise.all([
-    getCrmStages(),
+    getCrmStages(selectedPipeline.id),
     getCrmUsers(),
     getCrmSettings(),
   ]);
@@ -121,7 +131,12 @@ export async function getCrmPipeline(
   const stageDeals = await Promise.all(
     stages.map((stage) =>
       prisma.deal.findMany({
-        where: { tenantId: TENANT_ID, stageId: stage.id, ...dealAccessWhere(access) },
+        where: {
+          tenantId: TENANT_ID,
+          pipelineId: selectedPipeline.id,
+          stageId: stage.id,
+          ...dealAccessWhere(access),
+        },
         include: {
           stage: true,
           tasks: {
@@ -140,6 +155,7 @@ export async function getCrmPipeline(
     by: ["stageId"],
     where: {
       tenantId: TENANT_ID,
+      pipelineId: selectedPipeline.id,
       stageId: { in: stages.map((stage) => stage.id) },
       ...dealAccessWhere(access),
     },
@@ -187,6 +203,18 @@ export async function getCrmPipeline(
 
   return {
     settings,
+    pipeline: {
+      id: selectedPipeline.id,
+      name: selectedPipeline.name,
+      key: selectedPipeline.key,
+      isDefault: selectedPipeline.isDefault,
+    },
+    pipelines: allPipelines.map((item) => ({
+      id: item.id,
+      name: item.name,
+      key: item.key,
+      isDefault: item.isDefault,
+    })),
     stages: stages.map((stage) => {
       const stageCards = byStage.get(stage.id) ?? [];
       const totalCount = countByStage.get(stage.id)?._count._all ?? stageCards.length;

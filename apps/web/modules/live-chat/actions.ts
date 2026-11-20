@@ -3,13 +3,13 @@
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireSection } from "@/modules/auth";
 import { logAudit } from "@/lib/audit";
+import { requireCrmAdmin } from "@/modules/crm/access";
 import { prisma, TENANT_ID } from "@/modules/shared";
 import { normalizeLiveChatSettings, validateLiveChatSettings } from "./settings-helpers";
 
 export async function saveLiveChatSettings(formData: FormData): Promise<void> {
-  const actor = await requireSection("crm");
+  const { user: actor } = await requireCrmAdmin();
   const settings = normalizeLiveChatSettings({
     enabled: formData.get("enabled") === "on",
     title: String(formData.get("title") ?? ""),

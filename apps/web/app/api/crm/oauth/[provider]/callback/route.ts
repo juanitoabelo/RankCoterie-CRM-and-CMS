@@ -18,7 +18,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function settingsRedirect(request: Request, key: "ok" | "error", message: string) {
-  const url = new URL("/admin/crm/settings", request.url);
+  const url = new URL("/admin/crm/settings/integrations", request.url);
   url.searchParams.set(key, message);
   return NextResponse.redirect(url);
 }
@@ -60,11 +60,11 @@ export async function GET(
   ) {
     return settingsRedirect(request, "error", "Sign in again before connecting a mailbox.");
   }
-  if (!oauthProviderConfigured(provider)) {
+  if (!(await oauthProviderConfigured(provider))) {
     return settingsRedirect(
       request,
       "error",
-      `Missing OAuth configuration: ${oauthMissingEnv(provider).join(", ")}.`,
+      `Missing OAuth configuration: ${(await oauthMissingEnv(provider)).join(", ")}.`,
     );
   }
 
@@ -72,7 +72,7 @@ export async function GET(
     const tokens = await exchangeOAuthCode(
       provider,
       code,
-      oauthRedirectUri(provider, request.url),
+      await oauthRedirectUri(provider, request.url),
     );
     const profile = await fetchOAuthProfile(provider, tokens.accessToken);
     const existing = await prisma.crmEmailConnection.findUnique({

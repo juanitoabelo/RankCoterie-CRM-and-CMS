@@ -3,7 +3,18 @@
 import { useState } from "react";
 import type { LiveChatSettings } from "@/modules/live-chat/settings-helpers";
 
-export default function LiveChatWidget({ settings }: { settings: LiveChatSettings }) {
+type Grecaptcha = {
+  ready: (callback: () => void) => void;
+  execute: (siteKey: string, options: { action: string }) => Promise<string>;
+};
+
+export default function LiveChatWidget({
+  settings,
+  recaptchaSiteKey = "",
+}: {
+  settings: LiveChatSettings;
+  recaptchaSiteKey?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -14,15 +25,30 @@ export default function LiveChatWidget({ settings }: { settings: LiveChatSetting
 
   const positionClass = settings.position === "bottom-left" ? "left-4" : "right-4";
 
+  async function getRecaptchaToken(): Promise<string> {
+    if (!recaptchaSiteKey || typeof window === "undefined") return "";
+    const grecaptcha = (window as Window & { grecaptcha?: Grecaptcha }).grecaptcha;
+    if (!grecaptcha) return "";
+    return new Promise((resolve) => {
+      grecaptcha.ready(() => {
+        grecaptcha
+          .execute(recaptchaSiteKey, { action: "live_chat" })
+          .then(resolve)
+          .catch(() => resolve(""));
+      });
+    });
+  }
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("sending");
     setError("");
     try {
+      const recaptchaToken = await getRecaptchaToken();
       const response = await fetch("/api/live-chat/contact", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name, email, message, website }),
+        body: JSON.stringify({ name, email, message, website, recaptchaToken }),
       });
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Could not send your message.");

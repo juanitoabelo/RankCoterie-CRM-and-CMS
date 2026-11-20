@@ -1,4 +1,5 @@
 import { del, get, put } from "@vercel/blob";
+import { resolveCrmIntegrationSecret } from "@/modules/crm/integration-settings";
 
 export type CrmStorageProvider = "vercel-blob";
 
@@ -7,12 +8,13 @@ export type StoredCrmFile = {
   key: string;
 };
 
-export function isObjectStorageConfigured(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+export async function isObjectStorageConfigured(): Promise<boolean> {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN || (await resolveCrmIntegrationSecret("blobToken")));
 }
 
-function token(): string {
-  const value = process.env.BLOB_READ_WRITE_TOKEN;
+async function token(): Promise<string> {
+  const value =
+    process.env.BLOB_READ_WRITE_TOKEN || (await resolveCrmIntegrationSecret("blobToken"));
   if (!value) throw new Error("BLOB_READ_WRITE_TOKEN is not configured.");
   return value;
 }
@@ -33,18 +35,18 @@ export async function storeCrmFile(file: File): Promise<StoredCrmFile> {
     access: "private",
     addRandomSuffix: true,
     contentType: file.type || "application/octet-stream",
-    token: token(),
+    token: await token(),
   });
   return { provider: "vercel-blob", key: blob.url };
 }
 
 /** Fetch a private object; the caller streams it to the authenticated user. */
 export async function readCrmFile(key: string) {
-  return get(key, { access: "private", token: token() });
+  return get(key, { access: "private", token: await token() });
 }
 
 /** Best-effort delete after the database row is removed. */
 export async function deleteCrmFile(provider: string | null, key: string | null): Promise<void> {
   if (provider !== "vercel-blob" || !key) return;
-  await del(key, { token: token() });
+  await del(key, { token: await token() });
 }

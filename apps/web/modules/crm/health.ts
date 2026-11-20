@@ -200,8 +200,9 @@ export async function getCrmHealth(): Promise<CrmHealth> {
     }),
   ]);
 
+  const objectStorageConfigured = await isObjectStorageConfigured();
   const warnings: string[] = [];
-  if (!isObjectStorageConfigured()) {
+  if (!objectStorageConfigured) {
     warnings.push("BLOB_READ_WRITE_TOKEN is not set; new attachments are stored in Postgres.");
   }
   if (!tokenEncryptionConfigured()) {
@@ -216,8 +217,9 @@ export async function getCrmHealth(): Promise<CrmHealth> {
   if (!process.env.CRM_ALERT_WEBHOOK_URL) {
     warnings.push("CRM_ALERT_WEBHOOK_URL is not set; failures only appear in logs.");
   }
-  for (const provider of OAUTH_PROVIDERS) {
-    if (!oauthProviderConfigured(provider)) warnings.push(`${provider} OAuth is not configured.`);
+  const oauthConfigured = await Promise.all(OAUTH_PROVIDERS.map(oauthProviderConfigured));
+  for (const [index, provider] of OAUTH_PROVIDERS.entries()) {
+    if (!oauthConfigured[index]) warnings.push(`${provider} OAuth is not configured.`);
   }
 
   const checkedAt = new Date();
@@ -234,13 +236,13 @@ export async function getCrmHealth(): Promise<CrmHealth> {
       mailConnections,
     },
     config: {
-      attachmentStorage: isObjectStorageConfigured() ? "vercel-blob" : "database",
+      attachmentStorage: objectStorageConfigured ? "vercel-blob" : "database",
       tokenEncryption: tokenEncryptionConfigured(),
       reminderAuth: Boolean(process.env.CRM_REMINDER_SECRET || process.env.CRON_SECRET),
       syncAuth: Boolean(process.env.CRM_SYNC_SECRET || process.env.CRON_SECRET),
       cronSecret: Boolean(process.env.CRON_SECRET),
-      googleOAuth: oauthProviderConfigured("google"),
-      microsoftOAuth: oauthProviderConfigured("microsoft"),
+      googleOAuth: oauthConfigured[0] ?? false,
+      microsoftOAuth: oauthConfigured[1] ?? false,
       ownedRecordsOnly: settings.restrictSalesRepsToOwned,
     },
     lastSyncAt: lastSync?.lastSyncAt ?? null,

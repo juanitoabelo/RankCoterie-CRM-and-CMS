@@ -14,7 +14,7 @@ import {
 } from "./constants";
 import { getCrmStages, getDefaultCrmStage } from "./stages";
 import { ensureCrmPipelines } from "./pipelines";
-import { normalizeDealTemplateDefaults } from "./deal-template-helpers";
+import { mergeDealTemplateDefaults, normalizeDealTemplateDefaults } from "./deal-template-helpers";
 import { saveCrmSettings } from "./settings";
 import { recalculateLeadScores, updateLeadScore } from "./scoring";
 import {
@@ -136,9 +136,14 @@ function revalidateEntity(entity: {
   if (entity.clientId) revalidatePath(`/admin/clients/${entity.clientId}`);
 }
 
-async function validateStage(stageId: string) {
+async function validateStage(stageId: string, pipelineId?: string) {
   const stage = await prisma.crmStage.findFirst({
-    where: { id: stageId, tenantId: TENANT_ID, active: true },
+    where: {
+      id: stageId,
+      tenantId: TENANT_ID,
+      active: true,
+      ...(pipelineId ? { pipelineId } : {}),
+    },
   });
   return stage;
 }
@@ -200,45 +205,90 @@ export async function createDeal(input: {
   notes?: string;
 }): Promise<CrmActionResult> {
   const { user, access } = await crmActor();
-  const title = input.title.trim();
-  if (!title) return { ok: false, error: "Deal title is required." };
+  const templateId = input.templateId?.trim() || null;
+  const template = templateId
+    ? await prisma.crmDealTemplate.findFirst({
+      where: { id: templateId, tenantId: TENANT_ID, active: true },
+      select: { id: true, defaults: true },
+    })
+    : null;
+  if (templateId && !template) return { ok: false, error: "Deal template not found." };
+  const templateDefaults = template ? normalizeDealTemplateDefaults(template.defaults) : null;
 
-  const value = parseMoney(input.value ?? "0");
-  if (value === null) return { ok: false, error: "Deal value must be a positive number." };
-  const probability = parseOptionalInt(input.probability ?? "");
-  if (probability === "invalid") {
+  const rawValue = input.value?.trim() ?? "";
+  const parsedValue = rawValue ? parseMoney(rawValue) : null;
+  if (parsedValue === null) return { ok: false, error: "Deal value must be a positive number." };
+  const rawProbability = input.probability?.trim() ?? "";
+  const parsedProbability = rawProbability ? parseOptionalInt(rawProbability) : null;
+  if (parsedProbability === "invalid") {
     return { ok: false, error: "Probability must be a whole number between 0 and 100." };
   }
-  const expectedCloseDate = parseDate(input.expectedCloseDate ?? "");
-  if (expectedCloseDate === "invalid") return { ok: false, error: "Invalid expected close date." };
-
-  const stage = input.stageId?.trim()
-    ? await validateStage(input.stageId.trim())
-    : await getDefaultCrmStage();
-  if (!stage) return { ok: false, error: "No pipeline stage is available." };
-
-  const pipelineId = input.pipelineId?.trim() || stage.pipelineId || (await ensureCrmPipelines()).id;
-  const templateId = input.templateId?.trim() || null;
-  if (templateId) {
-    const template = await prisma.crmDealTemplate.findFirst({
-      where: { id: templateId, tenantId: TENANT_ID, active: true },
-      select: { id: true },
-    });
-    if (!template) return { ok: false, error: "Deal template not found." };
+  const parsedExpectedCloseDate = parseDate(input.expectedCloseDate ?? "");
+  if (parsedExpectedCloseDate === "invalid") {
+    return { ok: false, error: "Invalid expected close date." };
   }
 
-  const lineItems = (() => {
-    const raw = input.lineItemsJson?.trim();
-    if (!raw) return [];
+  const rawLineItemsJson = input.lineItemsJson?.trim();
+  const parsedLineItems = (() => {
+    if (!rawLineItemsJson) return undefined;
     try {
-      const parsed: unknown = JSON.parse(raw);
+      const parsed: unknown = JSON.parse(rawLineItemsJson);
       if (!Array.isArray(parsed)) return "invalid" as const;
       return normalizeDealTemplateDefaults({ lineItems: parsed }).lineItems;
     } catch {
       return "invalid" as const;
     }
   })();
-  if (lineItems === "invalid") return { ok: false, error: "Template line items are invalid." };
+  if (parsedLineItems === "invalid") {
+    return { ok: false, error: "Template line items are invalid." };
+  }
+
+  const merged = templateDefaults
+    ? mergeDealTemplateDefaults(templateDefaults, {
+      title: input.title?.trim() || "",
+      value: rawValue ? parsedValue : undefined,
+      currency: input.currency?.trim() || "",
+      probability: rawProbability ? parsedProbability : undefined,
+      expectedCloseDate: input.expectedCloseDate?.trim() || "",
+      source: input.source?.trim() || "",
+      companyName: input.companyName?.trim() || "",
+      contactName: input.contactName?.trim() || "",
+      contactEmail: input.contactEmail?.trim() || "",
+      contactPhone: input.contactPhone?.trim() || "",
+      notes: input.notes?.trim() || "",
+      lineItems: parsedLineItems,
+    })
+    : null;
+
+  const title = merged?.title || input.title?.trim() || "";
+  if (!title) return { ok: false, error: "Deal title is required." };
+  const value = merged?.value ?? parsedValue ?? 0;
+  const probability = merged?.probability ?? (rawProbability ? parsedProbability : null);
+  const expectedCloseDate = merged?.expectedCloseDate
+    ? parseDate(merged.expectedCloseDate)
+    : parsedExpectedCloseDate;
+  if (expectedCloseDate === "invalid") return { ok: false, error: "Invalid expected close date." };
+  const lineItems = merged?.lineItems ?? [];
+
+  const requestedPipelineId = input.pipelineId?.trim() || null;
+  const explicitStageId = input.stageId?.trim();
+  let stage = explicitStageId
+    ? await validateStage(explicitStageId, requestedPipelineId ?? undefined)
+    : null;
+  if (explicitStageId && !stage) return { ok: false, error: "Pipeline stage not found." };
+  if (!stage && templateDefaults?.stageKey) {
+    const candidates = await getCrmStages(requestedPipelineId ?? undefined);
+    stage = candidates.find(
+      (candidate) => candidate.key.toLowerCase() === templateDefaults?.stageKey.toLowerCase(),
+    ) ?? null;
+  }
+  stage ??= await getDefaultCrmStage(requestedPipelineId ?? undefined);
+  if (!stage) return { ok: false, error: "No pipeline stage is available." };
+
+  const pipelineId = requestedPipelineId || stage.pipelineId || (await ensureCrmPipelines()).id;
+  if (stage.pipelineId !== pipelineId) {
+    return { ok: false, error: "That stage belongs to a different pipeline." };
+  }
 
   let ownerId = input.ownerId?.trim() || null;
   if (!access.isAdmin) {
@@ -259,21 +309,21 @@ export async function createDeal(input: {
         tenantId: TENANT_ID,
         title,
         value: new Prisma.Decimal(value.toFixed(2)),
-        currency: input.currency?.trim().toUpperCase().slice(0, 3) || "USD",
+        currency: merged?.currency || input.currency?.trim().toUpperCase().slice(0, 3) || "USD",
         stageId: stage.id,
         pipelineId,
         templateId,
         probability,
         expectedCloseDate,
-        source: input.source?.trim() || null,
+        source: merged?.source || input.source?.trim() || null,
         ownerId,
         leadId,
         clientId,
-        companyName: input.companyName?.trim() || null,
-        contactName: input.contactName?.trim() || null,
-        contactEmail: input.contactEmail?.trim() || null,
-        contactPhone: input.contactPhone?.trim() || null,
-        notes: input.notes?.trim() || null,
+        companyName: merged?.companyName || input.companyName?.trim() || null,
+        contactName: merged?.contactName || input.contactName?.trim() || null,
+        contactEmail: merged?.contactEmail || input.contactEmail?.trim() || null,
+        contactPhone: merged?.contactPhone || input.contactPhone?.trim() || null,
+        notes: merged?.notes || input.notes?.trim() || null,
         lastActivityAt: new Date(),
       },
     });
@@ -342,6 +392,7 @@ export async function updateDeal(
     value?: string;
     currency?: string;
     stageId?: string;
+    pipelineId?: string;
     probability?: string;
     expectedCloseDate?: string;
     source?: string;
@@ -398,10 +449,14 @@ export async function updateDeal(
 
   let nextStage = deal.stage;
   if (input.stageId !== undefined) {
-    const stage = await validateStage(input.stageId);
+    const requestedPipelineId = input.pipelineId?.trim() || undefined;
+    const stage = await validateStage(input.stageId, requestedPipelineId);
     if (!stage) return { ok: false, error: "Pipeline stage not found." };
     nextStage = stage;
     data.stage = { connect: { id: stage.id } };
+    data.pipeline = stage.pipelineId
+      ? { connect: { id: stage.pipelineId } }
+      : { disconnect: true };
   }
   if (input.ownerId !== undefined) {
     const ownerId = input.ownerId.trim() || null;
@@ -500,8 +555,9 @@ export async function updateDeal(
 export async function changeDealStage(
   dealId: string,
   stageId: string,
+  pipelineId?: string,
 ): Promise<CrmActionResult> {
-  return updateDeal(dealId, { stageId });
+  return updateDeal(dealId, { stageId, pipelineId });
 }
 
 export async function deleteDeal(dealId: string): Promise<CrmActionResult> {
@@ -776,6 +832,7 @@ export async function createDealFromLead(leadId: string): Promise<CrmActionResul
         tenantId: TENANT_ID,
         title: name,
         stageId: stage.id,
+        pipelineId: stage.pipelineId,
         value: new Prisma.Decimal(0),
         ownerId: access.isAdmin ? lead.assignedToId : access.userId,
         leadId: lead.id,
@@ -843,6 +900,7 @@ export async function createDealFromClient(clientId: string): Promise<CrmActionR
         tenantId: TENANT_ID,
         title: name,
         stageId: stage.id,
+        pipelineId: stage.pipelineId,
         value: new Prisma.Decimal(0),
         ownerId: access.isAdmin ? client.assignedToId : access.userId,
         clientId: client.id,
@@ -1417,6 +1475,7 @@ export async function bulkDealAction(input: {
           where: { id: deal.id },
           data: {
             stageId: stage.id,
+            pipelineId: stage.pipelineId,
             ...(stageChanged
               ? {
                   stageChangedAt: now,

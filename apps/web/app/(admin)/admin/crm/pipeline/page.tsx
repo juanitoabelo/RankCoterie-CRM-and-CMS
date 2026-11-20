@@ -11,16 +11,21 @@ export const metadata = { title: "CRM Pipeline | Admin" };
 export default async function CrmPipelinePage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; ok?: string }>;
+  searchParams: Promise<{ error?: string; ok?: string; pipeline?: string }>;
 }) {
   const user = await requireSection("crm");
   const access = await getCrmAccessForUser(user);
-  const { error, ok } = await searchParams;
-  const { stages, settings } = await getCrmPipeline(access);
+  const { error, ok, pipeline: pipelineId } = await searchParams;
+  const { stages, settings, pipeline, pipelines } = await getCrmPipeline(access, { pipelineId });
   return (
     <div>
       <FlashBanner error={error} ok={ok} />
-      <PipelineBoard initialStages={stages} staleDays={settings.staleDealDays} />
+      <PipelineBoard
+        initialStages={stages}
+        staleDays={settings.staleDealDays}
+        pipeline={pipeline}
+        pipelines={pipelines}
+      />
     </div>
   );
 }

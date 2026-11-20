@@ -23,8 +23,29 @@ function intakeFor(input: ReturnType<typeof normalizeLeadCapture>): Record<strin
     ...(input.subject ? { subject: input.subject } : {}),
     ...(input.message ? { lastMessage: input.message } : {}),
     ...(input.formId ? { customFormId: input.formId } : {}),
+    ...(input.submissionId ? { submissionId: input.submissionId } : {}),
     ...(input.listingId ? { landingPageId: input.listingId } : {}),
+    dedupeEmails: input.email ? [input.email] : [],
+    dedupePhones: input.phoneDigits ? [input.phoneDigits] : [],
+    ...input.intakeExtras,
   };
+}
+
+function mergeDedupeIntake(
+  previous: Record<string, Prisma.JsonValue>,
+  next: Record<string, Prisma.InputJsonValue>,
+): Record<string, Prisma.InputJsonValue> {
+  const merged = { ...previous } as Record<string, Prisma.InputJsonValue>;
+  for (const key of ["dedupeEmails", "dedupePhones"] as const) {
+    const values = [previous[key], next[key]].flatMap((value): string[] => {
+      if (!Array.isArray(value)) return [];
+      return value.filter((entry): entry is string => typeof entry === "string" && Boolean(entry));
+    });
+    merged[key] = Array.from(new Set(values)).slice(0, 20);
+  }
+  return { ...merged, ...next, ...Object.fromEntries(
+    ["dedupeEmails", "dedupePhones"].map((key) => [key, merged[key]]),
+  ) };
 }
 
 export async function captureLead(input: LeadCaptureInput): Promise<CaptureLeadResult> {
@@ -51,7 +72,7 @@ export async function captureLead(input: LeadCaptureInput): Promise<CaptureLeadR
     const previousIntake = existing?.intake && typeof existing.intake === "object" && !Array.isArray(existing.intake)
       ? existing.intake as Record<string, Prisma.JsonValue>
       : existingIntake;
-    const intake = { ...previousIntake, ...intakeFor(normalized) } as Prisma.InputJsonValue;
+    const intake = mergeDedupeIntake(previousIntake, intakeFor(normalized)) as Prisma.InputJsonValue;
 
     const lead = existing
       ? await tx.lead.update({

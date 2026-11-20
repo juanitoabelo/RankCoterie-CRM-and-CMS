@@ -129,6 +129,7 @@ export async function importHubspotCsv(type: string, csv: string): Promise<Hubsp
           value: new Prisma.Decimal(row.value.toFixed(2)),
           currency: row.currency.toUpperCase().slice(0, 3) || "USD",
           stageId: stage.id,
+          pipelineId: stage.pipelineId,
           probability: stage.probability,
           expectedCloseDate: parseDate(row.expectedCloseDate),
           source: "HubSpot import",

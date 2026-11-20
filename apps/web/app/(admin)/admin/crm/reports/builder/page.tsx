@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireSection } from "@/modules/auth";
+import { getCrmAccessForUser } from "@/modules/crm/access";
 import { FlashBanner } from "@/components/admin/FlashBanner";
 import ReportChart from "@/components/admin/reports/ReportChart";
 import { reportDeleteForm, reportSaveForm } from "@/modules/reports/actions";
@@ -35,16 +36,18 @@ export default async function ReportBuilderPage({
     visualization?: string;
   }>;
 }) {
-  await requireSection("reports");
+  const user = await requireSection("crm");
+  const access = await getCrmAccessForUser(user);
+  const viewer = { userId: user.id, isAdmin: access.isAdmin };
   const params = await searchParams;
-  const saved = params.reportId ? await getSavedReport(params.reportId) : null;
+  const saved = params.reportId ? await getSavedReport(params.reportId, viewer) : null;
   const config: ReportConfig = saved?.config ?? normalizeReportConfig({
     dataset: params.dataset ?? DEFAULT_REPORT_CONFIG.dataset,
     metric: params.metric ?? DEFAULT_REPORT_CONFIG.metric,
     dimension: params.dimension ?? DEFAULT_REPORT_CONFIG.dimension,
     visualization: params.visualization ?? DEFAULT_REPORT_CONFIG.visualization,
   });
-  const [result, reports] = await Promise.all([runReport(config), listSavedReports()]);
+  const [result, reports] = await Promise.all([runReport(config, access), listSavedReports(viewer)]);
 
   return (
     <div className="space-y-6">
@@ -136,17 +139,20 @@ export default async function ReportBuilderPage({
                   <p className="font-medium text-zinc-900">{report.name}</p>
                   <p className="text-xs text-zinc-500">
                     {report.config.dataset} · {report.config.metric} by {report.config.dimension}
-                    {report.shared ? " · shared" : ""}
+                    {report.shared ? " · shared with CRM users" : " · private"}
+                    {access.isAdmin || report.ownerId === user.id ? "" : " · shared by another user"}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <Link href={`/admin/crm/reports/builder?reportId=${report.id}`} className="text-sm text-zinc-700 underline">
                     Open
                   </Link>
-                  <form action={reportDeleteForm}>
-                    <input type="hidden" name="reportId" value={report.id} />
-                    <button className="text-sm text-red-700 underline">Delete</button>
-                  </form>
+                  {access.isAdmin || report.ownerId === user.id ? (
+                    <form action={reportDeleteForm}>
+                      <input type="hidden" name="reportId" value={report.id} />
+                      <button className="text-sm text-red-700 underline">Delete</button>
+                    </form>
+                  ) : null}
                 </div>
               </div>
             ))}

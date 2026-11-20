@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireSection } from "@/modules/auth";
 import { logAudit } from "@/lib/audit";
+import { requireCrmAdmin } from "./access";
 import { createCrmPipeline, createCrmStage, setDefaultCrmPipeline } from "./pipelines";
 import { createDealTemplate, deleteDealTemplate } from "./deal-templates";
 
@@ -13,7 +13,7 @@ function back(path: string, key: "ok" | "error", message: string): never {
 }
 
 export async function crmPipelineCreateForm(formData: FormData): Promise<void> {
-  const actor = await requireSection("crm");
+  const { user: actor } = await requireCrmAdmin();
   const result = await createCrmPipeline(
     String(formData.get("name") ?? ""),
     String(formData.get("key") ?? ""),
@@ -29,7 +29,7 @@ export async function crmPipelineCreateForm(formData: FormData): Promise<void> {
 }
 
 export async function crmStageCreateForm(formData: FormData): Promise<void> {
-  const actor = await requireSection("crm");
+  const { user: actor } = await requireCrmAdmin();
   const result = await createCrmStage(
     String(formData.get("pipelineId") ?? ""),
     String(formData.get("label") ?? ""),
@@ -46,7 +46,7 @@ export async function crmStageCreateForm(formData: FormData): Promise<void> {
 }
 
 export async function crmPipelineDefaultForm(formData: FormData): Promise<void> {
-  const actor = await requireSection("crm");
+  const { user: actor } = await requireCrmAdmin();
   const result = await setDefaultCrmPipeline(String(formData.get("pipelineId") ?? ""));
   if (!result.ok) back("/admin/crm/pipelines", "error", result.error);
   await logAudit({
@@ -59,7 +59,7 @@ export async function crmPipelineDefaultForm(formData: FormData): Promise<void> 
 }
 
 export async function crmDealTemplateCreateForm(formData: FormData): Promise<void> {
-  const actor = await requireSection("crm");
+  const { user: actor } = await requireCrmAdmin();
   const result = await createDealTemplate(
     String(formData.get("name") ?? ""),
     String(formData.get("description") ?? ""),
@@ -76,7 +76,7 @@ export async function crmDealTemplateCreateForm(formData: FormData): Promise<voi
 }
 
 export async function crmDealTemplateDeleteForm(formData: FormData): Promise<void> {
-  const actor = await requireSection("crm");
+  const { user: actor } = await requireCrmAdmin();
   const id = String(formData.get("templateId") ?? "");
   const result = await deleteDealTemplate(id);
   if (!result.ok) back("/admin/crm/deal-templates", "error", result.error);

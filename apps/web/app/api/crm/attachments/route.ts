@@ -82,14 +82,14 @@ export async function POST(request: Request) {
     if (!client) return NextResponse.json({ error: "Client not found." }, { status: 404 });
   }
 
-  const storageProvider = isObjectStorageConfigured() ? "vercel-blob" : null;
+  const storageProvider = (await isObjectStorageConfigured()) ? "vercel-blob" : null;
   let stored: { provider: "vercel-blob"; key: string } | null = null;
-  let bytes: Buffer | null = null;
+  let bytes: Uint8Array<ArrayBuffer> | null = null;
   try {
     if (storageProvider) {
       stored = await storeCrmFile(file);
     } else {
-      bytes = Buffer.from(await file.arrayBuffer());
+      bytes = new Uint8Array(await file.arrayBuffer());
     }
 
     const attachmentBytes = bytes;

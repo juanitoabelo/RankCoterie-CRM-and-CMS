@@ -410,7 +410,9 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         excludedPaths={analyticsConfig.excludedPaths}
       />
       <ConsentBanner enabled={analyticsConfig.enabled && analyticsConfig.consentRequired} />
-      {liveChatSettings.enabled ? <LiveChatWidget settings={liveChatSettings} /> : null}
+      {liveChatSettings.enabled ? (
+        <LiveChatWidget settings={liveChatSettings} recaptchaSiteKey={recaptchaSiteKey} />
+      ) : null}
 
     </div>
   );

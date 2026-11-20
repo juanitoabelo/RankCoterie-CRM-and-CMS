@@ -1,5 +1,5 @@
 import { Prisma, Role } from "@prisma/client";
-import type { AdminUser } from "@/modules/auth";
+import { requireSection, type AdminUser } from "@/modules/auth";
 import { getCrmSettings } from "./settings";
 
 export type CrmAccess = {
@@ -13,6 +13,13 @@ export async function getCrmAccessForUser(user: AdminUser): Promise<CrmAccess> {
   if (isAdmin) return { userId: user.id, isAdmin: true, ownedOnly: false };
   const settings = await getCrmSettings();
   return { userId: user.id, isAdmin: false, ownedOnly: settings.restrictSalesRepsToOwned };
+}
+
+export async function requireCrmAdmin(): Promise<{ user: AdminUser; access: CrmAccess }> {
+  const user = await requireSection("crm");
+  const access = await getCrmAccessForUser(user);
+  if (!access.isAdmin) throw new Error("Only CRM admins can manage this setting.");
+  return { user, access };
 }
 
 export function dealAccessWhere(access?: CrmAccess): Prisma.DealWhereInput {

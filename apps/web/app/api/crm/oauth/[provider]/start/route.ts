@@ -18,7 +18,7 @@ export async function GET(
   { params }: { params: Promise<{ provider: string }> },
 ) {
   const { provider } = await params;
-  const settingsUrl = new URL("/admin/crm/settings", request.url);
+  const settingsUrl = new URL("/admin/crm/settings/integrations", request.url);
 
   if (!isOAuthProvider(provider)) {
     return NextResponse.json({ error: "Unknown mail provider." }, { status: 404 });
@@ -27,15 +27,15 @@ export async function GET(
   if (!user || !(await canAccessAnySectionForUser(user, ["crm"]))) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
-  if (!oauthProviderConfigured(provider)) {
+  if (!(await oauthProviderConfigured(provider))) {
     settingsUrl.searchParams.set(
       "error",
-      `Missing OAuth configuration: ${oauthMissingEnv(provider).join(", ")}.`,
+      `Missing OAuth configuration: ${(await oauthMissingEnv(provider)).join(", ")}.`,
     );
     return NextResponse.redirect(settingsUrl);
   }
 
-  const redirectUri = oauthRedirectUri(provider, request.url);
+  const redirectUri = await oauthRedirectUri(provider, request.url);
   const state = signOAuthState({ provider, userId: user.id });
   (await cookies()).set("crm_oauth_state", state, {
     httpOnly: true,
@@ -45,5 +45,5 @@ export async function GET(
     maxAge: 10 * 60,
   });
 
-  return NextResponse.redirect(oauthAuthorizationUrl(provider, redirectUri, state));
+  return NextResponse.redirect(await oauthAuthorizationUrl(provider, redirectUri, state));
 }
