@@ -574,14 +574,16 @@ async function recordBelongsToTenant(contentType: ContentType, recordId: string)
   }
 }
 
-export async function saveCustomFieldValues(
+async function persistCustomFieldValues(
+  client: Prisma.TransactionClient | typeof prisma,
   contentType: string,
   recordId: string,
   rawValues: string,
+  checkRecord: boolean,
 ): Promise<CustomFieldsActionResult> {
   if (!isContentType(contentType)) return { ok: false, error: "Unknown content type." };
   await requireSection(SECTION_BY_CONTENT_TYPE[contentType]);
-  if (!recordId || !(await recordBelongsToTenant(contentType, recordId))) {
+  if (checkRecord && (!recordId || !(await recordBelongsToTenant(contentType, recordId)))) {
     return { ok: false, error: "Content record not found." };
   }
   let submitted: Record<string, unknown>;
@@ -605,7 +607,6 @@ export async function saveCustomFieldValues(
   const validationError = validateFieldValues(definitions, submitted);
   if (validationError) return { ok: false, error: validationError };
 
-  // Persist only known top-level keys (skip layout-only / clone shells).
   const values: Record<string, unknown> = {};
   const knownKeys = new Set(
     definitions
@@ -617,7 +618,7 @@ export async function saveCustomFieldValues(
   }
 
   try {
-    await prisma.customFieldValue.upsert({
+    await client.customFieldValue.upsert({
       where: { tenantId_contentType_recordId: { tenantId: TENANT_ID, contentType, recordId } },
       create: { tenantId: TENANT_ID, contentType, recordId, values: values as Prisma.InputJsonValue },
       update: { values: values as Prisma.InputJsonValue },
@@ -626,6 +627,23 @@ export async function saveCustomFieldValues(
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Failed to save custom field values." };
   }
+}
+
+export async function saveCustomFieldValuesWithTx(
+  tx: Prisma.TransactionClient,
+  contentType: string,
+  recordId: string,
+  rawValues: string,
+): Promise<CustomFieldsActionResult> {
+  return persistCustomFieldValues(tx, contentType, recordId, rawValues, false);
+}
+
+export async function saveCustomFieldValues(
+  contentType: string,
+  recordId: string,
+  rawValues: string,
+): Promise<CustomFieldsActionResult> {
+  return persistCustomFieldValues(prisma, contentType, recordId, rawValues, true);
 }
 
 export async function getCustomPostTypeData(id: string) {

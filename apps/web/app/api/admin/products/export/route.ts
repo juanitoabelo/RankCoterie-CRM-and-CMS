@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/modules/shared";
+import { prisma } from "@/lib/directory/prismaCatalog";
+import { readIdList } from "@/modules/ecommerce/product-form";
+import { getEffectiveProductPrice } from "@/modules/ecommerce/pricing";
+import { logAudit } from "@/lib/audit";
 import { TENANT_ID } from "@/lib/tenant";
 import { getApiUser, canAccessSectionForUser } from "@/modules/auth";
+
+function escapeCsv(value: unknown): string {
+  const text = value == null ? "" : String(value);
+  return `"${text.replace(/\n/g, " ").replace(/"/g, '""')}"`;
+}
 
 export async function POST(request: NextRequest) {
   const user = await getApiUser();
@@ -10,59 +18,80 @@ export async function POST(request: NextRequest) {
   }
   try {
     const formData = await request.formData();
-    const ids = formData.getAll("ids") as string[];
-
+    const ids = readIdList(formData, "ids", "Products");
     const where = ids.length ? { id: { in: ids }, tenantId: TENANT_ID } : { tenantId: TENANT_ID };
 
-    const listings = await prisma.listing.findMany({
+    const products = await prisma.product.findMany({
       where,
       include: {
         categories: { include: { category: true } },
-        regions: true,
-        subscription: true,
+        tags: { include: { tag: true } },
       },
       orderBy: { createdAt: "desc" },
     });
 
     const headers = [
-      "ID", "Title", "Slug", "Tier", "Status", "Company Name", "Phone", "Email",
-      "Website", "Address", "City", "State", "Zip", "Summary", "Categories",
-      "Regions", "Tier", "Subscription Status", "Created At", "Updated At"
+      "ID",
+      "Name",
+      "Slug",
+      "SKU",
+      "Type",
+      "Status",
+      "Visibility",
+      "Featured",
+      "Regular Price",
+      "Sale Price",
+      "Effective Price",
+      "Stock Status",
+      "Stock Quantity",
+      "Categories",
+      "Tags",
+      "Short Description",
+      "Created At",
+      "Updated At",
     ];
 
-    const rows = listings.map((l) => [
-      l.id,
-      l.title,
-      l.slug,
-      l.tier,
-      l.status,
-      l.companyName || "",
-      l.phone || "",
-      l.email || "",
-      l.website || "",
-      l.address || "",
-      l.city || "",
-      l.state || "",
-      l.zip || "",
-      (l.summary || "").replace(/\n/g, " "),
-      l.categories.map((c) => c.category.title).join("; "),
-      l.regions.map((r) => r.regionId).join("; "),
-      l.tier,
-      l.subscription?.status || "NONE",
-      l.createdAt.toISOString(),
-      l.updatedAt.toISOString(),
-    ]);
+    const rows = products.map((product) => {
+      const price = getEffectiveProductPrice(product);
+      return [
+        product.id,
+        product.name,
+        product.slug,
+        product.sku,
+        product.type,
+        product.status,
+        product.visibility,
+        product.featured ? "yes" : "no",
+        product.regularPrice.toFixed(2),
+        product.salePrice?.toFixed(2) ?? "",
+        price.price.toFixed(2),
+        product.stockStatus,
+        product.stockQuantity ?? "",
+        product.categories.map((link) => link.category.name).join("; "),
+        product.tags.map((link) => link.tag.name).join("; "),
+        (product.shortDescription ?? "").replace(/\n/g, " "),
+        product.createdAt.toISOString(),
+        product.updatedAt.toISOString(),
+      ];
+    });
 
-    const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))].join("\n");
+    const csv = [headers.join(","), ...rows.map((row) => row.map(escapeCsv).join(","))].join("\n");
+
+    await logAudit({
+      action: "PRODUCT_EXPORT",
+      entity: "Product",
+      entityId: ids.join(",") || "all",
+      meta: { count: products.length },
+    });
 
     return new NextResponse(csv, {
       headers: {
         "Content-Type": "text/csv",
-        "Content-Disposition": `attachment; filename="listings-export-${new Date().toISOString().split("T")[0]}.csv"`,
+        "Content-Disposition": `attachment; filename="products-export-${new Date().toISOString().split("T")[0]}.csv"`,
       },
     });
   } catch (error) {
-    console.error("Export error:", error);
-    return NextResponse.json({ ok: false, error: "Export failed" }, { status: 500 });
+    console.error("Product export error:", error);
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Export failed" }, { status: 500 });
   }
 }

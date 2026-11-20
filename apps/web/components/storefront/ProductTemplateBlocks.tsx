@@ -5,9 +5,18 @@ import type { ComponentType, ElementType, ReactNode } from "react";
 import type { Block } from "@/lib/page-builder/types";
 import { sanitizeHtml } from "@/lib/style-guide";
 import type { RegionContext } from "@/lib/localization/render";
+import { formatMoney } from "@/modules/ecommerce/currency";
+import { getStockLabel } from "@/modules/ecommerce/product-display";
 import { BlockAdvancedFrame } from "@/components/admin/page-builder/advanced-ui";
 import ProductGallery from "./ProductGallery";
 import ProductPurchase from "./ProductPurchase";
+import ProductBadges from "./ProductBadges";
+import ProductBreadcrumbs from "./ProductBreadcrumbs";
+import ProductVariantSelector from "./ProductVariantSelector";
+import ProductTypePanel from "./ProductTypePanel";
+import ProductReviews from "./ProductReviews";
+import ProductRelations from "./ProductRelations";
+import StickyPurchaseBar from "./StickyPurchaseBar";
 import { useProductTemplateContext } from "./ProductTemplateContext";
 
 function ProductBlockSection({ block, children }: { block: Block; children: ReactNode }) {
@@ -46,20 +55,23 @@ function ProductPriceBlock({ block }: { block: Block }) {
   const context = useProductTemplateContext();
   if (!context) return null;
   const { product } = context;
-  const saleActive = product.salePrice !== null;
-  const amount = product.salePrice ?? product.regularPrice;
+  const regularPrice = context.selectedVariant?.regularPrice ?? product.regularPrice;
+  const content = (block.props as Record<string, unknown>).content;
   return (
     <ProductBlockSection block={block}>
-      <div className="flex items-baseline gap-3">
-        <span className="text-2xl font-semibold text-zinc-900">
-          ${amount.toFixed(2)}
-        </span>
-        {saleActive && (
-          <span className="text-lg text-zinc-400 line-through">
-            ${product.regularPrice.toFixed(2)}
-          </span>
-        )}
-      </div>
+      {typeof content === "string" && content.trim() ? (
+        <div
+          className="pdp-price"
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
+        />
+      ) : (
+        <div className="pdp-price-row">
+          <span className="pdp-price">{formatMoney(context.price)}</span>
+          {context.onSale && (
+            <span className="pdp-compare-price">{formatMoney(regularPrice)}</span>
+          )}
+        </div>
+      )}
     </ProductBlockSection>
   );
 }
@@ -69,7 +81,11 @@ function ProductGalleryBlock({ block }: { block: Block }) {
   if (!context) return null;
   return (
     <ProductBlockSection block={block}>
-      <ProductGallery images={context.product.images} productName={context.product.name} />
+      <ProductGallery
+        images={context.product.images}
+        productName={context.product.name}
+        activeAssetId={context.selectedVariant?.imageAssetId}
+      />
     </ProductBlockSection>
   );
 }
@@ -110,16 +126,16 @@ function ProductSkuBlock({ block }: { block: Block }) {
 function ProductStockBlock({ block }: { block: Block }) {
   const context = useProductTemplateContext();
   if (!context) return null;
-  const labels: Record<string, string> = {
-    IN_STOCK: "In stock",
-    LOW_STOCK: "Low stock",
-    OUT_OF_STOCK: "Out of stock",
-    ON_BACKORDER: "On backorder",
-  };
   return (
     <ProductBlockSection block={block}>
-      <p className="text-sm text-zinc-600">
-        {labels[context.product.stockStatus] ?? context.product.stockStatus}
+      <p className="pdp-stock-label">
+        {getStockLabel(
+          context.stockStatus,
+          context.manageStock,
+          context.stockQuantity,
+          context.backorders,
+          context.lowStockAmount,
+        )}
       </p>
     </ProductBlockSection>
   );
@@ -188,7 +204,9 @@ function ProductPurchaseBlock({ block }: { block: Block }) {
   }
   return (
     <ProductBlockSection block={block}>
-      <ProductPurchase productId={context.product.id} gateways={context.gateways} />
+      <div id="product-purchase">
+        <ProductPurchase productId={context.product.id} gateways={context.gateways} />
+      </div>
     </ProductBlockSection>
   );
 }
@@ -276,6 +294,60 @@ function ProductTabsBlock({ block }: { block: Block }) {
   );
 }
 
+function ProductBadgesBlock({ block }: { block: Block }) {
+  return (
+    <ProductBlockSection block={block}>
+      <ProductBadges />
+    </ProductBlockSection>
+  );
+}
+
+function ProductBreadcrumbsBlock({ block }: { block: Block }) {
+  return (
+    <ProductBlockSection block={block}>
+      <ProductBreadcrumbs />
+    </ProductBlockSection>
+  );
+}
+
+function ProductVariantSelectorBlock({ block }: { block: Block }) {
+  return (
+    <ProductBlockSection block={block}>
+      <ProductVariantSelector />
+    </ProductBlockSection>
+  );
+}
+
+function ProductTypePanelBlock({ block }: { block: Block }) {
+  const context = useProductTemplateContext();
+  if (!context) return null;
+  return (
+    <ProductBlockSection block={block}>
+      <ProductTypePanel />
+    </ProductBlockSection>
+  );
+}
+
+function ProductReviewsBlock({ block }: { block: Block }) {
+  return (
+    <ProductBlockSection block={block}>
+      <ProductReviews />
+    </ProductBlockSection>
+  );
+}
+
+function ProductRelationsBlock({ block }: { block: Block }) {
+  return (
+    <ProductBlockSection block={block}>
+      <ProductRelations />
+    </ProductBlockSection>
+  );
+}
+
+function StickyPurchaseBarBlock() {
+  return <StickyPurchaseBar />;
+}
+
 export const PRODUCT_TEMPLATE_BLOCK_RENDERERS: Record<
   string,
   ComponentType<{ block: Block; ctx: RegionContext }>
@@ -290,4 +362,11 @@ export const PRODUCT_TEMPLATE_BLOCK_RENDERERS: Record<
   productSpecifications: ProductSpecificationsBlock,
   productPurchase: ProductPurchaseBlock,
   productTabs: ProductTabsBlock,
+  productBadges: ProductBadgesBlock,
+  productBreadcrumbs: ProductBreadcrumbsBlock,
+  productVariantSelector: ProductVariantSelectorBlock,
+  productTypePanel: ProductTypePanelBlock,
+  productReviews: ProductReviewsBlock,
+  productRelations: ProductRelationsBlock,
+  stickyPurchaseBar: StickyPurchaseBarBlock,
 };

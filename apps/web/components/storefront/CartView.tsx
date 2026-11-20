@@ -22,6 +22,7 @@ type CartItem = {
   stockQuantity: number | null;
   backorders: string;
   lowStockAmount: number | null;
+  variantLowStockAmount?: number | null;
 };
 
 type CartResponse = {
@@ -185,7 +186,7 @@ export default function CartView({
                       <p className="mt-0.5 text-xs font-medium text-red-600">Out of stock</p>
                     );
                   }
-                  const threshold = item.lowStockAmount ?? 5;
+                  const threshold = item.variantLowStockAmount ?? item.lowStockAmount ?? 5;
                   if (left !== null && left <= threshold) {
                     return (
                       <p className="mt-0.5 text-xs font-medium text-amber-600">

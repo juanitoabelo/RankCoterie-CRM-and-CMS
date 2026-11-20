@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const findMany = vi.fn();
+const couponFindFirst = vi.fn();
 
 vi.mock("@/modules/shared", () => ({
-  prisma: { taxRate: { findMany: (...args: unknown[]) => findMany(...args) } },
+  prisma: {
+    taxRate: { findMany: (...args: unknown[]) => findMany(...args) },
+    coupon: { findFirst: (...args: unknown[]) => couponFindFirst(...args) },
+  },
   TENANT_ID: "tenant-test",
 }));
 
@@ -24,6 +28,7 @@ const noShipping = { enabled: false, flatRate: 0, freeOver: null };
 beforeEach(() => {
   vi.clearAllMocks();
   findMany.mockResolvedValue([{ state: null, rate: 10, priority: 0 }]); // country rate 10%
+  couponFindFirst.mockResolvedValue(null);
 });
 
 describe("quoteTotals — tax added on top (default)", () => {
@@ -82,6 +87,75 @@ describe("quoteTotals — tax included in prices", () => {
   });
 });
 
+describe("quoteTotals — coupons", () => {
+  it("subtracts a fixed-cart discount only once and taxes the discounted taxable base", async () => {
+    couponFindFirst.mockResolvedValue({
+      code: "SAVE40",
+      isActive: true,
+      startDate: null,
+      endDate: null,
+      usageLimit: null,
+      usedCount: 0,
+      minAmount: null,
+      type: "FIXED_CART",
+      amount: 40,
+      productIds: [],
+      excludedProductIds: [],
+      excludeSaleItems: false,
+      maxAmount: null,
+      freeShipping: false,
+    });
+
+    const totals = await quoteTotals({
+      lines: [
+        { productId: "p1", quantity: 1, unitPrice: 100 },
+        { productId: "p2", quantity: 1, unitPrice: 100, taxStatus: "NONE" },
+      ],
+      couponCode: "SAVE40",
+      country: "US",
+      shippingSettings: noShipping,
+      pricesIncludeTax: false,
+    });
+
+    expect(totals.subtotal).toBe(200);
+    expect(totals.taxableSubtotal).toBe(100);
+    expect(totals.discount).toBe(40);
+    expect(totals.tax).toBe(8);
+    expect(totals.total).toBe(168);
+  });
+
+  it("keeps inclusive totals at the discounted price", async () => {
+    couponFindFirst.mockResolvedValue({
+      code: "TEN",
+      isActive: true,
+      startDate: null,
+      endDate: null,
+      usageLimit: null,
+      usedCount: 0,
+      minAmount: null,
+      type: "PERCENT",
+      amount: 10,
+      productIds: [],
+      excludedProductIds: [],
+      excludeSaleItems: false,
+      maxAmount: null,
+      freeShipping: false,
+    });
+
+    const totals = await quoteTotals({
+      lines: [{ productId: "p1", quantity: 1, unitPrice: 110 }],
+      couponCode: "TEN",
+      country: "US",
+      shippingSettings: noShipping,
+      pricesIncludeTax: true,
+    });
+
+    expect(totals.discount).toBe(11);
+    expect(totals.tax).toBe(9);
+    expect(totals.total).toBe(99);
+  });
+});
+
 describe("quoteTotals — no tax rate", () => {
   it("returns zero tax when the region has no rate", async () => {
     findMany.mockResolvedValue([]);
@@ -93,5 +167,112 @@ describe("quoteTotals — no tax rate", () => {
     });
     expect(totals.tax).toBe(0);
     expect(totals.total).toBe(100);
+  });
+});
+
+
+describe("quoteTotals — product-targeted coupon tax math", () => {
+  it("does not under-tax taxable lines when a tax-exempt line is targeted by a fixed-product coupon", async () => {
+    couponFindFirst.mockResolvedValue({
+      code: "OFF50",
+      isActive: true,
+      startDate: null,
+      endDate: null,
+      usageLimit: null,
+      usedCount: 0,
+      minAmount: null,
+      type: "FIXED_PRODUCT",
+      amount: 50,
+      productIds: ["p_exempt"],
+      excludedProductIds: [],
+      excludeSaleItems: false,
+      maxAmount: null,
+      freeShipping: false,
+    });
+
+    const totals = await quoteTotals({
+      lines: [
+        { productId: "p_taxed", quantity: 1, unitPrice: 100 },
+        { productId: "p_exempt", quantity: 1, unitPrice: 100, taxStatus: "NONE" },
+      ],
+      couponCode: "OFF50",
+      country: "US",
+      shippingSettings: noShipping,
+      pricesIncludeTax: false,
+    });
+
+    expect(totals.subtotal).toBe(200);
+    expect(totals.discount).toBe(50);
+    expect(totals.tax).toBe(10);
+    expect(totals.total).toBe(160);
+  });
+
+  it("applies discount and tax correctly when a taxable line is targeted by a fixed-product coupon", async () => {
+    couponFindFirst.mockResolvedValue({
+      code: "OFF50",
+      isActive: true,
+      startDate: null,
+      endDate: null,
+      usageLimit: null,
+      usedCount: 0,
+      minAmount: null,
+      type: "FIXED_PRODUCT",
+      amount: 50,
+      productIds: ["p_taxed"],
+      excludedProductIds: [],
+      excludeSaleItems: false,
+      maxAmount: null,
+      freeShipping: false,
+    });
+
+    const totals = await quoteTotals({
+      lines: [
+        { productId: "p_taxed", quantity: 1, unitPrice: 100 },
+        { productId: "p_exempt", quantity: 1, unitPrice: 100, taxStatus: "NONE" },
+      ],
+      couponCode: "OFF50",
+      country: "US",
+      shippingSettings: noShipping,
+      pricesIncludeTax: false,
+    });
+
+    expect(totals.discount).toBe(50);
+    expect(totals.tax).toBe(5);
+    expect(totals.total).toBe(155);
+  });
+
+  it("does not discount a non-coupon-eligible signup fee line", async () => {
+    couponFindFirst.mockResolvedValue({
+      code: "TENOFF",
+      isActive: true,
+      startDate: null,
+      endDate: null,
+      usageLimit: null,
+      usedCount: 0,
+      minAmount: null,
+      type: "PERCENT",
+      amount: 10,
+      productIds: [],
+      excludedProductIds: [],
+      excludeSaleItems: false,
+      maxAmount: null,
+      freeShipping: false,
+    });
+
+    const totals = await quoteTotals({
+      lines: [
+        { productId: "p_sub", quantity: 1, unitPrice: 100 },
+        { productId: "p_sub", quantity: 1, unitPrice: 20, couponEligible: false },
+      ],
+      couponCode: "TENOFF",
+      country: "US",
+      shippingSettings: noShipping,
+      pricesIncludeTax: false,
+    });
+
+    expect(totals.subtotal).toBe(120);
+    expect(totals.discount).toBe(10);
+    expect(totals.tax).toBe(11);
+    expect(totals.total).toBe(121);
   });
 });

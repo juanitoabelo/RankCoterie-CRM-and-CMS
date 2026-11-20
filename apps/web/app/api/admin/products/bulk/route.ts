@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/modules/shared";
+import { prisma } from "@/lib/directory/prismaCatalog";
+import { parseProductBulkAction, readIdList } from "@/modules/ecommerce/product-form";
 import { logAudit } from "@/lib/audit";
 import { TENANT_ID } from "@/lib/tenant";
 import { getApiUser, canAccessSectionForUser } from "@/modules/auth";
@@ -15,56 +16,37 @@ export async function POST(request: NextRequest) {
   }
   try {
     const formData = await request.formData();
-    const action = formData.get("action") as string;
-    const ids = formData.getAll("ids") as string[];
-    const value = formData.get("value") as string;
+    const ids = readIdList(formData, "ids", "Products");
+    const parsed = parseProductBulkAction(formData);
 
     if (!ids.length) {
-      return NextResponse.json({ ok: false, error: "No listings selected" }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "No products selected" }, { status: 400 });
+    }
+    if (!parsed.ok) {
+      return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
     }
 
-    const updateData: { status?: string; tier?: string; featuredUntil?: Date | null } = {};
+    const data =
+      parsed.action === "status"
+        ? { status: parsed.value }
+        : { featured: parsed.value };
 
-    switch (action) {
-      case "status":
-        if (!["DRAFT", "PENDING_REVIEW", "LIVE", "SUSPENDED", "EXPIRED"].includes(value)) {
-          return NextResponse.json({ ok: false, error: "Invalid status" }, { status: 400 });
-        }
-        updateData.status = value;
-        break;
-      case "tier":
-        if (!["FREE", "STANDARD", "PREMIUM", "FEATURED", "SUPPRESSED"].includes(value)) {
-          return NextResponse.json({ ok: false, error: "Invalid tier" }, { status: 400 });
-        }
-        updateData.tier = value;
-        break;
-      case "featured":
-        if (value === "true") {
-          updateData.featuredUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-        } else {
-          updateData.featuredUntil = null;
-        }
-        break;
-      default:
-        return NextResponse.json({ ok: false, error: "Invalid action" }, { status: 400 });
-    }
-
-    const result = await prisma.listing.updateMany({
+    const result = await prisma.product.updateMany({
       where: { id: { in: ids }, tenantId: TENANT_ID },
-      data: updateData,
+      data,
     });
 
     await logAudit({
-      action: `LISTING_BULK_${action.toUpperCase()}`,
-      entity: "Listing",
+      action: parsed.action === "status" ? "PRODUCT_BULK_STATUS" : "PRODUCT_BULK_FEATURED",
+      entity: "Product",
       entityId: ids.join(","),
-      meta: { action, value, count: result.count },
+      meta: { action: parsed.action, value: parsed.value, count: result.count },
     });
 
     return NextResponse.json({ ok: true, count: result.count });
   } catch (error) {
-    console.error("Bulk update error:", error);
-    return NextResponse.json({ ok: false, error: "Bulk update failed" }, { status: 500 });
+    console.error("Bulk product update error:", error);
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Bulk update failed" }, { status: 500 });
   }
 }
 
@@ -74,26 +56,36 @@ export async function DELETE(request: NextRequest) {
   }
   try {
     const { searchParams } = new URL(request.url);
-    const ids = searchParams.get("ids")?.split(",") || [];
+    const rawIds = searchParams.get("ids");
+    let ids: string[] = [];
+    if (rawIds) {
+      try {
+        const parsed = JSON.parse(rawIds);
+        ids = Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : rawIds.split(",").filter(Boolean);
+      } catch {
+        ids = rawIds.split(",").filter(Boolean);
+      }
+    }
+    ids = [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
 
     if (!ids.length) {
-      return NextResponse.json({ ok: false, error: "No listings selected" }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "No products selected" }, { status: 400 });
     }
 
-    const result = await prisma.listing.deleteMany({
+    const result = await prisma.product.deleteMany({
       where: { id: { in: ids }, tenantId: TENANT_ID },
     });
 
     await logAudit({
-      action: "LISTING_BULK_DELETE",
-      entity: "Listing",
+      action: "PRODUCT_BULK_DELETE",
+      entity: "Product",
       entityId: ids.join(","),
       meta: { count: result.count },
     });
 
     return NextResponse.json({ ok: true, count: result.count });
   } catch (error) {
-    console.error("Bulk delete error:", error);
+    console.error("Bulk product delete error:", error);
     return NextResponse.json({ ok: false, error: "Bulk delete failed" }, { status: 500 });
   }
 }

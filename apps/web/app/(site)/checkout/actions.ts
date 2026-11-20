@@ -21,7 +21,18 @@ import {
   releaseOrderCoupon,
   releasePendingOrder,
 } from "@/lib/billing/pending-orders";
-import { getCartBySession } from "@/modules/ecommerce/queries";
+import {
+  buildSubscriptionPlan,
+  getCartBySession,
+  type SubscriptionPlanSnapshot,
+} from "@/modules/ecommerce/queries";
+import {
+  matchCartVariant,
+  normalizeCartOptions,
+  resolveCartLinePricing,
+  resolveStockSource,
+} from "@/modules/ecommerce/cart-pricing";
+import { STORE_CURRENCY } from "@/modules/ecommerce/currency";
 import { readExistingCartSession } from "@/lib/cart-session";
 import { getSessionUid } from "@/modules/auth/session";
 import { throttle } from "@/lib/throttle";
@@ -39,6 +50,9 @@ type ProductRow = NonNullable<Awaited<ReturnType<typeof prisma.product.findFirst
 
 type LineItem = {
   productId: string;
+  variantId: string | null;
+  variantName: string | null;
+  options: Record<string, string>;
   name: string;
   sku: string | null;
   type: ProductRow["type"];
@@ -46,6 +60,16 @@ type LineItem = {
   unitPrice: number;
   saleItem: boolean;
   shippingRequired: boolean;
+  taxable: boolean;
+  taxClass: string | null;
+  shippingClassId: string | null;
+  weight: number | null;
+  length: number | null;
+  width: number | null;
+  height: number | null;
+  isSignupFee?: boolean;
+  couponEligible?: boolean;
+  subscriptionPlan?: SubscriptionPlanSnapshot | null;
 };
 
 type Address = {
@@ -71,19 +95,19 @@ async function mergeOrderMeta(orderId: string, patch: Record<string, unknown>): 
   });
 }
 
-function saleActive(product: ProductRow): boolean {
-  const now = new Date();
-  return (
-    product.salePrice !== null &&
-    (!product.salePriceStart || product.salePriceStart <= now) &&
-    (!product.salePriceEnd || product.salePriceEnd >= now)
-  );
-}
-
 /** Accept only well-formed client tokens (they end up in a unique index). */
 function normalizeCheckoutToken(raw: unknown): string | null {
   const token = String(raw ?? "").trim();
   return /^[A-Za-z0-9-]{8,64}$/.test(token) ? token : null;
+}
+
+function parseJsonInput(value: unknown): unknown {
+  if (typeof value !== "string" || value.trim() === "") return null;
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return null;
+  }
 }
 
 type OrderWithItems = NonNullable<Awaited<ReturnType<typeof findOrderByToken>>>;
@@ -113,9 +137,18 @@ function orderMatchesAttempt(
   if ((order.billingCountry ?? "") !== address.country) return false;
   if ((order.billingFirstName ?? "") !== address.firstName) return false;
   if ((order.billingLastName ?? "") !== address.lastName) return false;
-  const sortedOrder = [...order.items].sort((a, b) => a.productId.localeCompare(b.productId));
-  const sortedNew = [...items].sort((a, b) => a.productId.localeCompare(b.productId));
-  return sortedOrder.every((o, i) => o.productId === sortedNew[i].productId && o.quantity === sortedNew[i].quantity);
+  const sortedOrder = [...order.items].sort(
+    (a, b) => a.productId.localeCompare(b.productId) || (a.variantId ?? "").localeCompare(b.variantId ?? ""),
+  );
+  const sortedNew = [...items].sort(
+    (a, b) => a.productId.localeCompare(b.productId) || (a.variantId ?? "").localeCompare(b.variantId ?? ""),
+  );
+  return sortedOrder.every(
+    (o, i) =>
+      o.productId === sortedNew[i].productId &&
+      o.variantId === sortedNew[i].variantId &&
+      o.quantity === sortedNew[i].quantity,
+  );
 }
 
 /**
@@ -182,45 +215,153 @@ async function resolveGateway(gatewayId: string) {
 
 /** Load products, validate availability/stock, and price each line (sale-aware). */
 async function buildLineItems(
-  raw: { productId: string; quantity: number }[],
+  raw: Array<{ productId: string; quantity: number; variantId?: string | null; options?: unknown }>,
+  customer?: { email?: string | null; userId?: string | null },
 ): Promise<{ ok: true; items: LineItem[]; total: number } | { ok: false; error: string }> {
   if (raw.length === 0) return { ok: false, error: "Your cart is empty." };
 
-  const products = await prisma.product.findMany({
-    where: { id: { in: raw.map((r) => r.productId) }, tenantId: TENANT_ID },
-  });
-  const byId = new Map(products.map((p) => [p.id, p]));
+  const productIds = [...new Set(raw.map((row) => row.productId))];
+  const variantIds = [...new Set(raw.map((row) => row.variantId).filter((id): id is string => Boolean(id)))];
+  const [products, variants, variantCounts] = await Promise.all([
+    prisma.product.findMany({ where: { id: { in: productIds }, tenantId: TENANT_ID } }),
+    variantIds.length > 0
+      ? prisma.productVariant.findMany({ where: { id: { in: variantIds }, productId: { in: productIds } } })
+      : Promise.resolve([]),
+    prisma.productVariant.groupBy({
+      by: ["productId"],
+      where: { productId: { in: productIds } },
+      _count: { _all: true },
+    }),
+  ]);
+  const productsById = new Map(products.map((product) => [product.id, product]));
+  const variantCountByProduct = new Map(
+    variantCounts.map((row) => [row.productId, row._count._all]),
+  );
+
+  const subscriptionProductIds = products
+    .filter((product) => product.type === "SUBSCRIPTION" && (product.subscriptionSignUpFee ?? 0) > 0)
+    .map((product) => product.id);
+  const subscribedProductIds = new Set<string>();
+  if (subscriptionProductIds.length > 0) {
+    const userId = customer?.userId ?? (await getSessionUid().catch(() => null));
+    const or: Prisma.SubscriptionWhereInput[] = [];
+    if (userId) or.push({ customerId: userId });
+    if (customer?.email) {
+      or.push({ customer: { email: { equals: customer.email, mode: "insensitive" } } });
+    }
+    if (or.length > 0) {
+      const existing = await prisma.subscription.findMany({
+        where: { tenantId: TENANT_ID, productId: { in: subscriptionProductIds }, OR: or },
+        select: { productId: true },
+      });
+      for (const row of existing) subscribedProductIds.add(row.productId);
+    }
+  }
 
   const items: LineItem[] = [];
   for (const line of raw) {
-    const product = byId.get(line.productId);
+    const product = productsById.get(line.productId);
     if (!product || product.status !== "PUBLISHED" || product.visibility !== "PUBLIC") {
       return { ok: false, error: "One or more products in your order are no longer available." };
     }
-    if (product.stockStatus === "OUT_OF_STOCK") {
+    if (product.type === "EXTERNAL") {
+      return { ok: false, error: `“${product.name}” must be purchased on the external product site.` };
+    }
+    if (product.type === "GROUPED" || product.type === "BUNDLE") {
+      return { ok: false, error: `Please choose the individual products included in “${product.name}”.` };
+    }
+
+    const options = normalizeCartOptions(line.options);
+    const variant = matchCartVariant(variants, product.id, line.variantId);
+    if (line.variantId && !variant) {
+      const belongsToOtherProduct = variants.some((row) => row.id === line.variantId);
+      return {
+        ok: false,
+        error: belongsToOtherProduct
+          ? "The selected option does not belong to its product."
+          : "One or more selected options in your order are no longer available.",
+      };
+    }
+    if ((variantCountByProduct.get(product.id) ?? 0) > 0 && !variant) {
+      return { ok: false, error: `Please choose an option for “${product.name}”.` };
+    }
+
+    const pricing = resolveCartLinePricing(product, variant, line.quantity);
+    const stockSource = resolveStockSource(variant, product);
+    const stockStatus = stockSource.stockStatus ?? product.stockStatus;
+    const backorders = stockSource.backorders ?? product.backorders;
+    if (
+      stockStatus === "OUT_OF_STOCK" &&
+      backorders !== "yes" &&
+      backorders !== "notify"
+    ) {
       return { ok: false, error: `“${product.name}” is out of stock.` };
     }
-    if (
-      product.manageStock &&
-      product.stockQuantity !== null &&
-      product.stockQuantity < line.quantity
-    ) {
-      return { ok: false, error: `Only ${product.stockQuantity} of “${product.name}” left in stock.` };
+    if (pricing.availableStock !== null && line.quantity > pricing.availableStock) {
+      return {
+        ok: false,
+        error: `Only ${pricing.availableStock} of “${product.name}” left in stock.`,
+      };
     }
 
-    const onSale = saleActive(product);
-    const unitPrice = onSale && product.salePrice !== null ? product.salePrice : product.regularPrice;
-
-    items.push({
+    const variantName =
+      variant?.name || Object.values(options).join(" / ") || null;
+    const taxStatus = String(product.taxStatus).toUpperCase();
+    const subscriptionPlan = buildSubscriptionPlan(
+      product,
+      variant?.id ?? null,
+      pricing.price,
+      line.quantity,
+      STORE_CURRENCY,
+    );
+    const item: LineItem = {
       productId: product.id,
-      name: product.name,
-      sku: product.sku,
+      variantId: variant?.id ?? null,
+      variantName,
+      options,
+      name: variantName ? `${product.name} — ${variantName}` : product.name,
+      sku: variant?.sku ?? product.sku,
       type: product.type,
       quantity: line.quantity,
-      unitPrice,
-      saleItem: onSale,
-      shippingRequired: product.shippingRequired,
-    });
+      unitPrice: pricing.price,
+      saleItem: pricing.onSale,
+      shippingRequired: pricing.shippingRequired,
+      taxable: taxStatus !== "NONE" && taxStatus !== "NO_TAX",
+      taxClass: product.taxClass,
+      shippingClassId: product.shippingClassId,
+      weight: variant?.weight ?? product.weight,
+      length: variant?.length ?? product.length,
+      width: variant?.width ?? product.width,
+      height: variant?.height ?? product.height,
+      subscriptionPlan,
+    };
+    items.push(item);
+
+    if (
+      subscriptionPlan &&
+      subscriptionPlan.signUpFee > 0 &&
+      !subscribedProductIds.has(product.id)
+    ) {
+      items.push({
+        ...item,
+        variantId: null,
+        variantName: null,
+        options: {},
+        name: `${item.name} — sign-up fee`,
+        sku: null,
+        quantity: 1,
+        unitPrice: round2(subscriptionPlan.signUpFee),
+        saleItem: false,
+        shippingRequired: false,
+        weight: null,
+        length: null,
+        width: null,
+        height: null,
+        isSignupFee: true,
+        couponEligible: false,
+        subscriptionPlan: null,
+      });
+    }
   }
 
   const total = round2(items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0));
@@ -230,10 +371,22 @@ async function buildLineItems(
 function toQuoteLines(items: LineItem[]): QuoteLine[] {
   return items.map((item) => ({
     productId: item.productId,
+    variantId: item.variantId,
+    name: item.name,
+    sku: item.sku,
     quantity: item.quantity,
     unitPrice: item.unitPrice,
     saleItem: item.saleItem,
+    couponEligible: item.couponEligible !== false,
+    taxable: item.taxable,
+    taxStatus: item.taxable ? "TAXABLE" : "NONE",
+    taxClass: item.taxClass,
     shippingRequired: item.shippingRequired,
+    shippingClassId: item.shippingClassId,
+    weight: item.weight,
+    length: item.length,
+    width: item.width,
+    height: item.height,
   }));
 }
 
@@ -248,8 +401,19 @@ async function createOrder(
   cartSessionId: string | null,
 ) {
   const lineTotals = items.map((item) => round2(item.unitPrice * item.quantity));
+  const subscriptionPlans = items
+    .map((item) => item.subscriptionPlan)
+    .filter((plan): plan is SubscriptionPlanSnapshot => Boolean(plan));
   const { lineDiscount, lineTax } = allocateToLines(
-    lineTotals.map((t) => ({ lineTotal: t })),
+    items.map((item, i) => ({
+      lineTotal: lineTotals[i],
+      productId: item.productId,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      saleItem: item.saleItem,
+      couponEligible: item.couponEligible !== false,
+      taxable: item.taxable,
+    })),
     totals,
   );
 
@@ -263,7 +427,7 @@ async function createOrder(
       orderNumber: newOrderNumber(),
       userId,
       guestEmail: email,
-      currency: "USD",
+      currency: STORE_CURRENCY,
       subtotal: totals.subtotal,
       discountTotal: totals.discount,
       shippingTotal: totals.shipping,
@@ -303,10 +467,12 @@ async function createOrder(
         taxRate: totals.taxRate,
         ...(checkoutToken ? { checkoutToken } : {}),
         ...(cartSessionId ? { cartSessionId } : {}),
+        ...(subscriptionPlans.length > 0 ? { subscriptionPlans } : {}),
       },
       items: {
         create: items.map((item, i) => ({
           productId: item.productId,
+          variantId: item.variantId,
           name: item.name,
           sku: item.sku,
           type: item.type,
@@ -316,7 +482,14 @@ async function createOrder(
           lineSubtotalTax: lineTax[i],
           lineTotal: round2(lineTotals[i] - lineDiscount[i]),
           lineTax: lineTax[i],
-          taxRate: totals.taxRate > 0 ? totals.taxRate : null,
+          taxClass: item.taxClass,
+          taxRate: item.taxable && totals.taxRate > 0 ? totals.taxRate : null,
+          meta: {
+            ...(item.variantId ? { variantId: item.variantId } : {}),
+            ...(item.variantName ? { variantName: item.variantName } : {}),
+            ...(Object.keys(item.options).length > 0 ? { options: item.options } : {}),
+            ...(item.isSignupFee ? { isSignupFee: true } : {}),
+          } as Prisma.InputJsonValue,
         })),
       },
     },
@@ -355,7 +528,7 @@ async function startPayment(
         line_items: items.map((item) => ({
           quantity: item.quantity,
           price_data: {
-            currency: "usd",
+            currency: STORE_CURRENCY.toLowerCase(),
             unit_amount: Math.round(item.unitPrice * 100),
             product_data: { name: item.name },
           },
@@ -477,7 +650,11 @@ async function placeOrder(
   //    (different token, same cart) so they don't hold stock forever.
   if (cartSessionId) await supersedeCartOrders(cartSessionId);
 
-  const stock = await reserveStock(lines.items.map((i) => ({ productId: i.productId, quantity: i.quantity })));
+  const stock = await reserveStock(
+    lines.items
+      .filter((i) => !i.isSignupFee)
+      .map((i) => ({ productId: i.productId, variantId: i.variantId, quantity: i.quantity })),
+  );
   if (!stock.ok) return stock;
 
   let order;
@@ -502,7 +679,37 @@ async function placeOrder(
   // Send order confirmation email when order is first created (PENDING status).
   // This complements the abandoned-order sweep by confirming before cancelation.
   if (order) {
-    const emailData = toOrderEmailData(order as any);
+    const emailLineTotals = lines.items.map((item) => round2(item.unitPrice * item.quantity));
+    const { lineDiscount, lineTax } = allocateToLines(
+      lines.items.map((item, i) => ({
+        lineTotal: emailLineTotals[i],
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        saleItem: item.saleItem,
+        couponEligible: item.couponEligible !== false,
+        taxable: item.taxable,
+      })),
+      totals,
+    );
+    const emailData = toOrderEmailData({
+      orderNumber: order.orderNumber,
+      status: order.status,
+      paymentMethodTitle: order.paymentMethodTitle,
+      billingEmail: order.billingEmail,
+      guestEmail: order.guestEmail,
+      subtotal: order.subtotal,
+      discountTotal: order.discountTotal,
+      shippingTotal: order.shippingTotal,
+      taxTotal: order.taxTotal,
+      total: order.total,
+      currency: order.currency,
+      items: lines.items.map((item, i) => ({
+        name: item.name,
+        quantity: item.quantity,
+        lineTotal: round2(emailLineTotals[i] - lineDiscount[i] + lineTax[i]),
+      })),
+    });
     await sendOrderConfirmationEmail(emailData).catch(() => {});
   }
 
@@ -517,6 +724,22 @@ async function placeOrder(
 /** Restore stock directly from line items (used when no order row exists yet). */
 async function restoreStockForOrderFallback(items: LineItem[]): Promise<void> {
   for (const item of items) {
+    if (item.isSignupFee) continue;
+    if (item.variantId) {
+      const variant = await prisma.productVariant.findFirst({
+        where: { id: item.variantId, productId: item.productId },
+        select: { id: true, manageStock: true },
+      });
+      if (variant?.manageStock) {
+        await prisma.productVariant
+          .update({
+            where: { id: variant.id },
+            data: { stockQuantity: { increment: item.quantity } },
+          })
+          .catch(() => {});
+        continue;
+      }
+    }
     await prisma.product
       .updateMany({
         where: { id: item.productId, tenantId: TENANT_ID, manageStock: true },
@@ -566,6 +789,8 @@ export async function purchaseProduct(formData: FormData): Promise<PurchaseResul
   if (throttled) return { ok: false, error: throttled };
 
   const productId = String(formData.get("productId") ?? "").trim();
+  const variantId = String(formData.get("variantId") ?? "").trim() || null;
+  const options = normalizeCartOptions(parseJsonInput(formData.get("options")));
   const gatewayId = String(formData.get("gatewayId") ?? "").trim();
   const quantity = Math.min(999, Math.max(1, parseInt(String(formData.get("quantity") ?? "1"), 10) || 1));
   const email = String(formData.get("email") ?? "").trim() || null;
@@ -578,7 +803,7 @@ export async function purchaseProduct(formData: FormData): Promise<PurchaseResul
   const gatewayResult = await resolveGateway(gatewayId);
   if (!gatewayResult.ok) return gatewayResult;
 
-  const lines = await buildLineItems([{ productId, quantity }]);
+  const lines = await buildLineItems([{ productId, quantity, variantId, options }], { email });
   if (!lines.ok) return lines;
 
   const address = readAddress(formData);
@@ -615,7 +840,16 @@ export async function checkoutCart(formData: FormData): Promise<PurchaseResult> 
   if (!gatewayResult.ok) return gatewayResult;
 
   const lines = await buildLineItems(
-    cart.items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+    cart.items.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      variantId: item.variantId,
+      options:
+        item.meta && typeof item.meta === "object" && !Array.isArray(item.meta)
+          ? (item.meta as Record<string, unknown>).customOptions
+          : null,
+    })),
+    { email },
   );
   if (!lines.ok) return lines;
 
@@ -642,14 +876,22 @@ export async function applyCouponToCart(formData: FormData): Promise<CouponActio
   const cart = sessionId ? await getCartBySession(sessionId) : null;
   if (!cart || cart.items.length === 0) return { ok: false, error: "Your cart is empty." };
 
-  const lines: QuoteLine[] = cart.items.map((item) => ({
-    productId: item.productId,
-    quantity: item.quantity,
-    unitPrice: item.quantity > 0 ? round2(item.lineTotal / item.quantity) : item.lineTotal,
-    saleItem: item.product.salePrice !== null,
-    shippingRequired: item.product.shippingRequired !== false,
-  }));
-  const subtotal = round2(lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0));
+  const linesResult = await buildLineItems(
+    cart.items.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      variantId: item.variantId,
+      options:
+        item.meta && typeof item.meta === "object" && !Array.isArray(item.meta)
+          ? (item.meta as Record<string, unknown>).customOptions
+          : null,
+    })),
+    { email: String(formData.get("email") ?? "").trim() || null },
+  );
+  if (!linesResult.ok) return { ok: false, error: linesResult.error };
+
+  const lines = toQuoteLines(linesResult.items);
+  const subtotal = round2(linesResult.total);
 
   const result = await resolveCoupon(code, lines, subtotal);
   if (!result.ok) return { ok: false, error: result.error };
@@ -684,16 +926,22 @@ export async function quoteCartTotals(formData: FormData): Promise<QuoteResult> 
   const cart = sessionId ? await getCartBySession(sessionId) : null;
   if (!cart || cart.items.length === 0) return { ok: false, error: "Your cart is empty." };
 
-  const lines: QuoteLine[] = cart.items.map((item) => ({
-    productId: item.productId,
-    quantity: item.quantity,
-    unitPrice: item.quantity > 0 ? round2(item.lineTotal / item.quantity) : item.lineTotal,
-    saleItem: item.product.salePrice !== null,
-    shippingRequired: item.product.shippingRequired !== false,
-  }));
+  const linesResult = await buildLineItems(
+    cart.items.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      variantId: item.variantId,
+      options:
+        item.meta && typeof item.meta === "object" && !Array.isArray(item.meta)
+          ? (item.meta as Record<string, unknown>).customOptions
+          : null,
+    })),
+    { email: String(formData.get("email") ?? "").trim() || null },
+  );
+  if (!linesResult.ok) return { ok: false, error: linesResult.error };
 
   const totals = await quoteTotals({
-    lines,
+    lines: toQuoteLines(linesResult.items),
     couponCode: cart.couponCode,
     country: String(formData.get("country") ?? "").trim() || null,
     state: String(formData.get("state") ?? "").trim() || null,

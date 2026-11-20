@@ -6,18 +6,30 @@
  */
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ProductLinkType } from "@prisma/client";
+import { prisma, TENANT_ID } from "@/modules/shared";
 import ProductForm from "@/components/admin/product/ProductForm";
+import ProductReviewModeration from "@/components/admin/product/ProductReviewModeration";
 import {
   getAllProductAttributes,
+  getEnabledPaymentGateways,
   getProductById,
   getProductCategories,
+  getProductLinks,
+  getProductOptions,
   getProductTags,
-  getEnabledPaymentGateways,
+  getShippingClasses,
+  getVendors,
 } from "@/modules/ecommerce/queries";
 import type { ProductFormInput } from "@/modules/ecommerce/types";
 import { saveProduct } from "../actions";
 
-function mapToFormInput(product: NonNullable<Awaited<ReturnType<typeof getProductById>>>): ProductFormInput {
+type ProductLinks = Awaited<ReturnType<typeof getProductLinks>>;
+
+function mapToFormInput(
+  product: NonNullable<Awaited<ReturnType<typeof getProductById>>>,
+  links: ProductLinks,
+): ProductFormInput {
   return {
     name: product.name,
     slug: product.slug,
@@ -110,9 +122,11 @@ function mapToFormInput(product: NonNullable<Awaited<ReturnType<typeof getProduc
       name: v.name ?? "",
       regularPrice: v.regularPrice,
       salePrice: v.salePrice,
-      manageStock: v.manageStock,
+      stockStatus: v.stockStatus,
       stockQuantity: v.stockQuantity,
+      manageStock: v.manageStock,
       backorders: v.backorders,
+      lowStockAmount: v.lowStockAmount,
       weight: v.weight,
       length: v.length,
       width: v.width,
@@ -123,12 +137,16 @@ function mapToFormInput(product: NonNullable<Awaited<ReturnType<typeof getProduc
       downloadExpiry: v.downloadExpiry,
       downloadFiles: (v.downloadFiles ?? []) as unknown[],
       virtual: v.virtual,
+      description: v.description ?? "",
+      purchaseNote: v.purchaseNote ?? "",
       attributes: (v.attributes ?? {}) as Record<string, string>,
       menuOrder: v.menuOrder,
     })),
-    relatedProductIds: [],
-    crossSellProductIds: [],
-    upSellProductIds: [],
+    relatedProductIds: links.filter((link) => link.type === ProductLinkType.RELATED).map((link) => link.linkedProductId),
+    crossSellProductIds: links.filter((link) => link.type === ProductLinkType.CROSS_SELL).map((link) => link.linkedProductId),
+    upSellProductIds: links.filter((link) => link.type === ProductLinkType.UP_SELL).map((link) => link.linkedProductId),
+    bundleChildIds: links.filter((link) => link.type === ProductLinkType.BUNDLE_CHILD).map((link) => link.linkedProductId),
+    groupedChildIds: links.filter((link) => link.type === ProductLinkType.GROUPED_CHILD).map((link) => link.linkedProductId),
     seoTitle: product.seoTitle,
     metaDesc: product.metaDesc,
     focusKeyphrase: product.focusKeyphrase,
@@ -148,17 +166,38 @@ export default async function ProductFormPage({
 
   if (path.length !== 1) notFound();
 
-  const [categories, attributes, tags, paymentGateways, product] = await Promise.all([
-    getProductCategories(),
-    getAllProductAttributes(),
-    getProductTags(),
-    getEnabledPaymentGateways(),
-    id ? getProductById(id) : Promise.resolve(null),
-  ]);
+  const [categories, attributes, tags, paymentGateways, product, productOptions, shippingClasses, vendors, links, reviews] =
+    await Promise.all([
+      getProductCategories(),
+      getAllProductAttributes(),
+      getProductTags(),
+      getEnabledPaymentGateways(),
+      id ? getProductById(id) : Promise.resolve(null),
+      getProductOptions(),
+      getShippingClasses(),
+      getVendors(),
+      id ? getProductLinks(id) : Promise.resolve([]),
+      id
+        ? prisma.productReview.findMany({
+            where: { tenantId: TENANT_ID, productId: id },
+            orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              authorName: true,
+              authorEmail: true,
+              rating: true,
+              title: true,
+              body: true,
+              status: true,
+              createdAt: true,
+            },
+          })
+        : Promise.resolve([]),
+    ]);
 
   if (id && !product) notFound();
 
-  const productForForm = product ? mapToFormInput(product) : null;
+  const productForForm = product ? mapToFormInput(product, links) : null;
   const isPaymentDisabled = paymentGateways.length === 0;
 
   return (
@@ -189,7 +228,22 @@ export default async function ProductFormPage({
         attributes={attributes}
         tags={tags}
         paymentGateways={paymentGateways}
+        productOptions={productOptions}
+        shippingClasses={shippingClasses}
+        vendors={vendors}
         onSave={saveProduct}
+      />
+      <ProductReviewModeration
+        reviews={reviews.map((review) => ({
+          id: review.id,
+          authorName: review.authorName,
+          authorEmail: review.authorEmail,
+          rating: review.rating,
+          title: review.title,
+          body: review.body,
+          status: String(review.status),
+          createdAt: review.createdAt.toISOString(),
+        }))}
       />
     </div>
   );

@@ -1,7 +1,7 @@
 "use server";
 
-import { prisma } from "@/modules/shared";
-import { TENANT_ID } from "@/modules/shared";
+import { prisma } from "@/lib/directory/prismaCatalog";
+import { TENANT_ID } from "@/lib/tenant";
 import { requireSection } from "@/modules/auth";
 import { format } from "date-fns";
 
@@ -95,20 +95,20 @@ export async function getEcommerceReportData() {
 
   const productIds = topProducts.map((p) => p.productId);
   const products = await prisma.product.findMany({
-    where: { id: { in: productIds } },
+    where: { id: { in: productIds }, tenantId: TENANT_ID },
     select: { id: true, name: true, slug: true },
   });
   const productMap = new Map(products.map((p) => [p.id, p]));
 
   const categoryProductIds = revenueByCategory.map((r) => r.productId);
   const categoryProducts = await prisma.product.findMany({
-    where: { id: { in: categoryProductIds } },
+    where: { id: { in: categoryProductIds }, tenantId: TENANT_ID },
     include: { categories: { include: { category: true } } },
   });
   const productCategoryMap = new Map(
     categoryProducts.map((p) => [
       p.id,
-      p.categories[0]?.category?.name ?? "Uncategorized",
+      (p.categories.find((c) => c.isPrimary) ?? p.categories[0])?.category?.name ?? "Uncategorized",
     ])
   );
 
@@ -133,7 +133,7 @@ export async function getEcommerceReportData() {
         totalOrders > 0 ? ((paidOrders / totalOrders) * 100).toFixed(1) : "0",
     },
     topProducts: topProducts.map((p) => ({
-      product: productMap.get(p.productId) ?? { name: "Unknown", slug: "" },
+      product: productMap.get(p.productId) ?? { id: p.productId, name: "Unknown", slug: "" },
       revenue: Number(p._sum.lineTotal ?? 0),
       quantity: p._sum.quantity ?? 0,
       orderCount: p._count.id,
@@ -148,6 +148,7 @@ export async function getEcommerceReportData() {
     })),
     dailyOrders: (dailyOrders as { date: Date; orders: unknown }[]).map((d) => ({
       date: format(new Date(d.date), "MMM d"),
+      revenue: 0,
       orders: Number(d.orders),
     })),
     funnel:

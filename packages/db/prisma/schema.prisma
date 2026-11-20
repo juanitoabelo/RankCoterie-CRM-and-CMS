@@ -2082,6 +2082,20 @@ enum ProductType {
   BUNDLE
 }
 
+enum ProductLinkType {
+  RELATED
+  CROSS_SELL
+  UP_SELL
+  BUNDLE_CHILD
+  GROUPED_CHILD
+}
+
+enum ProductReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum ProductStatus {
   DRAFT
   PENDING_REVIEW
@@ -2355,6 +2369,9 @@ model Product {
   subscriptions Subscription[]
   commissions   Commission[]
   comparedIn    ProductComparisonItem[]
+  outgoingLinks ProductLink[]           @relation("ProductLinksFrom")
+  incomingLinks ProductLink[]           @relation("ProductLinksTo")
+  reviews       ProductReview[]
 
   @@index([tenantId, status])
   @@index([tenantId, featured])
@@ -2447,6 +2464,41 @@ model ProductAttributeValue {
 
   @@index([productId])
   @@index([attributeId])
+}
+
+model ProductLink {
+  id              String          @id @default(cuid())
+  tenantId        String
+  productId       String
+  linkedProductId String
+  type            ProductLinkType @default(RELATED)
+  position        Int             @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  product         Product         @relation("ProductLinksFrom", fields: [productId], references: [id], onDelete: Cascade)
+  linkedProduct   Product         @relation("ProductLinksTo", fields: [linkedProductId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, productId, linkedProductId, type])
+  @@index([tenantId, productId, type, position])
+  @@index([tenantId, linkedProductId])
+}
+
+model ProductReview {
+  id          String              @id @default(cuid())
+  tenantId    String
+  productId   String
+  authorName  String
+  authorEmail String
+  rating      Int
+  title       String?
+  body        String?
+  status      ProductReviewStatus @default(PENDING)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  product     Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, productId, status, createdAt])
+  @@index([tenantId, status])
 }
 
 model Cart {
@@ -2738,6 +2790,7 @@ model Subscription {
   id                    String          @id @default(cuid())
   tenantId              String
   orderId               String
+  planKey               String
   customerId            String
   productId             String
   variantId             String?
@@ -2763,6 +2816,7 @@ model Subscription {
   variant               ProductVariant? @relation(fields: [variantId], references: [id])
   gateway               PaymentGateway? @relation(fields: [gatewayId], references: [id])
 
+  @@unique([tenantId, orderId, planKey])
   @@index([tenantId, customerId])
   @@index([tenantId, status])
 }

@@ -8,15 +8,23 @@
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { TENANT_ID } from "@/lib/tenant";
 import type { Prisma } from "@prisma/client";
-import { CouponType, StockStatus } from "@prisma/client";
+import { CouponType, ProductLinkType, StockStatus } from "@prisma/client";
 import type {
   CartWithItems, CommissionWithRelations, CouponWithRelations,
   OrderFilter, OrderWithRelations,
   PaymentGatewayFilter, PaymentGatewayType, PaymentGatewayWithRelations,
   ProductAttributeWithTerms, ProductAttributeValueWithTerm, ProductCategoryWithRelations,
-  ProductFilter, ProductListItem, ProductType,
-  ProductWithRelations, SubscriptionWithRelations, TaxRate,
+  ProductFilter, ProductLinkWithProduct, ProductListItem, ProductReviewWithProduct, ProductType,
+  ProductWithRelations, PublicProduct, SubscriptionWithRelations, TaxRate,
 } from "./types";
+import { getEffectiveProductPrice } from "./pricing";
+import {
+  availableStockFor,
+  cartItemKey,
+  normalizeCartOptions,
+  resolveCartLinePricing,
+  resolveStockSource,
+} from "./cart-pricing";
 
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -132,7 +140,13 @@ export async function getProducts(filter: ProductFilter = {}): Promise<{
     prisma.product.count({ where }),
   ]);
 
-  return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  return {
+    items: items.map((item) => ({ ...item, price: getEffectiveProductPrice(item).price })),
+    total,
+    page,
+    pageSize,
+    totalPages: Math.ceil(total / pageSize),
+  };
 }
 
 /** Get a single product by ID (tenant scoped) */
@@ -150,10 +164,9 @@ export async function getProductById(id: string): Promise<ProductWithRelations |
   });
 }
 
-/** Get product by slug */
 export async function getProductBySlug(slug: string): Promise<ProductWithRelations | null> {
-  return prisma.product.findUnique({
-    where: { slug },
+  const product = await prisma.product.findFirst({
+    where: { slug, tenantId: TENANT_ID },
     include: {
       categories: { include: { category: true } },
       attributes: { include: { attribute: true, term: true } },
@@ -162,6 +175,106 @@ export async function getProductBySlug(slug: string): Promise<ProductWithRelatio
       tags: true,
       customFields: true,
     },
+  });
+  return product ? { ...product, price: getEffectiveProductPrice(product).price } : null;
+}
+
+export async function getProductLinks(
+  productId: string,
+  type?: ProductLinkType,
+): Promise<ProductLinkWithProduct[]> {
+  const links = await prisma.productLink.findMany({
+    where: { tenantId: TENANT_ID, productId, ...(type ? { type } : {}) },
+    orderBy: [{ type: "asc" }, { position: "asc" }],
+    include: {
+      linkedProduct: {
+        include: { images: { orderBy: { position: "asc" }, include: { asset: true } } },
+      },
+    },
+  });
+  return links as ProductLinkWithProduct[];
+}
+
+export async function getPublicProductBySlug(slug: string): Promise<PublicProduct | null> {
+  const product = await prisma.product.findFirst({
+    where: { slug, tenantId: TENANT_ID, status: "PUBLISHED", visibility: "PUBLIC" },
+    include: {
+      categories: { include: { category: true } },
+      attributes: {
+        where: { isVisible: true, attribute: { isVisible: true } },
+        include: { attribute: true, term: true },
+      },
+      images: { orderBy: { position: "asc" }, include: { asset: true } },
+      variants: { orderBy: { menuOrder: "asc" } },
+      tags: true,
+      customFields: true,
+      outgoingLinks: {
+        where: {
+          tenantId: TENANT_ID,
+          linkedProduct: { tenantId: TENANT_ID, status: "PUBLISHED", visibility: "PUBLIC" },
+        },
+        orderBy: [{ type: "asc" }, { position: "asc" }],
+        include: {
+          linkedProduct: {
+            include: { images: { orderBy: { position: "asc" }, include: { asset: true } } },
+          },
+        },
+      },
+      reviews: {
+        where: { tenantId: TENANT_ID, status: "APPROVED" },
+        orderBy: { createdAt: "desc" },
+      },
+    },
+  });
+  if (!product) return null;
+
+  const publicCustomFields = product.customFields.filter((field) => field.isPublic);
+
+  return {
+    ...product,
+    customFields: publicCustomFields,
+    price: getEffectiveProductPrice(product).price,
+    effectivePrice: getEffectiveProductPrice(product),
+    links: product.outgoingLinks as ProductLinkWithProduct[],
+    reviews: product.reviews as ProductReviewWithProduct[],
+    customFieldValues: Object.fromEntries(
+      publicCustomFields.map((field) => [field.key, field.value]),
+    ),
+  };
+}
+
+export async function getShippingClasses(): Promise<{ id: string; name: string; slug: string }[]> {
+  return prisma.shippingClass.findMany({
+    where: { tenantId: TENANT_ID },
+    select: { id: true, name: true, slug: true },
+    orderBy: { name: "asc" },
+  });
+}
+
+export async function getVendors(): Promise<{ id: string; name: string; email: string }[]> {
+  const users = await prisma.user.findMany({
+    where: { tenantId: TENANT_ID },
+    select: { id: true, email: true, firstName: true, lastName: true },
+    orderBy: { email: "asc" },
+  });
+  return users.map((user) => ({
+    id: user.id,
+    name: [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email,
+    email: user.email,
+  }));
+}
+
+export async function getProductOptions(): Promise<{
+  id: string;
+  name: string;
+  slug: string;
+  sku: string | null;
+  type: ProductType;
+}[]> {
+  return prisma.product.findMany({
+    where: { tenantId: TENANT_ID },
+    select: { id: true, name: true, slug: true, sku: true, type: true },
+    orderBy: { name: "asc" },
   });
 }
 
@@ -179,7 +292,9 @@ export async function getFeaturedProducts(limit = 6): Promise<ProductWithRelatio
     },
     orderBy: { menuOrder: "asc" },
     take: limit,
-  });
+  }).then((products) =>
+    products.map((product) => ({ ...product, price: getEffectiveProductPrice(product).price })),
+  );
 }
 
 /** Get products by category */
@@ -221,7 +336,13 @@ export async function getProductsByCategory(
     prisma.product.count({ where }),
   ]);
 
-  return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  return {
+    items: items.map((item) => ({ ...item, price: getEffectiveProductPrice(item).price })),
+    total,
+    page,
+    pageSize,
+    totalPages: Math.ceil(total / pageSize),
+  };
 }
 
 /**
@@ -653,8 +774,15 @@ export async function addItemToCart(cartId: string, productId: string, quantity 
   if (!product) return { ok: false, error: "Product not found." };
   if (!cart) return { ok: false, error: "Cart not found." };
 
-  if (product.stockStatus === StockStatus.OUT_OF_STOCK && !product.manageStock) {
-    return { ok: false, error: "Product is out of stock." };
+  if (!variantId) {
+    const stockSource = resolveStockSource(null, product);
+    if (
+      stockSource.stockStatus === StockStatus.OUT_OF_STOCK &&
+      stockSource.backorders !== "yes" &&
+      stockSource.backorders !== "notify"
+    ) {
+      return { ok: false, error: "Product is out of stock." };
+    }
   }
 
   type VariantRow = Awaited<ReturnType<typeof prisma.productVariant.findUnique>>;
@@ -662,19 +790,35 @@ export async function addItemToCart(cartId: string, productId: string, quantity 
 
   if (variantId) {
     variantToUse = await prisma.productVariant.findUnique({ where: { id: variantId } });
-    if (variantToUse?.stockStatus === StockStatus.OUT_OF_STOCK && !variantToUse.manageStock) {
+    if (!variantToUse || variantToUse.productId !== productId) {
+      return { ok: false, error: "The selected option does not belong to this product." };
+    }
+    const stockSource = resolveStockSource(variantToUse, product);
+    if (
+      stockSource.stockStatus === StockStatus.OUT_OF_STOCK &&
+      stockSource.backorders !== "yes" &&
+      stockSource.backorders !== "notify"
+    ) {
       return { ok: false, error: "Variant is out of stock." };
     }
   }
 
-  const price = variantToUse ? variantToUse.price : product.price;
+  const normalizedOptions = normalizeCartOptions(customOptions);
+  const pricing = resolveCartLinePricing(product, variantToUse, quantity);
+  const price = pricing.price;
   const wantedVariantId = variantId ?? null;
-  // Clamp to remaining stock (null when backorders are allowed).
-  const limit = availableStock(product);
+  const limit = availableStockFor(variantToUse, product);
+  const wantedKey = cartItemKey(productId, wantedVariantId, normalizedOptions);
 
-  const existingItem = cart.items.find(
-    (item) => item.productId === productId && item.variantId === wantedVariantId,
-  );
+  const existingItem = cart.items.find((item) => {
+    if (item.productId !== productId || item.variantId !== wantedVariantId) return false;
+    if (!wantedVariantId) return true;
+    const meta =
+      item.meta && typeof item.meta === "object"
+        ? (item.meta as Record<string, unknown>)
+        : {};
+    return cartItemKey(productId, wantedVariantId, meta.customOptions) === wantedKey;
+  });
 
   if (existingItem) {
     const raw = existingItem.quantity + quantity;
@@ -719,7 +863,7 @@ export async function addItemToCart(cartId: string, productId: string, quantity 
         quantity: newQuantity,
         price,
         lineTotal: price * newQuantity,
-        meta: { customOptions: (customOptions ?? {}) as Prisma.InputJsonValue },
+        meta: { customOptions: normalizedOptions as Prisma.InputJsonValue },
       },
     });
     await recalcCart(tx, cart.id);
@@ -767,11 +911,21 @@ export async function updateCartItemQuantity(cartId: string, itemId: string, qua
   try {
     const item = await prisma.cartItem.findFirst({
       where: { id: itemId, cartId },
-      include: { product: { select: { manageStock: true, stockQuantity: true, backorders: true } } },
+      include: {
+        product: { select: { manageStock: true, stockQuantity: true, backorders: true } },
+        variant: {
+          select: {
+            id: true,
+            manageStock: true,
+            stockQuantity: true,
+            backorders: true,
+          },
+        },
+      },
     });
     if (!item) return { ok: false, error: "Cart item not found." };
 
-    const limit = availableStock(item.product);
+    const limit = availableStockFor(item.variant, item.product);
     const finalQuantity = limit === null ? quantity : Math.min(quantity, limit);
     const warning =
       finalQuantity < quantity
@@ -1018,6 +1172,205 @@ export async function isCouponValid(code: string, cartTotal: number, productIds:
 // Subscription Queries
 // ============================================================================
 
+export type SubscriptionPlanSnapshot = {
+  productId: string;
+  variantId: string | null;
+  quantity: number;
+  amount: number;
+  interval: string;
+  intervalCount: number;
+  signUpFee: number;
+  length: number | null;
+  trialPeriod: number | null;
+  currency: string;
+};
+
+type SubscriptionPlanProduct = {
+  id: string;
+  type: string;
+  subscriptionPeriod: string | null;
+  subscriptionInterval: number | null;
+  subscriptionLength: number | null;
+  subscriptionTrialPeriod: number | null;
+  subscriptionSignUpFee: number | null;
+};
+
+export function buildSubscriptionPlan(
+  product: SubscriptionPlanProduct,
+  variantId: string | null,
+  amount: number,
+  quantity: number,
+  currency: string,
+): SubscriptionPlanSnapshot | null {
+  if (product.type !== "SUBSCRIPTION") return null;
+  const period = (product.subscriptionPeriod ?? "month").toLowerCase();
+  const interval = ["day", "week", "month", "year"].includes(period) ? period : "month";
+  return {
+    productId: product.id,
+    variantId,
+    quantity,
+    amount,
+    interval,
+    intervalCount: Math.max(1, Math.floor(product.subscriptionInterval ?? 1)),
+    signUpFee: Math.max(0, product.subscriptionSignUpFee ?? 0),
+    length: product.subscriptionLength,
+    trialPeriod: product.subscriptionTrialPeriod,
+    currency,
+  };
+}
+
+export function addSubscriptionPeriod(start: Date, interval: string, count: number): Date {
+  const end = new Date(start);
+  const step = Math.max(1, Math.floor(count));
+  if (interval === "day") end.setUTCDate(end.getUTCDate() + step);
+  else if (interval === "week") end.setUTCDate(end.getUTCDate() + step * 7);
+  else if (interval === "year") end.setUTCFullYear(end.getUTCFullYear() + step);
+  else {
+    const day = end.getUTCDate();
+    end.setUTCDate(1);
+    end.setUTCMonth(end.getUTCMonth() + step);
+    const lastDay = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 0)).getUTCDate();
+    end.setUTCDate(Math.min(day, lastDay));
+  }
+  return end;
+}
+
+export async function fulfillSubscriptionsForPaidOrder(
+  orderId: string,
+): Promise<"fulfilled" | "pending" | "not-applicable"> {
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, tenantId: TENANT_ID },
+    select: {
+      id: true,
+      userId: true,
+      paymentStatus: true,
+      paymentGatewayId: true,
+      currency: true,
+      meta: true,
+    },
+  });
+  if (!order || order.paymentStatus !== "PAID") return "not-applicable";
+
+  const meta = (order.meta ?? {}) as Record<string, unknown>;
+  const rawPlans = meta.subscriptionPlans;
+  if (!Array.isArray(rawPlans) || rawPlans.length === 0) return "not-applicable";
+
+  const plans = rawPlans.filter(
+    (entry): entry is SubscriptionPlanSnapshot =>
+      Boolean((entry as SubscriptionPlanSnapshot)?.productId) &&
+      Number.isFinite((entry as SubscriptionPlanSnapshot).amount),
+  );
+  if (plans.length === 0) return "not-applicable";
+
+  const customerId = order.userId;
+  if (!customerId) {
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { meta: { ...meta, subscriptionFulfillment: "requires-customer" } as Prisma.InputJsonValue },
+    });
+    return "pending";
+  }
+
+  const existing = await prisma.subscription.findMany({
+    where: { tenantId: TENANT_ID, orderId },
+    select: { id: true, planKey: true },
+  });
+  const existingKeys = new Set(existing.map((row) => row.planKey));
+
+  const now = new Date();
+  for (const plan of plans) {
+    const planKey = `${plan.productId}::${plan.variantId ?? ""}`;
+    if (existingKeys.has(planKey)) continue;
+    const currentPeriodEnd = addSubscriptionPeriod(now, plan.interval, plan.intervalCount);
+    try {
+      await prisma.subscription.create({
+        data: {
+          tenantId: TENANT_ID,
+          orderId: order.id,
+          planKey,
+          customerId,
+          productId: plan.productId,
+          variantId: plan.variantId ?? null,
+          gatewayId: order.paymentGatewayId ?? null,
+          status: "active",
+          interval: plan.interval,
+          intervalCount: plan.intervalCount,
+          currentPeriodStart: now,
+          currentPeriodEnd,
+          amount: plan.amount,
+          currency: plan.currency || order.currency || "USD",
+          quantity: Math.max(1, Math.floor(plan.quantity || 1)),
+          meta: {
+            plan: {
+              interval: plan.interval,
+              intervalCount: plan.intervalCount,
+              length: plan.length,
+              trialPeriod: plan.trialPeriod,
+              signUpFee: plan.signUpFee,
+            },
+            initialOrderId: order.id,
+            nextBillingAt: currentPeriodEnd.toISOString(),
+            renewal: "manual",
+          } as Prisma.InputJsonValue,
+        },
+      });
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      if (code !== "P2002") throw error;
+    }
+    existingKeys.add(planKey);
+  }
+
+  const allFulfilled = plans.every((plan) =>
+    existingKeys.has(`${plan.productId}::${plan.variantId ?? ""}`),
+  );
+  if (allFulfilled) {
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { meta: { ...meta, subscriptionFulfillment: "fulfilled" } as Prisma.InputJsonValue },
+    });
+    return "fulfilled";
+  }
+
+  await prisma.order.update({
+    where: { id: order.id },
+    data: { meta: { ...meta, subscriptionFulfillment: "pending" } as Prisma.InputJsonValue },
+  });
+  return "pending";
+}
+
+export async function retryPendingSubscriptionFulfillmentsForCustomer(
+  customerId: string,
+): Promise<number> {
+  const orders = await prisma.order.findMany({
+    where: {
+      tenantId: TENANT_ID,
+      paymentStatus: "PAID",
+      AND: [
+        { OR: [{ userId: customerId }, { customerId }] },
+        {
+          OR: [
+            { meta: { path: ["subscriptionFulfillment"], equals: "pending" } },
+            { meta: { path: ["subscriptionFulfillment"], equals: "requires-customer" } },
+          ],
+        },
+      ],
+    },
+    select: { id: true },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+  let fulfilled = 0;
+  for (const order of orders) {
+    try {
+      const result = await fulfillSubscriptionsForPaidOrder(order.id);
+      if (result === "fulfilled") fulfilled += 1;
+    } catch {
+    }
+  }
+  return fulfilled;
+}
+
 /** Get subscriptions by customer */
 export async function getSubscriptionsByCustomer(customerId: string, filter: { status?: string } = {}): Promise<{
   items: SubscriptionWithRelations[];
@@ -1027,6 +1380,8 @@ export async function getSubscriptionsByCustomer(customerId: string, filter: { s
   totalPages: number;
 }> {
   const { status } = filter;
+
+  await retryPendingSubscriptionFulfillmentsForCustomer(customerId).catch(() => {});
 
   const where: Record<string, unknown> = { tenantId: TENANT_ID, customerId };
 

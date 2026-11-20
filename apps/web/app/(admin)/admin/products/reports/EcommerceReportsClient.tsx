@@ -33,7 +33,7 @@ interface SummaryData {
 }
 
 interface TopProduct {
-  product: { name: string; slug: string };
+  product: { id: string; name: string; slug: string };
   revenue: number;
   quantity: number;
   orderCount: number;
@@ -71,6 +71,19 @@ interface EcommerceReportsClientProps {
 
 const COLORS = ["#2563eb", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#84cc16", "#f97316"];
 
+interface TooltipEntry {
+  name?: string | number;
+  dataKey?: string | number;
+  value?: string | number;
+  color?: string;
+}
+
+interface ChartTooltipProps {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: React.ReactNode;
+}
+
 const SummaryCard = ({ label, value, href, trend }: { label: string; value: string | number; href?: string; trend?: string }) => (
   <Link href={href ?? "#"} className="rounded-xl border border-zinc-200 bg-white p-5 hover:bg-zinc-50 transition-colors">
     <p className="text-sm text-zinc-500">{label}</p>
@@ -84,14 +97,14 @@ const SummaryCard = ({ label, value, href, trend }: { label: string; value: stri
 export default function EcommerceReportsClient({ initialData }: EcommerceReportsClientProps) {
   const { summary, topProducts, revenueByCategory, dailySales, dailyOrders, funnel } = initialData;
 
-  const customTooltip = ({ active, payload, label }: any) => {
+  const customTooltip = ({ active, payload, label }: ChartTooltipProps) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white p-3 border border-zinc-200 rounded-lg shadow-lg">
           <p className="font-medium text-zinc-900">{label}</p>
-          {payload.map((entry: any, index: number) => (
+          {payload.map((entry, index) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.name}: ${entry.value.toLocaleString()}
+              {entry.name}: ${Number(entry.value ?? 0).toLocaleString()}
             </p>
           ))}
         </div>
@@ -100,7 +113,7 @@ export default function EcommerceReportsClient({ initialData }: EcommerceReports
     return null;
   };
 
-  const toNum = (val: any) => Number(val);
+  const toNum = (val: string | number | null | undefined) => Number(val ?? 0);
 
   return (
     <div className="space-y-8">
@@ -162,7 +175,7 @@ export default function EcommerceReportsClient({ initialData }: EcommerceReports
               <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
               <XAxis dataKey="date" stroke="#71717a" fontSize={12} tick={{ fill: "#71717a" }} />
               <YAxis stroke="#71717a" fontSize={12} tick={{ fill: "#71717a" }} tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
-              <Tooltip content={({ active, payload, label }: any) => customTooltip({ active, payload, label })} />
+              <Tooltip content={(props) => customTooltip({ active: props.active, payload: props.payload as unknown as TooltipEntry[], label: props.label })} />
               <Area type="monotone" dataKey="revenue" stroke="#2563eb" fillOpacity={1} fill="url(#colorRevenue)" />
             </AreaChart>
           </ResponsiveContainer>
@@ -181,14 +194,14 @@ export default function EcommerceReportsClient({ initialData }: EcommerceReports
                 paddingAngle={2}
                 dataKey="revenue"
                 nameKey="category"
-                label={({ category, percent }) => `${category} ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }) => `${name ?? ""} ${((percent ?? 0) * 100).toFixed(0)}%`}
                 labelLine={false}
               >
                 {revenueByCategory.slice(0, 8).map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value: number) => [`$${value.toLocaleString()}`, "Revenue"]} />
+              <Tooltip formatter={(value) => [`$${Number(value ?? 0).toLocaleString()}`, "Revenue"]} />
               <Legend />
             </PieChart>
           </ResponsiveContainer>
@@ -204,7 +217,7 @@ export default function EcommerceReportsClient({ initialData }: EcommerceReports
               <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
               <XAxis dataKey="date" stroke="#71717a" fontSize={12} tick={{ fill: "#71717a" }} />
               <YAxis stroke="#71717a" fontSize={12} tick={{ fill: "#71717a" }} />
-              <Tooltip content={({ active, payload, label }: any) => customTooltip({ active, payload, label })} />
+              <Tooltip content={(props) => customTooltip({ active: props.active, payload: props.payload as unknown as TooltipEntry[], label: props.label })} />
               <Line type="monotone" dataKey="orders" stroke="#10b981" strokeWidth={2} dot={false} activeDot={{ r: 6 }} />
             </LineChart>
           </ResponsiveContainer>
@@ -217,7 +230,7 @@ export default function EcommerceReportsClient({ initialData }: EcommerceReports
               <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
               <XAxis type="number" stroke="#71717a" fontSize={12} tick={{ fill: "#71717a" }} tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
               <YAxis type="category" dataKey="product.name" width={150} stroke="#71717a" fontSize={12} tick={{ fill: "#71717a" }} />
-              <Tooltip content={({ active, payload, label }: any) => customTooltip({ active, payload, label })} />
+              <Tooltip content={(props) => customTooltip({ active: props.active, payload: props.payload as unknown as TooltipEntry[], label: props.label })} />
               <Bar dataKey="revenue" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -240,9 +253,9 @@ export default function EcommerceReportsClient({ initialData }: EcommerceReports
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {topProducts.map((item) => (
-                <tr key={item.product.slug} className="hover:bg-zinc-50">
+                <tr key={item.product.id} className="hover:bg-zinc-50">
                   <td className="py-3 font-medium text-zinc-900">
-                    <Link href={`/admin/products/${item.product.slug}/edit`} className="hover:underline">
+                    <Link href={`/admin/products/${item.product.id}/edit`} className="hover:underline">
                       {item.product.name}
                     </Link>
                   </td>
@@ -258,20 +271,4 @@ export default function EcommerceReportsClient({ initialData }: EcommerceReports
       </div>
     </div>
   );
-}
-
-function customTooltip({ active, payload, label }: any) {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-white p-3 border border-zinc-200 rounded-lg shadow-lg">
-        <p className="font-medium text-zinc-900">{label}</p>
-        {payload.map((entry: any, index: number) => (
-          <p key={index} className="text-sm" style={{ color: entry.color }}>
-            {entry.name}: {entry.dataKey === "revenue" ? `$${entry.value.toLocaleString()}` : entry.value.toLocaleString()}
-          </p>
-        ))}
-      </div>
-    );
-  }
-  return null;
 }

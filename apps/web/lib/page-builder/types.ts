@@ -495,6 +495,7 @@ export interface ProductTemplateTabData {
 }
 
 export interface ProductTemplateBlockStyleProps {
+  [key: string]: unknown;
   bgColor?: string;
   textColor?: string;
   padding?: number;
@@ -548,6 +549,11 @@ export interface ProductTemplatePurchaseBlock extends BlockBase {
 export interface ProductTemplateTabsBlock extends BlockBase {
   type: "productTabs";
   props: ProductTemplateBlockStyleProps & { tabs: ProductTemplateTabData[] };
+}
+
+export interface ProductTemplateFeatureBlock extends BlockBase {
+  type: "productVariantSelector" | "productTypePanel" | "productBadges" | "productBreadcrumbs" | "productReviews" | "productRelations" | "stickyPurchaseBar";
+  props: ProductTemplateBlockStyleProps;
 }
 
 export interface BlogSidebarBlock extends BlockBase {
@@ -1338,6 +1344,7 @@ export type Block =
   | ProductTemplateSpecificationsBlock
   | ProductTemplatePurchaseBlock
   | ProductTemplateTabsBlock
+  | ProductTemplateFeatureBlock
   | BlogSidebarBlock
   | ArticleContentBlock
   | ArticleHeroBlock

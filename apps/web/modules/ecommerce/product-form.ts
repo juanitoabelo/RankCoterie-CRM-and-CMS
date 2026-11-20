@@ -8,6 +8,43 @@
  */
 import type { Prisma } from "@prisma/client";
 
+export interface ParsedVariantInput {
+  id?: string;
+  sku: string | null;
+  name: string | null;
+  regularPrice: number;
+  salePrice: number | null;
+  stockStatus: string;
+  stockQuantity: number | null;
+  manageStock: boolean;
+  backorders: string;
+  lowStockAmount: number | null;
+  weight: number | null;
+  length: number | null;
+  width: number | null;
+  height: number | null;
+  imageAssetId: string | null;
+  downloadable: boolean;
+  downloadLimit: number | null;
+  downloadExpiry: number | null;
+  downloadFiles: Prisma.InputJsonValue;
+  virtual: boolean;
+  description: string | null;
+  purchaseNote: string | null;
+  menuOrder: number;
+  attributes: Prisma.InputJsonValue;
+}
+
+export const PRODUCT_LINK_FIELDS = [
+  "relatedProductIds",
+  "crossSellProductIds",
+  "upSellProductIds",
+  "bundleChildIds",
+  "groupedChildIds",
+] as const;
+
+export type ProductLinkField = (typeof PRODUCT_LINK_FIELDS)[number];
+
 export interface ParsedRelations {
   categoryIds: string[];
   primaryCategoryId: string | null;
@@ -23,6 +60,8 @@ export interface ParsedRelations {
   imageAssetId: string | null;
   /** Additional gallery images, in display order (featured image excluded). */
   galleryAssetIds: string[];
+  variants: ParsedVariantInput[];
+  productLinks: Record<ProductLinkField, string[]>;
 }
 
 export type ParsedProductData = Omit<
@@ -115,17 +154,163 @@ function readEnum<T extends string>(
   return raw !== null && (allowed as readonly string[]).includes(raw) ? (raw as T) : fallback;
 }
 
-function readJson(fd: FormData, key: string): Prisma.InputJsonValue {
+function field<K extends string, V>(fd: FormData, key: K, value: V): Partial<Record<K, V>> {
+  return fd.has(key) ? ({ [key]: value } as Partial<Record<K, V>>) : {};
+}
+
+function readJson(fd: FormData, key: string, label: string): Prisma.InputJsonValue {
   const raw = readString(fd, key);
   if (!raw) return [];
+  let parsed: unknown;
   try {
-    const parsed: unknown = JSON.parse(raw);
-    return (Array.isArray(parsed) || (parsed !== null && typeof parsed === "object"))
-      ? (parsed as Prisma.InputJsonValue)
-      : [];
+    parsed = JSON.parse(raw);
   } catch {
-    return [];
+    throw new Error(`${label} must be valid JSON.`);
   }
+  if (!Array.isArray(parsed) && (parsed === null || typeof parsed !== "object")) {
+    throw new Error(`${label} must be a JSON object or array.`);
+  }
+  return parsed as Prisma.InputJsonValue;
+}
+
+export function readIdList(fd: FormData, key: string, label: string): string[] {
+  const values = new Set<string>();
+  for (const raw of fd.getAll(key)) {
+    if (typeof raw !== "string" || raw.trim() === "") continue;
+    const trimmed = raw.trim();
+    if (trimmed.startsWith("[")) {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(trimmed);
+      } catch {
+        throw new Error(`${label} must be a list of product ids.`);
+      }
+      if (!Array.isArray(parsed) || parsed.some((id) => typeof id !== "string")) {
+        throw new Error(`${label} must be a list of product ids.`);
+      }
+      for (const id of parsed) values.add(id);
+    } else {
+      values.add(trimmed);
+    }
+  }
+  return [...values];
+}
+
+function asRecord(value: unknown, label: string): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} must be a JSON object.`);
+  }
+  return value as Record<string, unknown>;
+}
+
+function variantNumber(value: unknown, label: string): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed)) throw new Error(`${label} must be a number.`);
+  return parsed;
+}
+
+function variantText(value: unknown, label: string): string | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value !== "string") throw new Error(`${label} must be text.`);
+  return value.trim() || null;
+}
+
+function variantBoolean(value: unknown): boolean {
+  return value === true || value === "on" || value === "true" || value === 1 || value === "1";
+}
+
+function parseVariantValue(value: unknown, label: string): Prisma.InputJsonValue {
+  if (value === null || value === undefined || value === "") return {};
+  if (typeof value === "string") {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      throw new Error(`${label} must be valid JSON.`);
+    }
+    return asRecord(parsed, label) as Prisma.InputJsonValue;
+  }
+  return asRecord(value, label) as Prisma.InputJsonValue;
+}
+
+export function parseVariantData(fd: FormData): ParsedVariantInput[] {
+  const raw = readString(fd, "variantData");
+  if (!raw || raw === "[]") return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("Variants must be valid JSON.");
+  }
+  if (!Array.isArray(parsed)) throw new Error("Variants must be a JSON array.");
+
+  return parsed.map((entry, index) => {
+    const label = `Variant ${index + 1}`;
+    const row = asRecord(entry, label);
+    const regularPrice = variantNumber(row.regularPrice ?? row.price, `${label} regular price`);
+    if (regularPrice === null || regularPrice < 0) {
+      throw new Error(`${label} regular price must be zero or greater.`);
+    }
+    const salePrice = variantNumber(row.salePrice, `${label} sale price`);
+    const stockQuantity = variantNumber(row.stockQuantity, `${label} stock quantity`);
+    const downloadLimit = variantNumber(row.downloadLimit, `${label} download limit`);
+    const downloadExpiry = variantNumber(row.downloadExpiry, `${label} download expiry`);
+    const menuOrder = variantNumber(row.menuOrder, `${label} menu order`);
+    const id = variantText(row.id, `${label} id`);
+
+    return {
+      ...(id ? { id } : {}),
+      sku: variantText(row.sku, `${label} SKU`),
+      name: variantText(row.name, `${label} name`),
+      regularPrice,
+      salePrice,
+      stockStatus: typeof row.stockStatus === "string" ? row.stockStatus : "IN_STOCK",
+      stockQuantity,
+      manageStock: variantBoolean(row.manageStock),
+      backorders: typeof row.backorders === "string" ? row.backorders : "no",
+      lowStockAmount: variantNumber(row.lowStockAmount, `${label} low stock amount`),
+      weight: variantNumber(row.weight, `${label} weight`),
+      length: variantNumber(row.length, `${label} length`),
+      width: variantNumber(row.width, `${label} width`),
+      height: variantNumber(row.height, `${label} height`),
+      imageAssetId: variantText(row.imageAssetId, `${label} image`),
+      downloadable: variantBoolean(row.downloadable),
+      downloadLimit,
+      downloadExpiry,
+      downloadFiles: Array.isArray(row.downloadFiles)
+        ? (row.downloadFiles as Prisma.InputJsonValue)
+        : [],
+      virtual: variantBoolean(row.virtual),
+      description: variantText(row.description, `${label} description`),
+      purchaseNote: variantText(row.purchaseNote, `${label} purchase note`),
+      menuOrder: menuOrder ?? index,
+      attributes: parseVariantValue(row.attributes, `${label} attributes`),
+    };
+  });
+}
+
+const PRODUCT_BULK_STATUSES = ["DRAFT", "PENDING_REVIEW", "PUBLISHED", "PRIVATE"] as const;
+
+export type ProductBulkActionResult =
+  | { ok: true; action: "status"; value: (typeof PRODUCT_BULK_STATUSES)[number] }
+  | { ok: true; action: "featured"; value: boolean }
+  | { ok: false; error: string };
+
+export function parseProductBulkAction(formData: FormData): ProductBulkActionResult {
+  const action = String(formData.get("action") ?? "").trim();
+  const value = String(formData.get("value") ?? "").trim();
+  if (action === "status") {
+    if (!(PRODUCT_BULK_STATUSES as readonly string[]).includes(value)) {
+      return { ok: false, error: "Invalid status" };
+    }
+    return { ok: true, action, value: value as (typeof PRODUCT_BULK_STATUSES)[number] };
+  }
+  if (action === "featured") {
+    if (value !== "true" && value !== "false") return { ok: false, error: "Invalid featured value" };
+    return { ok: true, action, value: value === "true" };
+  }
+  return { ok: false, error: "Invalid action" };
 }
 
 const PRODUCT_TYPES = ["SIMPLE", "VARIABLE", "SUBSCRIPTION", "SERVICE", "EXTERNAL", "GROUPED", "BUNDLE"] as const;
@@ -239,27 +424,31 @@ export function parseProductFormData(formData: FormData, now: Date = new Date())
     length: readNumber(formData, "length", null),
     width: readNumber(formData, "width", null),
     height: readNumber(formData, "height", null),
+    ...field(formData, "shippingClassId", readString(formData, "shippingClassId")),
     shippingRequired: readBool(formData, "shippingRequired"),
     shippingTaxable: readBool(formData, "shippingTaxable"),
     externalUrl: readString(formData, "externalUrl"),
     externalButtonText: readString(formData, "externalButtonText"),
-    subscriptionPeriod: readEnum(formData, "subscriptionPeriod", SUBSCRIPTION_PERIODS, "month"),
-    subscriptionInterval: readInt(formData, "subscriptionInterval", null),
-    subscriptionLength: readInt(formData, "subscriptionLength", null),
-    subscriptionTrialPeriod: readInt(formData, "subscriptionTrialPeriod", null),
-    subscriptionSignUpFee: readNumber(formData, "subscriptionSignUpFee", null),
-    membershipAccess: readString(formData, "membershipAccess"),
-    membershipDuration: readString(formData, "membershipDuration"),
-    serviceDuration: readInt(formData, "serviceDuration", null),
-    serviceBufferBefore: readInt(formData, "serviceBufferBefore", null),
-    serviceBufferAfter: readInt(formData, "serviceBufferAfter", null),
-    serviceMaxBookings: readInt(formData, "serviceMaxBookings", null),
-    serviceLocation: readString(formData, "serviceLocation"),
-    serviceCalendarId: readString(formData, "serviceCalendarId"),
+    ...field(formData, "subscriptionPeriod", readEnum(formData, "subscriptionPeriod", SUBSCRIPTION_PERIODS, "month")),
+    ...field(formData, "subscriptionInterval", readInt(formData, "subscriptionInterval", null)),
+    ...field(formData, "subscriptionLength", readInt(formData, "subscriptionLength", null)),
+    ...field(formData, "subscriptionTrialPeriod", readInt(formData, "subscriptionTrialPeriod", null)),
+    ...field(formData, "subscriptionSignUpFee", readNumber(formData, "subscriptionSignUpFee", null)),
+    ...field(formData, "membershipAccess", readString(formData, "membershipAccess")),
+    ...field(formData, "membershipDuration", readString(formData, "membershipDuration")),
+    ...field(formData, "serviceDuration", readInt(formData, "serviceDuration", null)),
+    ...field(formData, "serviceBufferBefore", readInt(formData, "serviceBufferBefore", null)),
+    ...field(formData, "serviceBufferAfter", readInt(formData, "serviceBufferAfter", null)),
+    ...field(formData, "serviceMaxBookings", readInt(formData, "serviceMaxBookings", null)),
+    ...field(formData, "serviceLocation", readString(formData, "serviceLocation")),
+    ...field(formData, "serviceCalendarId", readString(formData, "serviceCalendarId")),
+    ...field(formData, "commissionRate", readNumber(formData, "commissionRate", null)),
+    ...field(formData, "commissionType", readString(formData, "commissionType")),
+    ...field(formData, "vendorId", readString(formData, "vendorId")),
     downloadable: readBool(formData, "downloadable"),
     downloadLimit: readInt(formData, "downloadLimit", null),
     downloadExpiry: readInt(formData, "downloadExpiry", null),
-    downloadFiles: readJson(formData, "downloadFiles"),
+    downloadFiles: readJson(formData, "downloadFiles", "Download files"),
     virtual: readBool(formData, "virtual"),
     reviewsAllowed: readBool(formData, "reviewsAllowed"),
     purchaseNote: readString(formData, "purchaseNote"),
@@ -275,30 +464,16 @@ export function parseProductFormData(formData: FormData, now: Date = new Date())
     ogImage: readString(formData, "ogImage"),
   };
 
-  if (type !== "SUBSCRIPTION") {
-    data.subscriptionPeriod = null;
-    data.subscriptionInterval = null;
-    data.subscriptionLength = null;
-    data.subscriptionTrialPeriod = null;
-    data.subscriptionSignUpFee = null;
-    data.membershipAccess = null;
-    data.membershipDuration = null;
-  }
-
-  if (type !== "SERVICE") {
-    data.serviceDuration = null;
-    data.serviceBufferBefore = null;
-    data.serviceBufferAfter = null;
-    data.serviceMaxBookings = null;
-    data.serviceLocation = null;
-    data.serviceCalendarId = null;
-  }
-
   const imageAssetId = readString(formData, "imageAssetId");
 
   const galleryAssetIds = formData
     .getAll("galleryAssetIds")
     .filter((v): v is string => typeof v === "string" && v !== "");
+
+  const productLinks = {} as Record<ProductLinkField, string[]>;
+  for (const key of PRODUCT_LINK_FIELDS) {
+    productLinks[key] = readIdList(formData, key, "Product relationships");
+  }
 
   return {
     data,
@@ -309,6 +484,8 @@ export function parseProductFormData(formData: FormData, now: Date = new Date())
       attributeValues: parseAttributeValues(formData),
       imageAssetId,
       galleryAssetIds,
+      variants: parseVariantData(formData),
+      productLinks,
     },
   };
 }

@@ -12,16 +12,36 @@ export interface ProductGalleryImage {
 export default function ProductGallery({
   images,
   productName,
+  activeAssetId,
 }: {
   images: ProductGalleryImage[];
   productName: string;
+  activeAssetId?: string | null;
 }) {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [selection, setSelection] = useState(() => ({
+    assetId: activeAssetId ?? null,
+    index: 0,
+  }));
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const thumbnailTrack = useRef<HTMLDivElement>(null);
   const mainImageButton = useRef<HTMLButtonElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
+  const selectedAssetId = activeAssetId ?? null;
+
+  if (selection.assetId !== selectedAssetId) {
+    const nextIndex = selectedAssetId ? images.findIndex((image) => image.assetId === selectedAssetId) : 0;
+    setSelection({ assetId: selectedAssetId, index: nextIndex >= 0 ? nextIndex : 0 });
+  }
+
+  const activeIndex = Math.min(selection.index, Math.max(0, images.length - 1));
   const activeImage = images[activeIndex];
+
+  function selectIndex(next: number | ((current: number) => number)) {
+    setSelection((current) => ({
+      ...current,
+      index: typeof next === "function" ? next(current.index) : next,
+    }));
+  }
 
   useEffect(() => {
     if (!lightboxOpen) return;
@@ -29,18 +49,25 @@ export default function ProductGallery({
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") setLightboxOpen(false);
       if (event.key === "ArrowLeft") {
-        setActiveIndex((index) => (index - 1 + images.length) % images.length);
+        setSelection((current) => ({
+          ...current,
+          index: (current.index - 1 + images.length) % images.length,
+        }));
       }
       if (event.key === "ArrowRight") {
-        setActiveIndex((index) => (index + 1) % images.length);
+        setSelection((current) => ({
+          ...current,
+          index: (current.index + 1) % images.length,
+        }));
       }
     }
 
     closeButton.current?.focus();
+    const returnFocus = mainImageButton.current;
     window.addEventListener("keydown", onKeyDown);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      mainImageButton.current?.focus();
+      returnFocus?.focus();
     };
   }, [images.length, lightboxOpen]);
 
@@ -53,9 +80,7 @@ export default function ProductGallery({
 
   if (!activeImage) {
     return (
-      <div className="flex aspect-square w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-zinc-400">
-        No image
-      </div>
+      <div className="pdp-gallery-empty">No image</div>
     );
   }
 
@@ -64,7 +89,7 @@ export default function ProductGallery({
       <button
         ref={mainImageButton}
         type="button"
-        className="group relative block aspect-square w-full cursor-zoom-in overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50"
+        className="pdp-gallery-main group"
         onClick={() => setLightboxOpen(true)}
         aria-label={`View larger image: ${activeImage.alt || productName}`}
       >
@@ -74,10 +99,10 @@ export default function ProductGallery({
           fill
           priority
           sizes="(max-width: 1024px) 100vw, 50vw"
-          className="object-contain p-3 transition-transform duration-300 group-hover:scale-[1.02]"
+          className="pdp-gallery-image object-contain p-3 transition-transform duration-300 motion-reduce:transition-none group-hover:scale-[1.02] motion-reduce:group-hover:scale-100"
         />
-        <span className="absolute bottom-3 right-3 rounded-full bg-white/90 px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm">
-          Click to enlarge
+        <span className="pdp-gallery-counter">
+          {activeIndex + 1} / {images.length}
         </span>
       </button>
 
@@ -103,14 +128,10 @@ export default function ProductGallery({
               <button
                 key={image.id}
                 type="button"
-                onClick={() => setActiveIndex(index)}
+                onClick={() => selectIndex(index)}
                 aria-label={`Show image ${index + 1}: ${image.alt || productName}`}
                 aria-pressed={index === activeIndex}
-                className={`relative aspect-square w-[calc((100%_-_2rem)/5)] min-w-[calc((100%_-_2rem)/5)] shrink-0 snap-start overflow-hidden rounded-lg border bg-zinc-50 transition ${
-                  index === activeIndex
-                    ? "border-zinc-900 ring-2 ring-zinc-900 ring-offset-1"
-                    : "border-zinc-200 hover:border-zinc-400"
-                }`}
+                className={`pdp-gallery-thumb ${index === activeIndex ? "pdp-gallery-thumb-active" : ""}`}
               >
                 <Image
                   src={`/api/assets/${image.assetId}/`}
@@ -157,7 +178,7 @@ export default function ProductGallery({
           {images.length > 1 && (
             <button
               type="button"
-              onClick={() => setActiveIndex((index) => (index - 1 + images.length) % images.length)}
+              onClick={() => selectIndex((index) => (index - 1 + images.length) % images.length)}
               aria-label="Previous product image"
               className="absolute left-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-3xl text-white hover:bg-white/20 sm:left-6"
             >
@@ -176,7 +197,7 @@ export default function ProductGallery({
           {images.length > 1 && (
             <button
               type="button"
-              onClick={() => setActiveIndex((index) => (index + 1) % images.length)}
+              onClick={() => selectIndex((index) => (index + 1) % images.length)}
               aria-label="Next product image"
               className="absolute right-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-3xl text-white hover:bg-white/20 sm:right-6"
             >

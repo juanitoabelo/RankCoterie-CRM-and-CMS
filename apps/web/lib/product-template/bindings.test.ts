@@ -6,7 +6,7 @@ import {
 } from "./bindings";
 import { parseProductTemplateData, serializeProductTemplateData } from "./serialization";
 import type { Block } from "@/lib/page-builder/types";
-import type { ProductTemplateProductData } from "./types";
+import { DEFAULT_CONTAINER_SETTINGS, type ProductTemplateProductData } from "./types";
 
 const PRODUCT: ProductTemplateProductData = {
   id: "product-1",
@@ -41,6 +41,34 @@ describe("product template data bindings", () => {
     expect(resolveProductBinding(PRODUCT, "__proto__.polluted")).toBeNull();
   });
 
+  it("resolves selected-variant values for price, image, SKU, stock and attributes", () => {
+    const variant = {
+      id: "variant-1",
+      name: "Olive / M",
+      sku: "BAG-01-OL-M",
+      regularPrice: 99,
+      salePrice: 79,
+      price: 79,
+      onSale: true,
+      stockStatus: "IN_STOCK",
+      stockQuantity: 2,
+      manageStock: true,
+      backorders: "no",
+      imageAssetId: "asset-2",
+      attributes: { color: "Olive" },
+      description: "Variant description",
+      virtual: false,
+      downloadable: false,
+    };
+    expect(resolveProductBinding(PRODUCT, "sku", variant)).toBe("BAG-01-OL-M");
+    expect(resolveProductBinding(PRODUCT, "price", variant)).toBe("79");
+    expect(resolveProductBinding(PRODUCT, "regularPrice", variant)).toBe("99");
+    expect(resolveProductBinding(PRODUCT, "mainImage", variant)).toBe("/api/assets/asset-2");
+    expect(resolveProductBinding(PRODUCT, "stockQuantity", variant)).toBe("2");
+    expect(resolveProductBinding(PRODUCT, "attributes.color", variant)).toBe("Olive");
+    expect(resolveProductBinding(PRODUCT, "name")).toBe("Canvas Backpack");
+  });
+
   it("lists product-specific custom fields and attributes as tab binding options", () => {
     const fields = productBindingFields(PRODUCT);
     expect(fields).toEqual(expect.arrayContaining([
@@ -67,7 +95,11 @@ describe("product template data bindings", () => {
         tabs: [{ id: "custom-1", label: "Materials", binding: "customFields.material" }],
       },
     }];
-    const encoded = serializeProductTemplateData(blocks, { width: "full", maxWidth: 1400 });
+    const encoded = serializeProductTemplateData(blocks, {
+      ...DEFAULT_CONTAINER_SETTINGS,
+      width: "full",
+      maxWidth: 1400,
+    });
     const parsed = parseProductTemplateData(encoded);
     expect(parsed.blocks).toEqual(blocks);
     expect(parsed.containerSettings).toMatchObject({ width: "full", maxWidth: 1400 });

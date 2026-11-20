@@ -52,7 +52,9 @@ import {
 } from "@/lib/product-template/bindings";
 import { DEFAULT_CONTAINER_SETTINGS } from "@/lib/product-template/types";
 import {
+  createProductBlock as createConfiguredProductBlock,
   parseProductTemplateData,
+  productBlockSettings,
   serializeProductTemplateData,
 } from "@/lib/product-template/serialization";
 import ProductTemplateRenderer from "@/components/storefront/ProductTemplateRenderer";
@@ -75,6 +77,13 @@ const PRODUCT_BLOCKS = [
   { type: "productStock", label: "Stock Status" },
   { type: "productSpecifications", label: "Specifications & Attributes" },
   { type: "productPurchase", label: "Add to Cart / Purchase" },
+  { type: "productVariantSelector", label: "Variant Selector" },
+  { type: "productTypePanel", label: "Product Type Details" },
+  { type: "productBadges", label: "Product Badges" },
+  { type: "productBreadcrumbs", label: "Breadcrumbs" },
+  { type: "productReviews", label: "Customer Reviews" },
+  { type: "productRelations", label: "Product Relationships" },
+  { type: "stickyPurchaseBar", label: "Sticky Purchase Bar" },
   { type: "productTabs", label: "Product Information Tabs" },
   { type: "productGrid", label: "Related Products Grid" },
   { type: "productSlider", label: "Product Slider" },
@@ -109,6 +118,13 @@ const CUSTOM_PRODUCT_BLOCK_TYPES = new Set([
   "productStock",
   "productSpecifications",
   "productPurchase",
+  "productVariantSelector",
+  "productTypePanel",
+  "productBadges",
+  "productBreadcrumbs",
+  "productReviews",
+  "productRelations",
+  "stickyPurchaseBar",
   "productTabs",
 ]);
 
@@ -141,8 +157,11 @@ function createProductBlock(type: string): Block {
           tabs: [{ id: crypto.randomUUID(), label: "Description", binding: "description", content: "" }],
         },
       };
-    default:
+    default: {
+      const block = createConfiguredProductBlock(type);
+      if (block) return block;
       throw new Error(`Unknown product template block: ${type}`);
+    }
   }
 }
 
@@ -704,7 +723,7 @@ export default function ProductTemplateBuilder({
                     + Add product information tab
                   </button>
                 </div>
-              ) : selectedBlock.type.startsWith("product") ? (
+              ) : selectedBlock.type.startsWith("product") || productBlockSettings(selectedBlock.type).length > 0 ? (
                 <div className="space-y-3">
                   {selectedBlock.type === "productTitle" && (
                     <label className="block text-xs text-zinc-600">
@@ -714,6 +733,50 @@ export default function ProductTemplateBuilder({
                       </select>
                     </label>
                   )}
+                  {productBlockSettings(selectedBlock.type).map((setting) => {
+                    const value = (selectedBlock.props as Record<string, unknown>)[setting.key] ?? setting.default;
+                    if (setting.type === "toggle") {
+                      return (
+                        <label key={setting.key} className="flex items-center justify-between gap-3 text-xs text-zinc-600">
+                          {setting.label}
+                          <input
+                            type="checkbox"
+                            checked={value === true || value === "true"}
+                            onChange={(event) => updateBlock(selectedBlock.id, { [setting.key]: event.target.checked })}
+                          />
+                        </label>
+                      );
+                    }
+                    if (setting.type === "select") {
+                      return (
+                        <label key={setting.key} className="block text-xs text-zinc-600">
+                          {setting.label}
+                          <select
+                            value={String(value ?? "")}
+                            onChange={(event) => updateBlock(selectedBlock.id, { [setting.key]: event.target.value })}
+                            className="mt-1 w-full rounded border border-zinc-300 bg-white px-2 py-1.5"
+                          >
+                            {setting.options?.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
+                        </label>
+                      );
+                    }
+                    return (
+                      <label key={setting.key} className="block text-xs text-zinc-600">
+                        {setting.label}
+                        <input
+                          type={setting.type === "number" ? "number" : "text"}
+                          value={String(value ?? "")}
+                          onChange={(event) => updateBlock(selectedBlock.id, {
+                            [setting.key]: setting.type === "number" ? Number(event.target.value) : event.target.value,
+                          })}
+                          className="mt-1 w-full rounded border border-zinc-300 px-2 py-1.5"
+                        />
+                      </label>
+                    );
+                  })}
                   <p className="text-xs leading-relaxed text-zinc-500">This block automatically displays the matching product&apos;s data on its product page.</p>
                   <label className="block text-xs text-zinc-600">
                     Background color

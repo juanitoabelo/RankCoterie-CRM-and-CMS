@@ -6,7 +6,8 @@
  * Renders blog template blocks for the public site. Reuses page builder
  * renderers for standard blocks, adds blog-specific renderers.
  */
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, createElement, useContext, useEffect, useState } from "react";
+import Link from "next/link";
 import type { Block } from "@/lib/page-builder/types";
 import type { ContainerSettings } from "@/lib/blog-template/types";
 import { isRowBlock, isSectionBlock } from "@/lib/page-builder/types";
@@ -59,6 +60,35 @@ interface BlogPostLink {
   slug: string;
   publishedAt: Date | string | null;
   createdAt: Date | string;
+}
+
+interface RowColumn {
+  id: string;
+  blocks?: Block[];
+  span?: number;
+  spanMd?: number;
+  spanSm?: number;
+  cssClasses?: string;
+  cssId?: string;
+  bgColor?: string;
+  bgImage?: string;
+  bgPosition?: string;
+  bgSize?: string;
+  bgRepeat?: string;
+  overlayColor?: string;
+  overlayOpacity?: number;
+  borderStyle?: React.CSSProperties["borderStyle"];
+  borderWidth?: number;
+  borderColor?: string;
+  borderRadius?: number;
+  boxShadow?: string;
+  margin?: Partial<Record<"top" | "right" | "bottom" | "left", number>>;
+  padding?: Partial<Record<"top" | "right" | "bottom" | "left", number>>;
+  zindex?: number;
+  justifyContent?: React.CSSProperties["justifyContent"];
+  alignItems?: React.CSSProperties["alignItems"];
+  minHeight?: React.CSSProperties["minHeight"];
+  [key: string]: unknown;
 }
 
 interface BlogDataContextValue {
@@ -191,12 +221,14 @@ function RowRenderer({ block }: { block: Block }) {
     }),
   });
 
-  const rowElement = (
-    <RowTag
-      id={p.cssId || undefined}
-      className={[rowClasses, rowScoped.className].filter(Boolean).join(" ") || undefined}
-      {...rowAttrs}
-    >
+  const rowElement = createElement(
+    RowTag,
+    {
+      id: p.cssId || undefined,
+      className: [rowClasses, rowScoped.className].filter(Boolean).join(" ") || undefined,
+      ...rowAttrs,
+    },
+    <>
       {rowScoped.node}
       {renderOverlay({ overlayColor: p.overlayColor, overlayOpacity: p.overlayOpacity })}
       {renderShapeDivider("top", p.shapeDividerTop, p.shapeDividerTopColor, p.shapeDividerTopWidth, p.shapeDividerTopHeight)}
@@ -205,7 +237,7 @@ function RowRenderer({ block }: { block: Block }) {
         className={`grid grid-cols-12 ${reverseTablet} ${reverseMobile} ${gridScoped.className}`.trim()}
       >
         {gridScoped.node}
-        {p.columns.map((col: any, idx: number) => {
+        {p.columns.map((col: RowColumn, idx: number) => {
           const columnProps = resolveArticlePropsBindings("column", col, article);
           const widths = resolveColumnWidths(col, p.stackOnMobile);
           const spanClass = renderColumnSpanClass(widths);
@@ -266,7 +298,7 @@ function RowRenderer({ block }: { block: Block }) {
       </div>
       {customCss && <style dangerouslySetInnerHTML={{ __html: customCss }} />}
       {hoverCss && <style dangerouslySetInnerHTML={{ __html: hoverCss }} />}
-    </RowTag>
+    </>,
   );
 
   if (dateVisible === false) return null;
@@ -515,7 +547,7 @@ function TestimonialRenderer({ block }: { block: Block }) {
 }
 
 function HeroRenderer({ block }: { block: Block }) {
-  const p = block.props as { heading: string; subheading: string; bgColor: string; textColor: string };
+  const p = block.props as { heading: string; subheading: string; bgColor: string; textColor: string; bgImage?: string; bgPosition?: string; bgSize?: string; bgRepeat?: string };
   return (
     <BlockAdvancedFrame block={block}>
       <div
@@ -803,7 +835,8 @@ function ArticleContentRenderer({ block }: { block: Block }) {
   const { article, previousArticle, nextArticle } = useContext(BlogDataContext);
   const [shareUrl, setShareUrl] = useState("");
   useEffect(() => {
-    setShareUrl(window.location.href);
+    const frame = requestAnimationFrame(() => setShareUrl(window.location.href));
+    return () => cancelAnimationFrame(frame);
   }, []);
   const p = block.props as Record<string, unknown>;
   const showTitle = p.showTitle !== false;
@@ -944,9 +977,9 @@ function ArticleHeroRenderer({ block }: { block: Block }) {
       >
         {showBreadcrumb && (
           <nav className="mb-4 text-sm text-zinc-500" data-lp-el="breadcrumb">
-            <a href="/" className="hover:text-amber-600 transition-colors">Home</a>
+            <Link href="/" className="hover:text-amber-600 transition-colors">Home</Link>
             <span className="mx-2">/</span>
-            <a href="/blog" className="hover:text-amber-600 transition-colors">Blog</a>
+            <Link href="/blog" className="hover:text-amber-600 transition-colors">Blog</Link>
             <span className="mx-2">/</span>
             <span className="text-zinc-700">{title}</span>
           </nav>
@@ -1205,13 +1238,15 @@ export function BlogTemplateBlockRenderer({ block: sourceBlock }: { block: Block
     const dateVisible = isDateConditionVisible(p.displayCondition, p.displayConditionDate);
     const gateNeeded = needsClientGate(p.displayCondition);
 
-    const sectionElement = (
-      <SectionTag
-        style={outerStyle}
-        id={p.cssId || undefined}
-        className={sectionClasses || undefined}
-        {...sectionAttrs}
-      >
+    const sectionElement = createElement(
+      SectionTag,
+      {
+        style: outerStyle,
+        id: p.cssId || undefined,
+        className: sectionClasses || undefined,
+        ...sectionAttrs,
+      },
+      <>
         {renderOverlay({ overlayColor: p.overlayColor, overlayOpacity: p.overlayOpacity })}
         {renderShapeDivider("top", p.shapeDividerTop, p.shapeDividerTopColor, p.shapeDividerTopWidth, p.shapeDividerTopHeight)}
         {renderShapeDivider("bottom", p.shapeDividerBottom, p.shapeDividerBottomColor, p.shapeDividerBottomWidth, p.shapeDividerBottomHeight)}
@@ -1220,7 +1255,7 @@ export function BlogTemplateBlockRenderer({ block: sourceBlock }: { block: Block
         </div>
         {customCss && <style dangerouslySetInnerHTML={{ __html: customCss }} />}
         {hoverCss && <style dangerouslySetInnerHTML={{ __html: hoverCss }} />}
-      </SectionTag>
+      </>,
     );
 
     if (dateVisible === false) return null;

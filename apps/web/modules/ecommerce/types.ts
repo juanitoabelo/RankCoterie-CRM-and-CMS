@@ -5,13 +5,14 @@
  * Matches Prisma schema exactly for type safety.
  */
 
-import type { ProductType, ProductStatus, ProductVisibility, StockStatus, OrderStatus, PaymentStatus, PaymentGatewayType, PaymentGatewayPurpose, CouponType, ShippingMethodType, TaxCalculationMethod } from "@prisma/client";
+import type { ProductType, ProductStatus, ProductVisibility, StockStatus, OrderStatus, PaymentStatus, PaymentGatewayType, PaymentGatewayPurpose, CouponType, ShippingMethodType, TaxCalculationMethod, ProductLinkType, ProductReviewStatus } from "@prisma/client";
+import type { EffectiveProductPrice } from "./pricing";
 
 // ============================================================================
 // Enums (re-exported from Prisma for convenience)
 // ============================================================================
 
-export type { ProductType, ProductStatus, ProductVisibility, StockStatus, OrderStatus, PaymentStatus, PaymentGatewayType, PaymentGatewayPurpose, CouponType, ShippingMethodType, TaxCalculationMethod };
+export type { ProductType, ProductStatus, ProductVisibility, StockStatus, OrderStatus, PaymentStatus, PaymentGatewayType, PaymentGatewayPurpose, CouponType, ShippingMethodType, TaxCalculationMethod, ProductLinkType, ProductReviewStatus };
 
 // ============================================================================
 // Core Entity Types
@@ -125,6 +126,74 @@ export interface ProductVariantWithRelations {
   attributes: unknown;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface ProductVariantFormInput {
+  id?: string;
+  sku: string;
+  name: string;
+  regularPrice: number;
+  salePrice: number | null;
+  stockStatus: StockStatus;
+  stockQuantity: number | null;
+  manageStock: boolean;
+  backorders: string;
+  lowStockAmount: number | null;
+  weight: number | null;
+  length: number | null;
+  width: number | null;
+  height: number | null;
+  imageAssetId: string | null;
+  downloadable: boolean;
+  downloadLimit: number | null;
+  downloadExpiry: number | null;
+  downloadFiles: unknown[];
+  virtual: boolean;
+  description: string;
+  purchaseNote: string;
+  menuOrder: number;
+  attributes: Record<string, string>;
+}
+
+export interface ProductLinkWithProduct {
+  id: string;
+  tenantId: string;
+  productId: string;
+  linkedProductId: string;
+  type: ProductLinkType;
+  position: number;
+  linkedProduct: {
+    id: string;
+    name: string;
+    slug: string;
+    sku: string | null;
+    type: ProductType;
+    price: number;
+    regularPrice: number;
+    salePrice: number | null;
+    images: ProductImageWithAsset[];
+  };
+}
+
+export interface ProductReviewWithProduct {
+  id: string;
+  tenantId: string;
+  productId: string;
+  authorName: string;
+  authorEmail: string;
+  rating: number;
+  title: string | null;
+  body: string | null;
+  status: ProductReviewStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PublicProduct extends ProductWithRelations {
+  effectivePrice: EffectiveProductPrice;
+  links: ProductLinkWithProduct[];
+  reviews: ProductReviewWithProduct[];
+  customFieldValues: Record<string, unknown>;
 }
 
 export interface ProductCustomField {
@@ -793,31 +862,12 @@ export interface ProductFormInput {
     isPublic: boolean;
     isRequired: boolean;
   }>;
-  variantData: Array<{
-    id?: string; // for updates
-    sku: string;
-    name: string;
-    regularPrice: number;
-    salePrice: number | null;
-    manageStock: boolean;
-    stockQuantity: number | null;
-    backorders: string;
-    weight: number | null;
-    length: number | null;
-    width: number | null;
-    height: number | null;
-    imageAssetId: string | null;
-    downloadable: boolean;
-    downloadLimit: number | null;
-    downloadExpiry: number | null;
-    downloadFiles: unknown[];
-    virtual: boolean;
-    attributes: Record<string, string>;
-    menuOrder: number;
-  }>;
+  variantData: ProductVariantFormInput[];
   relatedProductIds: string[];
   crossSellProductIds: string[];
   upSellProductIds: string[];
+  bundleChildIds: string[];
+  groupedChildIds: string[];
   tagIds: string[];
   images: Array<{ assetId: string; alt: string | null; position: number; isMain: boolean }>;
   seoTitle: string | null;

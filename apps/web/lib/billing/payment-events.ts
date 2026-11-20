@@ -1,6 +1,8 @@
 import { prisma, TENANT_ID } from "@/modules/shared";
+import { fulfillSubscriptionsForPaidOrder } from "@/modules/ecommerce/queries";
 import { logAudit } from "@/lib/audit";
 import { sendOrderPaidEmail, toOrderEmailData } from "@/lib/email/orders";
+import { logStructured } from "@/lib/observability";
 
 /**
  * Mark an order as paid — the single authoritative path used by webhooks and
@@ -10,17 +12,24 @@ import { sendOrderPaidEmail, toOrderEmailData } from "@/lib/email/orders";
  * Returns false when the order does not exist (or belongs to another tenant).
  */
 export async function markOrderPaid(orderId: string, source: string): Promise<boolean> {
-  const order = await prisma.order.findFirst({
+  const existing = await prisma.order.findFirst({
     where: { id: orderId, tenantId: TENANT_ID },
-    include: { items: true },
+    select: { id: true },
   });
-  if (!order) return false;
-  if (order.paymentStatus === "PAID") return true;
+  if (!existing) return false;
 
-  await prisma.order.update({
-    where: { id: order.id },
+  const claimed = await prisma.order.updateMany({
+    where: { id: existing.id, tenantId: TENANT_ID, paymentStatus: { not: "PAID" } },
     data: { paymentStatus: "PAID", status: "PROCESSING", paidAt: new Date() },
   });
+  if (claimed.count === 0) return true;
+
+  const order = await prisma.order.findFirst({
+    where: { id: existing.id, tenantId: TENANT_ID },
+    include: { items: true },
+  });
+  if (!order) return true;
+
   await logAudit({
     action: "ORDER_PAID",
     entity: "Order",
@@ -28,6 +37,23 @@ export async function markOrderPaid(orderId: string, source: string): Promise<bo
     reason: `Paid via ${source}`,
     meta: { orderNumber: order.orderNumber, source },
   });
+  try {
+    await fulfillSubscriptionsForPaidOrder(order.id);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logStructured({
+      level: "error",
+      message: "subscription_fulfillment_failed",
+      context: { orderId: order.id, source, error: message },
+    });
+    await logAudit({
+      action: "ORDER_UPDATE",
+      entity: "Order",
+      entityId: order.id,
+      reason: "Subscription fulfillment failed after payment",
+      meta: { orderNumber: order.orderNumber, source, error: message },
+    }).catch(() => {});
+  }
   await sendOrderPaidEmail(toOrderEmailData(order)).catch(() => {});
   return true;
 }

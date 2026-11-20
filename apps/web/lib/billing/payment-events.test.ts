@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const findFirst = vi.fn();
-const update = vi.fn();
+const updateMany = vi.fn();
 
 vi.mock("@/modules/shared", () => ({
-  prisma: { order: { findFirst: (...args: unknown[]) => findFirst(...args), update: (...args: unknown[]) => update(...args) } },
+  prisma: {
+    order: {
+      findFirst: (...args: unknown[]) => findFirst(...args),
+      updateMany: (...args: unknown[]) => updateMany(...args),
+    },
+  },
   TENANT_ID: "tenant-test",
 }));
 
@@ -17,6 +22,16 @@ const sendOrderPaidEmail = vi.fn();
 vi.mock("@/lib/email/orders", () => ({
   sendOrderPaidEmail: (...args: unknown[]) => sendOrderPaidEmail(...args),
   toOrderEmailData: (order: { id: string }) => ({ id: order.id }),
+}));
+
+const fulfillSubscriptionsForPaidOrder = vi.fn();
+vi.mock("@/modules/ecommerce/queries", () => ({
+  fulfillSubscriptionsForPaidOrder: (...args: unknown[]) => fulfillSubscriptionsForPaidOrder(...args),
+}));
+
+const logStructured = vi.fn();
+vi.mock("@/lib/observability", () => ({
+  logStructured: (...args: unknown[]) => logStructured(...args),
 }));
 
 import { findOrderByGatewayRef, markOrderPaid } from "./payment-events";
@@ -32,18 +47,20 @@ const baseOrder = {
 beforeEach(() => {
   vi.clearAllMocks();
   findFirst.mockResolvedValue(baseOrder);
-  update.mockResolvedValue({});
+  updateMany.mockResolvedValue({ count: 1 });
   logAudit.mockResolvedValue(undefined);
   sendOrderPaidEmail.mockResolvedValue(undefined);
+  fulfillSubscriptionsForPaidOrder.mockResolvedValue("not-applicable");
+  logStructured.mockReturnValue(undefined);
 });
 
 describe("markOrderPaid", () => {
   it("marks a pending order paid exactly once", async () => {
     const first = await markOrderPaid("ord_1", "test-webhook");
     expect(first).toBe(true);
-    expect(update).toHaveBeenCalledTimes(1);
-    expect(update.mock.calls[0][0]).toMatchObject({
-      where: { id: "ord_1" },
+    expect(updateMany).toHaveBeenCalledTimes(1);
+    expect(updateMany.mock.calls[0][0]).toMatchObject({
+      where: { id: "ord_1", tenantId: "tenant-test", paymentStatus: { not: "PAID" } },
       data: { paymentStatus: "PAID", status: "PROCESSING" },
     });
     expect(logAudit).toHaveBeenCalledTimes(1);
@@ -51,11 +68,11 @@ describe("markOrderPaid", () => {
   });
 
   it("is idempotent: a second call is a no-op", async () => {
+    updateMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
     await markOrderPaid("ord_1", "test-webhook");
-    findFirst.mockResolvedValue({ ...baseOrder, paymentStatus: "PAID", status: "PROCESSING" });
     const second = await markOrderPaid("ord_1", "test-webhook");
     expect(second).toBe(true);
-    expect(update).toHaveBeenCalledTimes(1);
+    expect(updateMany).toHaveBeenCalledTimes(2);
     expect(logAudit).toHaveBeenCalledTimes(1);
     expect(sendOrderPaidEmail).toHaveBeenCalledTimes(1);
   });
@@ -64,7 +81,7 @@ describe("markOrderPaid", () => {
     findFirst.mockResolvedValue(null);
     const res = await markOrderPaid("ord_missing", "test-webhook");
     expect(res).toBe(false);
-    expect(update).not.toHaveBeenCalled();
+    expect(updateMany).not.toHaveBeenCalled();
     expect(logAudit).not.toHaveBeenCalled();
     expect(sendOrderPaidEmail).not.toHaveBeenCalled();
   });
@@ -80,7 +97,20 @@ describe("markOrderPaid", () => {
     sendOrderPaidEmail.mockRejectedValue(new Error("smtp down"));
     const res = await markOrderPaid("ord_1", "test");
     expect(res).toBe(true);
-    expect(update).toHaveBeenCalledTimes(1);
+    expect(updateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps payment confirmed when subscription fulfillment fails and logs for retry", async () => {
+    fulfillSubscriptionsForPaidOrder.mockRejectedValue(new Error("db down"));
+    const res = await markOrderPaid("ord_1", "stripe-webhook");
+    expect(res).toBe(true);
+    expect(updateMany).toHaveBeenCalledTimes(1);
+    expect(logStructured).toHaveBeenCalledWith(
+      expect.objectContaining({ level: "error", message: "subscription_fulfillment_failed" }),
+    );
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "ORDER_UPDATE", reason: "Subscription fulfillment failed after payment" }),
+    );
   });
 });
 

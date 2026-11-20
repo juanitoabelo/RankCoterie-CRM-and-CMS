@@ -372,6 +372,7 @@ export interface AdvancedMenuBlock extends BlockBase {
      * Mirrors the page-builder canvas structure so any layout/block combination works.
      */
     mobileLayout?: Block[];
+    mobileBlocks?: Block[];
     /** Show the nav items above the layout inside the mobile panel. */
     showMobileMenuItems?: boolean;
     /**

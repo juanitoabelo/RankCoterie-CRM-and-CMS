@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import type { ProductGridBlock } from "@/lib/page-builder/types";
 import { notifyCartUpdated } from "@/lib/cart-event";
 import {
   DEFAULT_PRODUCT_CARD_TEMPLATE,
   type ProductCardTemplateSettings,
 } from "@/lib/product-card-template";
+import { formatMoney } from "@/modules/ecommerce/currency";
 
 type ProductGridProps = ProductGridBlock["props"];
 
@@ -116,7 +118,7 @@ const CARD_CLASS: Record<NonNullable<ProductGridProps["cardStyle"]>, string> = {
 };
 
 function money(value: number): string {
-  return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(value);
+  return formatMoney(value);
 }
 
 function columnStyle(props: ProductGridProps): React.CSSProperties {
@@ -468,6 +470,7 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
                   }}
                 >
                   {showFeaturedImage && cardTemplate.showImage ? (
+                    <Link href={`/${item.slug}`} className="block" aria-label={`View ${item.name}`}>
                     <div className={`pg-image ${CARD_TEMPLATE_ASPECT_CLASS[cardTemplate.imageAspect]}`}>
                       {item.imageAssetId ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -526,13 +529,20 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
                         </div>
                       ) : null}
                     </div>
+                    </Link>
                   ) : null}
 
                   <div className="pg-body">
                     {showCategory && cardTemplate.showCategory && item.categories.length > 0 ? (
                       <div className="pg-category">{item.categories[0].name}</div>
                     ) : null}
-                    {showTitle && cardTemplate.showTitle ? <h3 className="pg-title">{item.name}</h3> : null}
+                    {showTitle && cardTemplate.showTitle ? (
+                      <h3 className="pg-title">
+                        <Link href={`/${item.slug}`} className="hover:underline">
+                          {item.name}
+                        </Link>
+                      </h3>
+                    ) : null}
                     {showExcerpt && cardTemplate.showExcerpt && excerpt ? <p className="pg-excerpt">{excerpt}</p> : null}
                     {showRating && cardTemplate.showRating && item.reviewCount > 0 ? (
                       <div className="pg-rating" aria-label={`Rated ${item.rating} out of 5 from ${item.reviewCount} reviews`}>

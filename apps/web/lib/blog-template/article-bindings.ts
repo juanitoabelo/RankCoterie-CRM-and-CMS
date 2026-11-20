@@ -286,9 +286,9 @@ export function resolveArticlePropsBindings(
     const parts = target.split(".");
     let parent: Record<string, unknown> | unknown[] = nextProps;
     for (const part of parts.slice(0, -1)) {
-      const current = (parent as Record<string, unknown>)[part];
+      const current: unknown = (parent as Record<string, unknown>)[part];
       if (!current || typeof current !== "object") break;
-      const clone = Array.isArray(current) ? [...current] : { ...current as Record<string, unknown> };
+      const clone: Record<string, unknown> | unknown[] = Array.isArray(current) ? [...current] : { ...current as Record<string, unknown> };
       (parent as Record<string, unknown>)[part] = clone;
       parent = clone;
     }

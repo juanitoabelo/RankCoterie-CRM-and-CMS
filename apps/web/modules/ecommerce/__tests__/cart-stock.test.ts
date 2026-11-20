@@ -175,6 +175,26 @@ describe("addItemToCart", () => {
       expect.objectContaining({ data: expect.objectContaining({ quantity: 50 }) }),
     );
   });
+
+  it("rejects a variant belonging to a different product", async () => {
+    productFindFirst.mockResolvedValue(makeProduct());
+    variantFindUnique.mockResolvedValue({
+      id: "var_other",
+      productId: "prod_other",
+      manageStock: true,
+      stockQuantity: 5,
+      stockStatus: "IN_STOCK",
+      backorders: "no",
+    });
+
+    const result = await addItemToCart("cart_1", "prod_1", 1, "var_other");
+
+    expect(result).toEqual({
+      ok: false,
+      error: "The selected option does not belong to this product.",
+    });
+    expect(cartItemCreate).not.toHaveBeenCalled();
+  });
 });
 
 describe("updateCartItemQuantity", () => {

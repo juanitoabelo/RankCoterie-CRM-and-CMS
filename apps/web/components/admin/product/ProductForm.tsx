@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 import RichTextarea from "@/components/admin/RichTextarea";
 import ImageUploader from "@/components/admin/ImageUploader";
 import ProductGalleryUploader from "@/components/admin/product/ProductGalleryUploader";
+import ProductRelationshipPicker from "@/components/admin/product/ProductRelationshipPicker";
+import TypeSpecificFields from "@/components/admin/product/TypeSpecificFields";
+import VariantEditor from "@/components/admin/product/VariantEditor";
 import CustomFieldsEditor from "@/components/admin/custom-fields/CustomFieldsEditor";
 import type { ActionResult } from "@/app/(admin)/admin/products/actions";
 import type {
@@ -166,6 +169,8 @@ function toDefault(product: ProductFormInput | null): ProductFormInput {
     relatedProductIds: product?.relatedProductIds ?? [],
     crossSellProductIds: product?.crossSellProductIds ?? [],
     upSellProductIds: product?.upSellProductIds ?? [],
+    bundleChildIds: product?.bundleChildIds ?? [],
+    groupedChildIds: product?.groupedChildIds ?? [],
     tagIds: product?.tagIds ?? [],
     images: product?.images ?? [],
     seoTitle: product?.seoTitle ?? null,
@@ -194,6 +199,9 @@ export default function ProductForm({
   attributes,
   tags,
   paymentGateways,
+  productOptions,
+  shippingClasses,
+  vendors,
   onSave,
 }: {
   productId: string | null;
@@ -202,6 +210,9 @@ export default function ProductForm({
   attributes: ProductAttributeWithTerms[];
   tags: { id: string; name: string; slug: string }[];
   paymentGateways: PaymentGatewayWithRelations[];
+  productOptions: { id: string; name: string; slug: string; sku: string | null; type: ProductFormInput["type"] }[];
+  shippingClasses: { id: string; name: string; slug: string }[];
+  vendors: { id: string; name: string; email: string }[];
   onSave: (formData: FormData) => Promise<ActionResult>;
 }) {
   const [initial] = useState<ProductFormInput>(() => toDefault(product));
@@ -224,6 +235,13 @@ export default function ProductForm({
   const selectedAttributes = new Map(
     initial.attributeValues.map((value) => [value.attributeId, value]),
   );
+  const relationshipValues = {
+    relatedProductIds: initial.relatedProductIds,
+    crossSellProductIds: initial.crossSellProductIds,
+    upSellProductIds: initial.upSellProductIds,
+    bundleChildIds: initial.bundleChildIds,
+    groupedChildIds: initial.groupedChildIds,
+  };
 
   const onFeaturedChange = (assetId: string) => {
     setFeaturedAssetId(assetId);
@@ -671,6 +689,8 @@ export default function ProductForm({
         </div>
       </section>
 
+      <TypeSpecificFields product={initial} shippingClasses={shippingClasses} vendors={vendors} />
+
       {/* Downloads */}
       <details className={`${cardCls} group`} open={initial.downloadable}>
         <summary className="cursor-pointer text-sm font-semibold uppercase tracking-wide text-zinc-500">
@@ -1078,6 +1098,13 @@ export default function ProductForm({
           </div>
         </div>
       </section>
+
+      <VariantEditor initialVariants={initial.variantData} />
+      <ProductRelationshipPicker
+        productOptions={productOptions}
+        currentProductId={productId}
+        initial={relationshipValues}
+      />
 
       {/* SEO */}
       <CustomFieldsEditor contentType="product" recordId={productId ?? undefined} />

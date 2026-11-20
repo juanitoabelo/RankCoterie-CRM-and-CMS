@@ -12,6 +12,11 @@ import {
   readCartSession,
   readExistingCartSession,
 } from "@/lib/cart-session";
+import {
+  normalizeCartOptions,
+  parseCartQuantity,
+  resolveStockSource,
+} from "@/modules/ecommerce/cart-pricing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +24,9 @@ export const dynamic = "force-dynamic";
 type SerializedItem = {
   id: string;
   productId: string;
+  variantId: string | null;
+  variantName: string | null;
+  options: Record<string, string>;
   name: string;
   slug: string;
   imageAssetId: string | null;
@@ -30,6 +38,7 @@ type SerializedItem = {
   stockQuantity: number | null;
   backorders: string;
   lowStockAmount: number | null;
+  variantLowStockAmount: number | null;
 };
 
 function serializeCart(cart: Awaited<ReturnType<typeof getCartBySession>>) {
@@ -39,21 +48,32 @@ function serializeCart(cart: Awaited<ReturnType<typeof getCartBySession>>) {
   return {
     itemCount: cart.itemCount,
     total: cart.total,
-    items: cart.items.map((item) => ({
-      id: item.id,
-      productId: item.productId,
-      name: item.product.name,
-      slug: item.product.slug,
-      imageAssetId: item.product.images[0]?.assetId ?? null,
-      price: item.price,
-      quantity: item.quantity,
-      lineTotal: item.lineTotal,
-      stockStatus: item.product.stockStatus,
-      manageStock: item.product.manageStock,
-      stockQuantity: item.product.stockQuantity,
-      backorders: item.product.backorders,
-      lowStockAmount: item.product.lowStockAmount,
-    })),
+    items: cart.items.map((item) => {
+      const stockSource = resolveStockSource(item.variant, item.product);
+      return {
+        id: item.id,
+        productId: item.productId,
+        variantId: item.variantId,
+        variantName: item.variant?.name ?? null,
+        options:
+          item.meta && typeof item.meta === "object"
+            ? normalizeCartOptions((item.meta as Record<string, unknown>).customOptions)
+            : {},
+        name: item.product.name,
+        slug: item.product.slug,
+        imageAssetId:
+          item.variant?.imageAsset?.id ?? item.product.images[0]?.assetId ?? null,
+        price: item.price,
+        quantity: item.quantity,
+        lineTotal: item.lineTotal,
+        stockStatus: stockSource.stockStatus ?? item.product.stockStatus,
+        manageStock: stockSource.manageStock,
+        stockQuantity: stockSource.stockQuantity,
+        backorders: stockSource.backorders ?? item.product.backorders,
+        lowStockAmount: item.product.lowStockAmount,
+        variantLowStockAmount: item.variant?.lowStockAmount ?? null,
+      };
+    }),
   };
 }
 
@@ -77,6 +97,8 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json().catch(() => null)) as {
       productId?: string;
+      variantId?: string | null;
+      options?: Record<string, unknown>;
       quantity?: number;
     } | null;
 
@@ -85,11 +107,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Missing product." }, { status: 400 });
     }
 
-    const quantity = Math.min(99, Math.max(1, Math.round(body?.quantity ?? 1)));
+    const quantity = parseCartQuantity(body?.quantity ?? 1);
+    if (quantity === null) {
+      return NextResponse.json({ ok: false, error: "Invalid quantity." }, { status: 400 });
+    }
     const { sessionId, isNew } = await readCartSession();
 
     const cart = await getOrCreateCart(sessionId);
-    const result = await addItemToCart(cart.id, productId, quantity);
+    const variantId = typeof body?.variantId === "string" ? body.variantId : null;
+    const result = await addItemToCart(
+      cart.id,
+      productId,
+      quantity,
+      variantId ?? undefined,
+      normalizeCartOptions(body?.options),
+    );
     const updated = result.ok ? await getCartBySession(sessionId) : null;
     const itemCount = updated?.itemCount ?? cart.itemCount;
 
@@ -138,7 +170,10 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ ok: false, error: "Cart not found." }, { status: 404 });
     }
 
-    const quantity = Math.min(99, Math.max(0, Math.round(body?.quantity ?? 1)));
+    const quantity = parseCartQuantity(body?.quantity ?? 1, 0);
+    if (quantity === null) {
+      return NextResponse.json({ ok: false, error: "Invalid quantity." }, { status: 400 });
+    }
     const result = await updateCartItemQuantity(cart.id, itemId, quantity);
     const updated = await getCartBySession(sessionId);
 

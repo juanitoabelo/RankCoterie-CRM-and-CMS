@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { purchaseProduct } from "@/app/(site)/checkout/actions";
 import { notifyCartUpdated } from "@/lib/cart-event";
+import { isValidUrl } from "@/lib/page-builder/validate";
+import { useProductTemplateContext } from "./ProductTemplateContext";
 import AddressFields from "./AddressFields";
 
 export type PurchaseGateway = {
@@ -19,24 +21,84 @@ const GATEWAY_HINTS: Record<string, string> = {
   MANUAL: "Pay offline / cash on delivery",
 };
 
+const TYPE_BUTTON_LABEL: Record<string, string> = {
+  SUBSCRIPTION: "Start subscription",
+  SERVICE: "Book now",
+  EXTERNAL: "Visit product site",
+};
+
+function isSafeExternalUrl(value: string | null | undefined): value is string {
+  if (!value || !isValidUrl(value)) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export default function ProductPurchase({
   productId,
   gateways,
 }: {
-  productId: string;
-  gateways: PurchaseGateway[];
+  productId?: string;
+  gateways?: PurchaseGateway[];
 }) {
+  const context = useProductTemplateContext();
+  const product = context?.product;
+  const id = productId ?? product?.id ?? "";
+  const activeGateways = gateways ?? context?.gateways ?? [];
+  const selectedVariantId = context?.selectedVariantId ?? null;
+  const selectedOptions = context?.selectedOptions ?? {};
+  const quantity = context?.quantity ?? 1;
+  const manageStock = context?.manageStock ?? product?.manageStock ?? false;
+  const stockQuantity = context?.stockQuantity ?? product?.stockQuantity ?? null;
+  const stockStatus = context?.stockStatus ?? product?.stockStatus;
+  const backorders = context?.backorders ?? product?.backorders ?? "no";
+  const type = product?.type ?? "SIMPLE";
   const [message, setMessage] = useState<{ ok: boolean; error?: string } | null>(null);
   const [isPending, startTransition] = useTransition();
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
   const [country, setCountry] = useState("");
   const [state, setState] = useState("");
-  // One token per buy-now attempt — the server dedupes double-submits with it.
   const [checkoutToken] = useState(() => crypto.randomUUID());
   const router = useRouter();
 
-  if (gateways.length === 0) {
+  const soldOut = stockStatus === "OUT_OF_STOCK" && backorders !== "yes" && backorders !== "notify";
+  const maxQuantity = manageStock && stockQuantity !== null ? Math.max(1, stockQuantity) : 99;
+
+  if (type === "EXTERNAL") {
+    if (isSafeExternalUrl(product?.externalUrl)) {
+      return (
+        <a
+          href={product.externalUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="pdp-primary-button text-center"
+        >
+          {product.externalButtonText || "Visit product site"}
+        </a>
+      );
+    }
+    return (
+      <div className="pdp-purchase-card">
+        <p className="text-sm text-zinc-600">The external product link is not available.</p>
+      </div>
+    );
+  }
+
+  if (type === "GROUPED" || type === "BUNDLE") {
+    return (
+      <div className="pdp-purchase-card">
+        <p className="text-sm text-zinc-600">
+          Choose the individual products in this {type.toLowerCase()} to purchase them.
+        </p>
+      </div>
+    );
+  }
+
+  if (activeGateways.length === 0) {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
         Payments are not available yet — no payment gateway is enabled for this store.
@@ -46,7 +108,7 @@ export default function ProductPurchase({
 
   const addToCart = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    if (adding) return;
+    if (adding || !id) return;
     setAdding(true);
     setMessage(null);
     try {
@@ -54,7 +116,12 @@ export default function ProductPurchase({
       const res = await fetch("/api/cart", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId, quantity: parseInt(qtyInput?.value ?? "1", 10) || 1 }),
+        body: JSON.stringify({
+          productId: id,
+          variantId: selectedVariantId,
+          options: selectedOptions,
+          quantity: parseInt(qtyInput?.value ?? String(quantity), 10) || 1,
+        }),
       });
       const json = (await res.json()) as { ok: boolean; error?: string; itemCount?: number };
       if (json.ok) {
@@ -75,7 +142,9 @@ export default function ProductPurchase({
     e.preventDefault();
     setMessage(null);
     const formData = new FormData(e.currentTarget);
-    formData.set("productId", productId);
+    formData.set("productId", id);
+    formData.set("variantId", selectedVariantId ?? "");
+    formData.set("options", JSON.stringify(selectedOptions));
     startTransition(async () => {
       try {
         const result = await purchaseProduct(formData);
@@ -95,8 +164,10 @@ export default function ProductPurchase({
   };
 
   return (
-    <form onSubmit={onSubmit} className="rounded-xl border border-zinc-200 bg-white p-5">
+    <form onSubmit={onSubmit} className="pdp-purchase-card">
       <input type="hidden" name="checkoutToken" value={checkoutToken} />
+      <input type="hidden" name="variantId" value={selectedVariantId ?? ""} />
+      <input type="hidden" name="options" value={JSON.stringify(selectedOptions)} />
       <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
         Payment method
       </h2>
@@ -108,7 +179,7 @@ export default function ProductPurchase({
       )}
 
       <div className="mt-3 space-y-2">
-        {gateways.map((gw, i) => (
+        {activeGateways.map((gw, i) => (
           <label
             key={gw.id}
             className="flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-200 px-3 py-2.5 hover:border-zinc-400"
@@ -141,8 +212,8 @@ export default function ProductPurchase({
               type="number"
               name="quantity"
               min={1}
-              max={999}
-              defaultValue={1}
+              max={maxQuantity}
+              defaultValue={quantity}
               className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-2 text-sm"
             />
           </div>
@@ -170,14 +241,14 @@ export default function ProductPurchase({
 
         <button
           type="submit"
-          disabled={isPending}
-          className="w-full rounded-lg bg-zinc-900 px-4 py-3 text-sm font-semibold text-white hover:bg-zinc-700 disabled:opacity-60"
+          disabled={isPending || soldOut}
+          className="pdp-primary-button disabled:opacity-60"
         >
-          {isPending ? "Processing…" : "Buy now"}
+          {isPending ? "Processing…" : soldOut ? "Sold out" : TYPE_BUTTON_LABEL[type] ?? "Buy now"}
         </button>
         <button
           type="button"
-          disabled={adding}
+          disabled={adding || soldOut}
           onClick={addToCart}
           className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-60"
         >
