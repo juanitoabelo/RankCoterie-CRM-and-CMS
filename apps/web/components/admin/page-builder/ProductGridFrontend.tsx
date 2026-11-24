@@ -489,7 +489,7 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
                       {item.imageAssetId ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={`/api/assets/${item.imageAssetId}`}
+                          src={`/api/assets/${item.imageAssetId}/`}
                           alt={item.name}
                           loading="lazy"
                           className="pg-image-el"

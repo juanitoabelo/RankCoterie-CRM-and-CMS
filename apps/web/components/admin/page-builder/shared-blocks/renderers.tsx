@@ -935,7 +935,7 @@ function ProductSpotlightView({ block, ctx }: { block: ProductSpotlightBlock; ct
         <div className="mt-6 grid grid-cols-1 items-center gap-6 sm:grid-cols-2">
           {product?.imageAssetId ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={`/api/assets/${product.imageAssetId}`} alt={name} className="w-full rounded-xl object-cover" data-lp-el="image" />
+            <img src={`/api/assets/${product.imageAssetId}/`} alt={name} className="w-full rounded-xl object-cover" data-lp-el="image" />
           ) : (
             <div className="flex h-56 items-center justify-center rounded-xl bg-zinc-100 text-3xl" aria-hidden data-lp-el="image">
               🛒

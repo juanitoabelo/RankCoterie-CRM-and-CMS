@@ -231,7 +231,7 @@ export function buildListingJsonLd(ctx: ListingViewContext) {
         }))
       : undefined,
     priceRange: listing.pricing ? "$$" : undefined,
-    image: listing.avatarImage ? `${ctx.siteUrl}/api/assets/${listing.avatarImage}` : undefined,
+    image: listing.avatarImage ? `${ctx.siteUrl}/api/assets/${listing.avatarImage}/` : undefined,
     aggregateRating: listing.reviewCount > 0
       ? { "@type": "AggregateRating", ratingValue: listing.averageRating, reviewCount: listing.reviewCount }
       : undefined,

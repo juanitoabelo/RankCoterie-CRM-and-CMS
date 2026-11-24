@@ -15,7 +15,7 @@ import type {
 } from "@/lib/product-template/types";
 
 export function assetUrl(assetId: string | null | undefined): string | null {
-  return assetId ? `/api/assets/${assetId}` : null;
+  return assetId ? `/api/assets/${assetId}/` : null;
 }
 
 function isInternalVariantAttribute(key: string): boolean {

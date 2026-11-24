@@ -30,9 +30,16 @@ const LIST_PATH = "/admin/geo-category-template";
  *  revalidatePath("/g") would only hit the literal /g path — not the route.
  *  Region + paginated region routes render the same template, so they purge too. */
 function revalidateGeoPages() {
-  revalidatePath("/g/[category]", "page");
-  revalidatePath("/g/[category]/[region]", "page");
-  revalidatePath("/g/[category]/[region]/page/[pageNum]", "page");
+  for (const path of [
+    "/g/[category]",
+    "/g/[category]/[region]",
+    "/g/[category]/[region]/page/[pageNum]",
+    "/(site)/g/[category]",
+    "/(site)/g/[category]/[region]",
+    "/(site)/g/[category]/[region]/page/[pageNum]",
+  ]) {
+    revalidatePath(path, "page");
+  }
 }
 
 /* ── LIST ─────────────────────────────────────────────────────────────── */

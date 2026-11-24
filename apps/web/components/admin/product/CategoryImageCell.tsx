@@ -86,7 +86,7 @@ export default function CategoryImageCell({
         {assetId ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={`/api/assets/${assetId}`}
+            src={`/api/assets/${assetId}/`}
             alt=""
             className="h-9 w-9 rounded-md border border-zinc-200 bg-zinc-100 object-cover"
           />

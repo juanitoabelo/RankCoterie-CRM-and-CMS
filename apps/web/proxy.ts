@@ -79,13 +79,13 @@ export async function proxy(req: NextRequest) {
   const guard = await adminGuard(req);
   if (guard) return guard;
 
-  // Expose the canonical pathname to server components (used by the admin
-  // layout for per-link permission enforcement). Overwrite any client value.
+  // Expose the canonical pathname to server components (used by the site
+  // layout for page layouts and the admin layout for permission checks).
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-pathname", pathname);
   return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {
-  matcher: ["/g/:path*", "/admin/:path*"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\..*).*)"],
 };

@@ -249,7 +249,7 @@ export function SinglePost({
             ...article,
             body,
             featuredImage: article.featuredImage
-              ? `/api/assets/${article.featuredImage.id}`
+              ? `/api/assets/${article.featuredImage.id}/`
               : null,
             featuredImageAlt: article.featuredImage?.alt ?? null,
             featuredImageCaption: article.featuredImage?.caption ?? null,

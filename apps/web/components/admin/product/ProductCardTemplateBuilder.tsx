@@ -138,7 +138,7 @@ function ProductCardPreview({
           {product?.imageAssetId ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={`/api/assets/${product.imageAssetId}`}
+              src={`/api/assets/${product.imageAssetId}/`}
               alt={title}
               className="h-full w-full"
               style={{ objectFit: settings.imageFit }}

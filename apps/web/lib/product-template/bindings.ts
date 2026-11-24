@@ -99,10 +99,10 @@ export function resolveProductBinding(
 ): string | null {
   if (binding === "productUrl") return product.productUrl ?? `/${product.slug}`;
   if (binding === "mainImage") {
-    if (selectedVariant?.imageAssetId) return `/api/assets/${selectedVariant.imageAssetId}`;
+    if (selectedVariant?.imageAssetId) return `/api/assets/${selectedVariant.imageAssetId}/`;
     const image =
       product.images.find((item) => item.isMain) ?? product.images[0];
-    return image ? `/api/assets/${image.assetId}` : null;
+    return image ? `/api/assets/${image.assetId}/` : null;
   }
   if (binding === "price") {
     if (selectedVariant) return String(selectedVariant.price);

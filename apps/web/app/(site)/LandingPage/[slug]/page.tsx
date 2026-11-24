@@ -17,7 +17,7 @@ export const revalidate = 0;
 function imgSrc(v: string | null): string {
   if (!v) return "";
   if (v.startsWith("http") || v.startsWith("/")) return v;
-  return `/api/assets/${v}`;
+  return `/api/assets/${v}/`;
 }
 
 async function getListing(slug: string) {

@@ -122,11 +122,11 @@ export async function resolveRegionTemplateView({
     summary: renderLocalizedContent(l.summary, ctx),
     city: l.city,
     state: l.state,
-    image: l.avatarImage ? `/api/assets/${l.avatarImage}` : null,
+    image: l.avatarImage ? `/api/assets/${l.avatarImage}/` : null,
     tier: l.tier,
   }));
 
-  const heroUrl = heroImage ? `/api/assets/${heroImage.imageAssetId}` : null;
+  const heroUrl = heroImage ? `/api/assets/${heroImage.imageAssetId}/` : null;
   const geo: GeoBindingData = {
     category: {
       title: cat.title,

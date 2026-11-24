@@ -28,11 +28,11 @@ export function getPublicCustomFields(
       if (!Object.hasOwn(values, field.key)) continue;
       const value = values[field.key];
       if ((field.type === "image" || field.type === "file") && typeof value === "string" && value) {
-        result[field.key] = `/api/assets/${value}`;
+        result[field.key] = `/api/assets/${value}/`;
       } else if (field.type === "gallery" && Array.isArray(value)) {
         result[field.key] = value
           .filter((assetId): assetId is string => typeof assetId === "string" && assetId.length > 0)
-          .map((assetId) => `/api/assets/${assetId}`);
+          .map((assetId) => `/api/assets/${assetId}/`);
       } else {
         result[field.key] = value;
       }

@@ -58,7 +58,7 @@ export function CustomPostTypeArchiveContent({ postType }: { postType: CustomPos
                 {post.featuredImageAssetId && (
                   <div className="relative aspect-[1.91/1] w-full">
                     <Image
-                      src={`/api/assets/${post.featuredImageAssetId}`}
+                      src={`/api/assets/${post.featuredImageAssetId}/`}
                       alt=""
                       fill
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"

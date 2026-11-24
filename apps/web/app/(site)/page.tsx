@@ -103,7 +103,7 @@ export default async function HomePage() {
       ))}
       {widgets.length > 0 && <aside className="mt-12 grid gap-4 sm:grid-cols-2">{widgets.map((widget) => (
         <article key={widget.id} className="rounded-xl border border-zinc-200 bg-white p-5">
-          {widget.imageAssetId && <img src={`/api/assets/${widget.imageAssetId}`} alt="" className="mb-4 max-h-48 w-full object-cover" />}
+          {widget.imageAssetId && <img src={`/api/assets/${widget.imageAssetId}/`} alt="" className="mb-4 max-h-48 w-full object-cover" />}
           <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(widget.html) }} />
           {widget.redirectUrl && <Link href={widget.redirectUrl} className="mt-4 inline-block text-sm font-medium text-blue-600">Learn more</Link>}
         </article>

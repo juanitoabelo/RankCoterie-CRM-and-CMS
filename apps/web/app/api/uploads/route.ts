@@ -47,7 +47,7 @@ export async function POST(request: Request) {
         bytes,
       },
     });
-    return NextResponse.json({ url: `/api/assets/${asset.id}` });
+    return NextResponse.json({ url: `/api/assets/${asset.id}/` });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Failed to save asset." },

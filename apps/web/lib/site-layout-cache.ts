@@ -1,21 +1,27 @@
-/**
- * Process-wide cache for the storefront layout (tenant theme, header/footer
- * blocks, menus). Lives in its own module so server actions can purge it —
- * `revalidatePath` only clears Next's route cache, not this in-memory copy.
- */
 const TTL_MS = 60_000;
+const DEFAULT_KEY = "__default__";
 
-let cache: { data: unknown; expiresAt: number } | null = null;
+let cache = new Map<string, { data: unknown; expiresAt: number }>();
 
-export function readSiteLayoutCache<T>(now = Date.now()): T | null {
-  if (cache && now < cache.expiresAt) return cache.data as T;
+function cacheKey(pathname: string): string {
+  if (pathname === DEFAULT_KEY) return pathname;
+  return pathname.endsWith("/") ? pathname : `${pathname}/`;
+}
+
+export function readSiteLayoutCache<T>(pathname = DEFAULT_KEY, now = Date.now()): T | null {
+  const entry = cache.get(cacheKey(pathname));
+  if (entry && now < entry.expiresAt) return entry.data as T;
   return null;
 }
 
-export function writeSiteLayoutCache(data: unknown) {
-  cache = { data, expiresAt: Date.now() + TTL_MS };
+export function writeSiteLayoutCache(data: unknown, pathname = DEFAULT_KEY) {
+  cache.set(cacheKey(pathname), { data, expiresAt: Date.now() + TTL_MS });
 }
 
-export function clearSiteLayoutCache() {
-  cache = null;
+export function clearSiteLayoutCache(pathname?: string) {
+  if (!pathname) {
+    cache = new Map();
+    return;
+  }
+  cache.delete(cacheKey(pathname));
 }

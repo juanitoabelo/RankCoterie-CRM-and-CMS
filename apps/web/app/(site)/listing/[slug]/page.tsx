@@ -81,7 +81,7 @@ function generateJsonLd(listing: JsonLdListing, siteUrl: string) {
         }))
       : undefined,
     priceRange: listing.pricing ? "$$" : undefined,
-    image: listing.avatarImage ? `${siteUrl}/api/assets/${listing.avatarImage}` : undefined,
+    image: listing.avatarImage ? `${siteUrl}/api/assets/${listing.avatarImage}/` : undefined,
     aggregateRating: typeof listing.reviewCount === "number" && listing.reviewCount > 0 ? {
       "@type": "AggregateRating",
       ratingValue: listing.averageRating,
@@ -150,7 +150,7 @@ export async function generateMetadata({
       ? {
           title: listing.seoTitle || listing.title,
           description: renderedMeta || undefined,
-          images: [{ url: `${siteUrl}/api/assets/${listing.ogImage || listing.avatarImage}` }],
+          images: [{ url: `${siteUrl}/api/assets/${listing.ogImage || listing.avatarImage}/` }],
         }
       : undefined,
     other: {

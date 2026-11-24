@@ -97,7 +97,7 @@ export default function ProductGallery({
           src={`/api/assets/${activeImage.assetId}/`}
           alt={activeImage.alt || productName}
           fill
-          priority
+          preload
           sizes="(max-width: 1024px) 100vw, 50vw"
           className="pdp-gallery-image object-contain p-3 transition-transform duration-300 motion-reduce:transition-none group-hover:scale-[1.02] motion-reduce:group-hover:scale-100"
         />

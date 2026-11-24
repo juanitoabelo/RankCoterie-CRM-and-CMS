@@ -31,6 +31,13 @@ describe("proxy route protection", () => {
     }
   });
 
+  it("exposes the canonical pathname to public server components", async () => {
+    for (const pathname of ["/", "/blog/", "/search/"]) {
+      const response = await proxy(makeRequest(pathname));
+      expect(response.headers.get("x-middleware-request-x-pathname"), pathname).toBe(pathname);
+    }
+  });
+
   it("redirects guest admin dashboard requests to login", async () => {
     for (const pathname of ["/admin", "/admin/", "/admin/listings", "/admin/my-listing"]) {
       const response = await proxy(makeRequest(pathname));

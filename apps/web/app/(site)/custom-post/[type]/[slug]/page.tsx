@@ -75,7 +75,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const title = post.seoTitle || post.title;
   const description = post.metaDesc || post.excerpt || undefined;
-  const image = post.ogImage || (post.featuredImage ? `/api/assets/${post.featuredImage.id}` : undefined);
+  const image = post.ogImage || (post.featuredImage ? `/api/assets/${post.featuredImage.id}/` : undefined);
   const keywords = parseKeywords(post.metaKeywords);
   return {
     title,
@@ -160,8 +160,8 @@ export default async function CustomPostPage({ params }: Props) {
               seoTitle: post.seoTitle,
               focusKeyphrase: post.focusKeyphrase,
               author: [post.author?.firstName, post.author?.lastName].filter(Boolean).join(" ") || null,
-              ogImage: post.ogImage || (post.featuredImage ? `/api/assets/${post.featuredImage.id}` : null),
-              featuredImage: post.featuredImage ? `/api/assets/${post.featuredImage.id}` : null,
+              ogImage: post.ogImage || (post.featuredImage ? `/api/assets/${post.featuredImage.id}/` : null),
+              featuredImage: post.featuredImage ? `/api/assets/${post.featuredImage.id}/` : null,
               featuredImageAlt: post.featuredImage?.alt,
               featuredImageCaption: post.featuredImage?.caption,
               category: post.customTerm ? { title: post.customTerm.name, name: post.customTerm.name, slug: post.customTerm.slug } : null,
@@ -203,7 +203,7 @@ export default async function CustomPostPage({ params }: Props) {
             {post.featuredImage && (
               <div className="relative mt-8 aspect-[1.91/1] w-full overflow-hidden rounded-xl">
                 <Image
-                  src={`/api/assets/${post.featuredImage.id}`}
+                  src={`/api/assets/${post.featuredImage.id}/`}
                   alt={post.featuredImage.alt ?? post.title}
                   fill
                   sizes="(max-width: 768px) 100vw, 896px"

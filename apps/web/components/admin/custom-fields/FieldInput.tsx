@@ -22,7 +22,7 @@ function AssetPicker({
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
-  const previewUrl = value ? `/api/assets/${value}` : "";
+  const previewUrl = value ? `/api/assets/${value}/` : "";
   const isImage = acceptImages;
 
   async function upload(file: File) {
@@ -115,7 +115,7 @@ function GalleryPicker({ value, onChange }: { value: string[]; onChange: (ids: s
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {value.map((id, index) => (
             <div key={`${id}-${index}`} className="relative">
-              <img src={`/api/assets/${id}`} alt="" className="aspect-square w-full rounded-lg border border-zinc-200 object-cover" />
+              <img src={`/api/assets/${id}/`} alt="" className="aspect-square w-full rounded-lg border border-zinc-200 object-cover" />
               <div className="absolute inset-x-0 bottom-0 flex justify-between bg-black/50 p-1">
                 <button
                   type="button"

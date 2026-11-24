@@ -52,7 +52,8 @@ export default function DefaultListingTemplate({ ctx }: { ctx: ListingViewContex
                   alt={`${listing.title} - Cover`}
                   width={1200}
                   height={400}
-                  priority
+                  preload
+                  sizes="100vw"
                   className="h-56 w-full object-cover"
                 />
               </div>

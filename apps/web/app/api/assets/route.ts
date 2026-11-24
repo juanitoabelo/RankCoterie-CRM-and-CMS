@@ -53,7 +53,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     assets: assets.map((a) => ({
       id: a.id,
-      url: `/api/assets/${a.id}`,
+      url: `/api/assets/${a.id}/`,
       filename: a.filename,
       title: a.title,
       mimeType: a.mimeType,

@@ -24,14 +24,19 @@ export default function RecaptchaProvider({ siteKey }: { siteKey: string }) {
   useEffect(() => {
     if (!siteKey) return;
 
-    if (!document.querySelector("script[data-recaptcha-v3]")) {
+    const loadScript = () => {
+      if (document.querySelector("script[data-recaptcha-v3]")) return;
       const script = document.createElement("script");
       script.src = `https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(siteKey)}`;
       script.async = true;
       script.defer = true;
       script.setAttribute("data-recaptcha-v3", "1");
       document.head.appendChild(script);
-    }
+    };
+
+    const idleTimer = window.setTimeout(loadScript, 1500);
+    document.addEventListener("pointerdown", loadScript, { once: true, capture: true });
+    document.addEventListener("focusin", loadScript, { once: true, capture: true });
 
     const onSubmit = (event: Event) => {
       const form = event.target;
@@ -65,7 +70,12 @@ export default function RecaptchaProvider({ siteKey }: { siteKey: string }) {
     };
 
     document.addEventListener("submit", onSubmit, true);
-    return () => document.removeEventListener("submit", onSubmit, true);
+    return () => {
+      window.clearTimeout(idleTimer);
+      document.removeEventListener("pointerdown", loadScript, true);
+      document.removeEventListener("focusin", loadScript, true);
+      document.removeEventListener("submit", onSubmit, true);
+    };
   }, [siteKey]);
 
   return null;

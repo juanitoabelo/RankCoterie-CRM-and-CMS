@@ -143,7 +143,7 @@ export default async function CategoryPage({ params }: Props) {
         summary: renderLocalizedContent(l.summary, {}),
         city: l.city,
         state: l.state,
-        image: l.avatarImage ? `/api/assets/${l.avatarImage}` : null,
+        image: l.avatarImage ? `/api/assets/${l.avatarImage}/` : null,
         tier: l.tier,
       }));
 
@@ -162,7 +162,7 @@ export default async function CategoryPage({ params }: Props) {
         },
         region: null,
         categoryUrl: geoCategoryUrl(cat.slug),
-        heroImage: heroImage ? `/api/assets/${heroImage.imageAssetId}` : null,
+        heroImage: heroImage ? `/api/assets/${heroImage.imageAssetId}/` : null,
         heroImageAlt: heroImage?.alt || heroImage?.title || null,
         heroImageCaption: heroImage?.caption || null,
         stateImage: null,

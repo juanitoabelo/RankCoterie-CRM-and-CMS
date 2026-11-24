@@ -36,7 +36,7 @@ export async function buildSitemapReport(): Promise<SitemapReport> {
     repo.getCategories(),
     repo.getRegions(),
     prisma.product.findMany({
-      where: { status: "PUBLISHED", visibility: "PUBLIC" },
+      where: { tenantId: TENANT_ID, status: "PUBLISHED", visibility: "PUBLIC" },
       select: { slug: true, updatedAt: true },
       orderBy: { updatedAt: "desc" },
       take: 5000,
@@ -51,7 +51,7 @@ export async function buildSitemapReport(): Promise<SitemapReport> {
       orderBy: { updatedAt: "desc" },
       take: 5000,
     }),
-    prisma.region.findMany({ select: { id: true, slug: true } }),
+    prisma.region.findMany({ where: { tenantId: TENANT_ID }, select: { id: true, slug: true } }),
     prisma.page.findMany({
       where: { tenantId: TENANT_ID, status: "LIVE", robotsIndex: true, isHomepage: false },
       select: { slug: true, updatedAt: true },

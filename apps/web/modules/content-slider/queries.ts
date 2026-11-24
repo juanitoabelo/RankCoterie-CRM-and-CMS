@@ -122,7 +122,7 @@ export async function getSliderItems(query: SliderQuery): Promise<SliderItem[]> 
         title: row.name,
         subtitle: row.shortDescription ?? null,
         image: row.images[0]?.assetId
-          ? `/api/assets/${row.images[0].assetId}`
+          ? `/api/assets/${row.images[0].assetId}/`
           : row.ogImage ?? null,
         url: `/${row.slug}`,
         badge: row.categories[0]?.category?.name ?? null,
@@ -260,7 +260,7 @@ export async function getSliderItems(query: SliderQuery): Promise<SliderItem[]> 
         title: row.title,
         subtitle: row.description ?? null,
         image: row.images[0]?.imageAssetId
-          ? `/api/assets/${row.images[0].imageAssetId}`
+          ? `/api/assets/${row.images[0].imageAssetId}/`
           : row.ogImage ?? null,
         url: `/topic/${row.slug}`,
         badge: "Topic",
@@ -270,7 +270,7 @@ export async function getSliderItems(query: SliderQuery): Promise<SliderItem[]> 
         title: row.title,
         subtitle: excerpt(row.body, row.metaDesc),
         image: row.featuredImageAssetId
-          ? `/api/assets/${row.featuredImageAssetId}`
+          ? `/api/assets/${row.featuredImageAssetId}/`
           : row.ogImage ?? null,
         url: `/subtopic/${row.slug}`,
         badge: "SubTopic",

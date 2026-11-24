@@ -22,6 +22,11 @@ describe("admin tool registry", () => {
     const systemTools = ADMIN_TOOL_GROUPS.find((group) => group.title === "System Tools");
     expect(systemTools?.items.some((item) => item.href === "/admin/tools-permission")).toBe(true);
   });
+
+  it("registers the cache clear page under System Tools", () => {
+    expect(ALL_ADMIN_TOOLS.find((tool) => tool.href === "/admin/cache")?.key).toBe("general.cache");
+    expect(toolForPath("/admin/cache")?.key).toBe("general.cache");
+  });
 });
 
 describe("toolForPath", () => {

@@ -140,7 +140,7 @@ describe("product display helpers", () => {
     });
     const jsonLd = buildProductJsonLd(product, "https://example.com");
     expect(jsonLd["@type"]).toBe("Product");
-    expect(jsonLd.image).toEqual(["https://example.com/api/assets/asset_1"]);
+    expect(jsonLd.image).toEqual(["https://example.com/api/assets/asset_1/"]);
     expect(jsonLd.offers).toMatchObject([
       {
         price: "140.00",

@@ -152,6 +152,7 @@ export const ADMIN_TOOL_GROUPS: AdminToolGroup[] = [
       { key: "myCompany.media", section: "myCompany", href: "/admin/media", label: "Media Library" },
       { key: "headerFooter.list", section: "headerFooter", href: "/admin/header-footer", label: "Header & Footer Builder" },
       { key: "general.list", section: "general", href: "/admin/general", label: "General" },
+      { key: "general.cache", section: "general", href: "/admin/cache", label: "Clear Cache" },
       { key: "general.email", section: "general", href: "/admin/email-settings", label: "Email Settings" },
       { key: "general.customForm", section: "general", href: "/admin/custom-advance-form", label: "Custom Advance Form" },
       { key: "general.customFields", section: "general", href: "/admin/custom-fields", label: "Custom Fields & Post Types", paths: ["/admin/custom-post-types"] },

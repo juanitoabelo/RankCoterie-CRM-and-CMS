@@ -28,12 +28,19 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   // so this layout — which wraps every route — stays a cache hit per request.
   const { guide, themeSettings, noindex, customFonts } = await getThemeStyles();
   const fontFaceCSS = renderCustomFontFaces(customFonts);
+  const usesGeistSans = JSON.stringify({ guide, themeSettings }).includes("--font-geist-sans");
+  const fontClasses = [
+    usesGeistSans ? geistSans.variable : null,
+    geistMono.variable,
+    inter.variable,
+    "h-full",
+    "antialiased",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} h-full antialiased`}
-    >
+    <html lang="en" className={fontClasses}>
       <head>
         {fontFaceCSS && (
           <style dangerouslySetInnerHTML={{ __html: fontFaceCSS }} />

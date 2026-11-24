@@ -161,7 +161,7 @@ export default function WishlistClient() {
                 {item.imageAssetId ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={`/api/assets/${item.imageAssetId}`}
+                    src={`/api/assets/${item.imageAssetId}/`}
                     alt={item.name}
                     loading="lazy"
                     className="h-full w-full object-cover"

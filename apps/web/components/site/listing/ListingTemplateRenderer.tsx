@@ -62,7 +62,7 @@ export function ListingHero({ ctx, variant }: { ctx: ListingViewContext; variant
       <header className="rounded-2xl bg-gradient-to-br from-zinc-100 to-zinc-200 p-8">
         {listing.feedImage && (
           <div className="mb-6 overflow-hidden rounded-xl" data-lp-el="cover">
-            <Image src={`/api/assets/${listing.feedImage}/`} alt={`${listing.title} - Cover`} width={1200} height={320} priority className="h-48 w-full object-cover" />
+            <Image src={`/api/assets/${listing.feedImage}/`} alt={`${listing.title} - Cover`} width={1200} height={320} preload sizes="100vw" className="h-48 w-full object-cover" />
           </div>
         )}
         <div className="flex flex-wrap items-center gap-5">
@@ -89,7 +89,7 @@ export function ListingHero({ ctx, variant }: { ctx: ListingViewContext; variant
     return (
       <header className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
         {listing.feedImage && (
-          <Image src={`/api/assets/${listing.feedImage}/`} alt={`${listing.title} - Cover`} width={1200} height={280} priority className="h-44 w-full object-cover" data-lp-el="cover" />
+          <Image src={`/api/assets/${listing.feedImage}/`} alt={`${listing.title} - Cover`} width={1200} height={280} preload sizes="100vw" className="h-44 w-full object-cover" data-lp-el="cover" />
         )}
         <div className="border-t-4 border-blue-600 p-6">
           <div className="flex flex-wrap items-start gap-4">
@@ -165,7 +165,7 @@ export function ListingHero({ ctx, variant }: { ctx: ListingViewContext; variant
     <header className="rounded-xl border border-zinc-200 bg-white p-6">
       {listing.feedImage && (
         <div className="mb-6 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100" data-lp-el="cover">
-          <Image src={`/api/assets/${listing.feedImage}/`} alt={`${listing.title} - Cover`} width={1200} height={400} priority className="h-52 w-full object-cover" />
+          <Image src={`/api/assets/${listing.feedImage}/`} alt={`${listing.title} - Cover`} width={1200} height={400} preload sizes="100vw" className="h-52 w-full object-cover" />
         </div>
       )}
       <div className="flex flex-wrap items-start justify-between gap-4">
