@@ -53,6 +53,18 @@ export async function refundOrderPayment(
   const meta = (order.meta ?? {}) as Record<string, unknown>;
   const refundAmount = amount === null || amount === undefined ? order.total : amount;
 
+  const resolveRefundGateway = async () => {
+    if (!order.paymentGatewayId) return null;
+    return prisma.paymentGateway.findFirst({
+      where: { id: order.paymentGatewayId, tenantId: TENANT_ID },
+    });
+  };
+  const rejectUnsupportedPurpose = (gateway: { purpose?: string | null } | null) => {
+    if (!gateway?.purpose) return null;
+    if (["GENERAL", "ECOMMERCE"].includes(gateway.purpose)) return null;
+    return { ok: false as const, error: "This order's payment gateway is not configured for storefront refunds." };
+  };
+
   switch (order.paymentMethod ?? "") {
     case "STRIPE": {
       const sessionId = typeof meta.stripeSessionId === "string" ? meta.stripeSessionId : "";
@@ -63,11 +75,9 @@ export async function refundOrderPayment(
             "No Stripe checkout session recorded for this order (it may predate session tracking). Refund it from the Stripe dashboard, then set the payment status manually.",
         };
       }
-      const gateway = order.paymentGatewayId
-        ? await prisma.paymentGateway.findFirst({
-            where: { id: order.paymentGatewayId, tenantId: TENANT_ID },
-          })
-        : null;
+      const gateway = await resolveRefundGateway();
+      const purposeError = rejectUnsupportedPurpose(gateway);
+      if (purposeError) return purposeError;
       const cfg = readStripeConfig(gateway?.config);
       if (!cfg) {
         return { ok: false, error: "Stripe is not configured (no gateway secret key)." };
@@ -97,11 +107,9 @@ export async function refundOrderPayment(
       if (!paypalOrderId) {
         return { ok: false, error: "No PayPal order id recorded for this order." };
       }
-      const gateway = order.paymentGatewayId
-        ? await prisma.paymentGateway.findFirst({
-            where: { id: order.paymentGatewayId, tenantId: TENANT_ID },
-          })
-        : null;
+      const gateway = await resolveRefundGateway();
+      const purposeError = rejectUnsupportedPurpose(gateway);
+      if (purposeError) return purposeError;
       const cfg = gateway ? readPaypalConfig(gateway.config) : null;
       if (!cfg) return { ok: false, error: "PayPal gateway credentials are missing." };
       return refundPaypalOrder(cfg, paypalOrderId, Math.round(refundAmount * 100));
@@ -112,11 +120,9 @@ export async function refundOrderPayment(
       if (!squareOrderId) {
         return { ok: false, error: "No Square order id recorded for this order." };
       }
-      const gateway = order.paymentGatewayId
-        ? await prisma.paymentGateway.findFirst({
-            where: { id: order.paymentGatewayId, tenantId: TENANT_ID },
-          })
-        : null;
+      const gateway = await resolveRefundGateway();
+      const purposeError = rejectUnsupportedPurpose(gateway);
+      if (purposeError) return purposeError;
       const cfg = gateway ? readSquareConfig(gateway.config) : null;
       if (!cfg) return { ok: false, error: "Square gateway credentials are missing." };
       return refundSquareOrder(cfg, squareOrderId, Math.round(refundAmount * 100));

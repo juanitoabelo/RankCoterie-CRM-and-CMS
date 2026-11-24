@@ -23,6 +23,18 @@ function date(v: FormDataEntryValue | null): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function list(v: FormDataEntryValue | null): string[] {
+  const raw = String(v ?? "").trim();
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return [...new Set(parsed.map((item) => String(item).trim()).filter(Boolean))];
+    }
+  } catch {}
+  return [...new Set(raw.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean))];
+}
+
 function readCouponInput(formData: FormData) {
   const code = String(formData.get("code") ?? "").trim().toUpperCase();
   const type = String(formData.get("type") ?? "PERCENT").trim();
@@ -35,6 +47,13 @@ function readCouponInput(formData: FormData) {
     minAmount: num(formData.get("minAmount")),
     maxAmount: num(formData.get("maxAmount")),
     usageLimit: num(formData.get("usageLimit")),
+    usageLimitPerUser: Math.max(0, Math.floor(num(formData.get("usageLimitPerUser")) ?? 0)),
+    individualUse: formData.get("individualUse") === "on" || formData.get("individualUse") === "true",
+    excludeSaleItems: formData.get("excludeSaleItems") === "on" || formData.get("excludeSaleItems") === "true",
+    productIds: list(formData.get("productIds")),
+    excludedProductIds: list(formData.get("excludedProductIds")),
+    categoryIds: list(formData.get("categoryIds")),
+    excludedCategoryIds: list(formData.get("excludedCategoryIds")),
     startDate: date(formData.get("startDate")),
     endDate: date(formData.get("endDate")),
     isActive,
@@ -63,6 +82,13 @@ export async function createCoupon(formData: FormData): Promise<ActionResult> {
         minAmount: input.minAmount,
         maxAmount: input.maxAmount,
         usageLimit: input.usageLimit,
+        usageLimitPerUser: input.usageLimitPerUser,
+        individualUse: input.individualUse,
+        excludeSaleItems: input.excludeSaleItems,
+        productIds: input.productIds,
+        excludedProductIds: input.excludedProductIds,
+        categoryIds: input.categoryIds,
+        excludedCategoryIds: input.excludedCategoryIds,
         startDate: input.startDate,
         endDate: input.endDate,
         isActive: input.isActive,
@@ -111,6 +137,13 @@ export async function updateCoupon(id: string, formData: FormData): Promise<Acti
         minAmount: input.minAmount,
         maxAmount: input.maxAmount,
         usageLimit: input.usageLimit,
+        usageLimitPerUser: input.usageLimitPerUser,
+        individualUse: input.individualUse,
+        excludeSaleItems: input.excludeSaleItems,
+        productIds: input.productIds,
+        excludedProductIds: input.excludedProductIds,
+        categoryIds: input.categoryIds,
+        excludedCategoryIds: input.excludedCategoryIds,
         startDate: input.startDate,
         endDate: input.endDate,
         isActive: input.isActive,

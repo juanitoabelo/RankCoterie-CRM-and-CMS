@@ -18,23 +18,42 @@ vi.mock("@/lib/audit", () => ({
   logAudit: (...args: unknown[]) => logAudit(...args),
 }));
 
-const sendOrderPaidEmail = vi.fn();
-vi.mock("@/lib/email/orders", () => ({
-  sendOrderPaidEmail: (...args: unknown[]) => sendOrderPaidEmail(...args),
-  toOrderEmailData: (order: { id: string }) => ({ id: order.id }),
-}));
-
 const fulfillSubscriptionsForPaidOrder = vi.fn();
+const fulfillDigitalDownloadsForPaidOrder = vi.fn();
 vi.mock("@/modules/ecommerce/queries", () => ({
   fulfillSubscriptionsForPaidOrder: (...args: unknown[]) => fulfillSubscriptionsForPaidOrder(...args),
+  fulfillDigitalDownloadsForPaidOrder: (...args: unknown[]) =>
+    fulfillDigitalDownloadsForPaidOrder(...args),
 }));
+
+const restoreStockForOrder = vi.fn();
+vi.mock("@/lib/billing/stock", () => ({
+  restoreStockForOrder: (...args: unknown[]) => restoreStockForOrder(...args),
+}));
+
+const releaseOrderCoupon = vi.fn();
+vi.mock("@/lib/billing/pending-orders", () => ({
+  releaseOrderCoupon: (...args: unknown[]) => releaseOrderCoupon(...args),
+}));
+
+const sendOrderPaidEmail = vi.fn();
+const sendOrderStatusEmail = vi.fn();
+vi.mock("@/lib/email/orders", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/email/orders")>();
+  return {
+    ...actual,
+    sendOrderPaidEmail: (...args: unknown[]) => sendOrderPaidEmail(...args),
+    sendOrderStatusEmail: (...args: unknown[]) => sendOrderStatusEmail(...args),
+    toOrderEmailData: (order: { id: string }) => ({ id: order.id }),
+  };
+});
 
 const logStructured = vi.fn();
 vi.mock("@/lib/observability", () => ({
   logStructured: (...args: unknown[]) => logStructured(...args),
 }));
 
-import { findOrderByGatewayRef, markOrderPaid } from "./payment-events";
+import { findOrderByGatewayRef, markOrderPaid, markOrderPaymentFailed } from "./payment-events";
 
 const baseOrder = {
   id: "ord_1",
@@ -51,6 +70,10 @@ beforeEach(() => {
   logAudit.mockResolvedValue(undefined);
   sendOrderPaidEmail.mockResolvedValue(undefined);
   fulfillSubscriptionsForPaidOrder.mockResolvedValue("not-applicable");
+  fulfillDigitalDownloadsForPaidOrder.mockResolvedValue([]);
+  restoreStockForOrder.mockResolvedValue(undefined);
+  releaseOrderCoupon.mockResolvedValue(undefined);
+  sendOrderStatusEmail.mockResolvedValue(undefined);
   logStructured.mockReturnValue(undefined);
 });
 
@@ -100,6 +123,34 @@ describe("markOrderPaid", () => {
     expect(updateMany).toHaveBeenCalledTimes(1);
   });
 
+  it("grants digital downloads and includes their links in the paid email", async () => {
+    fulfillDigitalDownloadsForPaidOrder.mockResolvedValue([
+      { name: "Guide", token: "token_1" },
+    ]);
+
+    const res = await markOrderPaid("ord_1", "stripe-webhook");
+
+    expect(res).toBe(true);
+    expect(fulfillDigitalDownloadsForPaidOrder).toHaveBeenCalledWith("ord_1");
+    expect(sendOrderPaidEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        downloadLinks: [{ name: "Guide", url: "/api/downloads/token_1" }],
+      }),
+    );
+  });
+
+  it("keeps payment confirmed when digital fulfillment fails and logs for retry", async () => {
+    fulfillDigitalDownloadsForPaidOrder.mockRejectedValue(new Error("db down"));
+
+    const res = await markOrderPaid("ord_1", "stripe-webhook");
+
+    expect(res).toBe(true);
+    expect(logStructured).toHaveBeenCalledWith(
+      expect.objectContaining({ level: "error", message: "digital_fulfillment_failed" }),
+    );
+    expect(sendOrderPaidEmail).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps payment confirmed when subscription fulfillment fails and logs for retry", async () => {
     fulfillSubscriptionsForPaidOrder.mockRejectedValue(new Error("db down"));
     const res = await markOrderPaid("ord_1", "stripe-webhook");
@@ -111,6 +162,47 @@ describe("markOrderPaid", () => {
     expect(logAudit).toHaveBeenCalledWith(
       expect.objectContaining({ action: "ORDER_UPDATE", reason: "Subscription fulfillment failed after payment" }),
     );
+  });
+});
+
+describe("markOrderPaymentFailed", () => {
+  it("marks the order failed and releases its reservations", async () => {
+    const result = await markOrderPaymentFailed("ord_1", "stripe-webhook", "payment_failed");
+
+    expect(result).toBe(true);
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "ord_1",
+          tenantId: "tenant-test",
+          paymentStatus: { notIn: ["PAID"] },
+        }),
+        data: expect.objectContaining({ paymentStatus: "FAILED", status: "FAILED" }),
+      }),
+    );
+    expect(restoreStockForOrder).toHaveBeenCalledWith("ord_1");
+    expect(releaseOrderCoupon).toHaveBeenCalledWith("ord_1");
+    expect(sendOrderStatusEmail).toHaveBeenCalledWith({ id: "ord_1" }, "FAILED");
+  });
+
+  it("never fails a paid order", async () => {
+    findFirst.mockResolvedValue({ ...baseOrder, paymentStatus: "PAID", status: "PROCESSING" });
+
+    const result = await markOrderPaymentFailed("ord_1", "stripe-webhook", "payment_failed");
+
+    expect(result).toBe(true);
+    expect(updateMany).not.toHaveBeenCalled();
+    expect(restoreStockForOrder).not.toHaveBeenCalled();
+    expect(releaseOrderCoupon).not.toHaveBeenCalled();
+  });
+
+  it("returns false for an unknown order", async () => {
+    findFirst.mockResolvedValue(null);
+
+    const result = await markOrderPaymentFailed("ord_missing", "stripe-webhook", "payment_failed");
+
+    expect(result).toBe(false);
+    expect(updateMany).not.toHaveBeenCalled();
   });
 });
 

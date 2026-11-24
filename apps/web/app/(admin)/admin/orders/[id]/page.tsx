@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Image from "next/image";
+import { prisma, TENANT_ID } from "@/modules/shared";
 import { getOrderById } from "@/modules/ecommerce/queries";
 import OrderStatusForm from "@/components/admin/order/OrderStatusForm";
 import RefundButton from "@/components/admin/order/RefundButton";
+import RenewalButton from "@/components/admin/order/RenewalButton";
 import FulfillmentForm, { type FulfillmentInfo } from "@/components/admin/order/FulfillmentForm";
 
 export const revalidate = 0;
@@ -19,6 +21,15 @@ export default async function OrderDetailAdminPage({
 
   const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
   const customerEmail = order.guestEmail ?? order.customer?.email ?? order.user?.email ?? "—";
+  const renewalSubscriptionId =
+    typeof (order.meta as Record<string, unknown> | null)?.renewalSubscriptionId === "string"
+      ? String((order.meta as Record<string, unknown>).renewalSubscriptionId)
+      : null;
+  const subscriptions = await prisma.subscription.findMany({
+    where: { tenantId: TENANT_ID, orderId: order.id },
+    select: { id: true, status: true, product: { select: { name: true } } },
+    orderBy: { createdAt: "desc" },
+  });
 
   return (
     <div>
@@ -227,6 +238,26 @@ export default async function OrderDetailAdminPage({
               )}
             </dl>
           </div>
+
+          {subscriptions.length > 0 && (
+            <div className="rounded-xl border border-zinc-200 bg-white p-5">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Subscriptions</h2>
+              <ul className="mt-3 space-y-2 text-sm text-zinc-700">
+                {subscriptions.map((sub) => (
+                  <li key={sub.id} className="flex items-center justify-between gap-2">
+                    <span>{sub.product.name}</span>
+                    <span className="rounded bg-zinc-100 px-2 py-0.5 text-xs uppercase text-zinc-600">{sub.status}</span>
+                  </li>
+                ))}
+              </ul>
+              {subscriptions.map((sub) => (
+                <RenewalButton key={`renew-${sub.id}`} subscriptionId={sub.id} disabled={!["active", "trialing", "past_due"].includes(sub.status)} />
+              ))}
+              {renewalSubscriptionId && (
+                <p className="mt-2 text-xs text-zinc-400">Renewal source subscription: {renewalSubscriptionId}</p>
+              )}
+            </div>
+          )}
 
           <FulfillmentForm
             orderId={order.id}

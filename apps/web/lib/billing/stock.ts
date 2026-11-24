@@ -11,6 +11,20 @@ async function restoreItems(items: StockItem[]): Promise<void> {
         ? (meta as Record<string, unknown>).isSignupFee === true
         : false;
     if (isSignupFee) continue;
+    const rawChildren =
+      meta && typeof meta === "object" && !Array.isArray(meta)
+        ? (meta as Record<string, unknown>).bundleChildren
+        : null;
+    if (Array.isArray(rawChildren)) {
+      for (const raw of rawChildren) {
+        if (!raw || typeof raw !== "object") continue;
+        const child = raw as Record<string, unknown>;
+        const productId = typeof child.productId === "string" ? child.productId : "";
+        const childQuantity = Math.max(1, Math.floor(Number(child.quantity ?? 1)));
+        if (!productId || !Number.isFinite(childQuantity)) continue;
+        await restoreItems([{ productId, quantity: childQuantity * item.quantity }]);
+      }
+    }
     if (item.variantId) {
       const variant = await prisma.productVariant.findFirst({
         where: { id: item.variantId, productId: item.productId },
@@ -111,14 +125,17 @@ export async function reserveStock(
 }
 
 export async function restoreStockForOrder(orderId: string): Promise<void> {
-  const order = await prisma.order.findFirst({ where: { id: orderId } });
+  const order = await prisma.order.findFirst({
+    where: { id: orderId },
+    select: { id: true, meta: true, updatedAt: true },
+  });
   if (!order) return;
 
   const meta = (order.meta ?? {}) as Record<string, unknown>;
   if (meta.stockRestored === true) return;
 
   const claimed = await prisma.order.updateMany({
-    where: { id: orderId, NOT: { meta: { path: ["stockRestored"], equals: true } } },
+    where: { id: orderId, updatedAt: order.updatedAt },
     data: { meta: { ...meta, stockRestored: true } as Prisma.InputJsonValue },
   });
   if (claimed.count === 0) return;

@@ -42,7 +42,7 @@ beforeEach(() => {
   orderUpdateMany.mockResolvedValue({ count: 1 });
   orderUpdate.mockResolvedValue({});
   orderFindMany.mockResolvedValue([]);
-  orderFindUnique.mockResolvedValue({ meta: {} });
+  orderFindUnique.mockResolvedValue({ meta: {}, updatedAt: new Date("2026-01-01T00:00:00.000Z") });
   restoreStockForOrder.mockResolvedValue(undefined);
   logAudit.mockResolvedValue(undefined);
 });
@@ -74,15 +74,19 @@ describe("adjustCouponUsage", () => {
 
 describe("releaseOrderCoupon", () => {
   it("claims the release and decrements the recorded coupon code", async () => {
-    orderFindUnique.mockResolvedValue({ meta: { couponCode: "SAVE10" } });
+    orderFindUnique.mockResolvedValue({
+      meta: { couponCode: "SAVE10" },
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+    });
 
     await releaseOrderCoupon("ord_1");
 
     expect(orderUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({
-          NOT: { meta: { path: ["couponReleased"], equals: true } },
-        }),
+        where: {
+          id: "ord_1",
+          updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+        },
         data: { meta: expect.objectContaining({ couponReleased: true }) },
       }),
     );
@@ -161,6 +165,29 @@ describe("releaseAbandonedOrders", () => {
     expect(logAudit.mock.calls[0][0].meta).toMatchObject({
       orderNumber: "CNP-A",
       source: "abandoned-order-sweep",
+    });
+  });
+
+  it("never cancels manual/offline orders, even if legacy rows are still PENDING", async () => {
+    orderFindMany.mockResolvedValue([
+      { id: "manual_1", orderNumber: "CNP-M", meta: { manualPayment: true } },
+      { id: "ord_1", orderNumber: "CNP-A", meta: {} },
+    ]);
+
+    const result = await releaseAbandonedOrders(new Date("2026-01-01T00:00:00.000Z"));
+
+    expect(result).toEqual({ scanned: 2, released: 1 });
+    expect(restoreStockForOrder).toHaveBeenCalledTimes(1);
+    expect(restoreStockForOrder).toHaveBeenCalledWith("ord_1");
+    expect(orderUpdate).toHaveBeenCalledTimes(1);
+    expect(orderUpdate.mock.calls[0][0].where).toEqual({ id: "ord_1" });
+  });
+
+  it("excludes manual-payment orders at the query level", async () => {
+    await releaseAbandonedOrders(new Date("2026-01-01T00:00:00.000Z"));
+    expect(orderFindMany.mock.calls[0][0].where.meta).toEqual({
+      path: ["manualPayment"],
+      not: true,
     });
   });
 

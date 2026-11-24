@@ -116,15 +116,23 @@ export async function createSquarePaymentLink(opts: {
 export async function getSquareOrderState(
   config: SquareConfig,
   squareOrderId: string,
-): Promise<{ ok: true; state: string; paid: boolean } | { ok: false; error: string }> {
-  const res = await squareFetch<{ order?: { state?: string } }>(
-    `/v2/orders/${squareOrderId}`,
-    config,
-    { method: "GET" },
-  );
+): Promise<
+  | { ok: true; state: string; paid: boolean; amount?: number; currency?: string }
+  | { ok: false; error: string }
+> {
+  const res = await squareFetch<{
+    order?: { state?: string; total_money?: { amount?: number; currency?: string } };
+  }>(`/v2/orders/${squareOrderId}`, config, { method: "GET" });
   if (!res.ok) return { ok: false, error: res.error };
   const state = res.data.order?.state ?? "OPEN";
-  return { ok: true, state, paid: state === "COMPLETED" };
+  const money = res.data.order?.total_money;
+  return {
+    ok: true,
+    state,
+    paid: state === "COMPLETED",
+    ...(typeof money?.amount === "number" ? { amount: money.amount } : {}),
+    ...(typeof money?.currency === "string" ? { currency: money.currency } : {}),
+  };
 }
 
 /**

@@ -21,8 +21,16 @@ import {
   readCompanyListingPaymentConfig,
 } from "@/lib/billing/checkout";
 import { logAudit } from "@/lib/audit";
-import { markOrderPaid } from "@/lib/billing/payment-events";
+import { markOrderPaid, markOrderPaymentFailed } from "@/lib/billing/payment-events";
 import { applyCheckoutSessionToInvoice, markInvoiceLinkExpired } from "@/lib/billing/client-payments";
+import { recordGatewayTransaction } from "@/lib/billing/gateway-transactions";
+import { verifyStripeCheckoutAmount } from "@/lib/billing/webhook-amounts";
+import {
+  claimWebhookEvent,
+  logWebhookMismatch,
+  NonRetryableWebhookError,
+} from "@/lib/billing/webhook-events";
+import { logStructured } from "@/lib/observability";
 import { sendPaymentFailedEmail } from "@/lib/email/orders";
 // Dunning grace: listing stays visible for N days after the failed charge
 // (README design decision #3: dunning → suspend → expire).
@@ -40,7 +48,12 @@ function stripe(): Stripe {
 /** Load all configured Stripe credential sets (gateway config first, then listing payment config). */
 async function loadStripeCredentialsCandidates(): Promise<{ secretKey: string; webhookSecret: string }[]> {
   const gateways = await prisma.paymentGateway.findMany({
-    where: { tenantId: TENANT_ID, type: "STRIPE", isEnabled: true },
+    where: {
+      tenantId: TENANT_ID,
+      type: "STRIPE",
+      isEnabled: true,
+      purpose: { in: ["GENERAL", "ECOMMERCE", "CLIENT_BILLING", "LISTING"] },
+    },
     orderBy: { createdAt: "asc" },
   });
   const candidates: { secretKey: string; webhookSecret: string }[] = [];
@@ -96,27 +109,70 @@ async function invoiceForPaymentIntent(paymentIntent: string | null) {
   });
 }
 
-async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
-  // Product order (storefront checkout) — mark the order paid.
+async function handleCheckoutCompleted(session: Stripe.Checkout.Session, eventId: string) {
   const orderId = session.metadata?.orderId;
   if (orderId) {
-    const found = await markOrderPaid(orderId, "stripe-webhook");
-    if (!found) throw new Error(`Order not found: ${orderId}`);
+    const order = await prisma.order.findFirst({
+      where: { id: orderId, tenantId: TENANT_ID },
+      select: { id: true, total: true, currency: true, paymentGatewayId: true, orderNumber: true },
+    });
+    if (!order) throw new NonRetryableWebhookError(`Order not found: ${orderId}`);
+    const check = verifyStripeCheckoutAmount(
+      {
+        amount_total: session.amount_total,
+        currency: session.currency,
+        payment_status: session.payment_status,
+      },
+      order,
+    );
+    if (!check.ok) {
+      await logWebhookMismatch({
+        gateway: "stripe",
+        eventId,
+        orderId: order.id,
+        reason: check.reason,
+        expected: { amount: Math.round(order.total * 100), currency: order.currency },
+        received: { amount: session.amount_total ?? null, currency: session.currency ?? null },
+      });
+      return;
+    }
+    if (!(await claimWebhookEvent(order.id, eventId))) return;
+
+    const paymentIntent =
+      typeof session.payment_intent === "string"
+        ? session.payment_intent
+        : session.payment_intent?.id ?? null;
+    await recordGatewayTransaction({
+      orderId: order.id,
+      gatewayId: order.paymentGatewayId,
+      amount: order.total,
+      currency: order.currency,
+      status: "PAID",
+      gatewayTransactionId: paymentIntent ?? session.id,
+      gatewayResponse: {
+        sessionId: session.id,
+        amountTotal: session.amount_total,
+        currency: session.currency,
+      },
+      eventId,
+    });
+
+    const paid = await markOrderPaid(order.id, "stripe-webhook");
+    if (!paid) throw new NonRetryableWebhookError(`Order not found: ${order.id}`);
     return;
   }
 
-  // Client invoice payment link — mark the invoice APPROVED.
   if (session.metadata?.invoiceId) {
     const applied = await applyCheckoutSessionToInvoice(session);
-    if (!applied) throw new Error(`Invoice not found: ${session.metadata.invoiceId}`);
+    if (!applied) throw new NonRetryableWebhookError(`Invoice not found: ${session.metadata.invoiceId}`);
     return;
   }
 
   const listingId = session.metadata?.listingId ?? session.client_reference_id;
-  if (!listingId) throw new Error("Checkout session without listingId metadata");
+  if (!listingId) throw new NonRetryableWebhookError("Checkout session without listingId metadata");
 
   const listing = await prisma.listing.findUnique({ where: { id: listingId } });
-  if (!listing) throw new Error(`Listing not found: ${listingId}`);
+  if (!listing) throw new NonRetryableWebhookError(`Listing not found: ${listingId}`);
 
   const tier = (session.metadata?.tier ?? listing.tier) as "STANDARD" | "PREMIUM";
   const subscriptionId =
@@ -299,10 +355,11 @@ export async function POST(req: Request) {
   try {
     switch (event.type) {
       case "checkout.session.completed":
-        await handleCheckoutCompleted(event.data.object);
+        await handleCheckoutCompleted(event.data.object, event.id);
         break;
       case "checkout.session.expired": {
-        // Payment link expired without payment — note it on the invoice.
+        const orderId = event.data.object.metadata?.orderId;
+        if (orderId) await markOrderPaymentFailed(orderId, "stripe-webhook", "checkout.session.expired");
         const invoiceId = event.data.object.metadata?.invoiceId;
         if (invoiceId) await markInvoiceLinkExpired(invoiceId);
         break;
@@ -326,10 +383,27 @@ export async function POST(req: Request) {
         break; // acknowledged, no-op
     }
   } catch (e) {
-    console.error(`[stripe-webhook] ${event.type} failed:`, e);
-    // Return 200 to prevent infinite Stripe retries for non-retryable errors.
-    // Retryable errors (network/DB timeouts) should throw to trigger Stripe retry.
-    return new Response("ok", { status: 200 });
+    const nonRetryable = e instanceof NonRetryableWebhookError;
+    const error = e instanceof Error ? e.message : String(e);
+    logStructured({
+      level: nonRetryable ? "warn" : "error",
+      message: "webhook_processing_failed",
+      context: {
+        gateway: "stripe",
+        eventId: event.id,
+        eventType: event.type,
+        error,
+        retryable: !nonRetryable,
+      },
+    });
+    await logAudit({
+      action: "ORDER_UPDATE",
+      entity: "Webhook",
+      entityId: event.id,
+      reason: `Stripe ${event.type} processing failed (${nonRetryable ? "ignored" : "retryable"})`,
+      meta: { error, eventType: event.type, retryable: !nonRetryable },
+    }).catch(() => {});
+    return new Response(nonRetryable ? "ok" : "retry", { status: nonRetryable ? 200 : 500 });
   }
 
   return new Response("ok", { status: 200 });

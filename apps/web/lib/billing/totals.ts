@@ -4,6 +4,7 @@
  * Shared by the checkout preview (server components), the live quote
  * server action, and order creation so every surface agrees on numbers.
  */
+import type { Prisma } from "@prisma/client";
 import { prisma, TENANT_ID } from "@/modules/shared";
 import { safeDb } from "@/lib/db-resilient";
 import { formatMoney, STORE_CURRENCY } from "@/modules/ecommerce/currency";
@@ -28,6 +29,14 @@ export type QuoteLine = {
   width?: number | null;
   height?: number | null;
   couponEligible?: boolean;
+  categoryIds?: string[];
+  bundleChildren?: Array<{
+    productId: string;
+    quantity: number;
+    variantId?: string | null;
+    name?: string | null;
+    sku?: string | null;
+  }>;
 };
 
 export type AppliedCoupon = {
@@ -38,7 +47,11 @@ export type AppliedCoupon = {
   discount: number;
   productIds?: string[];
   excludedProductIds?: string[];
+  categoryIds?: string[];
+  excludedCategoryIds?: string[];
   excludeSaleItems?: boolean;
+  individualUse?: boolean;
+  usageLimitPerUser?: number;
 };
 
 export type ShippingSettings = {
@@ -88,11 +101,17 @@ export async function getPricesIncludeTax(): Promise<boolean> {
 
 type CouponLookup = { ok: true; coupon: AppliedCoupon } | { ok: false; error: string };
 
+export type CouponResolutionOptions = {
+  otherCouponCodes?: string[];
+};
+
 /** Validate a coupon against the current cart/order and compute its discount. */
 export async function resolveCoupon(
   code: string,
   lines: QuoteLine[],
   subtotal: number,
+  customer?: { userId?: string | null; email?: string | null },
+  options: CouponResolutionOptions = {},
 ): Promise<CouponLookup> {
   const trimmed = code.trim();
   if (!trimmed) return { ok: false, error: "Enter a coupon code." };
@@ -112,6 +131,49 @@ export async function resolveCoupon(
   if (row.usageLimit !== null && row.usedCount >= row.usageLimit) {
     return { ok: false, error: "That coupon has reached its usage limit." };
   }
+  if (row.usageLimitPerUser > 0) {
+    const identity: Prisma.OrderWhereInput[] = [];
+    if (customer?.userId) {
+      identity.push({ userId: customer.userId }, { customerId: customer.userId });
+    }
+    if (customer?.email) {
+      identity.push(
+        { guestEmail: { equals: customer.email, mode: "insensitive" } },
+        { billingEmail: { equals: customer.email, mode: "insensitive" } },
+      );
+    }
+    if (identity.length > 0) {
+      const usedByCustomer = await prisma.order.count({
+        where: {
+          tenantId: TENANT_ID,
+          status: { notIn: ["CANCELLED", "REFUNDED", "FAILED"] },
+          meta: { path: ["couponCode"], equals: row.code },
+          OR: identity,
+        },
+      });
+      if (usedByCustomer >= row.usageLimitPerUser) {
+        return { ok: false, error: "You have already used this coupon." };
+      }
+    }
+  }
+  const otherCodes = [...new Set((options.otherCouponCodes ?? [])
+    .map((value) => value.trim().toUpperCase())
+    .filter((value) => value && value !== row.code.toUpperCase()))];
+  if (otherCodes.length > 0) {
+    const others = await prisma.coupon.findMany({
+      where: { tenantId: TENANT_ID, code: { in: otherCodes } },
+      select: { code: true, individualUse: true, isActive: true },
+    });
+    if (row.individualUse || others.some((other) => other.isActive && other.individualUse)) {
+      return { ok: false, error: "That coupon cannot be combined with another coupon." };
+    }
+  }
+  if (row.maxAmount !== null && subtotal > row.maxAmount) {
+    return {
+      ok: false,
+      error: `That coupon cannot be used on orders over ${formatMoney(row.maxAmount, STORE_CURRENCY)}.`,
+    };
+  }
   if (row.minAmount !== null && subtotal < row.minAmount) {
     return {
       ok: false,
@@ -121,37 +183,37 @@ export async function resolveCoupon(
 
   let discount = 0;
   const freeShipping = row.type === "FREE_SHIPPING" || row.freeShipping;
+  const targeting = {
+    productIds: row.productIds,
+    excludedProductIds: row.excludedProductIds,
+    categoryIds: row.categoryIds,
+    excludedCategoryIds: row.excludedCategoryIds,
+    excludeSaleItems: row.excludeSaleItems,
+  };
+  const eligibleLines = lines.filter((line) => isCouponEligibleLine(line, targeting));
   const eligibleSubtotal = round2(
-    lines.reduce((sum, line) => sum + (isCouponEligibleLine(line) ? line.unitPrice * line.quantity : 0), 0),
+    eligibleLines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0),
   );
+  if (eligibleSubtotal <= 0 && row.type !== "FREE_SHIPPING") {
+    return { ok: false, error: "That coupon does not apply to any items in your cart." };
+  }
 
   switch (row.type) {
     case "PERCENT":
       discount = eligibleSubtotal * (row.amount / 100);
       break;
     case "FIXED_CART":
-      discount = row.amount;
+      discount = Math.min(row.amount, eligibleSubtotal);
       break;
-    case "FIXED_PRODUCT": {
-      for (const line of lines) {
-        if (!isCouponEligibleLine(line)) continue;
-        const included =
-          row.productIds.length === 0 || row.productIds.includes(line.productId);
-        const excluded = row.excludedProductIds.includes(line.productId);
-        const saleBlocked = row.excludeSaleItems && line.saleItem === true;
-        if (included && !excluded && !saleBlocked) {
-          discount += row.amount * line.quantity;
-        }
-      }
+    case "FIXED_PRODUCT":
+      discount = eligibleLines.reduce((sum, line) => sum + row.amount * line.quantity, 0);
       break;
-    }
     case "FREE_SHIPPING":
       discount = 0;
       break;
   }
 
-  if (row.maxAmount !== null) discount = Math.min(discount, row.maxAmount);
-  discount = round2(Math.max(0, Math.min(discount, row.type === "FIXED_PRODUCT" ? subtotal : eligibleSubtotal)));
+  discount = round2(Math.max(0, Math.min(discount, eligibleSubtotal)));
 
   return {
     ok: true,
@@ -161,13 +223,13 @@ export async function resolveCoupon(
       amount: row.amount,
       freeShipping,
       discount,
-      ...(row.type === "FIXED_PRODUCT"
-        ? {
-            productIds: row.productIds,
-            excludedProductIds: row.excludedProductIds,
-            excludeSaleItems: row.excludeSaleItems,
-          }
-        : {}),
+      productIds: row.productIds,
+      excludedProductIds: row.excludedProductIds,
+      categoryIds: row.categoryIds,
+      excludedCategoryIds: row.excludedCategoryIds,
+      excludeSaleItems: row.excludeSaleItems,
+      individualUse: row.individualUse,
+      usageLimitPerUser: row.usageLimitPerUser,
     },
   };
 }
@@ -219,12 +281,35 @@ export type QuoteInput = {
   country?: string | null;
   state?: string | null;
   shippingSettings?: ShippingSettings;
+  customer?: { userId?: string | null; email?: string | null };
+  otherCouponCodes?: string[];
   /** Override for tax-inclusive pricing (defaults to the store setting). */
   pricesIncludeTax?: boolean;
 };
 
-function isCouponEligibleLine(line: Pick<QuoteLine, "couponEligible">): boolean {
-  return line.couponEligible !== false;
+type CouponTargeting = Pick<
+  AppliedCoupon,
+  "productIds" | "excludedProductIds" | "categoryIds" | "excludedCategoryIds" | "excludeSaleItems"
+>;
+
+type CouponEligibleLine = Pick<
+  QuoteLine,
+  "productId" | "categoryIds" | "saleItem" | "couponEligible"
+>;
+
+function isCouponEligibleLine(line: CouponEligibleLine, coupon?: CouponTargeting): boolean {
+  if (line.couponEligible === false) return false;
+  if (!coupon) return true;
+  if (coupon.excludeSaleItems === true && line.saleItem === true) return false;
+  if (coupon.excludedProductIds?.includes(line.productId)) return false;
+  const lineCategories = line.categoryIds ?? [];
+  if (lineCategories.some((id) => coupon.excludedCategoryIds?.includes(id))) return false;
+  const productTargeted = (coupon.productIds?.length ?? 0) > 0;
+  const categoryTargeted = (coupon.categoryIds?.length ?? 0) > 0;
+  if (!productTargeted && !categoryTargeted) return true;
+  const productMatch = productTargeted && Boolean(coupon.productIds?.includes(line.productId));
+  const categoryMatch = categoryTargeted && lineCategories.some((id) => coupon.categoryIds?.includes(id));
+  return productMatch || categoryMatch;
 }
 
 export function isLineTaxable(line: Pick<QuoteLine, "taxable" | "taxStatus">): boolean {
@@ -232,7 +317,10 @@ export function isLineTaxable(line: Pick<QuoteLine, "taxable" | "taxStatus">): b
   return line.taxable !== false && taxStatus !== "NONE" && taxStatus !== "NO_TAX";
 }
 
-type DiscountableLine = Pick<QuoteLine, "productId" | "quantity" | "unitPrice" | "saleItem" | "couponEligible"> & {
+type DiscountableLine = Pick<
+  QuoteLine,
+  "productId" | "quantity" | "unitPrice" | "saleItem" | "couponEligible" | "categoryIds"
+> & {
   lineTotal?: number;
 };
 
@@ -248,7 +336,7 @@ export function computeLineDiscounts(
 
   if (coupon.type === "FIXED_PRODUCT") {
     const raw = lines.map((line) => {
-      if (!isCouponEligibleLine(line)) return 0;
+      if (!isCouponEligibleLine(line, coupon)) return 0;
       const included =
         !coupon.productIds || coupon.productIds.length === 0 || coupon.productIds.includes(line.productId);
       const excluded = coupon.excludedProductIds?.includes(line.productId) ?? false;
@@ -275,7 +363,7 @@ export function computeLineDiscounts(
   }
 
   const eligibleIndexes = lines
-    .map((line, i) => (isCouponEligibleLine(line) ? i : -1))
+    .map((line, i) => (isCouponEligibleLine(line, coupon) ? i : -1))
     .filter((i) => i >= 0);
   const eligibleSubtotal = round2(
     eligibleIndexes.reduce((sum, i) => sum + lineAmount(lines[i]), 0),
@@ -309,7 +397,9 @@ export async function quoteTotals(input: QuoteInput): Promise<QuoteTotals> {
   let coupon: AppliedCoupon | null = null;
   let couponError: string | null = null;
   if (input.couponCode) {
-    const result = await resolveCoupon(input.couponCode, input.lines, subtotal);
+    const result = await resolveCoupon(input.couponCode, input.lines, subtotal, input.customer, {
+      otherCouponCodes: input.otherCouponCodes,
+    });
     if (result.ok) coupon = result.coupon;
     else couponError = result.error;
   }

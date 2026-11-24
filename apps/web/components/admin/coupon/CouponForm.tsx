@@ -16,6 +16,13 @@ export type CouponInitial = {
   minAmount: number | null;
   maxAmount: number | null;
   usageLimit: number | null;
+  usageLimitPerUser?: number | null;
+  individualUse?: boolean;
+  excludeSaleItems?: boolean;
+  productIds?: string[];
+  excludedProductIds?: string[];
+  categoryIds?: string[];
+  excludedCategoryIds?: string[];
   startDate: Date | null;
   endDate: Date | null;
   isActive: boolean;
@@ -158,6 +165,19 @@ export default function CouponForm({ initial }: { initial?: CouponInitial }) {
         </div>
 
         <div>
+          <label className={labelCls} htmlFor="coupon-usage-user">Usage limit per user</label>
+          <input
+            id="coupon-usage-user"
+            type="number"
+            name="usageLimitPerUser"
+            min="0"
+            defaultValue={initial?.usageLimitPerUser ?? 0}
+            className={inputCls}
+            placeholder="0 = unlimited"
+          />
+        </div>
+
+        <div>
           <label className={labelCls} htmlFor="coupon-desc">Description</label>
           <input
             id="coupon-desc"
@@ -191,6 +211,33 @@ export default function CouponForm({ initial }: { initial?: CouponInitial }) {
           />
         </div>
 
+        <label className="flex items-center gap-2 text-sm text-zinc-700">
+          <input type="checkbox" name="individualUse" defaultChecked={initial?.individualUse ?? false} className="h-4 w-4 rounded border-zinc-400" />
+          Individual use only
+        </label>
+
+        <label className="flex items-center gap-2 text-sm text-zinc-700">
+          <input type="checkbox" name="excludeSaleItems" defaultChecked={initial?.excludeSaleItems ?? false} className="h-4 w-4 rounded border-zinc-400" />
+          Exclude sale items
+        </label>
+
+        <div>
+          <label className={labelCls} htmlFor="coupon-product-ids">Product IDs (comma/newline)</label>
+          <textarea id="coupon-product-ids" name="productIds" defaultValue={(initial?.productIds ?? []).join("\n")} className={inputCls} rows={2} />
+        </div>
+        <div>
+          <label className={labelCls} htmlFor="coupon-excluded-product-ids">Excluded product IDs</label>
+          <textarea id="coupon-excluded-product-ids" name="excludedProductIds" defaultValue={(initial?.excludedProductIds ?? []).join("\n")} className={inputCls} rows={2} />
+        </div>
+        <div>
+          <label className={labelCls} htmlFor="coupon-category-ids">Category IDs</label>
+          <textarea id="coupon-category-ids" name="categoryIds" defaultValue={(initial?.categoryIds ?? []).join("\n")} className={inputCls} rows={2} />
+        </div>
+        <div>
+          <label className={labelCls} htmlFor="coupon-excluded-category-ids">Excluded category IDs</label>
+          <textarea id="coupon-excluded-category-ids" name="excludedCategoryIds" defaultValue={(initial?.excludedCategoryIds ?? []).join("\n")} className={inputCls} rows={2} />
+        </div>
+
         <label className="flex items-center gap-2 text-sm text-zinc-700 sm:col-span-2">
           <input
             type="checkbox"
@@ -203,8 +250,7 @@ export default function CouponForm({ initial }: { initial?: CouponInitial }) {
       </div>
 
       <p className="mt-3 text-xs text-zinc-400">
-        Product/category targeting uses the coupon API fields (productIds, categoryIds) —
-        defaults apply the coupon to the whole cart.
+        Use product/category ID lists for targeting. Leave lists empty to apply to the whole cart.
       </p>
 
       <button

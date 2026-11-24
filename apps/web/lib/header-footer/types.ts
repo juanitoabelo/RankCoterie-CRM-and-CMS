@@ -26,6 +26,7 @@ import type {
   ListBlock,
   SliderBlock,
   ContentGridBlock,
+  StorefrontUtilitiesBlock,
   StyleBreakpoints,
   RowLayout,
 } from "../page-builder/types";
@@ -474,7 +475,8 @@ export type HeaderFooterBlock =
   | AdvancedMenuBlock
   | SocialIconsBlock
   | ContactInfoBlock
-  | SearchBlock;
+  | SearchBlock
+  | StorefrontUtilitiesBlock;
 
 export type HeaderFooterBlockType = HeaderFooterBlock["type"];
 
@@ -622,6 +624,7 @@ export const HEADER_FOOTER_LEAF_BLOCK_TYPES: HeaderFooterBlockType[] = [
   "list",
   "slider",
   "contentGrid",
+  "storefrontUtilities",
 ];
 
 export const HEADER_FOOTER_CONTAINER_BLOCK_TYPES: HeaderFooterBlockType[] = [

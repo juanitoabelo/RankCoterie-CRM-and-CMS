@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { purchaseProduct } from "@/app/(site)/checkout/actions";
 import { notifyCartUpdated } from "@/lib/cart-event";
 import { isValidUrl } from "@/lib/page-builder/validate";
+import { isPurchasableProductType } from "@/modules/ecommerce/cart-pricing";
 import { useProductTemplateContext } from "./ProductTemplateContext";
 import AddressFields from "./AddressFields";
 
@@ -67,6 +68,53 @@ export default function ProductPurchase({
 
   const soldOut = stockStatus === "OUT_OF_STOCK" && backorders !== "yes" && backorders !== "notify";
   const maxQuantity = manageStock && stockQuantity !== null ? Math.max(1, stockQuantity) : 99;
+  const childLinks = (context?.product.links ?? []).filter(
+    (link) =>
+      (type === "BUNDLE" ? link.type === "BUNDLE_CHILD" : link.type === "GROUPED_CHILD") &&
+      isPurchasableProductType(link.product.type),
+  );
+
+  const addChildrenToCart = async (goToCart: boolean) => {
+    if (adding || childLinks.length === 0) return;
+    setAdding(true);
+    setMessage(null);
+    let itemCount = 0;
+    try {
+      if (type === "BUNDLE") {
+        const res = await fetch("/api/cart", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            productId: id,
+            quantity: 1,
+            bundleChildren: childLinks.map((link) => ({ productId: link.product.id, quantity: 1 })),
+          }),
+        });
+        const json = (await res.json()) as { ok: boolean; error?: string; itemCount?: number };
+        if (!json.ok) throw new Error(json.error ?? "Failed to add bundle to cart.");
+        itemCount = json.itemCount ?? itemCount;
+      } else {
+        for (const link of childLinks) {
+          const res = await fetch("/api/cart", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ productId: link.product.id, quantity: 1 }),
+          });
+          const json = (await res.json()) as { ok: boolean; error?: string; itemCount?: number };
+          if (!json.ok) throw new Error(json.error ?? `Failed to add ${link.product.name}.`);
+          itemCount = json.itemCount ?? itemCount;
+        }
+      }
+      notifyCartUpdated(itemCount);
+      setAdded(true);
+      window.setTimeout(() => setAdded(false), 2200);
+      if (goToCart) router.push("/cart");
+    } catch (err) {
+      setMessage({ ok: false, error: err instanceof Error ? err.message : "Failed to add products." });
+    } finally {
+      setAdding(false);
+    }
+  };
 
   if (type === "EXTERNAL") {
     if (isSafeExternalUrl(product?.externalUrl)) {
@@ -91,9 +139,33 @@ export default function ProductPurchase({
   if (type === "GROUPED" || type === "BUNDLE") {
     return (
       <div className="pdp-purchase-card">
-        <p className="text-sm text-zinc-600">
-          Choose the individual products in this {type.toLowerCase()} to purchase them.
-        </p>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+          {type === "BUNDLE" ? "Included in this bundle" : "Products in this group"}
+        </h2>
+        {childLinks.length === 0 ? (
+          <p className="mt-3 text-sm text-zinc-600">
+            No purchasable products have been added to this {type.toLowerCase()} yet.
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {childLinks.map((link) => (
+              <li key={link.id}>
+                <a href={`/${link.product.slug}`} className="text-sm text-zinc-700 underline underline-offset-2">
+                  {link.product.name}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+        {message && <p className="mt-3 text-sm text-red-600">{message.error}</p>}
+        <button
+          type="button"
+          disabled={adding || childLinks.length === 0}
+          onClick={() => addChildrenToCart(type === "BUNDLE")}
+          className="pdp-primary-button mt-4 w-full disabled:opacity-60"
+        >
+          {added ? "Added to cart ✓" : adding ? "Adding…" : type === "BUNDLE" ? "Add bundle to cart" : "Add all to cart"}
+        </button>
       </div>
     );
   }
@@ -108,7 +180,7 @@ export default function ProductPurchase({
 
   const addToCart = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    if (adding || !id) return;
+    if (adding || soldOut || !id) return;
     setAdding(true);
     setMessage(null);
     try {
@@ -140,6 +212,7 @@ export default function ProductPurchase({
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (soldOut) return;
     setMessage(null);
     const formData = new FormData(e.currentTarget);
     formData.set("productId", id);
@@ -230,6 +303,36 @@ export default function ProductPurchase({
             />
           </div>
         </div>
+
+        {type === "SERVICE" && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-zinc-600" htmlFor="buy-service-date">
+                Service date
+              </label>
+              <input
+                id="buy-service-date"
+                type="date"
+                name="serviceDate"
+                min={new Date().toISOString().slice(0, 10)}
+                required
+                className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-600" htmlFor="buy-service-time">
+                Service time
+              </label>
+              <input
+                id="buy-service-time"
+                type="time"
+                name="serviceTime"
+                required
+                className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+        )}
 
         <AddressFields
           idPrefix="buy"

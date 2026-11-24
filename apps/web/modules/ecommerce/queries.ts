@@ -5,6 +5,7 @@
  * Scoped to tenant for multi-tenant isolation.
  */
 
+import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/directory/prismaCatalog";
 import { TENANT_ID } from "@/lib/tenant";
 import type { Prisma } from "@prisma/client";
@@ -18,6 +19,7 @@ import type {
   ProductWithRelations, PublicProduct, SubscriptionWithRelations, TaxRate,
 } from "./types";
 import { getEffectiveProductPrice } from "./pricing";
+import { buildProductSearchWhere, sortProductSearchRows } from "./product-search";
 import {
   availableStockFor,
   cartItemKey,
@@ -27,6 +29,7 @@ import {
 } from "./cart-pricing";
 
 const DEFAULT_PAGE_SIZE = 20;
+const MAX_RANKED_SEARCH_ROWS = 1000;
 
 // ============================================================================
 // Product Queries
@@ -85,13 +88,9 @@ export async function getProducts(filter: ProductFilter = {}): Promise<{
   // Vendor filter
   if (vendorId) where.vendorId = vendorId;
 
-  // Search filter (name, description, SKU)
+  // Search filter (name, sku, description, category, product type)
   if (search) {
-    where.OR = [
-      { name: { contains: search, mode: "insensitive" } },
-      { description: { contains: search, mode: "insensitive" } },
-      { sku: { contains: search, mode: "insensitive" } },
-    ];
+    Object.assign(where, buildProductSearchWhere(search));
   }
 
   // Price range (effective price: sale price when active, otherwise regular)
@@ -177,6 +176,18 @@ export async function getProductBySlug(slug: string): Promise<ProductWithRelatio
     },
   });
   return product ? { ...product, price: getEffectiveProductPrice(product).price } : null;
+}
+
+export async function getPurchasableProductType(
+  productId: string,
+): Promise<{ id: string; type: string; hasVariants: boolean } | null> {
+  const product = await prisma.product.findFirst({
+    where: { id: productId, tenantId: TENANT_ID, status: "PUBLISHED", visibility: "PUBLIC" },
+    select: { id: true, type: true, _count: { select: { variants: true } } },
+  });
+  return product
+    ? { id: product.id, type: product.type, hasVariants: product._count.variants > 0 }
+    : null;
 }
 
 export async function getProductLinks(
@@ -671,9 +682,19 @@ export async function getCartBySession(sessionId: string): Promise<CartWithItems
               lowStockAmount: true,
               shippingRequired: true,
               type: true,
+              status: true,
+              visibility: true,
+              taxStatus: true,
+              taxClass: true,
+              shippingClassId: true,
+              weight: true,
+              length: true,
+              width: true,
+              height: true,
               downloadable: true,
               virtual: true,
               images: { where: { isMain: true }, take: 1, include: { asset: true } },
+              categories: { select: { categoryId: true } },
             },
           },
           variant: { include: { imageAsset: true } },
@@ -708,9 +729,19 @@ export async function getCartByUser(userId: string): Promise<CartWithItems | nul
               lowStockAmount: true,
               shippingRequired: true,
               type: true,
+              status: true,
+              visibility: true,
+              taxStatus: true,
+              taxClass: true,
+              shippingClassId: true,
+              weight: true,
+              length: true,
+              width: true,
+              height: true,
               downloadable: true,
               virtual: true,
               images: { where: { isMain: true }, take: 1, include: { asset: true } },
+              categories: { select: { categoryId: true } },
             },
           },
           variant: { include: { imageAsset: true } },
@@ -762,7 +793,20 @@ export function availableStock(product: {
 type CartMutation = { ok: boolean; error?: string; cartItemId?: string; warning?: string };
 
 /** Add item to cart */
-export async function addItemToCart(cartId: string, productId: string, quantity = 1, variantId?: string, customOptions?: Record<string, unknown>): Promise<CartMutation> {
+export async function addItemToCart(
+  cartId: string,
+  productId: string,
+  quantity = 1,
+  variantId?: string,
+  customOptions?: Record<string, unknown>,
+  bundleChildren?: Array<{
+    productId: string;
+    quantity: number;
+    variantId?: string | null;
+    name?: string | null;
+    sku?: string | null;
+  }>,
+): Promise<CartMutation> {
   const [product, cart] = await Promise.all([
     prisma.product.findFirst({ where: { id: productId, tenantId: TENANT_ID } }),
     prisma.cart.findFirst({
@@ -773,6 +817,13 @@ export async function addItemToCart(cartId: string, productId: string, quantity 
 
   if (!product) return { ok: false, error: "Product not found." };
   if (!cart) return { ok: false, error: "Cart not found." };
+
+  if (product.type === "VARIABLE" && !variantId) {
+    const variantCount = await prisma.productVariant.count({ where: { productId } });
+    if (variantCount > 0) {
+      return { ok: false, error: "Please choose a product option before adding this item." };
+    }
+  }
 
   if (!variantId) {
     const stockSource = resolveStockSource(null, product);
@@ -804,11 +855,14 @@ export async function addItemToCart(cartId: string, productId: string, quantity 
   }
 
   const normalizedOptions = normalizeCartOptions(customOptions);
+  const optionsForIdentity = bundleChildren?.length
+    ? { ...normalizedOptions, __bundleChildren: JSON.stringify(bundleChildren) }
+    : normalizedOptions;
   const pricing = resolveCartLinePricing(product, variantToUse, quantity);
   const price = pricing.price;
   const wantedVariantId = variantId ?? null;
   const limit = availableStockFor(variantToUse, product);
-  const wantedKey = cartItemKey(productId, wantedVariantId, normalizedOptions);
+  const wantedKey = cartItemKey(productId, wantedVariantId, optionsForIdentity);
 
   const existingItem = cart.items.find((item) => {
     if (item.productId !== productId || item.variantId !== wantedVariantId) return false;
@@ -863,7 +917,10 @@ export async function addItemToCart(cartId: string, productId: string, quantity 
         quantity: newQuantity,
         price,
         lineTotal: price * newQuantity,
-        meta: { customOptions: normalizedOptions as Prisma.InputJsonValue },
+        meta: {
+          customOptions: optionsForIdentity as Prisma.InputJsonValue,
+          ...(bundleChildren?.length ? { bundleChildren } : {}),
+        } as Prisma.InputJsonValue,
       },
     });
     await recalcCart(tx, cart.id);
@@ -991,6 +1048,17 @@ export async function getPaymentGatewayById(id: string): Promise<PaymentGatewayW
 export async function getEnabledPaymentGateways(): Promise<PaymentGatewayWithRelations[]> {
   return prisma.paymentGateway.findMany({
     where: { tenantId: TENANT_ID, isEnabled: true },
+    orderBy: { priority: "asc" },
+  });
+}
+
+export async function getEnabledEcommerceGateways(): Promise<PaymentGatewayWithRelations[]> {
+  return prisma.paymentGateway.findMany({
+    where: {
+      tenantId: TENANT_ID,
+      isEnabled: true,
+      purpose: { in: ["GENERAL", "ECOMMERCE"] },
+    },
     orderBy: { priority: "asc" },
   });
 }
@@ -1277,11 +1345,50 @@ export async function fulfillSubscriptionsForPaidOrder(
   });
   const existingKeys = new Set(existing.map((row) => row.planKey));
 
+  const renewalSubscriptionId = typeof meta.renewalSubscriptionId === "string" ? meta.renewalSubscriptionId : null;
+  if (renewalSubscriptionId) {
+    const renewal = await prisma.subscription.findFirst({
+      where: { id: renewalSubscriptionId, tenantId: TENANT_ID },
+      select: { id: true, planKey: true, currentPeriodEnd: true, interval: true, intervalCount: true, meta: true },
+    });
+    if (renewal) {
+      const planKey = renewal.planKey;
+      if (!existingKeys.has(planKey)) {
+        const periodStart = renewal.currentPeriodEnd && renewal.currentPeriodEnd > new Date() ? renewal.currentPeriodEnd : new Date();
+        const periodEnd = addSubscriptionPeriod(periodStart, (renewal.interval ?? "month") as "day" | "week" | "month" | "year", Math.max(1, renewal.intervalCount ?? 1));
+        const renewalMeta = (renewal.meta ?? {}) as Record<string, unknown>;
+        await prisma.subscription.update({
+          where: { id: renewal.id },
+          data: {
+            status: "active",
+            currentPeriodStart: periodStart,
+            currentPeriodEnd: periodEnd,
+            meta: {
+              ...renewalMeta,
+              lastRenewalOrderId: order.id,
+              nextBillingAt: periodEnd.toISOString(),
+            } as Prisma.InputJsonValue,
+          },
+        });
+        existingKeys.add(planKey);
+      }
+    }
+  }
+
   const now = new Date();
   for (const plan of plans) {
     const planKey = `${plan.productId}::${plan.variantId ?? ""}`;
     if (existingKeys.has(planKey)) continue;
-    const currentPeriodEnd = addSubscriptionPeriod(now, plan.interval, plan.intervalCount);
+    const trialPeriods = Math.max(0, Math.floor(plan.trialPeriod ?? 0));
+    const trialEndsAt =
+      trialPeriods > 0
+        ? addSubscriptionPeriod(now, plan.interval, plan.intervalCount * trialPeriods)
+        : null;
+    const currentPeriodEnd = addSubscriptionPeriod(
+      trialEndsAt ?? now,
+      plan.interval,
+      plan.intervalCount,
+    );
     try {
       await prisma.subscription.create({
         data: {
@@ -1295,6 +1402,7 @@ export async function fulfillSubscriptionsForPaidOrder(
           status: "active",
           interval: plan.interval,
           intervalCount: plan.intervalCount,
+          trialEndsAt,
           currentPeriodStart: now,
           currentPeriodEnd,
           amount: plan.amount,
@@ -1309,6 +1417,7 @@ export async function fulfillSubscriptionsForPaidOrder(
               signUpFee: plan.signUpFee,
             },
             initialOrderId: order.id,
+            trialEndsAt: trialEndsAt?.toISOString() ?? null,
             nextBillingAt: currentPeriodEnd.toISOString(),
             renewal: "manual",
           } as Prisma.InputJsonValue,
@@ -1337,6 +1446,159 @@ export async function fulfillSubscriptionsForPaidOrder(
     data: { meta: { ...meta, subscriptionFulfillment: "pending" } as Prisma.InputJsonValue },
   });
   return "pending";
+}
+
+export type DigitalDownloadGrantForEmail = {
+  token: string;
+  name: string;
+  url: string;
+  expiresAt: Date | null;
+  downloadLimit: number | null;
+  downloadsUsed: number;
+};
+
+function safeDownloadUrl(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const url = value.trim();
+  if (/^\/(?!\/)/.test(url)) return url;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeDownloadFiles(value: unknown): Array<{ name: string; url: string }> {
+  if (!Array.isArray(value)) return [];
+  const files: Array<{ name: string; url: string }> = [];
+  for (const entry of value) {
+    if (typeof entry === "string") {
+      const url = safeDownloadUrl(entry);
+      if (url) files.push({ name: url.split("/").pop() || "Download", url });
+      continue;
+    }
+    if (!entry || typeof entry !== "object") continue;
+    const record = entry as Record<string, unknown>;
+    const url = safeDownloadUrl(record.url);
+    if (!url) continue;
+    const rawName = typeof record.name === "string" ? record.name.trim() : "";
+    files.push({ name: rawName || url.split("/").pop() || "Download", url });
+  }
+  return files;
+}
+
+export async function fulfillDigitalDownloadsForPaidOrder(
+  orderId: string,
+): Promise<DigitalDownloadGrantForEmail[]> {
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, tenantId: TENANT_ID, paymentStatus: "PAID" },
+    select: {
+      id: true,
+      paidAt: true,
+      createdAt: true,
+      items: {
+        select: {
+          id: true,
+          meta: true,
+          product: {
+            select: {
+              downloadable: true,
+              downloadFiles: true,
+              downloadLimit: true,
+              downloadExpiry: true,
+            },
+          },
+          variant: {
+            select: {
+              downloadable: true,
+              downloadFiles: true,
+              downloadLimit: true,
+              downloadExpiry: true,
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!order || order.items.length === 0) return [];
+
+  const bundleChildIds = [...new Set(order.items.flatMap((item) => {
+    const meta = (item.meta ?? {}) as Record<string, unknown>;
+    const children = Array.isArray(meta.bundleChildren) ? meta.bundleChildren : [];
+    return children
+      .map((child) => (child && typeof child === "object" ? (child as Record<string, unknown>).productId : null))
+      .filter((id): id is string => typeof id === "string" && id.length > 0);
+  }))];
+  const bundleProducts = bundleChildIds.length > 0
+    ? await prisma.product.findMany({
+        where: { id: { in: bundleChildIds }, tenantId: TENANT_ID },
+        select: { id: true, downloadable: true, downloadFiles: true, downloadLimit: true, downloadExpiry: true, name: true },
+      })
+    : [];
+  const bundleProductsById = new Map(bundleProducts.map((p) => [p.id, p]));
+
+  const existing = await prisma.digitalDownloadGrant.findMany({
+    where: { tenantId: TENANT_ID, orderItemId: { in: order.items.map((item) => item.id) } },
+    select: { orderItemId: true, url: true },
+  });
+  const fulfilledKeys = new Set(existing.map((grant) => `${grant.orderItemId}::${grant.url}`));
+  const grants: DigitalDownloadGrantForEmail[] = [];
+
+  for (const item of order.items) {
+    const meta = (item.meta ?? {}) as Record<string, unknown>;
+    const bundleChildren = Array.isArray(meta.bundleChildren) ? meta.bundleChildren as Array<Record<string, unknown>> : [];
+
+    const configs: Array<{ namePrefix?: string; downloadable: boolean; downloadFiles: unknown; downloadLimit: number | null; downloadExpiry: number | null }> = [];
+    const directConfig = item.variant?.downloadable ? item.variant : item.product.downloadable ? item.product : null;
+    if (directConfig) configs.push(directConfig);
+    for (const child of bundleChildren) {
+      const productId = typeof child.productId === "string" ? child.productId : null;
+      if (!productId) continue;
+      const childProduct = bundleProductsById.get(productId);
+      if (childProduct?.downloadable) configs.push({ ...childProduct, namePrefix: childProduct.name });
+    }
+
+    for (const downloadConfig of configs) {
+      const files = normalizeDownloadFiles(downloadConfig.downloadFiles);
+      if (files.length === 0) continue;
+
+      const limit = downloadConfig.downloadLimit ?? null;
+      const downloadLimit = limit && limit > 0 ? Math.floor(limit) : null;
+      const expiryDays = downloadConfig.downloadExpiry ?? 0;
+      const start = order.paidAt ?? order.createdAt;
+      const expiresAt =
+        expiryDays > 0 ? new Date(start.getTime() + Math.floor(expiryDays) * 86_400_000) : null;
+
+      for (const file of files) {
+        const key = `${item.id}::${file.url}`;
+        if (fulfilledKeys.has(key)) continue;
+        try {
+          const grant = await prisma.digitalDownloadGrant.create({
+            data: {
+              tenantId: TENANT_ID,
+              orderId: order.id,
+              orderItemId: item.id,
+              token: randomBytes(24).toString("hex"),
+              name: downloadConfig.namePrefix && !file.name.startsWith(downloadConfig.namePrefix)
+                ? `${downloadConfig.namePrefix} — ${file.name}`
+                : file.name,
+              url: file.url,
+              expiresAt,
+              downloadLimit,
+              downloadsUsed: 0,
+            },
+          });
+          fulfilledKeys.add(key);
+          grants.push(grant);
+        } catch (error) {
+          if ((error as { code?: string }).code !== "P2002") throw error;
+        }
+      }
+    }
+  }
+
+  return grants;
 }
 
 export async function retryPendingSubscriptionFulfillmentsForCustomer(
@@ -1608,6 +1870,8 @@ export type ProductGridItem = {
   reviewCount: number;
   stockStatus: string;
   featured: boolean;
+  type: string;
+  hasVariants: boolean;
   categories: { id: string; name: string; slug: string }[];
 };
 
@@ -1647,6 +1911,38 @@ function plainExcerpt(shortDescription: string | null, description: string | nul
   return text.length > 320 ? `${text.slice(0, 320).trimEnd()}…` : text || null;
 }
 
+type GridSearchRow = {
+  name: string;
+  sku: string | null;
+  price: number;
+  reviewCount: number;
+  menuOrder: number;
+  createdAt: Date;
+  type: string;
+  categories: Array<{ category: { id: string; name: string; slug: string } }>;
+};
+
+function compareGridRows(
+  a: GridSearchRow,
+  b: GridSearchRow,
+  key: ProductGridParams["orderBy"],
+  order: "asc" | "desc",
+): number {
+  const value = (row: GridSearchRow): string | number | Date => {
+    switch (key) {
+      case "price": return row.price;
+      case "name": return row.name;
+      case "menuOrder": return row.menuOrder;
+      case "popular": return row.reviewCount;
+      default: return row.createdAt;
+    }
+  };
+  const left = value(a);
+  const right = value(b);
+  const result = left < right ? -1 : left > right ? 1 : 0;
+  return order === "asc" ? result : -result;
+}
+
 /** One page of published products for the storefront Product Grid block. */
 export async function getProductGridPage(params: ProductGridParams = {}): Promise<ProductGridPage> {
   const {
@@ -1680,11 +1976,7 @@ export async function getProductGridPage(params: ProductGridParams = {}): Promis
 
   const term = search.trim();
   if (term) {
-    where.OR = [
-      { name: { contains: term, mode: "insensitive" } },
-      { shortDescription: { contains: term, mode: "insensitive" } },
-      { sku: { contains: term, mode: "insensitive" } },
-    ];
+    Object.assign(where, buildProductSearchWhere(term));
   }
 
   if (minPrice > 0 || maxPrice > 0) {
@@ -1716,6 +2008,7 @@ export async function getProductGridPage(params: ProductGridParams = {}): Promis
         id: true,
         name: true,
         slug: true,
+        sku: true,
         shortDescription: true,
         description: true,
         price: true,
@@ -1723,11 +2016,14 @@ export async function getProductGridPage(params: ProductGridParams = {}): Promis
         salePrice: true,
         salePriceStart: true,
         salePriceEnd: true,
+        type: true,
+        _count: { select: { variants: true } },
         averageRating: true,
         reviewCount: true,
         stockStatus: true,
         featured: true,
         createdAt: true,
+        menuOrder: true,
         images: {
           where: { isMain: true },
           take: 1,
@@ -1736,8 +2032,7 @@ export async function getProductGridPage(params: ProductGridParams = {}): Promis
         categories: { select: { category: { select: { id: true, name: true, slug: true } } } },
       },
       orderBy,
-      skip,
-      take: size,
+      ...(term ? { take: MAX_RANKED_SEARCH_ROWS as number } : { skip, take: size }),
     }),
     prisma.product.count({ where }),
     prisma.productCategory.findMany({
@@ -1752,28 +2047,35 @@ export async function getProductGridPage(params: ProductGridParams = {}): Promis
   ]);
 
   const now = Date.now();
+  const pageRows = term
+    ? sortProductSearchRows(rows, term, (a, b) => compareGridRows(a, b, orderByKey, order)).slice(skip, skip + size)
+    : rows;
 
   return {
-    items: rows.map((row) => {
-      const saleActive =
-        row.salePrice != null &&
-        row.salePrice < row.regularPrice &&
-        (!row.salePriceStart || row.salePriceStart.getTime() <= now) &&
-        (!row.salePriceEnd || row.salePriceEnd.getTime() >= now);
+    items: pageRows.map((row) => {
+      const effective = getEffectiveProductPrice(
+        {
+          ...row,
+          salePrice: row.salePrice !== null && row.salePrice < row.regularPrice ? row.salePrice : null,
+        },
+        new Date(now),
+      );
 
       return {
         id: row.id,
         name: row.name,
         slug: row.slug,
         excerpt: plainExcerpt(row.shortDescription, row.description),
-        price: row.price,
-        regularPrice: row.regularPrice,
-        onSale: saleActive,
+        price: effective.price,
+        regularPrice: effective.regularPrice,
+        onSale: effective.onSale,
         imageAssetId: row.images[0]?.asset.id ?? null,
         rating: row.averageRating ?? 0,
         reviewCount: row.reviewCount,
         stockStatus: row.stockStatus,
         featured: row.featured,
+        type: row.type,
+        hasVariants: row._count.variants > 0,
         categories: row.categories.map((link) => link.category),
       };
     }),
@@ -1811,6 +2113,8 @@ export async function getProductsByIds(ids: string[]): Promise<ProductGridItem[]
       salePrice: true,
       salePriceStart: true,
       salePriceEnd: true,
+      type: true,
+      _count: { select: { variants: true } },
       averageRating: true,
       reviewCount: true,
       stockStatus: true,
@@ -1845,6 +2149,8 @@ export async function getProductsByIds(ids: string[]): Promise<ProductGridItem[]
       reviewCount: row.reviewCount,
       stockStatus: row.stockStatus,
       featured: row.featured,
+      type: row.type,
+      hasVariants: row._count.variants > 0,
       categories: row.categories.map((link) => link.category),
     };
   });

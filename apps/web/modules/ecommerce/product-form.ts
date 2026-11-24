@@ -109,6 +109,67 @@ export function computeProductPrice(
   return isSaleActive(salePrice, start, end, now) ? Number(salePrice) : regularPrice;
 }
 
+export const VARIANT_SALE_START_KEY = "__salePriceStart";
+export const VARIANT_SALE_END_KEY = "__salePriceEnd";
+
+type VariantSaleMetadata = {
+  price?: number | null;
+  regularPrice?: number | null;
+  salePrice?: number | null;
+  attributes?: unknown;
+};
+
+export type EffectiveVariantPrice = {
+  price: number;
+  regularPrice: number;
+  salePrice: number | null;
+  onSale: boolean;
+  saleEndsAt: Date | null;
+};
+
+function attributeRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function metadataDate(value: unknown): Date | null {
+  if (value === null || value === undefined || value === "") return null;
+  const date = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export function getVariantSaleWindow(variant: VariantSaleMetadata): {
+  start: Date | null;
+  end: Date | null;
+} {
+  const attributes = attributeRecord(variant.attributes);
+  return {
+    start: metadataDate(attributes?.[VARIANT_SALE_START_KEY]),
+    end: metadataDate(attributes?.[VARIANT_SALE_END_KEY]),
+  };
+}
+
+export function getEffectiveVariantPrice(
+  variant: VariantSaleMetadata,
+  now: Date = new Date(),
+): EffectiveVariantPrice {
+  const regular = Number(variant.regularPrice ?? variant.price ?? 0);
+  const regularPrice = Number.isFinite(regular) ? regular : 0;
+  const rawSale = variant.salePrice === null || variant.salePrice === undefined
+    ? null
+    : Number(variant.salePrice);
+  const salePrice = rawSale !== null && Number.isFinite(rawSale) && rawSale >= 0 ? rawSale : null;
+  const { start, end } = getVariantSaleWindow(variant);
+  const onSale = isSaleActive(salePrice, start, end, now);
+  return {
+    price: onSale && salePrice !== null ? salePrice : regularPrice,
+    regularPrice,
+    salePrice: onSale ? salePrice : null,
+    onSale,
+    saleEndsAt: onSale ? end : null,
+  };
+}
+
 function readString(fd: FormData, key: string): string | null {
   const raw = fd.get(key);
   if (typeof raw !== "string") return null;
@@ -216,6 +277,13 @@ function variantText(value: unknown, label: string): string | null {
   return value.trim() || null;
 }
 
+function variantDate(value: unknown, label: string): Date | null {
+  if (value === null || value === undefined || value === "") return null;
+  const date = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(date.getTime())) throw new Error(`${label} must be a valid date.`);
+  return date;
+}
+
 function variantBoolean(value: unknown): boolean {
   return value === true || value === "on" || value === "true" || value === 1 || value === "1";
 }
@@ -253,11 +321,23 @@ export function parseVariantData(fd: FormData): ParsedVariantInput[] {
       throw new Error(`${label} regular price must be zero or greater.`);
     }
     const salePrice = variantNumber(row.salePrice, `${label} sale price`);
+    const salePriceStart = variantDate(row.salePriceStart, `${label} sale start`);
+    const salePriceEnd = variantDate(row.salePriceEnd, `${label} sale end`);
+    if (salePriceStart && salePriceEnd && salePriceStart > salePriceEnd) {
+      throw new Error(`${label} sale end must be after its start.`);
+    }
     const stockQuantity = variantNumber(row.stockQuantity, `${label} stock quantity`);
     const downloadLimit = variantNumber(row.downloadLimit, `${label} download limit`);
     const downloadExpiry = variantNumber(row.downloadExpiry, `${label} download expiry`);
     const menuOrder = variantNumber(row.menuOrder, `${label} menu order`);
     const id = variantText(row.id, `${label} id`);
+    const attributes: Record<string, unknown> = {
+      ...(attributeRecord(parseVariantValue(row.attributes, `${label} attributes`)) ?? {}),
+    };
+    if (salePriceStart) attributes[VARIANT_SALE_START_KEY] = salePriceStart.toISOString();
+    else delete attributes[VARIANT_SALE_START_KEY];
+    if (salePriceEnd) attributes[VARIANT_SALE_END_KEY] = salePriceEnd.toISOString();
+    else delete attributes[VARIANT_SALE_END_KEY];
 
     return {
       ...(id ? { id } : {}),
@@ -285,7 +365,7 @@ export function parseVariantData(fd: FormData): ParsedVariantInput[] {
       description: variantText(row.description, `${label} description`),
       purchaseNote: variantText(row.purchaseNote, `${label} purchase note`),
       menuOrder: menuOrder ?? index,
-      attributes: parseVariantValue(row.attributes, `${label} attributes`),
+      attributes: attributes as Prisma.InputJsonValue,
     };
   });
 }

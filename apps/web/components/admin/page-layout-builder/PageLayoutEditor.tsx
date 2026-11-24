@@ -8,6 +8,7 @@ import BuilderImageUploader from "../header-footer-builder/BuilderImageUploader"
 import RichTextEditor from "../page-builder/RichTextEditor";
 import { SizeInput, SpacingInput } from "../page-builder/settings";
 import { SHARED_EDITORS } from "../page-builder/shared-blocks/editors";
+import StorefrontUtilitiesEditorTabs from "../page-builder/shared-blocks/StorefrontUtilitiesEditorTabs";
 import type { SizeValue, SpacingValues } from "../page-builder/settings";
 import SchemaStyleTab from "../page-builder/SchemaStyleTab";
 import BlockAdvancedTab from "../page-builder/BlockAdvancedTab";
@@ -659,6 +660,14 @@ function SharedLayoutEditorAdapter({ block, onChange }: EditorProps) {
   const Editor = SHARED_EDITORS[block.type];
   if (!Editor) {
     return <p className="text-xs text-zinc-400">No editor available for this block type.</p>;
+  }
+  if (block.type === "storefrontUtilities") {
+    return (
+      <StorefrontUtilitiesEditorTabs
+        block={block as unknown as Block}
+        onChange={onChange as unknown as (props: Block["props"]) => void}
+      />
+    );
   }
   return (
     <Editor

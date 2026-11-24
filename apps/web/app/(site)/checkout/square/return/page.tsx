@@ -3,6 +3,8 @@ import { redirect, notFound } from "next/navigation";
 import { prisma, TENANT_ID } from "@/modules/shared";
 import { getSquareOrderState, readSquareConfig } from "@/lib/billing/square";
 import { markOrderPaid } from "@/lib/billing/payment-events";
+import { recordGatewayTransaction } from "@/lib/billing/gateway-transactions";
+import { verifySquarePaymentAmount } from "@/lib/billing/webhook-amounts";
 
 export const revalidate = 0;
 
@@ -14,9 +16,9 @@ export const revalidate = 0;
 export default async function SquareReturnPage({
   searchParams,
 }: {
-  searchParams: Promise<{ reference?: string }>;
+  searchParams: Promise<{ reference?: string; access?: string }>;
 }) {
-  const { reference } = await searchParams;
+  const { reference, access } = await searchParams;
   if (!reference) notFound();
 
   const order = await prisma.order.findFirst({
@@ -61,8 +63,31 @@ export default async function SquareReturnPage({
       );
     }
 
+    const amountCheck = verifySquarePaymentAmount(
+      { total_money: { amount: state.amount, currency: state.currency } },
+      { total: order.total, currency: order.currency },
+    );
+    if (!amountCheck.ok) {
+      return failedUi(
+        "Payment could not be verified",
+        `Square returned a different amount or currency than order ${order.orderNumber}. No payment was recorded — please contact support.`,
+      );
+    }
+
+    await recordGatewayTransaction({
+      orderId: order.id,
+      gatewayId: order.paymentGatewayId,
+      amount: order.total,
+      currency: order.currency,
+      status: "PAID",
+      gatewayTransactionId: meta.squareOrderId,
+      gatewayResponse: { state: state.state, amount: state.amount, currency: state.currency },
+      eventId: `square-return:${order.id}`,
+    });
     await markOrderPaid(order.id, "square-return");
   }
 
-  redirect(`/checkout/success?orderId=${order.id}`);
+  const params = new URLSearchParams({ orderId: order.id });
+  if (access) params.set("access", access);
+  redirect(`/checkout/success?${params.toString()}`);
 }

@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getCartBySession, getEnabledPaymentGateways } from "@/modules/ecommerce/queries";
+import { getCartBySession, getEnabledEcommerceGateways } from "@/modules/ecommerce/queries";
 import { readExistingCartSession } from "@/lib/cart-session";
-import { quoteTotals, round2, type QuoteLine } from "@/lib/billing/totals";
+import { repriceCartItem } from "@/modules/ecommerce/cart-pricing";
+import { quoteTotals } from "@/lib/billing/totals";
+import { getSessionUid } from "@/modules/auth/session";
 import CheckoutForm from "@/components/storefront/CheckoutForm";
 
 export const revalidate = 0;
@@ -16,21 +18,19 @@ export default async function CheckoutPage() {
 
   if (items.length === 0) redirect("/cart");
 
-  const gateways = await getEnabledPaymentGateways();
-
-  const lines: QuoteLine[] = items.map((item) => ({
-    productId: item.productId,
-    quantity: item.quantity,
-    unitPrice: item.quantity > 0 ? round2(item.lineTotal / item.quantity) : item.lineTotal,
-    saleItem: item.product.salePrice !== null,
-    shippingRequired: item.product.shippingRequired !== false,
-  }));
+  const [gateways, sessionUid] = await Promise.all([
+    getEnabledEcommerceGateways(),
+    getSessionUid().catch(() => null),
+  ]);
+  const pricedItems = items.map((item) => repriceCartItem(item));
+  const lines = pricedItems.map((item) => item.line);
   const initialTotals = await quoteTotals({
     lines,
     couponCode: cart?.couponCode ?? null,
+    customer: { userId: cart?.userId ?? sessionUid },
   });
 
-  const summary = items.map((item) => ({
+  const summary = pricedItems.map((item) => ({
     id: item.id,
     name: item.product.name,
     slug: item.product.slug,
@@ -89,6 +89,7 @@ export default async function CheckoutPage() {
               gateways={gateways.map((gw) => ({ id: gw.id, name: gw.name, type: gw.type }))}
               initialTotals={initialTotals}
               couponCode={cart?.couponCode ?? null}
+              requiresServiceBooking={items.some((item) => item.product.type === "SERVICE")}
             />
           )}
         </div>

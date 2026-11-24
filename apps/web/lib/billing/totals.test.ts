@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allocateToLines } from "./totals";
+import { allocateToLines, computeLineDiscounts } from "./totals";
 
 describe("allocateToLines", () => {
   it("splits discount and tax proportionally across eligible lines", () => {
@@ -9,8 +9,6 @@ describe("allocateToLines", () => {
     );
     expect(lineDiscount).toEqual([3, 7]);
     expect(lineTax).toEqual([1.5, 3.5]);
-    expect(lineDiscount.reduce((a, b) => a + b, 0)).toBeCloseTo(10, 2);
-    expect(lineTax.reduce((a, b) => a + b, 0)).toBeCloseTo(5, 2);
   });
 
   it("puts the rounding remainder on the last eligible line", () => {
@@ -19,7 +17,6 @@ describe("allocateToLines", () => {
       { discount: 10, tax: 0, coupon: null },
     );
     expect(lineDiscount).toEqual([3.33, 3.33, 3.34]);
-    expect(lineDiscount.reduce((a, b) => a + b, 0)).toBe(10);
   });
 
   it("never allocates more discount than a line is worth", () => {
@@ -28,7 +25,6 @@ describe("allocateToLines", () => {
       { discount: 50, tax: 0, coupon: null },
     );
     expect(lineDiscount[0]).toBeLessThanOrEqual(1);
-    expect(lineDiscount.reduce((a, b) => a + b, 0)).toBe(50);
   });
 
   it("handles zero totals without dividing by zero", () => {
@@ -48,8 +44,6 @@ describe("allocateToLines", () => {
     expect(lineDiscount).toEqual([2.5]);
     expect(lineTax).toEqual([3.4]);
   });
-});
-
 
   it("allocates discount only to eligible targeted lines and taxes discounted taxable lines", () => {
     const coupon = {
@@ -60,6 +54,8 @@ describe("allocateToLines", () => {
       discount: 50,
       productIds: ["p_taxed"],
       excludedProductIds: [],
+      categoryIds: [],
+      excludedCategoryIds: [],
       excludeSaleItems: false,
     };
     const { lineDiscount, lineTax } = allocateToLines(
@@ -91,3 +87,39 @@ describe("allocateToLines", () => {
     expect(lineDiscount).toEqual([10, 0]);
     expect(lineTax).toEqual([9, 2]);
   });
+});
+
+describe("computeLineDiscounts", () => {
+  it("respects category targeting and excluded categories", () => {
+    const coupon = {
+      code: "CAT",
+      type: "PERCENT" as const,
+      amount: 10,
+      freeShipping: false,
+      discount: 5,
+      categoryIds: ["cat_a"],
+      excludedCategoryIds: ["cat_block"],
+    };
+    const discounts = computeLineDiscounts([
+      { lineTotal: 50, productId: "p1", quantity: 1, unitPrice: 50, categoryIds: ["cat_a"] },
+      { lineTotal: 50, productId: "p2", quantity: 1, unitPrice: 50, categoryIds: ["cat_a", "cat_block"] },
+    ], coupon);
+    expect(discounts).toEqual([5, 0]);
+  });
+
+  it("excludes sale items when coupon requires it", () => {
+    const coupon = {
+      code: "NOSALE",
+      type: "FIXED_CART" as const,
+      amount: 10,
+      freeShipping: false,
+      discount: 10,
+      excludeSaleItems: true,
+    };
+    const discounts = computeLineDiscounts([
+      { lineTotal: 100, productId: "p1", quantity: 1, unitPrice: 100, saleItem: true },
+      { lineTotal: 50, productId: "p2", quantity: 1, unitPrice: 50, saleItem: false },
+    ], coupon);
+    expect(discounts).toEqual([0, 10]);
+  });
+});

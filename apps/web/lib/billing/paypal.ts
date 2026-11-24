@@ -105,7 +105,14 @@ export async function createPaypalOrder(params: {
 export async function capturePaypalOrder(
   config: PaypalConfig,
   paypalOrderId: string,
-): Promise<{ ok: boolean; status: string; error?: string }> {
+): Promise<{
+  ok: boolean;
+  status: string;
+  error?: string;
+  amount?: string;
+  currency?: string;
+  captureId?: string;
+}> {
   try {
     const token = await getAccessToken(config);
     const res = await fetch(
@@ -120,11 +127,33 @@ export async function capturePaypalOrder(
         cache: "no-store",
       },
     );
+    type PaypalCapture = {
+      id?: string;
+      status?: string;
+      amount?: { value?: string; currency_code?: string };
+    };
     const json = (await res.json().catch(() => null)) as
-      | { status?: string; details?: { message?: string }[] }
+      | {
+          status?: string;
+          details?: { message?: string }[];
+          purchase_units?: { payments?: { captures?: PaypalCapture[] } }[];
+        }
       | null;
     const status = json?.status ?? "FAILED";
-    if (res.ok && status === "COMPLETED") return { ok: true, status };
+    if (res.ok && status === "COMPLETED") {
+      const captures: PaypalCapture[] = [];
+      for (const unit of json?.purchase_units ?? []) {
+        for (const capture of unit.payments?.captures ?? []) captures.push(capture);
+      }
+      const capture = captures.find((row) => row.status === "COMPLETED") ?? captures[0];
+      return {
+        ok: true,
+        status,
+        ...(capture?.amount?.value ? { amount: capture.amount.value } : {}),
+        ...(capture?.amount?.currency_code ? { currency: capture.amount.currency_code } : {}),
+        ...(capture?.id ? { captureId: capture.id } : {}),
+      };
+    }
     return {
       ok: false,
       status,

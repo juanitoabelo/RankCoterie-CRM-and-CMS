@@ -59,10 +59,12 @@ export default function CheckoutForm({
   gateways,
   initialTotals,
   couponCode,
+  requiresServiceBooking,
 }: {
   gateways: Gateway[];
   initialTotals: QuoteTotals;
   couponCode: string | null;
+  requiresServiceBooking: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [totals, setTotals] = useState<QuoteTotals>(initialTotals);
@@ -70,37 +72,44 @@ export default function CheckoutForm({
   const [checkoutToken] = useState(() => crypto.randomUUID());
   const [country, setCountry] = useState("");
   const [state, setState] = useState("");
+  const [billingSame, setBillingSame] = useState(true);
+  const [billingCountry, setBillingCountry] = useState("");
+  const [billingState, setBillingState] = useState("");
   const [isPending, startTransition] = useTransition();
   const [isQuoting, startQuote] = useTransition();
   const router = useRouter();
   const mounted = useRef(false);
+
+  const quoteWith = (
+    same: boolean,
+    shippingCountry = country,
+    shippingState = state,
+    nextBillingCountry = billingCountry,
+    nextBillingState = billingState,
+  ) => {
+    const fd = new FormData();
+    fd.set("country", shippingCountry);
+    fd.set("state", shippingState);
+    fd.set("billingSameAsShipping", same ? "on" : "off");
+    fd.set("billingCountry", same ? shippingCountry : nextBillingCountry);
+    fd.set("billingState", same ? shippingState : nextBillingState);
+    startQuote(async () => {
+      const result = await quoteCartTotals(fd);
+      if (result.ok) setTotals(result.totals);
+    });
+  };
 
   useEffect(() => {
     if (!mounted.current) {
       mounted.current = true;
       return;
     }
-    // Coupon changed (applied/removed via refresh) — re-quote with current address.
     setTotals(initialTotals);
-    const fd = new FormData();
-    fd.set("country", country);
-    fd.set("state", state);
-    startQuote(async () => {
-      const result = await quoteCartTotals(fd);
-      if (result.ok) setTotals(result.totals);
-    });
+    quoteWith(billingSame);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialTotals]);
 
-  const requote = () => {
-    const fd = new FormData();
-    fd.set("country", country);
-    fd.set("state", state);
-    startQuote(async () => {
-      const result = await quoteCartTotals(fd);
-      if (result.ok) setTotals(result.totals);
-    });
-  };
+  const requote = () => quoteWith(billingSame);
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -151,6 +160,65 @@ export default function CheckoutForm({
         onStateChange={setState}
         onBlur={requote}
       />
+
+      <div className="mt-5">
+        <input type="hidden" name="billingSameAsShipping" value={billingSame ? "on" : "off"} />
+        <label className="flex items-center gap-2 text-sm text-zinc-700">
+          <input
+            type="checkbox"
+            checked={billingSame}
+            onChange={(event) => {
+              setBillingSame(event.target.checked);
+              quoteWith(event.target.checked);
+            }}
+          />
+          Billing address is the same as shipping
+        </label>
+      </div>
+
+      {!billingSame ? (
+        <AddressFields
+          idPrefix="billing"
+          namePrefix="billing"
+          title="Billing address"
+          hint="Used for tax calculation and your receipt."
+          country={billingCountry}
+          state={billingState}
+          onCountryChange={setBillingCountry}
+          onStateChange={setBillingState}
+          onBlur={requote}
+        />
+      ) : null}
+
+      {requiresServiceBooking && (
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-zinc-600" htmlFor="checkout-service-date">
+              Service date
+            </label>
+            <input
+              id="checkout-service-date"
+              type="date"
+              name="serviceDate"
+              min={new Date().toISOString().slice(0, 10)}
+              required
+              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-600" htmlFor="checkout-service-time">
+              Service time
+            </label>
+            <input
+              id="checkout-service-time"
+              type="time"
+              name="serviceTime"
+              required
+              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+      )}
 
       <h2 className="mt-5 text-sm font-semibold uppercase tracking-wide text-zinc-500">
         Coupon

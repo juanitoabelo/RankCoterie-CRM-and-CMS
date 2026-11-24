@@ -134,6 +134,8 @@ export interface ProductVariantFormInput {
   name: string;
   regularPrice: number;
   salePrice: number | null;
+  salePriceStart?: Date | null;
+  salePriceEnd?: Date | null;
   stockStatus: StockStatus;
   stockQuantity: number | null;
   manageStock: boolean;
@@ -364,9 +366,30 @@ export interface CartItemWithRelations {
   id: string;
   cartId: string;
   productId: string;
-  product: Pick<ProductListItem, "id" | "name" | "slug" | "price" | "regularPrice" | "salePrice" | "stockStatus" | "manageStock" | "stockQuantity" | "backorders" | "lowStockAmount" | "images" | "type" | "downloadable" | "virtual" | "shippingRequired">;
+  product: Pick<ProductListItem, "id" | "name" | "slug" | "price" | "regularPrice" | "salePrice" | "stockStatus" | "manageStock" | "stockQuantity" | "backorders" | "lowStockAmount" | "images" | "type" | "downloadable" | "virtual" | "shippingRequired"> & {
+    status: string;
+    visibility: string;
+    salePriceStart: Date | null;
+    salePriceEnd: Date | null;
+    taxStatus: string | null;
+    taxClass: string | null;
+    shippingClassId: string | null;
+    weight: number | null;
+    length: number | null;
+    width: number | null;
+    height: number | null;
+  };
   variantId: string | null;
-  variant: Pick<ProductVariantWithRelations, "id" | "name" | "sku" | "price" | "regularPrice" | "salePrice" | "stockStatus" | "stockQuantity" | "manageStock" | "imageAsset" | "attributes"> | null;
+  variant: Pick<ProductVariantWithRelations, "id" | "name" | "sku" | "price" | "regularPrice" | "salePrice" | "stockStatus" | "stockQuantity" | "manageStock" | "imageAsset" | "attributes"> & {
+    backorders?: string | null;
+    virtual?: boolean | null;
+    downloadable?: boolean | null;
+    lowStockAmount?: number | null;
+    weight?: number | null;
+    length?: number | null;
+    width?: number | null;
+    height?: number | null;
+  } | null;
   quantity: number;
   price: number;
   lineTotal: number;

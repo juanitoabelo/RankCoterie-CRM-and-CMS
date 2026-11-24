@@ -526,6 +526,15 @@ export const SHARED_BLOCK_STYLE_SCHEMAS: Record<string, BlockStyleSchema> = {
       { key: "group", label: "Filter group", fields: CONTENT },
     ],
   },
+  storefrontUtilities: {
+    blockType: "storefrontUtilities",
+    blockLabel: "Storefront Utilities",
+    elements: [
+      { key: "container", label: "Container", fields: CONTAINER_FIELDS },
+      { key: "item", label: "Utility link", fields: fields(CONTENT, ...BORDER_FIELDS, ...PADDING_FIELDS) },
+      { key: "badge", label: "Count badge", fields: fields(BODY_TEXT, ...BORDER_FIELDS, ...PADDING_FIELDS) },
+    ],
+  },
   comparisonTable: {
     blockType: "comparisonTable",
     blockLabel: "Comparison Table",

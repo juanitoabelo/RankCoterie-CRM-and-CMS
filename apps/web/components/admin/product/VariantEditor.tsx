@@ -2,17 +2,36 @@
 
 import { useState } from "react";
 import type { ProductVariantFormInput, StockStatus } from "@/modules/ecommerce/types";
+import { getVariantSaleWindow, VARIANT_SALE_END_KEY, VARIANT_SALE_START_KEY } from "@/modules/ecommerce/product-form";
 
 const inputCls = "mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm";
 const labelCls = "block text-sm font-medium text-zinc-800";
 
-type VariantRow = Omit<ProductVariantFormInput, "attributes"> & { attributes: unknown };
+type VariantRow = Omit<ProductVariantFormInput, "attributes" | "salePriceStart" | "salePriceEnd"> & {
+  attributes: unknown;
+  salePriceStart: string;
+  salePriceEnd: string;
+};
+
+function toDateInput(value: Date | string | null | undefined): string {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+}
 
 function toRow(variant: ProductVariantFormInput, index: number): VariantRow {
+  const attrs = (variant.attributes ?? {}) as Record<string, unknown>;
+  const window = getVariantSaleWindow({ attributes: attrs });
+  const publicAttrs = Object.fromEntries(
+    Object.entries(attrs).filter(([k]) => k !== VARIANT_SALE_START_KEY && k !== VARIANT_SALE_END_KEY),
+  );
   return {
     ...variant,
     menuOrder: variant.menuOrder ?? index,
-    attributes: JSON.stringify(variant.attributes ?? {}),
+    attributes: JSON.stringify(publicAttrs),
+    salePriceStart: toDateInput(variant.salePriceStart ?? window.start),
+    salePriceEnd: toDateInput(variant.salePriceEnd ?? window.end),
   };
 }
 
@@ -22,6 +41,8 @@ function newVariant(index: number): VariantRow {
     sku: "",
     regularPrice: 0,
     salePrice: null,
+    salePriceStart: "",
+    salePriceEnd: "",
     stockStatus: "IN_STOCK" as StockStatus,
     stockQuantity: null,
     manageStock: false,
@@ -121,6 +142,24 @@ export default function VariantEditor({
                   className={inputCls}
                   value={row.salePrice ?? ""}
                   onChange={(event) => update(index, { salePrice: numberOrNull(event.target.value) })}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Sale starts</label>
+                <input
+                  type="date"
+                  className={inputCls}
+                  value={row.salePriceStart}
+                  onChange={(event) => update(index, { salePriceStart: event.target.value })}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Sale ends</label>
+                <input
+                  type="date"
+                  className={inputCls}
+                  value={row.salePriceEnd}
+                  onChange={(event) => update(index, { salePriceEnd: event.target.value })}
                 />
               </div>
               <div>

@@ -7,6 +7,7 @@ import {
   getReviewSummary,
   getVariantOptions,
   getStockLabel,
+  isVariantPurchasable,
 } from "../product-display";
 import type { PublicProduct } from "../types";
 
@@ -140,12 +141,99 @@ describe("product display helpers", () => {
     const jsonLd = buildProductJsonLd(product, "https://example.com");
     expect(jsonLd["@type"]).toBe("Product");
     expect(jsonLd.image).toEqual(["https://example.com/api/assets/asset_1"]);
-    expect(jsonLd.offers).toMatchObject({
-      price: "140.00",
-      priceCurrency: "USD",
-      availability: "https://schema.org/InStock",
-    });
+    expect(jsonLd.offers).toMatchObject([
+      {
+        price: "140.00",
+        priceCurrency: "USD",
+        availability: "https://schema.org/InStock",
+      },
+    ]);
     expect(jsonLd.aggregateRating).toMatchObject({ ratingValue: "4.5", reviewCount: 2 });
     expect(JSON.stringify(jsonLd)).not.toContain("<script");
+  });
+
+  it("emits one JSON-LD offer per variant with effective sale pricing and availability", () => {
+    const now = new Date("2026-01-20T00:00:00.000Z");
+    const base = minimalProduct();
+    const product = minimalProduct({
+      variants: [
+        {
+          id: "v1",
+          productId: base.id,
+          sku: "ATLAS-OLIVE-M",
+          name: "Olive / M",
+          regularPrice: 180,
+          salePrice: 140,
+          price: 140,
+          stockStatus: "IN_STOCK",
+          stockQuantity: 4,
+          manageStock: true,
+          backorders: "no",
+          lowStockAmount: 2,
+          weight: null,
+          length: null,
+          width: null,
+          height: null,
+          imageAssetId: null,
+          downloadable: false,
+          downloadLimit: null,
+          downloadExpiry: null,
+          downloadFiles: null,
+          virtual: false,
+          description: null,
+          purchaseNote: null,
+          menuOrder: 0,
+          attributes: { Color: "Olive", Size: "M" },
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "v2",
+          productId: base.id,
+          sku: "ATLAS-BLACK-M",
+          name: "Black / M",
+          regularPrice: 180,
+          salePrice: null,
+          price: 180,
+          stockStatus: "OUT_OF_STOCK",
+          stockQuantity: 0,
+          manageStock: true,
+          backorders: "no",
+          lowStockAmount: 2,
+          weight: null,
+          length: null,
+          width: null,
+          height: null,
+          imageAssetId: null,
+          downloadable: false,
+          downloadLimit: null,
+          downloadExpiry: null,
+          downloadFiles: null,
+          virtual: false,
+          description: null,
+          purchaseNote: null,
+          menuOrder: 1,
+          attributes: { Color: "Black", Size: "M" },
+          createdAt: now,
+          updatedAt: now,
+        },
+      ] as PublicProduct["variants"],
+    });
+
+    const jsonLd = buildProductJsonLd(product, "https://example.com", now);
+    const offers = jsonLd.offers as Array<Record<string, unknown>>;
+    expect(offers).toHaveLength(2);
+    expect(offers[0]).toMatchObject({
+      name: "Olive / M",
+      sku: "ATLAS-OLIVE-M",
+      price: "140.00",
+      availability: "https://schema.org/InStock",
+    });
+    expect(offers[1]).toMatchObject({
+      price: "180.00",
+      availability: "https://schema.org/OutOfStock",
+    });
+    expect(isVariantPurchasable(product.variants[0])).toBe(true);
+    expect(isVariantPurchasable(product.variants[1])).toBe(false);
   });
 });

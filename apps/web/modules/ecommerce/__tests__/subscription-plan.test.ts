@@ -145,6 +145,30 @@ describe("fulfillSubscriptionsForPaidOrder", () => {
     });
   });
 
+  it("records the trial window and first billing period for trial subscriptions", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    try {
+      orderFindFirst.mockResolvedValue(
+        paidOrder({ meta: { subscriptionPlans: [{ ...plan, trialPeriod: 1 }] } }),
+      );
+
+      const result = await fulfillSubscriptionsForPaidOrder("order_1");
+
+      expect(result).toBe("fulfilled");
+      expect(subscriptionCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          trialEndsAt: new Date("2026-02-01T00:00:00.000Z"),
+          currentPeriodStart: new Date("2026-01-01T00:00:00.000Z"),
+          currentPeriodEnd: new Date("2026-03-01T00:00:00.000Z"),
+          meta: expect.objectContaining({ nextBillingAt: "2026-03-01T00:00:00.000Z" }),
+        }),
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("is idempotent when every plan subscription already exists", async () => {
     subscriptionFindMany.mockResolvedValue([
       { id: "sub_existing", planKey: "prod_1::var_1" },

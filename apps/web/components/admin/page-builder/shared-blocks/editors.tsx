@@ -867,6 +867,46 @@ function TeamEditor(props: SharedEditorProps) {
   );
 }
 
+export function StorefrontUtilitiesEditor(props: SharedEditorProps) {
+  const { p, set } = useEditor(props);
+  const enabled = (key: string, fallback = true) => p[key] === undefined ? fallback : Boolean(p[key]);
+  return (
+    <div className="space-y-3">
+      <ToggleRow label="Show cart icon" value={enabled("showCart")} onChange={(v) => set({ showCart: v })} />
+      <ToggleRow label="Show wishlist link" value={enabled("showWishlist")} onChange={(v) => set({ showWishlist: v })} />
+      <ToggleRow label="Show track order link" value={enabled("showOrders")} onChange={(v) => set({ showOrders: v })} />
+      <ToggleRow label="Show search icon" value={enabled("showSearch", false)} onChange={(v) => set({ showSearch: v })} />
+      <ToggleRow label="Show text labels" value={enabled("showLabels", false)} onChange={(v) => set({ showLabels: v })} />
+      <ToggleRow label="Show count badges" value={enabled("showBadges")} onChange={(v) => set({ showBadges: v })} />
+      <ToggleRow label="Show zero counts" value={enabled("showZeroCount", false)} onChange={(v) => set({ showZeroCount: v })} />
+      <TextInput label="Cart label" value={(p.cartLabel as string) ?? "Cart"} onChange={(v) => set({ cartLabel: v })} />
+      <TextInput label="Wishlist label" value={(p.wishlistLabel as string) ?? "Wishlist"} onChange={(v) => set({ wishlistLabel: v })} />
+      <TextInput label="Track order label" value={(p.ordersLabel as string) ?? "Track order"} onChange={(v) => set({ ordersLabel: v })} />
+      <TextInput label="Search label" value={(p.searchLabel as string) ?? "Search"} onChange={(v) => set({ searchLabel: v })} />
+      <SelectInput
+        label="Layout"
+        value={(p.layout as string) ?? "horizontal"}
+        options={[
+          { value: "horizontal", label: "Horizontal" },
+          { value: "vertical", label: "Vertical" },
+        ]}
+        onChange={(v) => set({ layout: v })}
+      />
+      <SelectInput
+        label="Alignment"
+        value={(p.align as string) ?? "center"}
+        options={[
+          { value: "start", label: "Start" },
+          { value: "center", label: "Center" },
+          { value: "end", label: "End" },
+        ]}
+        onChange={(v) => set({ align: v })}
+      />
+      <NumberInput label="Gap (px)" value={(p.gap as number) ?? 16} min={0} max={64} onChange={(v) => set({ gap: v })} />
+    </div>
+  );
+}
+
 /* ── Registry ──────────────────────────────────────────────────────────────── */
 
 export const SHARED_EDITORS: Record<string, React.ComponentType<SharedEditorProps>> = {
@@ -901,4 +941,5 @@ export const SHARED_EDITORS: Record<string, React.ComponentType<SharedEditorProp
   facetBar: FacetBarEditor,
   comparisonTable: ComparisonTableEditor,
   team: TeamEditor,
+  storefrontUtilities: StorefrontUtilitiesEditor,
 };

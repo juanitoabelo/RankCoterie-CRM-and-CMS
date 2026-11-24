@@ -14,7 +14,7 @@ import ProductReviews from "@/components/storefront/ProductReviews";
 import ProductRelations from "@/components/storefront/ProductRelations";
 import StickyPurchaseBar from "@/components/storefront/StickyPurchaseBar";
 import {
-  getEnabledPaymentGateways,
+  getEnabledEcommerceGateways,
   getPublicProductBySlug,
 } from "@/modules/ecommerce/queries";
 import {
@@ -116,7 +116,7 @@ export default async function PublicPage({
 
   if (product) {
     const [gateways, productTemplate] = await Promise.all([
-      getEnabledPaymentGateways(),
+      getEnabledEcommerceGateways(),
       resolveProductTemplate("single", {
         pageId: product.id,
         pathname: `/${product.slug}`,

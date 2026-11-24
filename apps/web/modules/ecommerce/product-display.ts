@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
 import { formatMoney, STORE_CURRENCY } from "./currency";
+import {
+  getEffectiveVariantPrice,
+  VARIANT_SALE_END_KEY,
+  VARIANT_SALE_START_KEY,
+} from "./product-form";
 import type { EffectiveProductPrice } from "./pricing";
 import type { PublicProduct } from "./types";
 import type {
@@ -11,6 +16,10 @@ import type {
 
 export function assetUrl(assetId: string | null | undefined): string | null {
   return assetId ? `/api/assets/${assetId}` : null;
+}
+
+function isInternalVariantAttribute(key: string): boolean {
+  return key === VARIANT_SALE_START_KEY || key === VARIANT_SALE_END_KEY;
 }
 
 export function normalizeVariantAttributes(attributes: unknown): Record<string, string> {
@@ -43,12 +52,13 @@ export function normalizeVariantAttributes(attributes: unknown): Record<string, 
             : typeof record.customValue === "string"
               ? record.customValue
               : null;
-      if (name && value) result[name] = value;
+      if (name && value && !isInternalVariantAttribute(name)) result[name] = value;
     }
     return result;
   }
   if (typeof attributes === "object") {
     for (const [key, value] of Object.entries(attributes)) {
+      if (isInternalVariantAttribute(key)) continue;
       if (value === null || value === undefined || value === "") continue;
       result[key] = typeof value === "object" ? JSON.stringify(value) : String(value);
     }
@@ -189,6 +199,73 @@ export function stripHtml(value: string | null | undefined): string {
     .trim();
 }
 
+type ProductVariantLike = PublicProduct["variants"][number];
+
+export function isVariantPurchasable(variant: ProductVariantLike): boolean {
+  if (variant.stockStatus === "OUT_OF_STOCK") {
+    return variant.backorders === "yes" || variant.backorders === "notify";
+  }
+  if (variant.stockStatus === "ON_BACKORDER") return true;
+  if (variant.manageStock && variant.stockQuantity !== null && variant.stockQuantity <= 0) {
+    return variant.backorders === "yes" || variant.backorders === "notify";
+  }
+  return true;
+}
+
+function availabilityForStock(stockStatus: string): string {
+  if (stockStatus === "OUT_OF_STOCK") return "https://schema.org/OutOfStock";
+  if (stockStatus === "ON_BACKORDER") return "https://schema.org/PreOrder";
+  return "https://schema.org/InStock";
+}
+
+function variantAvailability(variant: ProductVariantLike): string {
+  if (!isVariantPurchasable(variant)) return "https://schema.org/OutOfStock";
+  if (variant.stockStatus === "ON_BACKORDER" || variant.backorders === "yes" || variant.backorders === "notify") {
+    return "https://schema.org/PreOrder";
+  }
+  return "https://schema.org/InStock";
+}
+
+export function buildProductOffers(
+  product: PublicProduct,
+  siteUrl: string,
+  now: Date = new Date(),
+): Record<string, unknown>[] {
+  const url = product.canonicalUrl || `${siteUrl.replace(/\/$/, "")}/${product.slug}`;
+  if (product.variants.length === 0) {
+    return [{
+      "@type": "Offer",
+      url,
+      priceCurrency: STORE_CURRENCY,
+      price: product.effectivePrice.price.toFixed(2),
+      availability: availabilityForStock(product.stockStatus),
+      priceValidUntil:
+        product.effectivePrice.saleEndsAt && product.effectivePrice.saleEndsAt > now
+          ? product.effectivePrice.saleEndsAt.toISOString()
+          : undefined,
+    }];
+  }
+
+  return product.variants.map((variant) => {
+    const effective = getEffectiveVariantPrice(variant, now);
+    const attributes = normalizeVariantAttributes(variant.attributes);
+    const name = variant.name || Object.values(attributes).join(" / ") || undefined;
+    return {
+      "@type": "Offer",
+      url,
+      name,
+      sku: variant.sku ?? undefined,
+      priceCurrency: STORE_CURRENCY,
+      price: effective.price.toFixed(2),
+      availability: variantAvailability(variant),
+      priceValidUntil:
+        effective.saleEndsAt && effective.saleEndsAt > now
+          ? effective.saleEndsAt.toISOString()
+          : undefined,
+    };
+  });
+}
+
 export function buildProductJsonLd(
   product: PublicProduct,
   siteUrl: string,
@@ -200,12 +277,6 @@ export function buildProductJsonLd(
     if (!path) return null;
     return path.startsWith("http") ? path : `${siteUrl.replace(/\/$/, "")}${path}`;
   }).filter((image): image is string => Boolean(image));
-  const availability =
-    product.stockStatus === "OUT_OF_STOCK"
-      ? "https://schema.org/OutOfStock"
-      : product.stockStatus === "ON_BACKORDER"
-        ? "https://schema.org/PreOrder"
-        : "https://schema.org/InStock";
   const summary = getReviewSummary(product);
 
   const jsonLd: Record<string, unknown> = {
@@ -218,17 +289,7 @@ export function buildProductJsonLd(
     url,
     additionalType: product.type,
     brand: { "@type": "Brand", name: product.attributes[0]?.attribute.name ?? "Canopy" },
-    offers: {
-      "@type": "Offer",
-      url,
-      priceCurrency: STORE_CURRENCY,
-      price: product.effectivePrice.price.toFixed(2),
-      availability,
-      priceValidUntil:
-        product.effectivePrice.saleEndsAt && product.effectivePrice.saleEndsAt > now
-          ? product.effectivePrice.saleEndsAt.toISOString()
-          : undefined,
-    },
+    offers: buildProductOffers(product, siteUrl, now),
   };
 
   if (summary.count > 0 && summary.average > 0) {
@@ -302,32 +363,32 @@ export function toTemplateProductData(
   product: PublicProduct,
   siteUrl = "",
 ): ProductTemplateProductData {
-  const variants: ProductTemplateVariant[] = product.variants.map((variant) => ({
-    id: variant.id,
-    name: variant.name || Object.values(normalizeVariantAttributes(variant.attributes)).join(" / "),
-    sku: variant.sku,
-    regularPrice: variant.regularPrice,
-    salePrice: variant.salePrice,
-    price:
-      variant.salePrice !== null && variant.salePrice !== undefined
-        ? variant.salePrice
-        : variant.price,
-    onSale: variant.salePrice !== null && variant.salePrice !== undefined,
-    stockStatus: variant.stockStatus,
-    stockQuantity: variant.stockQuantity,
-    manageStock: variant.manageStock,
-    backorders: variant.backorders,
-    lowStockAmount: variant.lowStockAmount,
-    weight: variant.weight,
-    length: variant.length,
-    width: variant.width,
-    height: variant.height,
-    imageAssetId: variant.imageAssetId,
-    attributes: normalizeVariantAttributes(variant.attributes),
-    description: variant.description,
-    virtual: variant.virtual,
-    downloadable: variant.downloadable,
-  }));
+  const variants: ProductTemplateVariant[] = product.variants.map((variant) => {
+    const effective = getEffectiveVariantPrice(variant);
+    return {
+      id: variant.id,
+      name: variant.name || Object.values(normalizeVariantAttributes(variant.attributes)).join(" / "),
+      sku: variant.sku,
+      regularPrice: effective.regularPrice,
+      salePrice: effective.salePrice,
+      price: effective.price,
+      onSale: effective.onSale,
+      stockStatus: variant.stockStatus,
+      stockQuantity: variant.stockQuantity,
+      manageStock: variant.manageStock,
+      backorders: variant.backorders,
+      lowStockAmount: variant.lowStockAmount,
+      weight: variant.weight,
+      length: variant.length,
+      width: variant.width,
+      height: variant.height,
+      imageAssetId: variant.imageAssetId,
+      attributes: normalizeVariantAttributes(variant.attributes),
+      description: variant.description,
+      virtual: variant.virtual,
+      downloadable: variant.downloadable,
+    };
+  });
 
   const links: ProductTemplateLink[] = (product.links ?? []).map((link) => {
     const image = link.linkedProduct.images.find((item) => item.isMain) ?? link.linkedProduct.images[0];
@@ -340,6 +401,7 @@ export function toTemplateProductData(
         name: link.linkedProduct.name,
         slug: link.linkedProduct.slug,
         sku: link.linkedProduct.sku,
+        type: link.linkedProduct.type,
         price: link.linkedProduct.price,
         imageAssetId: image?.assetId ?? null,
         imageAlt: image?.alt ?? link.linkedProduct.name,

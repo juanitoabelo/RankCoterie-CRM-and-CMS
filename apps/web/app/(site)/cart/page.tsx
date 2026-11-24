@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { getCartBySession } from "@/modules/ecommerce/queries";
 import { readExistingCartSession } from "@/lib/cart-session";
-import { quoteTotals, round2, type QuoteLine } from "@/lib/billing/totals";
+import { getSessionUid } from "@/modules/auth/session";
+import { repriceCartItem } from "@/modules/ecommerce/cart-pricing";
+import { quoteTotals } from "@/lib/billing/totals";
 import CartView from "@/components/storefront/CartView";
 
 export const revalidate = 0;
@@ -12,12 +14,14 @@ export default async function CartPage() {
   const sessionId = await readExistingCartSession();
   const cart = sessionId ? await getCartBySession(sessionId) : null;
 
-  const items = (cart?.items ?? []).map((item) => ({
+  const repricedItems = (cart?.items ?? []).map((item) => repriceCartItem(item));
+
+  const items = repricedItems.map((item) => ({
     id: item.id,
     productId: item.productId,
     name: item.product.name,
     slug: item.product.slug,
-    imageAssetId: item.product.images[0]?.assetId ?? null,
+    imageAssetId: item.variant?.imageAsset?.id ?? item.product.images[0]?.assetId ?? null,
     price: item.price,
     quantity: item.quantity,
     lineTotal: item.lineTotal,
@@ -29,16 +33,10 @@ export default async function CartPage() {
     variantLowStockAmount: item.variant?.lowStockAmount ?? null,
   }));
 
-  const lines: QuoteLine[] = (cart?.items ?? []).map((item) => ({
-    productId: item.productId,
-    quantity: item.quantity,
-    unitPrice: item.quantity > 0 ? round2(item.lineTotal / item.quantity) : item.lineTotal,
-    saleItem: item.product.salePrice !== null,
-    shippingRequired: item.product.shippingRequired !== false,
-  }));
   const totals = await quoteTotals({
-    lines,
+    lines: repricedItems.map((item) => item.line),
     couponCode: cart?.couponCode ?? null,
+    customer: { userId: cart?.userId ?? (await getSessionUid().catch(() => null)) },
   });
 
   if (items.length === 0) {

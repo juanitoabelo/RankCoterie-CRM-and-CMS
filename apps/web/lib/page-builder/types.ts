@@ -1312,6 +1312,27 @@ export interface TeamBlock extends BlockBase {
   };
 }
 
+export interface StorefrontUtilitiesBlock extends BlockBase {
+  type: "storefrontUtilities";
+  props: {
+    showCart: boolean;
+    showWishlist: boolean;
+    showOrders: boolean;
+    showSearch: boolean;
+    cartLabel: string;
+    wishlistLabel: string;
+    ordersLabel: string;
+    searchLabel: string;
+    showLabels: boolean;
+    showBadges: boolean;
+    showZeroCount: boolean;
+    layout: "horizontal" | "vertical";
+    align: "start" | "center" | "end";
+    gap: number;
+    style?: StyleBreakpoints;
+  };
+}
+
 export type Block =
   | HeroBlock
   | TextBlock
@@ -1380,6 +1401,7 @@ export type Block =
   | FacetBarBlock
   | ComparisonTableBlock
   | TeamBlock
+  | StorefrontUtilitiesBlock
   | RowBlock
   | SectionBlock;
 
@@ -1459,6 +1481,7 @@ export const LEAF_BLOCK_TYPES: BlockType[] = [
   "facetBar",
   "comparisonTable",
   "team",
+  "storefrontUtilities",
 ];
 
 /** Blocks shared across every builder — defined once, reused everywhere. */
@@ -1494,6 +1517,7 @@ export const SHARED_BLOCK_TYPES: BlockType[] = [
   "facetBar",
   "comparisonTable",
   "team",
+  "storefrontUtilities",
 ];
 
 /** Id prefix used by draggable palette items so drag events can be distinguished from real blocks. */
@@ -2597,6 +2621,28 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
         { id: "tm-2", name: "John Smith", role: "Operations", image: "", bio: "", link: "" },
         { id: "tm-3", name: "Alex Lee", role: "Support", image: "", bio: "", link: "" },
       ],
+      style: {},
+    },
+  },
+  {
+    type: "storefrontUtilities",
+    label: "Storefront Utilities",
+    icon: "🛒",
+    defaults: {
+      showCart: true,
+      showWishlist: true,
+      showOrders: true,
+      showSearch: false,
+      cartLabel: "Cart",
+      wishlistLabel: "Wishlist",
+      ordersLabel: "Track order",
+      searchLabel: "Search",
+      showLabels: false,
+      showBadges: true,
+      showZeroCount: false,
+      layout: "horizontal",
+      align: "center",
+      gap: 16,
       style: {},
     },
   },

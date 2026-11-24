@@ -33,14 +33,15 @@ export async function adjustCouponUsage(code: string, delta: 1 | -1): Promise<vo
  */
 export async function releaseOrderCoupon(orderId: string): Promise<void> {
   const current = await prisma.order
-    .findUnique({ where: { id: orderId }, select: { meta: true } })
+    .findUnique({ where: { id: orderId }, select: { meta: true, updatedAt: true } })
     .catch(() => null);
   if (!current) return;
   const meta = (current.meta ?? {}) as Record<string, unknown>;
+  if (meta.couponReleased === true) return;
 
   const claimed = await prisma.order
     .updateMany({
-      where: { id: orderId, NOT: { meta: { path: ["couponReleased"], equals: true } } },
+      where: { id: orderId, updatedAt: current.updatedAt },
       data: { meta: { ...meta, couponReleased: true } as Prisma.InputJsonValue },
     })
     .catch(() => ({ count: 0 }));
@@ -93,12 +94,18 @@ export async function releaseAbandonedOrders(now: Date = new Date()): Promise<Ab
       status: "PENDING",
       paymentStatus: "PENDING",
       createdAt: { lt: cutoff },
+      meta: { path: ["manualPayment"], not: true },
     },
-    select: { id: true, orderNumber: true },
+    select: { id: true, orderNumber: true, meta: true },
     take: 200,
   });
 
-  for (const row of stale) {
+  const releasable = stale.filter((row) => {
+    const meta = (row.meta ?? {}) as Record<string, unknown>;
+    return meta.manualPayment !== true;
+  });
+
+  for (const row of releasable) {
     await releasePendingOrder(row.id, "abandoned-timeout").catch(() => {});
     await logAudit({
       action: "ORDER_UPDATE",
@@ -109,5 +116,5 @@ export async function releaseAbandonedOrders(now: Date = new Date()): Promise<Ab
     }).catch(() => {});
   }
 
-  return { scanned: stale.length, released: stale.length };
+  return { scanned: stale.length, released: releasable.length };
 }

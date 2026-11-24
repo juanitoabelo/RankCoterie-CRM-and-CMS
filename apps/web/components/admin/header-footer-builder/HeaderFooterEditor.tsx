@@ -15,6 +15,7 @@ import { useFontFamilyOptions } from "../CustomFontProvider";
 import type { FontFamilyOption } from "@/lib/custom-fonts";
 import MediaLibraryPicker from "../page-builder/MediaLibraryPicker";
 import { SHARED_EDITORS } from "../page-builder/shared-blocks/editors";
+import StorefrontUtilitiesEditorTabs from "../page-builder/shared-blocks/StorefrontUtilitiesEditorTabs";
 import type { MenuItem } from "./HeaderFooterRenderer";
 import RowEditor from "./RowEditor";
 import LayoutEditor from "./LayoutEditor";
@@ -2533,6 +2534,14 @@ function SharedHeaderFooterEditorAdapter(props: EditorProps) {
   const { block, onChange } = props;
   const Editor = SHARED_EDITORS[block.type];
   if (!Editor) return <GenericEditor {...props} />;
+  if (block.type === "storefrontUtilities") {
+    return (
+      <StorefrontUtilitiesEditorTabs
+        block={block as unknown as Block}
+        onChange={onChange as unknown as (props: Block["props"]) => void}
+      />
+    );
+  }
   return (
     <Editor
       block={block as unknown as Block}
@@ -2596,7 +2605,7 @@ function getBlockIcon(type: string): string {
     logo: "◎", menu: "☰", advancedMenu: "🧩", socialIcons: "⏹", contactInfo: "📞", search: "🔍",
     hero: "⬛", text: "📝", image: "🖼", cta: "🔘", features: "📊",
     button: "🔗", embed: "</>", faq: "❓", testimonial: "💬", spacer: "↕",
-    divider: "—", heading: "H", list: "≡",     iconList: "✔", googleMap: "🗺", video: "▶", slider: "◫", contentGrid: "▦",
+    divider: "—", heading: "H", list: "≡",     iconList: "✔", googleMap: "🗺", video: "▶", slider: "◫", contentGrid: "▦", storefrontUtilities: "🛒",
     row: "▦", section: "▣",
   };
   return icons[type] ?? "□";
@@ -2607,7 +2616,7 @@ function getBlockLabel(type: string): string {
     logo: "Logo", menu: "Menu", advancedMenu: "Advanced Menu", socialIcons: "Social Icons", contactInfo: "Contact Info", search: "Search",
     hero: "Hero", text: "Text", image: "Image", cta: "CTA", features: "Features",
     button: "Button", embed: "Embed", faq: "FAQ", testimonial: "Testimonial", spacer: "Spacer",
-    divider: "Divider", heading: "Heading", list: "List",     iconList: "Icon List", googleMap: "Google Maps", video: "Video", slider: "Slider", contentGrid: "Content Grid",
+    divider: "Divider", heading: "Heading", list: "List",     iconList: "Icon List", googleMap: "Google Maps", video: "Video", slider: "Slider", contentGrid: "Content Grid", storefrontUtilities: "Storefront Utilities",
     row: "Row", section: "Section",
   };
   return labels[type] ?? type;

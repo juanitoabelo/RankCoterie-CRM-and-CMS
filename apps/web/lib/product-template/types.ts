@@ -56,6 +56,7 @@ export interface ProductTemplateLink {
     name: string;
     slug: string;
     sku: string | null;
+    type?: string;
     price: number;
     imageAssetId: string | null;
     imageAlt: string | null;

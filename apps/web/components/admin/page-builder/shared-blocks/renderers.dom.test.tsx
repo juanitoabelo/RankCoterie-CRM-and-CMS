@@ -107,7 +107,7 @@ describe("shared block renderers", () => {
       "productCategories", "productSpotlight", "announcement", "breadcrumbs",
       "socialLinks", "countdown", "gallery", "steps", "shapeDivider",
       "reviews", "relatedListings", "businessInfo", "facetBar",
-      "comparisonTable", "team",
+      "comparisonTable", "team", "storefrontUtilities",
     ];
     for (const type of expected) {
       expect(SHARED_RENDERERS[type], `${type} renderer`).toBeTruthy();

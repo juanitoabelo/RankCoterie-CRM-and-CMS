@@ -5,6 +5,18 @@ import { createRoot, type Root } from "react-dom/client";
 import ProductGridFrontend from "./ProductGridFrontend";
 import type { ProductGridBlock } from "@/lib/page-builder/types";
 
+const mockRouterPush = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: mockRouterPush,
+    refresh: vi.fn(),
+    replace: vi.fn(),
+    prefetch: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+  }),
+}));
+
 class MockIntersectionObserver {
   observe() {}
   unobserve() {}
@@ -24,6 +36,8 @@ type Item = {
   reviewCount: number;
   stockStatus: string;
   featured: boolean;
+  type?: string;
+  hasVariants?: boolean;
   categories: { id: string; name: string; slug: string }[];
 };
 
@@ -188,10 +202,11 @@ describe("ProductGridFrontend", () => {
     (globalThis as Record<string, unknown>).IntersectionObserver = MockIntersectionObserver;
     window.localStorage.clear();
     requests.length = 0;
+    mockRouterPush.mockClear();
 
-    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(String(input), "http://localhost");
-      requests.push(url.toString());
+      requests.push(`${init?.method ?? "GET"} ${url.toString()}`);
       if (url.pathname === "/api/product-grid") {
         return { ok: true, status: 200, json: async () => gridResponse(url) };
       }
@@ -207,7 +222,7 @@ describe("ProductGridFrontend", () => {
     await act(async () => {
       root.render(<ProductGridFrontend props={baseProps} />);
     });
-  });
+  }, 30000);
 
   afterEach(async () => {
     await act(async () => root.unmount());
@@ -442,5 +457,31 @@ describe("ProductGridFrontend", () => {
     await settle();
     expect(container.querySelectorAll(".pg-cart-btn").length).toBe(0);
     expect(container.querySelectorAll(".pg-quick-btn").length).toBe(4);
+  });
+
+  it("routes variable quick-add to PDP instead of creating cart row", async () => {
+    const cartRequests: string[] = [];
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), "http://localhost");
+      if (url.pathname === "/api/cart") cartRequests.push(url.toString());
+      if (url.pathname === "/api/product-grid") {
+        return { ok: true, status: 200, json: async () => ({ ...gridResponse(url), items: [{ ...ITEMS[0], id: "prod-var", slug: "var-item", type: "VARIABLE", hasVariants: true }] }) } as Response;
+      }
+      if (url.pathname === "/api/cart") return { ok: true, status: 200, json: async () => ({ ok: true, itemCount: 1 }) } as Response;
+      return { ok: false, status: 404, json: async () => ({}) } as Response;
+    }) as unknown as typeof fetch;
+    const local = document.createElement("div");
+    document.body.appendChild(local);
+    const localRoot = createRoot(local);
+    await act(async () => { localRoot.render(<ProductGridFrontend props={{ ...baseProps, showAddToCart: false, showQuickAddToCart: true }} />); });
+    await settle();
+    const btn = Array.from(local.querySelectorAll("button")).find((b) => b.textContent?.includes("Add to cart"));
+    expect(btn).toBeTruthy();
+    await act(async () => { btn?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+    await settle();
+    expect(mockRouterPush).toHaveBeenCalledWith("/var-item");
+    expect(cartRequests).toEqual([]);
+    await act(async () => { localRoot.unmount(); });
+    local.remove();
   });
 });

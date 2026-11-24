@@ -28,6 +28,7 @@ export const BLOCK_LABELS: Record<string, { label: string; icon: string }> = {
   video: { label: "Video", icon: "▶" },
   slider: { label: "Slider", icon: "◫" },
   contentGrid: { label: "Content Grid", icon: "▦" },
+  storefrontUtilities: { label: "Storefront Utilities", icon: "🛒" },
   row: { label: "Row", icon: "▦" },
   section: { label: "Section", icon: "▣" },
 };

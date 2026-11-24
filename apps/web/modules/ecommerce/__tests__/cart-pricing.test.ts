@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   availableStockFor,
   cartItemKey,
+  isPurchasableProductType,
   matchCartVariant,
   normalizeCartOptions,
   parseCartQuantity,
+  repriceCartItem,
   resolveCartLinePricing,
   resolveStockSource,
 } from "../cart-pricing";
@@ -33,6 +35,16 @@ describe("cart pricing helpers", () => {
     expect(cartItemKey("prod_1", null, {})).toBe("prod_1::base");
   });
 
+  it("allows only directly purchasable product types in the cart", () => {
+    expect(isPurchasableProductType("SIMPLE")).toBe(true);
+    expect(isPurchasableProductType("VARIABLE")).toBe(true);
+    expect(isPurchasableProductType("SUBSCRIPTION")).toBe(true);
+    expect(isPurchasableProductType("SERVICE")).toBe(true);
+    expect(isPurchasableProductType("EXTERNAL")).toBe(false);
+    expect(isPurchasableProductType("GROUPED")).toBe(false);
+    expect(isPurchasableProductType("BUNDLE")).toBe(true);
+  });
+
   it("uses active product sale pricing", () => {
     const result = resolveCartLinePricing(product, null, 2, new Date("2026-01-15T00:00:00Z"));
     expect(result.price).toBe(80);
@@ -56,6 +68,28 @@ describe("cart pricing helpers", () => {
     expect(result.availableStock).toBe(2);
     expect(result.lineTotal).toBe(270);
     expect(availableStockFor(variant, product)).toBe(2);
+  });
+
+  it("respects variant sale windows from attributes metadata", () => {
+    const variant = {
+      id: "var_1",
+      regularPrice: 120,
+      salePrice: 90,
+      price: 90,
+      manageStock: true,
+      stockQuantity: 2,
+      backorders: "no",
+      attributes: {
+        __salePriceStart: "2026-01-01T00:00:00.000Z",
+        __salePriceEnd: "2026-01-02T00:00:00.000Z",
+      },
+    };
+    const active = resolveCartLinePricing(product, variant, 1, new Date("2026-01-01T12:00:00.000Z"));
+    expect(active.price).toBe(90);
+    expect(active.onSale).toBe(true);
+    const expired = resolveCartLinePricing(product, variant, 1, new Date("2026-01-03T00:00:00.000Z"));
+    expect(expired.price).toBe(120);
+    expect(expired.onSale).toBe(false);
   });
 
   it("treats virtual products as not requiring shipping", () => {
@@ -92,5 +126,118 @@ describe("cart pricing helpers", () => {
     expect(parseCartQuantity(2.6)).toBe(3);
     expect(parseCartQuantity(0, 0)).toBe(0);
     expect(parseCartQuantity(200)).toBe(99);
+  });
+});
+
+describe("repriceCartItem", () => {
+  const pricedProduct = {
+    ...product,
+    name: "Widget",
+    taxStatus: "TAXABLE",
+    taxClass: "standard",
+    shippingClassId: "ship_1",
+    weight: 2,
+    length: 3,
+    width: 4,
+    height: 5,
+  };
+
+  it("uses current effective pricing instead of stale stored cart prices", () => {
+    const result = repriceCartItem(
+      {
+        id: "item_1",
+        productId: "prod_1",
+        variantId: null,
+        quantity: 2,
+        price: 100,
+        lineTotal: 200,
+        product: pricedProduct,
+        variant: null,
+      },
+      new Date("2026-01-15T00:00:00Z"),
+    );
+
+    expect(result.price).toBe(80);
+    expect(result.lineTotal).toBe(160);
+    expect(result.line.unitPrice).toBe(80);
+    expect(result.line.saleItem).toBe(true);
+  });
+
+  it("carries taxable and shipping metadata into the quote line", () => {
+    const result = repriceCartItem({
+      id: "item_2",
+      productId: "prod_1",
+      variantId: "var_1",
+      quantity: 1,
+      price: 90,
+      lineTotal: 90,
+      product: pricedProduct,
+      variant: {
+        id: "var_1",
+        name: "Large",
+        sku: "WID-L",
+        price: 90,
+        regularPrice: 120,
+        salePrice: 90,
+        manageStock: true,
+        stockQuantity: 2,
+        weight: 6,
+        length: 7,
+        width: 8,
+        height: 9,
+      },
+    });
+
+    expect(result.line.taxable).toBe(true);
+    expect(result.line.taxStatus).toBe("TAXABLE");
+    expect(result.line.shippingClassId).toBe("ship_1");
+    expect(result.line.weight).toBe(6);
+    expect(result.line.length).toBe(7);
+    expect(result.line.width).toBe(8);
+    expect(result.line.height).toBe(9);
+  });
+
+  it("marks non-taxable products correctly", () => {
+    const result = repriceCartItem({
+      id: "item_3",
+      productId: "prod_1",
+      variantId: null,
+      quantity: 1,
+      price: 100,
+      lineTotal: 100,
+      product: { ...pricedProduct, taxStatus: "NONE" },
+      variant: null,
+    });
+
+    expect(result.line.taxable).toBe(false);
+  });
+
+  it("maps cart categories to categoryIds for coupon targeting", () => {
+    const result = repriceCartItem({
+      id: "item_cat",
+      productId: "prod_1",
+      variantId: null,
+      quantity: 1,
+      price: 100,
+      lineTotal: 100,
+      product: { ...pricedProduct, categoryIds: undefined, categories: [{ categoryId: "cat_1" }] },
+      variant: null,
+    });
+    expect(result.line.categoryIds).toEqual(["cat_1"]);
+  });
+
+  it("preserves bundle children from cart item meta", () => {
+    const result = repriceCartItem({
+      id: "item_bundle",
+      productId: "prod_bundle",
+      variantId: null,
+      quantity: 1,
+      price: 50,
+      lineTotal: 50,
+      meta: { bundleChildren: [{ productId: "child_1", quantity: 1, name: "Child" }] },
+      product: { ...pricedProduct, id: "prod_bundle" },
+      variant: null,
+    });
+    expect(result.line.bundleChildren).toEqual([{ productId: "child_1", quantity: 1, name: "Child", sku: null, variantId: null }]);
   });
 });

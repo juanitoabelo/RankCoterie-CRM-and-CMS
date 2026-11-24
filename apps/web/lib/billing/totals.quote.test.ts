@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const findMany = vi.fn();
 const couponFindFirst = vi.fn();
+const orderCount = vi.fn();
 
 vi.mock("@/modules/shared", () => ({
   prisma: {
     taxRate: { findMany: (...args: unknown[]) => findMany(...args) },
     coupon: { findFirst: (...args: unknown[]) => couponFindFirst(...args) },
+    order: { count: (...args: unknown[]) => orderCount(...args) },
   },
   TENANT_ID: "tenant-test",
 }));
@@ -29,6 +31,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   findMany.mockResolvedValue([{ state: null, rate: 10, priority: 0 }]); // country rate 10%
   couponFindFirst.mockResolvedValue(null);
+  orderCount.mockResolvedValue(0);
 });
 
 describe("quoteTotals — tax added on top (default)", () => {
@@ -101,6 +104,10 @@ describe("quoteTotals — coupons", () => {
       amount: 40,
       productIds: [],
       excludedProductIds: [],
+      categoryIds: [],
+      excludedCategoryIds: [],
+      individualUse: false,
+      usageLimitPerUser: 0,
       excludeSaleItems: false,
       maxAmount: null,
       freeShipping: false,
@@ -137,6 +144,10 @@ describe("quoteTotals — coupons", () => {
       amount: 10,
       productIds: [],
       excludedProductIds: [],
+      categoryIds: [],
+      excludedCategoryIds: [],
+      individualUse: false,
+      usageLimitPerUser: 0,
       excludeSaleItems: false,
       maxAmount: null,
       freeShipping: false,
@@ -254,6 +265,10 @@ describe("quoteTotals — product-targeted coupon tax math", () => {
       amount: 10,
       productIds: [],
       excludedProductIds: [],
+      categoryIds: [],
+      excludedCategoryIds: [],
+      individualUse: false,
+      usageLimitPerUser: 0,
       excludeSaleItems: false,
       maxAmount: null,
       freeShipping: false,
@@ -274,5 +289,45 @@ describe("quoteTotals — product-targeted coupon tax math", () => {
     expect(totals.discount).toBe(10);
     expect(totals.tax).toBe(11);
     expect(totals.total).toBe(121);
+  });
+
+  it("rejects a coupon after the customer has reached its per-user usage limit", async () => {
+    couponFindFirst.mockResolvedValue({
+      code: "ONCE",
+      isActive: true,
+      startDate: null,
+      endDate: null,
+      usageLimit: null,
+      usageLimitPerUser: 1,
+      usedCount: 5,
+      minAmount: null,
+      type: "PERCENT",
+      amount: 10,
+      productIds: [],
+      excludedProductIds: [],
+      categoryIds: [],
+      excludedCategoryIds: [],
+      individualUse: false,
+      excludeSaleItems: false,
+      maxAmount: null,
+      freeShipping: false,
+    });
+    orderCount.mockResolvedValue(1);
+
+    const totals = await quoteTotals({
+      lines: [{ productId: "p1", quantity: 1, unitPrice: 100 }],
+      couponCode: "ONCE",
+      customer: { email: "buyer@example.com" },
+      shippingSettings: noShipping,
+      pricesIncludeTax: false,
+    });
+
+    expect(totals.coupon).toBeNull();
+    expect(totals.couponError).toBe("You have already used this coupon.");
+    expect(orderCount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ meta: { path: ["couponCode"], equals: "ONCE" } }),
+      }),
+    );
   });
 });

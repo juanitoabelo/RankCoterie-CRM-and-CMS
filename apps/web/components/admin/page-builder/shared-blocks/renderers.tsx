@@ -43,7 +43,9 @@ import type {
   FacetBarBlock,
   ComparisonTableBlock,
   TeamBlock,
+  StorefrontUtilitiesBlock,
 } from "@/lib/page-builder/types";
+import StorefrontUtilities from "@/components/storefront/StorefrontUtilities";
 import { renderLocalizedContent, type RegionContext } from "@/lib/localization/render";
 import { parseCustomFieldCss, type CustomFormField } from "@/modules/custom-forms/types";
 import { renderStyleGuide, styleScopeClass } from "@/lib/page-builder/style";
@@ -1513,6 +1515,30 @@ function TeamView({ block, ctx }: { block: TeamBlock; ctx: RegionContext }) {
   );
 }
 
+function StorefrontUtilitiesView({ block }: { block: StorefrontUtilitiesBlock; ctx: RegionContext }) {
+  const p = block.props;
+  return (
+    <Leaf block={block} padded={false}>
+      <StorefrontUtilities
+        showCart={p.showCart}
+        showWishlist={p.showWishlist}
+        showOrders={p.showOrders}
+        showSearch={p.showSearch}
+        cartLabel={p.cartLabel}
+        wishlistLabel={p.wishlistLabel}
+        ordersLabel={p.ordersLabel}
+        searchLabel={p.searchLabel}
+        showLabels={p.showLabels}
+        showBadges={p.showBadges}
+        showZeroCount={p.showZeroCount}
+        layout={p.layout}
+        align={p.align}
+        gap={p.gap}
+      />
+    </Leaf>
+  );
+}
+
 /* ── Registry ──────────────────────────────────────────────────────────────── */
 
 export const SHARED_RENDERERS: Record<string, React.ComponentType<RenderProps>> = {
@@ -1551,6 +1577,7 @@ export const SHARED_RENDERERS: Record<string, React.ComponentType<RenderProps>> 
   facetBar: (props) => <FacetBarView {...(props as { block: FacetBarBlock; ctx: RegionContext })} />,
   comparisonTable: (props) => <ComparisonTableView {...(props as { block: ComparisonTableBlock; ctx: RegionContext })} />,
   team: (props) => <TeamView {...(props as { block: TeamBlock; ctx: RegionContext })} />,
+  storefrontUtilities: (props) => <StorefrontUtilitiesView {...(props as { block: StorefrontUtilitiesBlock; ctx: RegionContext })} />,
 };
 
 export const SHARED_BLOCK_TYPE_KEYS = Object.keys(SHARED_RENDERERS);

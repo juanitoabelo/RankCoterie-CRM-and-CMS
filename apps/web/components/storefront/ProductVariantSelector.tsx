@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { getVariantOptions } from "@/modules/ecommerce/product-display";
+import { formatProductPrice, getStockLabel, getVariantOptions } from "@/modules/ecommerce/product-display";
 import { useProductTemplateContext } from "./ProductTemplateContext";
 
 export default function ProductVariantSelector() {
@@ -34,9 +34,23 @@ export default function ProductVariantSelector() {
           </div>
         </fieldset>
       ))}
-      {context.selectedVariant?.sku && (
-        <p className="pdp-variant-sku">SKU: {context.selectedVariant.sku}</p>
-      )}
+      {context.selectedVariant ? (
+        <div className="pdp-variant-summary">
+          <p className="pdp-variant-sku">
+            {context.selectedVariant.sku ? `SKU: ${context.selectedVariant.sku}` : context.selectedVariant.name}
+          </p>
+          <p className="pdp-variant-price">{formatProductPrice(context.price)}</p>
+          <p className="pdp-variant-stock">
+            {getStockLabel(
+              context.stockStatus,
+              context.manageStock,
+              context.stockQuantity,
+              context.backorders,
+              context.lowStockAmount,
+            )}
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

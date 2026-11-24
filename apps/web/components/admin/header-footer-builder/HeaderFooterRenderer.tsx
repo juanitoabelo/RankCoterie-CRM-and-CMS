@@ -864,7 +864,7 @@ function MenuRenderer({ block }: { block: Block }) {
       setMobileOpen((open) => !open);
       return;
     }
-    setMobileOpen(true);
+    setMobileOpen((open) => !open);
   };
 
   return (
@@ -941,7 +941,11 @@ function MenuRenderer({ block }: { block: Block }) {
           aria-label={mobileOpen ? "Close menu" : "Open menu"}
           aria-expanded={mobileOpen}
         >
-          <HamburgerIcon size={p.toggleSize ?? 24} color={p.toggleColor ?? p.textColor} />
+          {mobileOpen ? (
+            <CloseIcon size={p.toggleSize ?? 24} color={p.toggleColor ?? p.textColor} />
+          ) : (
+            <HamburgerIcon size={p.toggleSize ?? 24} color={p.toggleColor ?? p.textColor} />
+          )}
         </button>
       </div>
 
@@ -1210,7 +1214,11 @@ function AdvancedMenuRenderer({ block }: { block: Block }) {
               aria-label={mobileOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileOpen}
             >
-              <HamburgerIcon size={p.toggleSize ?? 24} color={p.toggleColor ?? p.textColor} />
+              {mobileOpen ? (
+            <CloseIcon size={p.toggleSize ?? 24} color={p.toggleColor ?? p.textColor} />
+          ) : (
+            <HamburgerIcon size={p.toggleSize ?? 24} color={p.toggleColor ?? p.textColor} />
+          )}
             </button>
           </div>
 

@@ -10,6 +10,9 @@ import type { ChangeEvent } from "react";
  */
 export type AddressFieldsProps = {
   idPrefix: string;
+  namePrefix?: string;
+  title?: string;
+  hint?: string;
   country: string;
   state: string;
   onCountryChange: (value: string) => void;
@@ -23,6 +26,9 @@ const fullRow = "sm:col-span-2";
 
 export default function AddressFields({
   idPrefix,
+  namePrefix = "",
+  title = "Shipping address",
+  hint = "Used for delivery and to calculate tax.",
   country,
   state,
   onCountryChange,
@@ -37,7 +43,7 @@ export default function AddressFields({
   return (
     <div className="mt-5">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-        Shipping address
+        {title}
       </h2>
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
@@ -46,7 +52,7 @@ export default function AddressFields({
           </label>
           <input
             id={`${idPrefix}-firstName`}
-            name="firstName"
+            name={`${namePrefix}firstName`}
             type="text"
             required
             autoComplete="given-name"
@@ -59,7 +65,7 @@ export default function AddressFields({
           </label>
           <input
             id={`${idPrefix}-lastName`}
-            name="lastName"
+            name={`${namePrefix}lastName`}
             type="text"
             required
             autoComplete="family-name"
@@ -72,7 +78,7 @@ export default function AddressFields({
           </label>
           <input
             id={`${idPrefix}-address1`}
-            name="address1"
+            name={`${namePrefix}address1`}
             type="text"
             required
             autoComplete="address-line1"
@@ -86,7 +92,7 @@ export default function AddressFields({
           </label>
           <input
             id={`${idPrefix}-address2`}
-            name="address2"
+            name={`${namePrefix}address2`}
             type="text"
             autoComplete="address-line2"
             className={inputCls}
@@ -98,7 +104,7 @@ export default function AddressFields({
           </label>
           <input
             id={`${idPrefix}-city`}
-            name="city"
+            name={`${namePrefix}city`}
             type="text"
             required
             autoComplete="address-level2"
@@ -111,7 +117,7 @@ export default function AddressFields({
           </label>
           <input
             id={`${idPrefix}-postcode`}
-            name="postcode"
+            name={`${namePrefix}postcode`}
             type="text"
             required
             autoComplete="postal-code"
@@ -124,7 +130,7 @@ export default function AddressFields({
           </label>
           <input
             id={`${idPrefix}-country`}
-            name="country"
+            name={`${namePrefix}country`}
             type="text"
             required
             autoComplete="country-name"
@@ -141,7 +147,7 @@ export default function AddressFields({
           </label>
           <input
             id={`${idPrefix}-state`}
-            name="state"
+            name={`${namePrefix}state`}
             type="text"
             autoComplete="address-level1"
             value={state}
@@ -157,7 +163,7 @@ export default function AddressFields({
           </label>
           <input
             id={`${idPrefix}-company`}
-            name="company"
+            name={`${namePrefix}company`}
             type="text"
             autoComplete="organization"
             className={inputCls}
@@ -169,14 +175,14 @@ export default function AddressFields({
           </label>
           <input
             id={`${idPrefix}-phone`}
-            name="phone"
+            name={`${namePrefix}phone`}
             type="tel"
             autoComplete="tel"
             className={inputCls}
           />
         </div>
       </div>
-      <p className="mt-1 text-xs text-zinc-400">Used for delivery and to calculate tax.</p>
+      <p className="mt-1 text-xs text-zinc-400">{hint}</p>
     </div>
   );
 }

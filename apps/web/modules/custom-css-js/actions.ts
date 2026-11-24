@@ -6,17 +6,13 @@ import { prisma } from "@/modules/shared";
 import { logAudit } from "@/lib/audit";
 import { requireSection } from "@/modules/auth";
 import { TENANT_ID } from "@/modules/shared";
+import { readPublicCustomCssJsSettings } from "./settings";
 import type { CustomCssJsSettings, CustomCssActionResult } from "./types";
-import { DEFAULT_CUSTOM_CSS_JS } from "./types";
 
-/** Read the tenant's custom CSS/JS settings. */
+/** Read the tenant's custom CSS/JS settings for admin screens. */
 export async function getCustomCssJsSettings(): Promise<CustomCssJsSettings> {
   await requireSection("customCssJs");
-  const tenant = await prisma.tenant.findUnique({ where: { id: TENANT_ID } });
-  const theme = (tenant?.theme ?? {}) as {
-    customCssJs?: Partial<CustomCssJsSettings>;
-  };
-  return { ...DEFAULT_CUSTOM_CSS_JS, ...theme.customCssJs };
+  return readPublicCustomCssJsSettings();
 }
 
 /** Save custom CSS/JS settings. */

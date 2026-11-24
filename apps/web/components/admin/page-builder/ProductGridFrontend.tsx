@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { ProductGridBlock } from "@/lib/page-builder/types";
 import { notifyCartUpdated } from "@/lib/cart-event";
 import {
@@ -27,6 +28,8 @@ type GridItem = {
   reviewCount: number;
   stockStatus: string;
   featured: boolean;
+  type?: string;
+  hasVariants?: boolean;
   categories: { id: string; name: string; slug: string }[];
 };
 
@@ -168,6 +171,7 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
   } = props;
 
   const gridStyle = columnStyle(props);
+  const router = useRouter();
   const [gridData, setGridData] = useState<GridResponse | null>(null);
   const [activeCategory, setActiveCategory] = useState(categoryId);
   const [page, setPage] = useState(1);
@@ -300,8 +304,18 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
   }, []);
 
   const addToCart = useCallback(
-    async (id: string) => {
+    async (item: GridItem) => {
+      const id = item.id;
       if (adding[id]) return;
+      if (
+        (item.type === "VARIABLE" && item.hasVariants !== false) ||
+        item.type === "GROUPED" ||
+        item.type === "BUNDLE" ||
+        item.type === "EXTERNAL"
+      ) {
+        router.push(`/${item.slug}`);
+        return;
+      }
       setAdding((prev) => ({ ...prev, [id]: true }));
       try {
         const res = await fetch("/api/cart", {
@@ -321,7 +335,7 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
         setAdding((prev) => ({ ...prev, [id]: false }));
       }
     },
-    [adding],
+    [adding, router],
   );
 
   const visibleCategories = gridData?.categories ?? [];
@@ -517,7 +531,7 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
                           <button
                             type="button"
                             className={`pg-quick-btn${added[item.id] ? " is-added" : ""}`}
-                            onClick={() => addToCart(item.id)}
+                            onClick={() => addToCart(item)}
                             disabled={adding[item.id]}
                           >
                             {added[item.id]
@@ -571,7 +585,7 @@ export default function ProductGridFrontend({ props }: { props: ProductGridProps
                       <button
                         type="button"
                         className={`pg-cart-btn${added[item.id] ? " is-added" : ""}`}
-                        onClick={() => addToCart(item.id)}
+                        onClick={() => addToCart(item)}
                         disabled={adding[item.id]}
                       >
                         {added[item.id]

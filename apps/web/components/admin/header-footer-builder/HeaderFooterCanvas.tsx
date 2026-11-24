@@ -556,6 +556,7 @@ function getBlockIcon(type: string): string {
     list: "≡",
     slider: "◫",
     contentGrid: "▦",
+    storefrontUtilities: "🛒",
     row: "▦",
     section: "▣",
   };
@@ -584,6 +585,7 @@ function getBlockLabel(type: string): string {
     list: "List",
     slider: "Slider",
     contentGrid: "Content Grid",
+    storefrontUtilities: "Storefront Utilities",
     row: "Row",
     section: "Section",
   };

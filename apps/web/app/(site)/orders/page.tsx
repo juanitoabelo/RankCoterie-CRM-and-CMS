@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import OrderLookup from "@/components/storefront/OrderLookup";
+import Link from "next/link";
 
 export const revalidate = 0;
 
@@ -27,6 +28,12 @@ export default async function OrdersPage({
       <div className="mt-8">
         <OrderLookup initialOrderNumber={order ?? ""} />
       </div>
+      <p className="mt-6 text-center text-sm text-zinc-600">
+        Have a confirmation link with an access code?{" "}
+        <Link href="/orders/access" className="text-blue-600 hover:underline">
+          View a guest order
+        </Link>
+      </p>
     </div>
   );
 }

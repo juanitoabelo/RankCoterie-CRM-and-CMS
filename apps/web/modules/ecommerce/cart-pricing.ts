@@ -1,5 +1,13 @@
+import type { QuoteLine } from "@/lib/billing/totals";
 import type { EffectiveProductPrice } from "./pricing";
 import { getEffectiveProductPrice } from "./pricing";
+import { getEffectiveVariantPrice } from "./product-form";
+
+const NON_PURCHASABLE_TYPES = new Set(["EXTERNAL", "GROUPED"]);
+
+export function isPurchasableProductType(type?: string | null): boolean {
+  return !type || !NON_PURCHASABLE_TYPES.has(type);
+}
 
 export interface CartPricingProduct {
   id?: string;
@@ -15,10 +23,21 @@ export interface CartPricingProduct {
   shippingRequired?: boolean | null;
   virtual?: boolean | null;
   downloadable?: boolean | null;
+  taxStatus?: string | null;
+  taxClass?: string | null;
+  shippingClassId?: string | null;
+  weight?: number | null;
+  length?: number | null;
+  width?: number | null;
+  height?: number | null;
+  categoryIds?: string[];
+  categories?: Array<{ categoryId?: string }>;
 }
 
 export interface CartPricingVariant {
   id: string;
+  name?: string | null;
+  sku?: string | null;
   price?: number;
   regularPrice?: number;
   salePrice?: number | null;
@@ -28,6 +47,12 @@ export interface CartPricingVariant {
   stockStatus?: string | null;
   virtual?: boolean | null;
   downloadable?: boolean | null;
+  lowStockAmount?: number | null;
+  weight?: number | null;
+  length?: number | null;
+  width?: number | null;
+  height?: number | null;
+  attributes?: unknown;
 }
 
 export interface ResolvedCartLine {
@@ -49,6 +74,27 @@ export function normalizeCartOptions(options: unknown): Record<string, string> {
     result[key] = typeof value === "object" ? JSON.stringify(value) : String(value);
   }
   return result;
+}
+
+function readBundleChildren(meta: unknown): QuoteLine["bundleChildren"] {
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return undefined;
+  const raw = (meta as Record<string, unknown>).bundleChildren;
+  if (!Array.isArray(raw)) return undefined;
+  const children = raw.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const record = entry as Record<string, unknown>;
+    const productId = typeof record.productId === "string" ? record.productId : "";
+    const quantity = Math.max(1, Math.floor(Number(record.quantity ?? 1)));
+    if (!productId || !Number.isFinite(quantity)) return [];
+    return [{
+      productId,
+      quantity,
+      variantId: typeof record.variantId === "string" ? record.variantId : null,
+      name: typeof record.name === "string" ? record.name : null,
+      sku: typeof record.sku === "string" ? record.sku : null,
+    }];
+  });
+  return children.length > 0 ? children : undefined;
 }
 
 export function cartItemKey(
@@ -116,16 +162,7 @@ export function resolveCartLinePricing(
     salePriceEnd: product.salePriceEnd ?? null,
   };
   const priceInfo = variant
-    ? {
-        price:
-          variant.salePrice !== null && variant.salePrice !== undefined
-            ? Number(variant.salePrice)
-            : Number(variant.price ?? variant.regularPrice ?? 0),
-        regularPrice: Number(variant.regularPrice ?? variant.price ?? 0),
-        salePrice: variant.salePrice ?? null,
-        onSale: variant.salePrice !== null && variant.salePrice !== undefined,
-        saleEndsAt: null,
-      }
+    ? getEffectiveVariantPrice(variant, now)
     : getEffectiveProductPrice(productPriceFields, now);
   const safeQuantity = Math.max(1, Math.floor(quantity));
   const shippingRequired = !(
@@ -143,4 +180,48 @@ export function resolveCartLinePricing(
     downloadable: variant?.downloadable ?? product.downloadable ?? false,
     priceInfo,
   };
+}
+
+type CartPricingItem = {
+  id: string;
+  productId: string;
+  variantId: string | null;
+  quantity: number;
+  product: CartPricingProduct;
+  variant: CartPricingVariant | null;
+  meta?: unknown;
+};
+
+export function repriceCartItem<T extends CartPricingItem>(
+  item: T,
+  now: Date = new Date(),
+): T & { price: number; lineTotal: number; pricing: ResolvedCartLine; line: QuoteLine } {
+  const pricing = resolveCartLinePricing(item.product, item.variant, item.quantity, now);
+  const bundleChildren = readBundleChildren(item.meta);
+  const taxStatus = item.product.taxStatus ?? null;
+  const normalizedTaxStatus = String(taxStatus ?? "").toUpperCase();
+  const categoryIds = item.product.categoryIds
+    ?? item.product.categories?.map((c) => c.categoryId).filter((id): id is string => Boolean(id))
+    ?? [];
+  const line: QuoteLine = {
+    productId: item.productId,
+    variantId: item.variantId,
+    quantity: item.quantity,
+    unitPrice: pricing.price,
+    saleItem: pricing.onSale,
+    shippingRequired: pricing.shippingRequired,
+    taxable: normalizedTaxStatus !== "NONE" && normalizedTaxStatus !== "NO_TAX",
+    taxStatus,
+    taxClass: item.product.taxClass ?? null,
+    shippingClassId: item.product.shippingClassId ?? null,
+    weight: item.variant?.weight ?? item.product.weight ?? null,
+    length: item.variant?.length ?? item.product.length ?? null,
+    width: item.variant?.width ?? item.product.width ?? null,
+    height: item.variant?.height ?? item.product.height ?? null,
+    couponEligible: true,
+    categoryIds,
+    ...(bundleChildren ? { bundleChildren } : {}),
+  };
+
+  return { ...item, price: pricing.price, lineTotal: pricing.lineTotal, pricing, line };
 }

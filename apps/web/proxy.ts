@@ -16,6 +16,7 @@ const G_PREFIX = "/g/";
 const LEGACY_INDEX = /^\/g\/(index\.(html?|php))\/?$/i;
 const LEGACY_EXT = /\.(html?|php)$/i;
 const ADMIN_PREFIX = "/admin";
+const ADMIN_ROUTE = /^\/admin(?:\/|$)/;
 
 function legacyGRedirect(pathname: string, req: NextRequest): NextResponse | null {
   if (!pathname.startsWith(G_PREFIX)) return null;
@@ -52,7 +53,7 @@ function legacyGRedirect(pathname: string, req: NextRequest): NextResponse | nul
 
 async function adminGuard(req: NextRequest): Promise<NextResponse | null> {
   const { pathname } = req.nextUrl;
-  if (!pathname.startsWith(ADMIN_PREFIX)) return null;
+  if (!ADMIN_ROUTE.test(pathname)) return null;
 
   // Login page itself must stay reachable.
   if (pathname === `${ADMIN_PREFIX}/login` || pathname === `${ADMIN_PREFIX}/login/`) {

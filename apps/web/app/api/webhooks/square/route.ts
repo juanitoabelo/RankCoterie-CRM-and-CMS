@@ -12,7 +12,14 @@
 import crypto from "crypto";
 import { prisma, TENANT_ID } from "@/modules/shared";
 import { getSquareOrderState, readSquareConfig } from "@/lib/billing/square";
-import { findOrderByGatewayRef, markOrderPaid } from "@/lib/billing/payment-events";
+import { markOrderPaid, markOrderPaymentFailed } from "@/lib/billing/payment-events";
+import { recordGatewayTransaction } from "@/lib/billing/gateway-transactions";
+import { verifySquarePaymentAmount } from "@/lib/billing/webhook-amounts";
+import { claimWebhookEvent, logWebhookMismatch } from "@/lib/billing/webhook-events";
+import { logStructured } from "@/lib/observability";
+import { logAudit } from "@/lib/audit";
+
+type SquareObject = Record<string, unknown>;
 
 function webhookUrl(): string {
   const base = (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
@@ -34,6 +41,12 @@ function signatureValid(signatureKey: string, header: string | null, rawBody: st
   }
 }
 
+function moneyFromEvent(payment: SquareObject | undefined, orderObj: SquareObject | undefined) {
+  if (payment?.amount_money || payment?.total_money) return payment;
+  if (orderObj?.total_money) return orderObj;
+  return null;
+}
+
 export async function POST(req: Request) {
   const gateway = await prisma.paymentGateway.findFirst({
     where: { tenantId: TENANT_ID, type: "SQUARE", isEnabled: true },
@@ -53,10 +66,7 @@ export async function POST(req: Request) {
     return new Response("Invalid signature", { status: 401 });
   }
 
-  let event: {
-    type?: string;
-    data?: { object?: { payment?: Record<string, unknown>; order?: Record<string, unknown> } };
-  };
+  let event: { id?: string; type?: string; data?: { object?: { payment?: SquareObject; order?: SquareObject } } };
   try {
     event = JSON.parse(raw);
   } catch {
@@ -66,7 +76,7 @@ export async function POST(req: Request) {
   try {
     const type = event.type ?? "";
     if (!type.startsWith("payment.") && !type.startsWith("order.")) {
-      return new Response("ok", { status: 200 }); // acknowledged, no-op
+      return new Response("ok", { status: 200 });
     }
 
     const payment = event.data?.object?.payment;
@@ -76,16 +86,88 @@ export async function POST(req: Request) {
       (typeof orderObj?.id === "string" ? orderObj.id : null);
     if (!squareOrderId) return new Response("ok", { status: 200 });
 
-    const local = await findOrderByGatewayRef("squareOrderId", squareOrderId);
+    const local = await prisma.order.findFirst({
+      where: { tenantId: TENANT_ID, meta: { path: ["squareOrderId"], equals: squareOrderId } },
+      select: {
+        id: true,
+        total: true,
+        currency: true,
+        paymentGatewayId: true,
+        paymentStatus: true,
+      },
+    });
     if (!local || local.paymentStatus === "PAID") return new Response("ok", { status: 200 });
 
-    // The event tells us something changed — confirm the real state with Square.
     const state = await getSquareOrderState(cfg, squareOrderId);
-    if (state.ok && state.paid) {
-      await markOrderPaid(local.id, "square-webhook");
+    if (!state.ok) {
+      logStructured({
+        level: "error",
+        message: "webhook_gateway_lookup_failed",
+        context: { gateway: "square", orderId: local.id, error: state.error },
+      });
+      return new Response("retry", { status: 500 });
     }
+    if (state.state === "CANCELED") {
+      logStructured({
+        level: "info",
+        message: "webhook_payment_failed",
+        context: { gateway: "square", orderId: local.id, eventType: type },
+      });
+      await markOrderPaymentFailed(local.id, "square-webhook", type);
+      return new Response("ok", { status: 200 });
+    }
+    if (!state.paid) return new Response("ok", { status: 200 });
+
+    const eventMoney = moneyFromEvent(payment, orderObj);
+    const check = verifySquarePaymentAmount(
+      eventMoney ?? { total_money: { amount: state.amount, currency: state.currency } },
+      local,
+    );
+    if (!check.ok) {
+      await logWebhookMismatch({
+        gateway: "square",
+        eventId: event.id ?? type,
+        orderId: local.id,
+        reason: check.reason,
+        expected: { amount: Math.round(local.total * 100), currency: local.currency },
+        received: {
+          amount: eventMoney ? (eventMoney.amount_money ?? eventMoney.total_money) : state.amount ?? null,
+          currency:
+            eventMoney && typeof (eventMoney.amount_money ?? eventMoney.total_money) === "object"
+              ? ((eventMoney.amount_money ?? eventMoney.total_money) as Record<string, unknown>).currency ?? null
+              : state.currency ?? null,
+        },
+      });
+      return new Response("ok", { status: 200 });
+    }
+
+    const eventId = event.id ?? `${type}:${squareOrderId}`;
+    if (!(await claimWebhookEvent(local.id, eventId))) return new Response("ok", { status: 200 });
+    await recordGatewayTransaction({
+      orderId: local.id,
+      gatewayId: local.paymentGatewayId,
+      amount: local.total,
+      currency: local.currency,
+      status: "PAID",
+      gatewayTransactionId: squareOrderId,
+      gatewayResponse: { state: state.state, amount: state.amount, currency: state.currency },
+      eventId,
+    });
+    await markOrderPaid(local.id, "square-webhook");
   } catch (e) {
-    console.error(`[square-webhook] ${event.type} failed:`, e);
+    const error = e instanceof Error ? e.message : String(e);
+    logStructured({
+      level: "error",
+      message: "webhook_processing_failed",
+      context: { gateway: "square", eventId: event.id ?? null, eventType: event.type ?? null, error, retryable: true },
+    });
+    await logAudit({
+      action: "ORDER_UPDATE",
+      entity: "Webhook",
+      entityId: event.id ?? "unknown",
+      reason: `Square ${event.type ?? "unknown"} processing failed (retryable)`,
+      meta: { error, eventType: event.type ?? null },
+    }).catch(() => {});
     return new Response("retry", { status: 500 });
   }
 

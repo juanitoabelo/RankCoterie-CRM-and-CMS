@@ -13,13 +13,14 @@ import { resolvePageLayout, parsePageLayoutData } from "@/modules/page-layout";
 import type { PageLayoutBlock } from "@/lib/page-layout/types";
 import PageLayoutRenderer from "@/components/admin/page-layout-builder/PageLayoutRenderer";
 import CartIcon from "@/components/storefront/CartIcon";
+import WishlistSync from "@/components/storefront/WishlistSync";
 import RecaptchaProvider from "@/components/site/RecaptchaProvider";
 import AnalyticsTracker from "@/components/analytics/AnalyticsTracker";
 import ConsentBanner from "@/components/analytics/ConsentBanner";
 import CustomScripts from "@/components/site/CustomScripts";
 import LiveChatWidget from "@/components/site/LiveChatWidget";
 import { getAnalyticsConfig } from "@/lib/analytics/config";
-import { getCustomCssJsSettings } from "@/modules/custom-css-js/actions";
+import { readPublicCustomCssJsSettings } from "@/modules/custom-css-js/settings";
 import { normalizeLiveChatSettings } from "@/modules/live-chat/settings-helpers";
 
 // Cache for layout data (tenant, menu, company) - avoids repeated DB hits
@@ -219,12 +220,13 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       ? theme.generalSettings.recaptchaSiteKey
       : "";
 
-  const customCssJs = await getCustomCssJsSettings();
+  const customCssJs = await readPublicCustomCssJsSettings();
   const analyticsConfig = await getAnalyticsConfig();
   const liveChatSettings = normalizeLiveChatSettings((theme as Record<string, unknown>).liveChat);
 
   return (
     <div className="min-h-full flex flex-col">
+      {showStorefrontUtilities ? <WishlistSync /> : null}
 
       {/* ── Header ─────────────────────────────────────────────────── */}
       <header

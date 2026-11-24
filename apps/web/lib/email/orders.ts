@@ -25,6 +25,7 @@ export type OrderEmailData = {
   currency: string;
   email: string | null;
   items: { name: string; quantity: number; lineTotal: number }[];
+  downloadLinks?: { name: string; url: string }[];
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -138,17 +139,30 @@ async function sendOrderEmail(
     await loadEmailTemplate(key),
     values,
   );
+  const downloadRows = (order.downloadLinks ?? [])
+    .map((link) => {
+      const href = /^https?:\/\//.test(link.url) ? link.url : `${siteUrl()}${link.url}`;
+      return `<li style="margin:4px 0;"><a href="${esc(href)}" style="color:#2563eb;">${esc(link.name)}</a></li>`;
+    })
+    .join("");
   const html = layout(`${bodyHtml}
     <table style="width:100%;margin-top:16px;font-size:14px;border-collapse:collapse;">
       ${orderRows(order)}
       ${totalsRows(order)}
     </table>
+    ${downloadRows ? `<div style="margin-top:16px;font-size:14px;color:#3f3f46;"><strong>Your downloads</strong><ul style="padding-left:20px;margin:8px 0 0;">${downloadRows}</ul></div>` : ""}
     <p style="font-size:14px;color:#3f3f46;margin-top:16px;">
       Order <strong>${esc(order.orderNumber)}</strong> — ${esc(STATUS_LABELS[order.status] ?? order.status)}
       · paid via ${esc(order.paymentMethodTitle ?? "—")} ·
       <a href="${esc(orderUrl(order))}" style="color:#2563eb;">view order status</a>
     </p>`);
-  const text = `${bodyText}\nOrder ${order.orderNumber} — ${STATUS_LABELS[order.status] ?? order.status}\nTotal $${order.total.toFixed(2)}\n${orderUrl(order)}`;
+  const downloadText = (order.downloadLinks ?? [])
+    .map((link) => {
+      const href = /^https?:\/\//.test(link.url) ? link.url : `${siteUrl()}${link.url}`;
+      return `${link.name}: ${href}`;
+    })
+    .join("\n");
+  const text = `${bodyText}\nOrder ${order.orderNumber} — ${STATUS_LABELS[order.status] ?? order.status}\nTotal $${order.total.toFixed(2)}\n${orderUrl(order)}${downloadText ? `\nYour downloads:\n${downloadText}` : ""}`;
   const result = await sendEmail({ to: order.email, subject, html, text });
   if (!result.ok) console.warn(`[email] ${subject} → ${order.email} failed: ${result.error}`);
 }

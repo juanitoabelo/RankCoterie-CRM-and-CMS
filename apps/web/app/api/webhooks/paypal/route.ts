@@ -8,31 +8,94 @@
  */
 import { prisma, TENANT_ID } from "@/modules/shared";
 import { readPaypalConfig, verifyPaypalWebhookSignature } from "@/lib/billing/paypal";
-import { findOrderByGatewayRef, markOrderPaid } from "@/lib/billing/payment-events";
+import { markOrderPaid, markOrderPaymentFailed } from "@/lib/billing/payment-events";
+import { recordGatewayTransaction } from "@/lib/billing/gateway-transactions";
+import { verifyPaypalCaptureAmount } from "@/lib/billing/webhook-amounts";
+import { claimWebhookEvent, logWebhookMismatch } from "@/lib/billing/webhook-events";
+import { logStructured } from "@/lib/observability";
+import { logAudit } from "@/lib/audit";
 
-async function handleCaptureCompleted(resource: Record<string, unknown>): Promise<void> {
-  // Preferred: custom_id carries our order id (set at order creation).
+type PaypalResource = Record<string, unknown>;
+
+async function findOrderForResource(resource: PaypalResource) {
   const customId = typeof resource.custom_id === "string" ? resource.custom_id : null;
   if (customId) {
     const order = await prisma.order.findFirst({
       where: { id: customId, tenantId: TENANT_ID },
-      select: { id: true },
+      select: {
+        id: true,
+        total: true,
+        currency: true,
+        paymentGatewayId: true,
+        paymentStatus: true,
+      },
     });
-    if (order) {
-      await markOrderPaid(order.id, "paypal-webhook");
-      return;
-    }
+    if (order) return order;
   }
 
-  // Fallback: supplementary_data.related_ids.order_id is the PayPal order id,
-  // which we store in order.meta.paypalOrderId.
   const related = (resource.supplementary_data as { related_ids?: { order_id?: string } } | undefined)
     ?.related_ids;
   const paypalOrderId = related?.order_id;
   if (paypalOrderId) {
-    const order = await findOrderByGatewayRef("paypalOrderId", paypalOrderId);
-    if (order) await markOrderPaid(order.id, "paypal-webhook");
+    const metaOrder = await prisma.order.findFirst({
+      where: { tenantId: TENANT_ID, meta: { path: ["paypalOrderId"], equals: paypalOrderId } },
+      select: {
+        id: true,
+        total: true,
+        currency: true,
+        paymentGatewayId: true,
+        paymentStatus: true,
+      },
+    });
+    return metaOrder;
   }
+  return null;
+}
+
+async function handleCaptureCompleted(resource: PaypalResource, eventId: string): Promise<void> {
+  const order = await findOrderForResource(resource);
+  if (!order) return;
+
+  const check = verifyPaypalCaptureAmount(resource, order);
+  if (!check.ok) {
+    await logWebhookMismatch({
+      gateway: "paypal",
+      eventId,
+      orderId: order.id,
+      reason: check.reason,
+      expected: { amount: order.total.toFixed(2), currency: order.currency },
+      received: {
+        amount: (resource.amount as Record<string, unknown> | undefined)?.value ?? null,
+        currency: (resource.amount as Record<string, unknown> | undefined)?.currency_code ?? null,
+      },
+    });
+    return;
+  }
+  if (!(await claimWebhookEvent(order.id, eventId))) return;
+
+  const captureId = typeof resource.id === "string" ? resource.id : null;
+  await recordGatewayTransaction({
+    orderId: order.id,
+    gatewayId: order.paymentGatewayId,
+    amount: order.total,
+    currency: order.currency,
+    status: "PAID",
+    gatewayTransactionId: captureId,
+    gatewayResponse: { captureId, amount: resource.amount ?? null },
+    eventId,
+  });
+  await markOrderPaid(order.id, "paypal-webhook");
+}
+
+async function handleCaptureFailed(resource: PaypalResource, eventType: string): Promise<void> {
+  const order = await findOrderForResource(resource);
+  if (!order) return;
+  logStructured({
+    level: "info",
+    message: "webhook_payment_failed",
+    context: { gateway: "paypal", orderId: order.id, eventType },
+  });
+  await markOrderPaymentFailed(order.id, "paypal-webhook", eventType);
 }
 
 export async function POST(req: Request) {
@@ -53,7 +116,11 @@ export async function POST(req: Request) {
     return new Response("Invalid signature", { status: 401 });
   }
 
-  let event: { event_type?: string; data?: { resource?: Record<string, unknown> } };
+  let event: {
+    id?: string;
+    event_type?: string;
+    data?: { resource?: PaypalResource };
+  };
   try {
     event = JSON.parse(raw);
   } catch {
@@ -62,17 +129,34 @@ export async function POST(req: Request) {
 
   try {
     const resource = event.data?.resource ?? {};
+    const eventId = event.id ?? "";
     switch (event.event_type) {
       case "PAYMENT.CAPTURE.COMPLETED":
       case "PAYMENT.SALE.COMPLETED":
-        await handleCaptureCompleted(resource);
+        await handleCaptureCompleted(resource, eventId);
+        break;
+      case "PAYMENT.CAPTURE.DENIED":
+      case "PAYMENT.CAPTURE.DECLINED":
+      case "CHECKOUT.PAYMENT-APPROVAL.REVERSED":
+        await handleCaptureFailed(resource, event.event_type ?? "payment-failed");
         break;
       default:
-        break; // acknowledged, no-op
+        break;
     }
   } catch (e) {
-    console.error(`[paypal-webhook] ${event.event_type} failed:`, e);
-    // Non-2xx → PayPal retries: right for transient DB/network failures.
+    const error = e instanceof Error ? e.message : String(e);
+    logStructured({
+      level: "error",
+      message: "webhook_processing_failed",
+      context: { gateway: "paypal", eventId: event.id ?? null, eventType: event.event_type ?? null, error, retryable: true },
+    });
+    await logAudit({
+      action: "ORDER_UPDATE",
+      entity: "Webhook",
+      entityId: event.id ?? "unknown",
+      reason: `PayPal ${event.event_type ?? "unknown"} processing failed (retryable)`,
+      meta: { error, eventType: event.event_type ?? null },
+    }).catch(() => {});
     return new Response("retry", { status: 500 });
   }
 

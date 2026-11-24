@@ -27,6 +27,7 @@ import {
   type SubscriptionPlanSnapshot,
 } from "@/modules/ecommerce/queries";
 import {
+  isPurchasableProductType,
   matchCartVariant,
   normalizeCartOptions,
   resolveCartLinePricing,
@@ -35,6 +36,22 @@ import {
 import { STORE_CURRENCY } from "@/modules/ecommerce/currency";
 import { readExistingCartSession } from "@/lib/cart-session";
 import { getSessionUid } from "@/modules/auth/session";
+import {
+  findServiceBookingConflict,
+  parseServiceBooking,
+  type ServiceBooking,
+} from "@/lib/checkout/service-booking";
+import { createOrderAccessToken } from "@/lib/checkout/order-access";
+import { logOrderCreated } from "@/lib/checkout/funnel-events";
+import {
+  addressMeta,
+  readCheckoutAddresses,
+  taxAddress,
+  validateCheckoutAddresses,
+  type CheckoutAddress,
+  type CheckoutAddresses,
+} from "@/lib/checkout/addresses";
+import { buildStripeOrderSessionParams } from "@/lib/checkout/stripe-order";
 import { throttle } from "@/lib/throttle";
 import { toOrderEmailData, sendOrderConfirmationEmail } from "@/lib/email/orders";
 
@@ -69,21 +86,16 @@ type LineItem = {
   height: number | null;
   isSignupFee?: boolean;
   couponEligible?: boolean;
+  categoryIds: string[];
+  bundleChildren?: QuoteLine["bundleChildren"];
+  serviceDurationMinutes?: number | null;
+  serviceBufferBeforeMinutes?: number | null;
+  serviceBufferAfterMinutes?: number | null;
+  serviceMaxBookings?: number | null;
   subscriptionPlan?: SubscriptionPlanSnapshot | null;
 };
 
-type Address = {
-  firstName: string;
-  lastName: string;
-  company: string;
-  address1: string;
-  address2: string;
-  city: string;
-  state: string;
-  postcode: string;
-  country: string;
-  phone: string;
-};
+type Address = CheckoutAddress;
 
 /** Merge a patch into an order's meta JSON without dropping existing keys. */
 async function mergeOrderMeta(orderId: string, patch: Record<string, unknown>): Promise<void> {
@@ -125,18 +137,32 @@ function orderMatchesAttempt(
   items: LineItem[],
   totals: QuoteTotals,
   gatewayId: string,
-  address: Address,
+  addresses: CheckoutAddresses,
 ): boolean {
   if (order.paymentGatewayId !== gatewayId) return false;
   if (Math.abs(order.total - totals.total) > 0.011) return false;
   if (order.items.length !== items.length) return false;
-  // A changed shipping address is a different attempt — release and re-create.
-  if ((order.billingAddress1 ?? "") !== address.address1) return false;
-  if ((order.billingCity ?? "") !== address.city) return false;
-  if ((order.billingPostcode ?? "") !== address.postcode) return false;
-  if ((order.billingCountry ?? "") !== address.country) return false;
-  if ((order.billingFirstName ?? "") !== address.firstName) return false;
-  if ((order.billingLastName ?? "") !== address.lastName) return false;
+  const stored = (prefix: "billing" | "shipping"): Address => ({
+    firstName: prefix === "billing" ? (order.billingFirstName ?? "") : (order.shippingFirstName ?? ""),
+    lastName: prefix === "billing" ? (order.billingLastName ?? "") : (order.shippingLastName ?? ""),
+    company: prefix === "billing" ? (order.billingCompany ?? "") : (order.shippingCompany ?? ""),
+    address1: prefix === "billing" ? (order.billingAddress1 ?? "") : (order.shippingAddress1 ?? ""),
+    address2: prefix === "billing" ? (order.billingAddress2 ?? "") : (order.shippingAddress2 ?? ""),
+    city: prefix === "billing" ? (order.billingCity ?? "") : (order.shippingCity ?? ""),
+    state: prefix === "billing" ? (order.billingState ?? "") : (order.shippingState ?? ""),
+    postcode: prefix === "billing" ? (order.billingPostcode ?? "") : (order.shippingPostcode ?? ""),
+    country: prefix === "billing" ? (order.billingCountry ?? "") : (order.shippingCountry ?? ""),
+    phone: prefix === "billing" ? (order.billingPhone ?? "") : (order.shippingPhone ?? ""),
+  });
+  const addressMatches = (left: Address, right: Address): boolean =>
+    left.address1 === right.address1 &&
+    left.city === right.city &&
+    left.postcode === right.postcode &&
+    left.country === right.country &&
+    left.firstName === right.firstName &&
+    left.lastName === right.lastName;
+  if (!addressMatches(stored("billing"), addresses.billing)) return false;
+  if (!addressMatches(stored("shipping"), addresses.shipping)) return false;
   const sortedOrder = [...order.items].sort(
     (a, b) => a.productId.localeCompare(b.productId) || (a.variantId ?? "").localeCompare(b.variantId ?? ""),
   );
@@ -178,6 +204,24 @@ function newOrderNumber(): string {
   return `CNP-${Date.now().toString(36).toUpperCase()}${rand}`;
 }
 
+function successUrl(orderId: string, accessToken: string): string {
+  const params = new URLSearchParams({ orderId, access: accessToken });
+  return `/checkout/success?${params.toString()}`;
+}
+
+type OrderAccess = { email: string | null; cartSessionId: string | null; checkoutToken: string | null };
+
+async function orderSuccessUrl(orderId: string, access: OrderAccess): Promise<string> {
+  const token = await createOrderAccessToken({
+    orderId,
+    tenantId: TENANT_ID,
+    email: access.email,
+    sessionId: access.cartSessionId,
+    checkoutToken: access.checkoutToken,
+  });
+  return successUrl(orderId, token);
+}
+
 /** Resolve the requested gateway — must be enabled for this store. */
 async function resolveGateway(gatewayId: string) {
   const gateway = await prisma.paymentGateway.findFirst({
@@ -187,6 +231,12 @@ async function resolveGateway(gatewayId: string) {
     return {
       ok: false as const,
       error: "That payment method is no longer available. Please choose another.",
+    };
+  }
+  if (!["GENERAL", "ECOMMERCE"].includes(String(gateway.purpose))) {
+    return {
+      ok: false as const,
+      error: "That payment method is not available for storefront orders.",
     };
   }
 
@@ -215,7 +265,13 @@ async function resolveGateway(gatewayId: string) {
 
 /** Load products, validate availability/stock, and price each line (sale-aware). */
 async function buildLineItems(
-  raw: Array<{ productId: string; quantity: number; variantId?: string | null; options?: unknown }>,
+  raw: Array<{
+    productId: string;
+    quantity: number;
+    variantId?: string | null;
+    options?: unknown;
+    bundleChildren?: unknown;
+  }>,
   customer?: { email?: string | null; userId?: string | null },
 ): Promise<{ ok: true; items: LineItem[]; total: number } | { ok: false; error: string }> {
   if (raw.length === 0) return { ok: false, error: "Your cart is empty." };
@@ -223,7 +279,34 @@ async function buildLineItems(
   const productIds = [...new Set(raw.map((row) => row.productId))];
   const variantIds = [...new Set(raw.map((row) => row.variantId).filter((id): id is string => Boolean(id)))];
   const [products, variants, variantCounts] = await Promise.all([
-    prisma.product.findMany({ where: { id: { in: productIds }, tenantId: TENANT_ID } }),
+    prisma.product.findMany({
+      where: { id: { in: productIds }, tenantId: TENANT_ID },
+      include: {
+        categories: { select: { categoryId: true } },
+        outgoingLinks: {
+          where: { type: "BUNDLE_CHILD" },
+          orderBy: { position: "asc" },
+          include: {
+            linkedProduct: {
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+                status: true,
+                visibility: true,
+                stockStatus: true,
+                manageStock: true,
+                stockQuantity: true,
+                backorders: true,
+                virtual: true,
+                downloadable: true,
+                shippingRequired: true,
+              },
+            },
+          },
+        },
+      },
+    }),
     variantIds.length > 0
       ? prisma.productVariant.findMany({ where: { id: { in: variantIds }, productId: { in: productIds } } })
       : Promise.resolve([]),
@@ -264,11 +347,14 @@ async function buildLineItems(
     if (!product || product.status !== "PUBLISHED" || product.visibility !== "PUBLIC") {
       return { ok: false, error: "One or more products in your order are no longer available." };
     }
-    if (product.type === "EXTERNAL") {
-      return { ok: false, error: `“${product.name}” must be purchased on the external product site.` };
-    }
-    if (product.type === "GROUPED" || product.type === "BUNDLE") {
-      return { ok: false, error: `Please choose the individual products included in “${product.name}”.` };
+    if (!isPurchasableProductType(product.type)) {
+      return {
+        ok: false,
+        error:
+          product.type === "EXTERNAL"
+            ? `“${product.name}” must be purchased on the external product site.`
+            : `Please choose the individual products included in “${product.name}”.`,
+      };
     }
 
     const options = normalizeCartOptions(line.options);
@@ -304,6 +390,41 @@ async function buildLineItems(
       };
     }
 
+    let bundleChildren: QuoteLine["bundleChildren"];
+    if (product.type === "BUNDLE") {
+      const children = product.outgoingLinks.map((link) => link.linkedProduct);
+      if (children.length === 0) {
+        return { ok: false, error: `“${product.name}” has no bundle items configured.` };
+      }
+      bundleChildren = [];
+      for (const child of children) {
+        if (child.status !== "PUBLISHED" || child.visibility !== "PUBLIC") {
+          return { ok: false, error: `A product in “${product.name}” is no longer available.` };
+        }
+        const childStock = resolveStockSource(null, child);
+        if (
+          childStock.stockStatus === "OUT_OF_STOCK" &&
+          childStock.backorders !== "yes" &&
+          childStock.backorders !== "notify"
+        ) {
+          return { ok: false, error: `“${child.name}” is out of stock.` };
+        }
+        if (
+          child.manageStock &&
+          child.stockQuantity !== null &&
+          line.quantity > child.stockQuantity
+        ) {
+          return { ok: false, error: `Only ${child.stockQuantity} of “${child.name}” left in stock.` };
+        }
+        bundleChildren.push({
+          productId: child.id,
+          quantity: line.quantity,
+          name: child.name,
+          sku: child.sku,
+        });
+      }
+    }
+
     const variantName =
       variant?.name || Object.values(options).join(" / ") || null;
     const taxStatus = String(product.taxStatus).toUpperCase();
@@ -333,6 +454,12 @@ async function buildLineItems(
       length: variant?.length ?? product.length,
       width: variant?.width ?? product.width,
       height: variant?.height ?? product.height,
+      categoryIds: product.categories.map((link) => link.categoryId),
+      ...(bundleChildren ? { bundleChildren } : {}),
+      serviceDurationMinutes: product.serviceDuration ?? null,
+      serviceBufferBeforeMinutes: product.serviceBufferBefore ?? null,
+      serviceBufferAfterMinutes: product.serviceBufferAfter ?? null,
+      serviceMaxBookings: product.serviceMaxBookings ?? null,
       subscriptionPlan,
     };
     items.push(item);
@@ -359,6 +486,7 @@ async function buildLineItems(
         height: null,
         isSignupFee: true,
         couponEligible: false,
+        categoryIds: item.categoryIds,
         subscriptionPlan: null,
       });
     }
@@ -387,6 +515,8 @@ function toQuoteLines(items: LineItem[]): QuoteLine[] {
     length: item.length,
     width: item.width,
     height: item.height,
+    categoryIds: item.categoryIds,
+    ...(item.bundleChildren ? { bundleChildren: item.bundleChildren } : {}),
   }));
 }
 
@@ -396,11 +526,13 @@ async function createOrder(
   totals: QuoteTotals,
   gateway: { id: string; name: string; type: string },
   email: string | null,
-  address: Address,
+  addresses: CheckoutAddresses,
   checkoutToken: string | null,
   cartSessionId: string | null,
+  serviceBooking: ServiceBooking | null,
 ) {
   const lineTotals = items.map((item) => round2(item.unitPrice * item.quantity));
+  const manual = gateway.type === "MANUAL";
   const subscriptionPlans = items
     .map((item) => item.subscriptionPlan)
     .filter((plan): plan is SubscriptionPlanSnapshot => Boolean(plan));
@@ -412,6 +544,7 @@ async function createOrder(
       unitPrice: item.unitPrice,
       saleItem: item.saleItem,
       couponEligible: item.couponEligible !== false,
+      categoryIds: item.categoryIds,
       taxable: item.taxable,
     })),
     totals,
@@ -433,41 +566,43 @@ async function createOrder(
       shippingTotal: totals.shipping,
       taxTotal: totals.tax,
       total: totals.total,
-      status: "PENDING",
-      paymentStatus: "PENDING",
+      status: manual ? "ON_HOLD" : "PENDING",
+      paymentStatus: manual ? "AUTHORIZED" : "PENDING",
       paymentGatewayId: gateway.id,
       paymentMethod: gateway.type,
       paymentMethodTitle: gateway.name,
       shippingMethod: totals.shippingLabel,
-      billingFirstName: address.firstName || null,
-      billingLastName: address.lastName || null,
-      billingCompany: address.company || null,
-      billingAddress1: address.address1 || null,
-      billingAddress2: address.address2 || null,
-      billingCity: address.city || null,
-      billingState: address.state || null,
-      billingPostcode: address.postcode || null,
-      billingCountry: address.country || null,
-      billingPhone: address.phone || null,
+      billingFirstName: addresses.billing.firstName || null,
+      billingLastName: addresses.billing.lastName || null,
+      billingCompany: addresses.billing.company || null,
+      billingAddress1: addresses.billing.address1 || null,
+      billingAddress2: addresses.billing.address2 || null,
+      billingCity: addresses.billing.city || null,
+      billingState: addresses.billing.state || null,
+      billingPostcode: addresses.billing.postcode || null,
+      billingCountry: addresses.billing.country || null,
+      billingPhone: addresses.billing.phone || null,
       billingEmail: email,
-      // Single-address checkout: shipping mirrors billing.
-      shippingFirstName: address.firstName || null,
-      shippingLastName: address.lastName || null,
-      shippingCompany: address.company || null,
-      shippingAddress1: address.address1 || null,
-      shippingAddress2: address.address2 || null,
-      shippingCity: address.city || null,
-      shippingState: address.state || null,
-      shippingPostcode: address.postcode || null,
-      shippingCountry: address.country || null,
-      shippingPhone: address.phone || null,
+      shippingFirstName: addresses.shipping.firstName || null,
+      shippingLastName: addresses.shipping.lastName || null,
+      shippingCompany: addresses.shipping.company || null,
+      shippingAddress1: addresses.shipping.address1 || null,
+      shippingAddress2: addresses.shipping.address2 || null,
+      shippingCity: addresses.shipping.city || null,
+      shippingState: addresses.shipping.state || null,
+      shippingPostcode: addresses.shipping.postcode || null,
+      shippingCountry: addresses.shipping.country || null,
+      shippingPhone: addresses.shipping.phone || null,
       customerNote: null,
       meta: {
         ...(totals.coupon ? { couponCode: totals.coupon.code } : {}),
+        ...(manual ? { manualPayment: true } : {}),
         taxRate: totals.taxRate,
         ...(checkoutToken ? { checkoutToken } : {}),
         ...(cartSessionId ? { cartSessionId } : {}),
+        ...(serviceBooking ? { serviceBooking } : {}),
         ...(subscriptionPlans.length > 0 ? { subscriptionPlans } : {}),
+        ...addressMeta(addresses),
       },
       items: {
         create: items.map((item, i) => ({
@@ -488,7 +623,11 @@ async function createOrder(
             ...(item.variantId ? { variantId: item.variantId } : {}),
             ...(item.variantName ? { variantName: item.variantName } : {}),
             ...(Object.keys(item.options).length > 0 ? { options: item.options } : {}),
+            ...(item.type === "SERVICE" && serviceBooking ? { serviceBooking } : {}),
             ...(item.isSignupFee ? { isSignupFee: true } : {}),
+            ...(item.bundleChildren?.length ? { bundleChildren: item.bundleChildren } : {}),
+            taxCountry: addresses.billing.country || null,
+            taxState: addresses.billing.state || null,
           } as Prisma.InputJsonValue,
         })),
       },
@@ -499,12 +638,20 @@ async function createOrder(
 /** Send the customer to the gateway's payment flow (order already created). */
 async function startPayment(
   order: { id: string; orderNumber: string },
-  items: LineItem[],
   totals: QuoteTotals,
   productSlugForCancel: string | null,
-  gateway: { name: string; type: string; config: unknown },
+  gateway: { id: string; name: string; type: string; config: unknown },
+  access: OrderAccess,
 ): Promise<PurchaseResult> {
   const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";
+  const accessToken = await createOrderAccessToken({
+    orderId: order.id,
+    tenantId: TENANT_ID,
+    email: access.email,
+    sessionId: access.cartSessionId,
+    checkoutToken: access.checkoutToken,
+  });
+  const localSuccessUrl = successUrl(order.id, accessToken);
   const cancelUrl = productSlugForCancel
     ? `${siteUrl}/checkout/cancel?orderId=${order.id}`
     : `${siteUrl}/checkout/cancel?orderId=${order.id}`;
@@ -523,20 +670,16 @@ async function startPayment(
     }
     try {
       const stripe = new Stripe(stripeConfig.secretKey);
-      const session = await stripe.checkout.sessions.create({
-        mode: "payment",
-        line_items: items.map((item) => ({
-          quantity: item.quantity,
-          price_data: {
-            currency: STORE_CURRENCY.toLowerCase(),
-            unit_amount: Math.round(item.unitPrice * 100),
-            product_data: { name: item.name },
-          },
-        })),
-        metadata: { orderId: order.id, orderNumber: order.orderNumber },
-        success_url: `${siteUrl}/checkout/success?orderId=${order.id}`,
-        cancel_url: cancelUrl,
-      });
+      const session = await stripe.checkout.sessions.create(
+        buildStripeOrderSessionParams({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          total: totals.total,
+          currency: STORE_CURRENCY,
+          successUrl: `${siteUrl}${localSuccessUrl}`,
+          cancelUrl,
+        }),
+      );
       if (!session.url) throw new Error("Stripe did not return a checkout URL.");
       // Recorded for admin refunds (refundOrderPayment resolves the payment intent from it).
       await mergeOrderMeta(order.id, { stripeSessionId: session.id });
@@ -559,7 +702,7 @@ async function startPayment(
         amount: totals.total.toFixed(2),
         description: `Order ${order.orderNumber}`,
         referenceId: order.id,
-        returnUrl: `${siteUrl}/checkout/paypal/return`,
+        returnUrl: `${siteUrl}/checkout/paypal/return?access=${encodeURIComponent(accessToken)}`,
         cancelUrl: cancelUrl,
       });
       await mergeOrderMeta(order.id, { paypalOrderId });
@@ -582,7 +725,7 @@ async function startPayment(
         amount: totals.total,
         orderNumber: order.orderNumber,
         reference: order.id,
-        redirectUrl: `${siteUrl}/checkout/square/return?reference=${order.id}`,
+        redirectUrl: `${siteUrl}/checkout/square/return?reference=${order.id}&access=${encodeURIComponent(accessToken)}`,
       });
       if (!link.ok) throw new Error(link.error);
       await mergeOrderMeta(order.id, {
@@ -597,11 +740,10 @@ async function startPayment(
   }
 
   if (gateway.type === "MANUAL") {
-    // Cash-on-delivery / offline payment — order is placed immediately.
-    return { ok: true, url: `/checkout/success?orderId=${order.id}` };
+    return { ok: true, url: localSuccessUrl };
   }
 
-  return { ok: true, url: `/checkout/success?orderId=${order.id}&awaiting=1` };
+  return { ok: true, url: localSuccessUrl };
 }
 
 /** Shared tail: reuse-or-create the order idempotently, reserve stock, start payment. */
@@ -610,20 +752,22 @@ async function placeOrder(
   totalsResult: Promise<QuoteTotals>,
   gatewayResult: { ok: true; gateway: { id: string; name: string; type: string; config: unknown } } | { ok: false; error: string },
   email: string | null,
-  address: Address,
+  addresses: CheckoutAddresses,
   productSlugForCancel: string | null,
   checkoutToken: string | null,
   cartSessionId: string | null,
+  serviceBooking: ServiceBooking | null,
 ): Promise<PurchaseResult> {
   if (!lines.ok) return lines;
   if (!gatewayResult.ok) return gatewayResult;
+  const access: OrderAccess = { email, cartSessionId, checkoutToken };
 
   const totals = await totalsResult;
   if (totals.couponError) return { ok: false, error: totals.couponError };
 
   // Shipping orders need a deliverable address; digital-only orders don't.
   const requiresShipping = lines.items.some((item) => item.shippingRequired);
-  const addressError = validateAddress(address, requiresShipping);
+  const addressError = validateCheckoutAddresses(addresses, requiresShipping);
   if (addressError) return { ok: false, error: addressError };
 
   // ── Idempotency: a re-submit (double click, back button, flaky network)
@@ -632,12 +776,15 @@ async function placeOrder(
     const existing = await findOrderByToken(checkoutToken);
     if (existing) {
       if (existing.paymentStatus === "PAID" || existing.status === "COMPLETED") {
-        return { ok: true, url: `/checkout/success?orderId=${existing.id}` };
+        return { ok: true, url: await orderSuccessUrl(existing.id, access) };
       }
-      if (existing.status === "PENDING" && orderMatchesAttempt(existing, lines.items, totals, gatewayResult.gateway.id, address)) {
-        // Same attempt in flight — skip stock reservation and order creation,
-        // just restart the gateway flow (fresh session/URL) on the same order.
-        return startPayment(existing, lines.items, totals, productSlugForCancel, gatewayResult.gateway);
+      const active =
+        (existing.status === "PENDING" && existing.paymentStatus === "PENDING") ||
+        (gatewayResult.gateway.type === "MANUAL" &&
+          existing.status === "ON_HOLD" &&
+          existing.paymentStatus === "AUTHORIZED");
+      if (active && orderMatchesAttempt(existing, lines.items, totals, gatewayResult.gateway.id, addresses)) {
+        return startPayment(existing, totals, productSlugForCancel, gatewayResult.gateway, access);
       }
       // Stale attempt for this token (cart/gateway changed) — release it so
       // the token is free for the new order below.
@@ -650,16 +797,27 @@ async function placeOrder(
   //    (different token, same cart) so they don't hold stock forever.
   if (cartSessionId) await supersedeCartOrders(cartSessionId);
 
-  const stock = await reserveStock(
-    lines.items
-      .filter((i) => !i.isSignupFee)
-      .map((i) => ({ productId: i.productId, variantId: i.variantId, quantity: i.quantity })),
-  );
+  const stock = await reserveStock(stockItemsForLineItems(lines.items));
   if (!stock.ok) return stock;
 
   let order;
   try {
-    order = await createOrder(lines.items, totals, gatewayResult.gateway, email, address, checkoutToken, cartSessionId);
+    order = await createOrder(
+      lines.items,
+      totals,
+      gatewayResult.gateway,
+      email,
+      addresses,
+      checkoutToken,
+      cartSessionId,
+      serviceBooking,
+    );
+    logOrderCreated({
+      orderId: order.id,
+      gatewayType: gatewayResult.gateway.type,
+      itemCount: lines.items.length,
+      total: totals.total,
+    });
   } catch (e) {
     // Order creation failed — give the reserved stock back.
     await restoreStockForOrderFallback(lines.items);
@@ -669,9 +827,11 @@ async function placeOrder(
     if (checkoutToken && code === "P2002") {
       const winner = await findOrderByToken(checkoutToken).catch(() => null);
       if (winner && winner.status === "PENDING") {
-        return startPayment(winner, lines.items, totals, productSlugForCancel, gatewayResult.gateway);
+        return startPayment(winner, totals, productSlugForCancel, gatewayResult.gateway, access);
       }
-      return { ok: true, url: `/checkout/success?orderId=${winner?.id ?? ""}` };
+      return winner
+        ? { ok: true, url: await orderSuccessUrl(winner.id, access) }
+        : { ok: false, error: "Could not create your order." };
     }
     return { ok: false, error: e instanceof Error ? e.message : "Could not create your order." };
   }
@@ -688,6 +848,7 @@ async function placeOrder(
         unitPrice: item.unitPrice,
         saleItem: item.saleItem,
         couponEligible: item.couponEligible !== false,
+        categoryIds: item.categoryIds,
         taxable: item.taxable,
       })),
       totals,
@@ -718,13 +879,109 @@ async function placeOrder(
   // the order is later deleted/cancelled before payment (releaseOrderCoupon).
   if (totals.coupon) await adjustCouponUsage(totals.coupon.code, 1);
 
-  return startPayment(order, lines.items, totals, productSlugForCancel, gatewayResult.gateway);
+  return startPayment(order, totals, productSlugForCancel, gatewayResult.gateway, access);
+}
+
+function stockItemsForLineItems(items: LineItem[]) {
+  return items
+    .filter((item) => !item.isSignupFee)
+    .flatMap((item) => [
+      { productId: item.productId, variantId: item.variantId, quantity: item.quantity },
+      ...(item.bundleChildren ?? []).map((child) => ({
+        productId: child.productId,
+        variantId: child.variantId ?? null,
+        quantity: child.quantity * item.quantity,
+      })),
+    ]);
+}
+
+async function findServiceBookingConflictForProduct(
+  productId: string,
+  booking: ServiceBooking,
+  constraints: {
+    durationMinutes?: number | null;
+    bufferBeforeMinutes?: number | null;
+    bufferAfterMinutes?: number | null;
+    maxBookings?: number | null;
+  },
+): Promise<string | null> {
+  const start = new Date(booking.startAt);
+  const end = new Date(booking.endAt);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "Invalid booking time.";
+  const windowStart = new Date(start.getTime() - 24 * 60 * 60_000);
+  const windowEnd = new Date(end.getTime() + 24 * 60 * 60_000);
+
+  const orders = await prisma.order.findMany({
+    where: {
+      tenantId: TENANT_ID,
+      status: { in: ["PENDING", "PROCESSING", "ON_HOLD", "COMPLETED"] },
+      items: { some: { productId, type: "SERVICE" } },
+      createdAt: { gte: windowStart, lte: windowEnd },
+    },
+    select: {
+      id: true,
+      meta: true,
+      items: {
+        where: { productId, type: "SERVICE" },
+        select: { meta: true, quantity: true },
+      },
+    },
+  });
+
+  const existing = orders.flatMap((order) => {
+    const orderMeta = (order.meta ?? {}) as Record<string, unknown>;
+    const topBooking = orderMeta.serviceBooking as Record<string, unknown> | undefined;
+    const rows: Array<{ startAt: string; endAt?: string; durationMinutes?: number | null; bufferBeforeMinutes?: number | null; bufferAfterMinutes?: number | null; quantity: number }> = [];
+    if (topBooking?.startAt) {
+      rows.push({
+        startAt: String(topBooking.startAt),
+        endAt: typeof topBooking.endAt === "string" ? topBooking.endAt : undefined,
+        quantity: 1,
+      });
+    }
+    for (const item of order.items) {
+      const itemMeta = (item.meta ?? {}) as Record<string, unknown>;
+      const itemBooking = itemMeta.serviceBooking as Record<string, unknown> | undefined;
+      if (!itemBooking?.startAt) continue;
+      rows.push({
+        startAt: String(itemBooking.startAt),
+        endAt: typeof itemBooking.endAt === "string" ? itemBooking.endAt : undefined,
+        quantity: Math.max(1, item.quantity),
+      });
+    }
+    return rows;
+  });
+
+  const conflict = findServiceBookingConflict(
+    booking,
+    existing,
+    {
+      durationMinutes: constraints.durationMinutes ?? 60,
+      bufferBeforeMinutes: constraints.bufferBeforeMinutes ?? 0,
+      bufferAfterMinutes: constraints.bufferAfterMinutes ?? 0,
+    },
+  );
+  if (conflict) return "That service time is no longer available. Please choose another slot.";
+
+  const maxBookings = Math.max(0, Math.floor(constraints.maxBookings ?? 0));
+  if (maxBookings > 0) {
+    const overlappingCount = existing.reduce((count, row) => {
+      const rowStart = new Date(row.startAt);
+      const rowEnd = row.endAt ? new Date(row.endAt) : new Date(rowStart.getTime() + (constraints.durationMinutes ?? 60) * 60_000);
+      if (Number.isNaN(rowStart.getTime()) || Number.isNaN(rowEnd.getTime())) return count;
+      const overlaps = start < rowEnd && rowStart < end;
+      return overlaps ? count + row.quantity : count;
+    }, 0);
+    if (overlappingCount >= maxBookings) {
+      return "That service slot is fully booked. Please choose another time.";
+    }
+  }
+  return null;
 }
 
 /** Restore stock directly from line items (used when no order row exists yet). */
 async function restoreStockForOrderFallback(items: LineItem[]): Promise<void> {
-  for (const item of items) {
-    if (item.isSignupFee) continue;
+  for (const item of stockItemsForLineItems(items)) {
     if (item.variantId) {
       const variant = await prisma.productVariant.findFirst({
         where: { id: item.variantId, productId: item.productId },
@@ -747,40 +1004,6 @@ async function restoreStockForOrderFallback(items: LineItem[]): Promise<void> {
       })
       .catch(() => {});
   }
-}
-
-function readAddress(formData: FormData): Address {
-  const str = (key: string) =>
-    String(formData.get(key) ?? "").trim().slice(0, 200);
-  return {
-    firstName: str("firstName"),
-    lastName: str("lastName"),
-    company: str("company").slice(0, 120),
-    address1: str("address1"),
-    address2: str("address2").slice(0, 200),
-    city: str("city"),
-    state: str("state").slice(0, 64),
-    postcode: str("postcode").slice(0, 32),
-    country: str("country").slice(0, 2).toUpperCase(),
-    phone: str("phone").slice(0, 40),
-  };
-}
-
-/**
- * Validate the address for orders that need shipping. Digital-only orders
- * skip the street-address requirement (country still drives tax).
- */
-function validateAddress(address: Address, requiresShipping: boolean): string | null {
-  if (!requiresShipping) return null;
-  const missing: string[] = [];
-  if (!address.firstName) missing.push("first name");
-  if (!address.lastName) missing.push("last name");
-  if (!address.address1) missing.push("street address");
-  if (!address.city) missing.push("city");
-  if (!address.postcode) missing.push("postal code");
-  if (!address.country) missing.push("country");
-  if (missing.length > 0) return `Please enter your ${missing.join(", ")}.`;
-  return null;
 }
 
 /** Buy now from the single product page. */
@@ -806,15 +1029,45 @@ export async function purchaseProduct(formData: FormData): Promise<PurchaseResul
   const lines = await buildLineItems([{ productId, quantity, variantId, options }], { email });
   if (!lines.ok) return lines;
 
-  const address = readAddress(formData);
+  const serviceItem = lines.items.find((item) => item.type === "SERVICE");
+  const booking = parseServiceBooking(
+    formData.get("serviceDate"),
+    formData.get("serviceTime"),
+    Boolean(serviceItem),
+    serviceItem
+      ? {
+          durationMinutes: serviceItem.serviceDurationMinutes,
+          bufferBeforeMinutes: serviceItem.serviceBufferBeforeMinutes,
+          bufferAfterMinutes: serviceItem.serviceBufferAfterMinutes,
+        }
+      : {},
+  );
+  if (!booking.ok) return booking;
+  if (booking.booking && serviceItem) {
+    const conflict = await findServiceBookingConflictForProduct(
+      serviceItem.productId,
+      booking.booking,
+      {
+        durationMinutes: serviceItem.serviceDurationMinutes,
+        bufferBeforeMinutes: serviceItem.serviceBufferBeforeMinutes,
+        bufferAfterMinutes: serviceItem.serviceBufferAfterMinutes,
+        maxBookings: serviceItem.serviceMaxBookings,
+      },
+    );
+    if (conflict) return { ok: false, error: conflict };
+  }
+
+  const addresses = readCheckoutAddresses(formData);
+  const tax = taxAddress(addresses);
   const totals = quoteTotals({
     lines: toQuoteLines(lines.items),
     couponCode,
-    country: address.country,
-    state: address.state,
+    customer: { userId: await getSessionUid().catch(() => null), email },
+    country: tax.country,
+    state: tax.state,
   });
 
-  return placeOrder(lines, totals, gatewayResult, email, address, null, checkoutToken, null);
+  return placeOrder(lines, totals, gatewayResult, email, addresses, null, checkoutToken, null, booking.booking);
 }
 
 /** Place an order for everything in the cart. */
@@ -853,15 +1106,55 @@ export async function checkoutCart(formData: FormData): Promise<PurchaseResult> 
   );
   if (!lines.ok) return lines;
 
-  const address = readAddress(formData);
+  const serviceItem = lines.items.find((item) => item.type === "SERVICE");
+  const booking = parseServiceBooking(
+    formData.get("serviceDate"),
+    formData.get("serviceTime"),
+    Boolean(serviceItem),
+    serviceItem
+      ? {
+          durationMinutes: serviceItem.serviceDurationMinutes,
+          bufferBeforeMinutes: serviceItem.serviceBufferBeforeMinutes,
+          bufferAfterMinutes: serviceItem.serviceBufferAfterMinutes,
+        }
+      : {},
+  );
+  if (!booking.ok) return booking;
+  if (booking.booking && serviceItem) {
+    const conflict = await findServiceBookingConflictForProduct(
+      serviceItem.productId,
+      booking.booking,
+      {
+        durationMinutes: serviceItem.serviceDurationMinutes,
+        bufferBeforeMinutes: serviceItem.serviceBufferBeforeMinutes,
+        bufferAfterMinutes: serviceItem.serviceBufferAfterMinutes,
+        maxBookings: serviceItem.serviceMaxBookings,
+      },
+    );
+    if (conflict) return { ok: false, error: conflict };
+  }
+
+  const addresses = readCheckoutAddresses(formData);
+  const tax = taxAddress(addresses);
   const totals = quoteTotals({
     lines: toQuoteLines(lines.items),
     couponCode: cart.couponCode,
-    country: address.country,
-    state: address.state,
+    customer: { userId: cart.userId ?? (await getSessionUid().catch(() => null)), email },
+    country: tax.country,
+    state: tax.state,
   });
 
-  return placeOrder(lines, totals, gatewayResult, email, address, null, checkoutToken, sessionId);
+  return placeOrder(
+    lines,
+    totals,
+    gatewayResult,
+    email,
+    addresses,
+    null,
+    checkoutToken,
+    sessionId,
+    booking.booking,
+  );
 }
 
 /** Apply a coupon code to the current cart (validated immediately). */
@@ -893,7 +1186,10 @@ export async function applyCouponToCart(formData: FormData): Promise<CouponActio
   const lines = toQuoteLines(linesResult.items);
   const subtotal = round2(linesResult.total);
 
-  const result = await resolveCoupon(code, lines, subtotal);
+  const result = await resolveCoupon(code, lines, subtotal, {
+    userId: cart.userId ?? (await getSessionUid().catch(() => null)),
+    email: String(formData.get("email") ?? "").trim() || null,
+  });
   if (!result.ok) return { ok: false, error: result.error };
 
   await prisma.cart.update({
@@ -943,8 +1239,14 @@ export async function quoteCartTotals(formData: FormData): Promise<QuoteResult> 
   const totals = await quoteTotals({
     lines: toQuoteLines(linesResult.items),
     couponCode: cart.couponCode,
-    country: String(formData.get("country") ?? "").trim() || null,
-    state: String(formData.get("state") ?? "").trim() || null,
+    customer: {
+      userId: cart.userId ?? (await getSessionUid().catch(() => null)),
+      email: String(formData.get("email") ?? "").trim() || null,
+    },
+    country:
+      String(formData.get("billingCountry") ?? formData.get("country") ?? "").trim().toUpperCase() || null,
+    state:
+      String(formData.get("billingState") ?? formData.get("state") ?? "").trim() || null,
   });
   return { ok: true, totals };
 }

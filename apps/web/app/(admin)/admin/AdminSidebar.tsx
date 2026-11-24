@@ -47,12 +47,17 @@ export default function AdminSidebar({
     <>
       <button
         type="button"
-        aria-label="Open admin navigation"
-        onClick={() => setOpen(true)}
+        aria-label={open ? "Close admin navigation" : "Open admin navigation"}
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
         className="fixed left-3 top-3 z-50 rounded-lg border border-zinc-200 bg-white p-2 shadow-sm md:hidden"
       >
         <svg className="h-5 w-5 text-zinc-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path strokeLinecap="round" d="M4 7h16M4 12h16M4 17h16" />
+          {open ? (
+            <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+          ) : (
+            <path strokeLinecap="round" d="M4 7h16M4 12h16M4 17h16" />
+          )}
         </svg>
       </button>
 
