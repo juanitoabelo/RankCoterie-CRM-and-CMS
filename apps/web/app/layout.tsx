@@ -6,6 +6,8 @@ import "./globals.css";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  // Only preloaded when the active theme actually selects this font.
+  preload: false,
 });
 
 const geistMono = Geist_Mono({

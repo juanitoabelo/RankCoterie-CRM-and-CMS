@@ -5,24 +5,18 @@ import { sanitizeHtml } from "@/lib/style-guide";
 import BlockRenderer from "@/components/admin/page-builder/BlockRenderer";
 import type { Block } from "@/lib/page-builder/types";
 import type { Metadata } from "next";
+import { cache } from "react";
 
 export const revalidate = 0;
 
-export async function generateMetadata(): Promise<Metadata> {
-  const homepagePage = await prisma.page.findFirst({
+const getHomepagePage = cache(() =>
+  prisma.page.findFirst({
     where: { tenantId: TENANT_ID, isHomepage: true, status: "LIVE" },
-    select: {
-      title: true,
-      name: true,
-      seoTitle: true,
-      metaDesc: true,
-      metaKeywords: true,
-      ogImage: true,
-      canonicalUrl: true,
-      robotsIndex: true,
-      robotsFollow: true,
-    },
-  });
+  }),
+);
+
+export async function generateMetadata(): Promise<Metadata> {
+  const homepagePage = await getHomepagePage();
   if (!homepagePage) return {};
 
   const title = homepagePage.seoTitle || homepagePage.title || homepagePage.name;
@@ -50,9 +44,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function HomePage() {
-  const homepagePage = await prisma.page.findFirst({
-    where: { tenantId: TENANT_ID, isHomepage: true, status: "LIVE" },
-  });
+  const homepagePage = await getHomepagePage();
 
   if (homepagePage) {
     const blocks: Block[] = homepagePage.data ? JSON.parse(homepagePage.data) : [];

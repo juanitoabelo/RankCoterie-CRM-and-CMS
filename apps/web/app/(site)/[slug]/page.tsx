@@ -31,8 +31,15 @@ import { getSinglePostSeo, loadSinglePost, SinglePost } from "@/app/(site)/compo
 import { CustomPostTypeArchiveContent, getCustomPostTypeArchive } from "@/app/(site)/components/CustomPostTypeArchive";
 import type { Block } from "@/lib/page-builder/types";
 import type { Metadata } from "next";
+import { cache } from "react";
 
 export const revalidate = 0;
+
+const getProduct = cache((slug: string) => getPublicProductBySlug(slug));
+const getArchive = cache((slug: string) => getCustomPostTypeArchive(slug));
+const getPageBySlug = cache((slug: string) =>
+  prisma.page.findFirst({ where: { slug, status: "LIVE" } }),
+);
 
 function siteUrl(): string {
   return (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
@@ -47,10 +54,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const { region } = await searchParams;
-  const product = await getPublicProductBySlug(slug);
+  const product = await getProduct(slug);
   if (product) return buildProductMetadata(product, siteUrl());
 
-  const customPostType = await getCustomPostTypeArchive(slug);
+  const customPostType = await getArchive(slug);
   if (customPostType) {
     if (!customPostType.isPublic || !customPostType.hasArchive) return { title: "Page not found" };
     return {
@@ -59,20 +66,7 @@ export async function generateMetadata({
     };
   }
 
-  const page = await prisma.page.findFirst({
-    where: { slug, status: "LIVE" },
-    select: {
-      title: true,
-      name: true,
-      seoTitle: true,
-      metaDesc: true,
-      metaKeywords: true,
-      ogImage: true,
-      canonicalUrl: true,
-      robotsIndex: true,
-      robotsFollow: true,
-    },
-  });
+  const page = await getPageBySlug(slug);
 
   if (!page) {
     const postSeo = await getSinglePostSeo(slug, region);
@@ -112,7 +106,7 @@ export default async function PublicPage({
 }) {
   const { slug } = await params;
   const { region } = await searchParams;
-  const product = await getPublicProductBySlug(slug);
+  const product = await getProduct(slug);
 
   if (product) {
     const [gateways, productTemplate] = await Promise.all([
@@ -194,18 +188,13 @@ export default async function PublicPage({
     );
   }
 
-  const customPostType = await getCustomPostTypeArchive(slug);
+  const customPostType = await getArchive(slug);
   if (customPostType) {
     if (!customPostType.isPublic || !customPostType.hasArchive) notFound();
     return <CustomPostTypeArchiveContent postType={customPostType} />;
   }
 
-  const page = await prisma.page.findFirst({
-    where: {
-      slug,
-      status: "LIVE",
-    },
-  });
+  const page = await getPageBySlug(slug);
 
   if (page) {
     const blocks: Block[] = page.data ? JSON.parse(page.data) : [];
