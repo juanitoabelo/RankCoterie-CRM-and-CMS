@@ -1,3 +1,24 @@
+/**
+ * Tokens understood by renderLocalizedContent() and used by GeoCategory
+ * intro/content fields. Matching is case-insensitive.
+ */
+export const GEO_CATEGORY_TOKENS: Array<{ token: string; example: string; note?: string }> = [
+  { token: "{{region}}", example: "San Diego, CA / California" },
+  { token: "{{in region}}", example: "in San Diego, CA / in California" },
+  { token: "{{around region}}", example: "around San Diego, CA" },
+  { token: "{{near region}}", example: "near San Diego, CA" },
+  { token: "{{of region}}", example: "of San Diego, CA" },
+  { token: "{{from region}}", example: "from San Diego, CA" },
+  { token: "{{in the region area}}", example: "in the San Diego, CA area" },
+  { token: "{{from the region area}}", example: "from the San Diego, CA area" },
+  { token: "{{regionurlpart}}", example: "San-Diego-California-CA", note: "Region URL slug" },
+  { token: "{{region2inject}}", example: "Region custom content block", note: "Only where region Custom2 is populated" },
+  { token: "{{catName}}", example: "Category name", note: "Template/listing contexts; may be empty on /g/ pages" },
+  { token: "{{in catName}}", example: "in Category name", note: "Template/listing contexts; may be empty on /g/ pages" },
+  { token: "{{subcat}}", example: "Subcategory name", note: "Template/listing contexts; may be empty on /g/ pages" },
+  { token: "{{subcattext}}", example: "Subcategory display text", note: "Template/listing contexts; may be empty on /g/ pages" },
+];
+
 /** Data-binding tokens available in listing content fields (form help + template builder). */
 export const CONTENT_TOKENS: Array<{ token: string; example: string }> = [
   { token: "{{region}}", example: "Miami, FL" },

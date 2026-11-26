@@ -4,12 +4,19 @@ import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { updateGeoCategory, deleteGeoCategory, deleteGeoCategoryImageForm, type ActionResult } from "../../actions";
+import { generateAlternateIntroWithAi } from "../../ai-actions";
 import RichTextarea from "@/components/admin/RichTextarea";
 import ImageUploader from "@/components/admin/ImageUploader";
 import SeoFields, { type SeoData } from "@/components/admin/SeoFields";
 import GeoTemplateAssignmentCard from "@/components/admin/geo-category-template-builder/GeoTemplateAssignmentCard";
 import { assignGeoCategoryTemplateAction } from "@/app/(admin)/admin/geo-category-template/actions";
 import CustomFieldsEditor from "@/components/admin/custom-fields/CustomFieldsEditor";
+import GeoCategoryTokenHelp from "@/components/admin/geo-category/GeoCategoryTokenHelp";
+import {
+  countWordsFromHtml,
+  generateAlternateIntro,
+  MIN_ALT_INTRO_WORDS,
+} from "@/lib/admin/geo-category-alt-intro";
 
 function parseKeywords(raw: string | null | undefined): string[] {
   if (!raw) return [];
@@ -31,6 +38,15 @@ interface AltIntro {
   state: string;
   areaPart: string;
   customText: string;
+}
+
+interface AltRow {
+  key: number;
+  state: string;
+  area: string;
+  content: string;
+  revision: number;
+  wordCount?: number;
 }
 
 interface GeoCategory {
@@ -93,8 +109,22 @@ export default function EditGeoCategoryForm({
   const router = useRouter();
   const [message, setMessage] = useState<ActionResult | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [altRows, setAltRows] = useState<{ key: number; initial?: AltIntro }[]>(() =>
-    category.regionContent.map((r, i) => ({ key: i, initial: r })),
+  const [aiPending, setAiPending] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [parentContent, setParentContent] = useState(category.description ?? "");
+  const [stateInit, setStateInit] = useState(category.stateInit ?? "");
+  const [stateDesc, setStateDesc] = useState(category.stateDesc ?? "");
+  const [cityInit, setCityInit] = useState(category.cityInit ?? "");
+  const [cityDesc, setCityDesc] = useState(category.cityDesc ?? "");
+  const [altRows, setAltRows] = useState<AltRow[]>(() =>
+    category.regionContent.map((r, i) => ({
+      key: i,
+      state: r.state,
+      area: r.areaPart,
+      content: r.customText ?? "",
+      revision: 0,
+      wordCount: countWordsFromHtml(r.customText),
+    })),
   );
   const nextRowId = useRef(category.regionContent.length);
   const [slug, setSlug] = useState(category.slug);
@@ -163,12 +193,76 @@ export default function EditGeoCategoryForm({
   }
 
   function addAltRow() {
-    setAltRows((rows) => [...rows, { key: nextRowId.current }]);
+    setAltRows((rows) => [
+      ...rows,
+      { key: nextRowId.current, state: "", area: "", content: "", revision: 0, wordCount: 0 },
+    ]);
     nextRowId.current += 1;
   }
 
   function removeAltRow(key: number) {
     setAltRows((rows) => rows.filter((r) => r.key !== key));
+  }
+
+  function updateAltRow(key: number, patch: Partial<AltRow>) {
+    setAltRows((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  }
+
+  const hasAltIntroSource = Boolean(
+    parentContent || stateInit || stateDesc || cityInit || cityDesc,
+  );
+
+  function generateAltIntro(key: number) {
+    const row = altRows.find((r) => r.key === key);
+    if (!row || !hasAltIntroSource) return;
+    const stateName = states.find((s) => s.state === row.state)?.stateFull ?? row.state;
+    const result = generateAlternateIntro({
+      areaPart: row.area,
+      stateName,
+      parentContentHtml: parentContent,
+      stateIntroHtml: stateInit,
+      stateStaticHtml: stateDesc,
+      cityIntroHtml: cityInit,
+      cityStaticHtml: cityDesc,
+    });
+    updateAltRow(key, {
+      content: result.html,
+      wordCount: result.wordCount,
+      revision: row.revision + 1,
+    });
+  }
+
+  function generateAiAltIntro(key: number) {
+    const row = altRows.find((r) => r.key === key);
+    if (!row || !hasAltIntroSource) return;
+    setAiError(null);
+    setAiPending(true);
+    const stateName = states.find((s) => s.state === row.state)?.stateFull ?? row.state;
+
+    startTransition(async () => {
+      try {
+        const result = await generateAlternateIntroWithAi({
+          areaPart: row.area,
+          stateName,
+          parentContentHtml: parentContent,
+          stateIntroHtml: stateInit,
+          stateStaticHtml: stateDesc,
+          cityIntroHtml: cityInit,
+          cityStaticHtml: cityDesc,
+        });
+        if (!result.ok) {
+          setAiError(result.error);
+          return;
+        }
+        updateAltRow(key, {
+          content: result.html,
+          wordCount: result.wordCount,
+          revision: row.revision + 1,
+        });
+      } finally {
+        setAiPending(false);
+      }
+    });
   }
 
   return (
@@ -219,7 +313,13 @@ export default function EditGeoCategoryForm({
         {/* Parent Page Content */}
         <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-4">
           <h2 className="text-sm font-semibold text-zinc-900">Category Parent Page</h2>
-          <RichTextarea name="description" label="Category Parent Content" value={category.description ?? ""} />
+          <RichTextarea
+            name="description"
+            label="Category Parent Content"
+            value={parentContent}
+            onChange={setParentContent}
+            hint={<GeoCategoryTokenHelp summary="Parent page tokens" />}
+          />
           <div className="grid grid-cols-2 gap-4">
             <ImageUploader
               name="parentImageAssetId"
@@ -247,8 +347,20 @@ export default function EditGeoCategoryForm({
         {/* State Page */}
         <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-4">
           <h2 className="text-sm font-semibold text-zinc-900">GeoCategory State Page</h2>
-          <RichTextarea name="stateInit" label="State Page Content (Intro)" value={category.stateInit ?? ""} />
-          <RichTextarea name="stateDesc" label="State Page Content (Static)" value={category.stateDesc ?? ""} />
+          <RichTextarea
+            name="stateInit"
+            label="State Page Content (Intro)"
+            value={stateInit}
+            onChange={setStateInit}
+            hint={<GeoCategoryTokenHelp summary="State intro tokens" />}
+          />
+          <RichTextarea
+            name="stateDesc"
+            label="State Page Content (Static)"
+            value={stateDesc}
+            onChange={setStateDesc}
+            hint={<GeoCategoryTokenHelp summary="State static content tokens" />}
+          />
           <div className="grid grid-cols-2 gap-4">
             <ImageUploader
               name="stateImageAssetId"
@@ -269,8 +381,20 @@ export default function EditGeoCategoryForm({
         {/* City Page */}
         <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-4">
           <h2 className="text-sm font-semibold text-zinc-900">GeoCategory City Page</h2>
-          <RichTextarea name="cityInit" label="City Page Content (Intro)" value={category.cityInit ?? ""} />
-          <RichTextarea name="cityDesc" label="City Page Content (Static)" value={category.cityDesc ?? ""} />
+          <RichTextarea
+            name="cityInit"
+            label="City Page Content (Intro)"
+            value={cityInit}
+            onChange={setCityInit}
+            hint={<GeoCategoryTokenHelp summary="City intro tokens" />}
+          />
+          <RichTextarea
+            name="cityDesc"
+            label="City Page Content (Static)"
+            value={cityDesc}
+            onChange={setCityDesc}
+            hint={<GeoCategoryTokenHelp summary="City static content tokens" />}
+          />
           <div className="grid grid-cols-2 gap-4">
             <ImageUploader
               name="cityImageAssetId"
@@ -302,27 +426,66 @@ export default function EditGeoCategoryForm({
           </div>
           <p className="text-xs text-zinc-500">
             Alternate intros override the City Page intro for city pages of a specific state and geographical area.
+            &quot;Generate unique with AI&quot; rewrites the Parent, State and City content into fresh local copy focused
+            on the selected state and area. &quot;Generate from parent content&quot; is the deterministic fallback. Both
+            keep tokens intact and enforce at least {MIN_ALT_INTRO_WORDS} words; Google has no fixed word minimum.
           </p>
+          {aiError && <p className="text-xs text-red-600">{aiError}</p>}
           <input type="hidden" name="altCount" value={altRows.length} />
 
           {altRows.map((row, index) => (
             <div key={row.key} className="space-y-3 rounded-lg border border-zinc-200 p-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-zinc-500">Alternate Intro {index + 1}</span>
-                <button
-                  type="button"
-                  onClick={() => removeAltRow(row.key)}
-                  className="text-xs text-red-600 hover:underline"
-                >
-                  Remove
-                </button>
+                <div className="flex flex-wrap items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => generateAiAltIntro(row.key)}
+                    disabled={!hasAltIntroSource || !row.area || aiPending}
+                    className="text-xs font-medium text-emerald-700 hover:underline disabled:cursor-not-allowed disabled:text-zinc-400"
+                  >
+                    {aiPending ? "Generating with AI..." : "Generate unique with AI"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => generateAltIntro(row.key)}
+                    disabled={!hasAltIntroSource || !row.area}
+                    className="text-xs font-medium text-blue-600 hover:underline disabled:cursor-not-allowed disabled:text-zinc-400"
+                  >
+                    Generate from parent content
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeAltRow(row.key)}
+                    className="text-xs text-red-600 hover:underline"
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
+              {(row.wordCount ?? 0) > 0 && (
+                <p
+                  className={`text-xs ${
+                    (row.wordCount ?? 0) >= MIN_ALT_INTRO_WORDS ? "text-emerald-700" : "text-amber-700"
+                  }`}
+                >
+                  {row.wordCount} words —{" "}
+                  {(row.wordCount ?? 0) >= MIN_ALT_INTRO_WORDS
+                    ? "meets the internal content target."
+                    : `below the ${MIN_ALT_INTRO_WORDS}-word internal target; add more parent/state/city content.`}
+                </p>
+              )}
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className="block text-sm font-medium text-zinc-800">
                     Alternate Intro for City Pages of Which State?
                   </label>
-                  <select name={`altState_${index}`} defaultValue={row.initial?.state ?? ""} className={inputCls}>
+                  <select
+                    name={`altState_${index}`}
+                    value={row.state}
+                    onChange={(e) => updateAltRow(row.key, { state: e.target.value })}
+                    className={inputCls}
+                  >
                     <option value="" disabled>--Select State--</option>
                     {states.map((s) => (
                       <option key={s.state} value={s.state}>
@@ -335,7 +498,12 @@ export default function EditGeoCategoryForm({
                   <label className="block text-sm font-medium text-zinc-800">
                     For City Pages Within Which Geographical Area?
                   </label>
-                  <select name={`altArea_${index}`} defaultValue={row.initial?.areaPart ?? ""} className={inputCls}>
+                  <select
+                    name={`altArea_${index}`}
+                    value={row.area}
+                    onChange={(e) => updateAltRow(row.key, { area: e.target.value })}
+                    className={inputCls}
+                  >
                     <option value="" disabled>--Geographical Area--</option>
                     {AREA_OPTIONS.map((a) => (
                       <option key={a.value} value={a.value}>
@@ -346,10 +514,13 @@ export default function EditGeoCategoryForm({
                 </div>
               </div>
               <RichTextarea
+                key={`${row.key}-${row.revision}`}
                 name={`altContent_${index}`}
                 label="Alternate Intro Content"
-                value={row.initial?.customText ?? ""}
+                value={row.content}
+                onChange={(html) => updateAltRow(row.key, { content: html, wordCount: countWordsFromHtml(html) })}
                 placeholder="Write alternate intro content..."
+                hint={<GeoCategoryTokenHelp summary="Alternate intro tokens" />}
               />
             </div>
           ))}
@@ -394,11 +565,11 @@ export default function EditGeoCategoryForm({
         <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-4">
           <h2 className="text-sm font-semibold text-zinc-900">SEO, Advanced &amp; Schema</h2>
           <p className="text-xs text-zinc-500">
-            SEO title and meta description support <code className="rounded bg-zinc-100 px-1 py-0.5">{"{{region}}"}</code>{" "}
-            tokens — they are rendered per region page (e.g. &quot;... {"{{in region}}"}&quot;) so every generated page
-            keeps a unique title. Canonical URL applies to the parent page only; region pages always self-canonicalize.
-            Robots settings apply to all /g/ pages of this GeoCategory.
+            SEO title and meta description use the same tokens below. Canonical URL applies to the parent page only;
+            region pages always self-canonicalize. JSON-LD schema does not process tokens. Robots settings apply to all
+            /g/ pages of this GeoCategory.
           </p>
+          <GeoCategoryTokenHelp summary="SEO title & meta description tokens" />
           <SeoFields data={seoData} onChange={setSeoData} slugPreview={slug} />
         </div>
 

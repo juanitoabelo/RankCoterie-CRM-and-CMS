@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, type ReactNode } from "react";
 import RichTextEditor from "@/components/admin/page-builder/RichTextEditor";
 
 export default function RichTextarea({
@@ -9,6 +9,7 @@ export default function RichTextarea({
   value = "",
   placeholder,
   required,
+  hint,
   onChange,
 }: {
   name: string;
@@ -16,13 +17,15 @@ export default function RichTextarea({
   value?: string;
   placeholder?: string;
   required?: boolean;
+  hint?: ReactNode;
   onChange?: (html: string) => void;
 }) {
   const [html, setHtml] = useState(value);
 
-  useEffect(() => {
-    onChange?.(html);
-  }, [html]);
+  function handleChange(nextHtml: string) {
+    setHtml(nextHtml);
+    onChange?.(nextHtml);
+  }
 
   return (
     <div className="space-y-1">
@@ -32,14 +35,15 @@ export default function RichTextarea({
           {required && <span className="ml-1 text-red-500">*</span>}
         </label>
       )}
-      <input type="hidden" name={name} value={html} />
+      <input type="hidden" name={name} value={html} readOnly />
       <RichTextEditor
         value={html}
-        onChange={setHtml}
+        onChange={handleChange}
         placeholder={placeholder ?? "Write content..."}
         minHeight={180}
         showSource
       />
+      {hint && <div className="pt-1">{hint}</div>}
     </div>
   );
 }
