@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/directory/prismaCatalog";
 import { getVerificationRequests, getVerificationTypes, getVerificationStatuses } from "./actions";
 import Link from "next/link";
 
@@ -12,20 +11,6 @@ const statusColors: Record<string, string> = {
   APPROVED: "bg-green-100 text-green-700",
   REJECTED: "bg-red-100 text-red-700",
   EXPIRED: "bg-zinc-100 text-zinc-700",
-};
-
-const typeLabels: Record<string, string> = {
-  EMAIL: "Email",
-  PHONE: "Phone",
-  LICENSE: "License",
-  IDENTITY: "Identity",
-  BUSINESS_LICENSE: "Business License",
-  INSURANCE: "Insurance",
-};
-
-type VerificationRow = {
-  listing?: { title: string | null; slug: string | null };
-  requestedBy?: { email?: string | null } | null;
 };
 
 export default async function VerificationRequestsPage() {
@@ -74,8 +59,8 @@ export default async function VerificationRequestsPage() {
                     <p className="font-medium text-zinc-900">{r.id.slice(0, 8)}...</p>
                   </td>
                   <td className="p-3">
-                    <p className="font-medium text-zinc-900">{(r as VerificationRow).listing?.title}</p>
-                    <p className="text-xs text-zinc-500">{(r as VerificationRow).listing?.slug}</p>
+                    <p className="font-medium text-zinc-900">{r.listing.title}</p>
+                    <p className="text-xs text-zinc-500">{r.listing.slug}</p>
                   </td>
                   <td className="p-3">
                     <span className="inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
@@ -88,7 +73,7 @@ export default async function VerificationRequestsPage() {
                     </span>
                   </td>
                   <td className="p-3 text-zinc-600">
-                    {(r as VerificationRow).requestedBy?.email || "Unknown"}
+                    {r.requestedBy?.email || "Unknown"}
                   </td>
                   <td className="p-3 text-zinc-600">
                     {new Date(r.createdAt).toLocaleDateString()}

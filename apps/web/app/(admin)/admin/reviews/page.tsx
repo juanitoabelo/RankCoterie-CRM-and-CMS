@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/directory/prismaCatalog";
 import { getReviews, getReviewStatuses } from "./actions";
 import Link from "next/link";
 
@@ -46,7 +45,7 @@ export default async function ReviewsPage() {
                 </td>
               </tr>
 ) : (
-              <Fragment>
+              <>
                 {reviews.map((r) => (
                   <tr key={r.id} className="hover:bg-zinc-50">
                     <td className="p-3">
@@ -79,7 +78,7 @@ export default async function ReviewsPage() {
                     </td>
                   </tr>
                 ))}
-              </Fragment>
+              </>
             )}
           </tbody>
         </table>

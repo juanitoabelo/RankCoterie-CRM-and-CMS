@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/directory/prismaCatalog";
-import { logAudit } from "@/lib/audit";
+import { logAudit, type AuditAction } from "@/lib/audit";
 import { requireSection } from "@/modules/auth";
 import { TENANT_ID } from "@/lib/tenant";
 
@@ -9,13 +9,13 @@ export type ActionResult = { ok: true; id?: string } | { ok: false; error: strin
 
 export async function getReviews(status?: string) {
   await requireSection("reviews");
-  const where: any = { tenantId: TENANT_ID };
+  const where: { tenantId: string; status?: string } = { tenantId: TENANT_ID };
   if (status && status !== "ALL") where.status = status;
   
   return prisma.review.findMany({
     where,
     include: {
-      listing: { select: { title: true, slug: true, tier: true } },
+      listing: { select: { id: true, title: true, slug: true, tier: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -26,7 +26,7 @@ export async function getReview(id: string) {
   return prisma.review.findUnique({
     where: { id, tenantId: TENANT_ID },
     include: {
-      listing: { select: { title: true, slug: true, tier: true } },
+      listing: { select: { id: true, title: true, slug: true, tier: true, status: true } },
     },
   });
 }
@@ -41,7 +41,7 @@ export async function updateReviewStatus(id: string, formData: FormData): Promis
   }
 
   try {
-    const updateData: any = { status };
+    const updateData: { status: string; response?: string; respondedAt?: Date } = { status };
     if (response) {
       updateData.response = response;
       updateData.respondedAt = new Date();
@@ -54,7 +54,7 @@ export async function updateReviewStatus(id: string, formData: FormData): Promis
     });
 
     await logAudit({
-      action: `REVIEW_${status}`,
+      action: `REVIEW_${status}` as AuditAction,
       entity: "Review",
       entityId: id,
       meta: { listingId: review.listingId },

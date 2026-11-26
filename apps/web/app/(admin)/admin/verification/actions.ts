@@ -1,51 +1,55 @@
 "use server";
 
+import { Prisma, VerificationStatus } from "@prisma/client";
 import { prisma } from "@/lib/directory/prismaCatalog";
-import { logAudit } from "@/lib/audit";
+import { logAudit, type AuditAction } from "@/lib/audit";
 import { requireSection } from "@/modules/auth";
 import { TENANT_ID } from "@/lib/tenant";
+import { attachVerificationUsers } from "@/lib/verification-users";
 
 export type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
 
 export async function getVerificationRequests(status?: string) {
   await requireSection("verification");
-  const where: any = { tenantId: TENANT_ID };
-  if (status && status !== "ALL") where.status = status;
+  const where: Prisma.VerificationRequestWhereInput = { tenantId: TENANT_ID };
+  if (status && status !== "ALL") where.status = status as VerificationStatus;
   
-  return prisma.verificationRequest.findMany({
+  const requests = await prisma.verificationRequest.findMany({
     where,
     include: {
       listing: { select: { title: true, slug: true, companyName: true } },
-      requestedBy: { select: { email: true, firstName: true, lastName: true } },
-      reviewedBy: { select: { email: true, firstName: true, lastName: true } },
     },
     orderBy: { createdAt: "desc" },
   });
+
+  return attachVerificationUsers(requests);
 }
 
 export async function getVerificationRequest(id: string) {
   await requireSection("verification");
-  return prisma.verificationRequest.findUnique({
+  const request = await prisma.verificationRequest.findUnique({
     where: { id, tenantId: TENANT_ID },
     include: {
-      listing: { 
-        select: { 
-          title: true, 
-          slug: true, 
+      listing: {
+        select: {
+          id: true,
+          title: true,
+          slug: true,
           companyName: true,
           email: true,
           phone: true,
-        } 
+        },
       },
-      requestedBy: { select: { email: true, firstName: true, lastName: true } },
-      reviewedBy: { select: { email: true, firstName: true, lastName: true } },
     },
   });
+
+  if (!request) return null;
+  const [withUsers] = await attachVerificationUsers([request]);
+  return withUsers;
 }
 
 export async function updateVerificationRequest(id: string, formData: FormData): Promise<ActionResult> {
   await requireSection("verification");
-  const str = (k: string) => String(formData.get(k) ?? "").trim() || null;
   const status = formData.get("status") as string;
   const rejectionReason = formData.get("rejectionReason") as string | null;
 
@@ -61,8 +65,8 @@ export async function updateVerificationRequest(id: string, formData: FormData):
 
     if (!request) return { ok: false, error: "Verification request not found." };
 
-    const updateData: any = {
-      status,
+    const updateData: Prisma.VerificationRequestUncheckedUpdateInput = {
+      status: status as VerificationStatus,
       reviewedById: "admin-user-id", // TODO: get from session
       reviewedAt: new Date(),
     };
@@ -98,7 +102,7 @@ export async function updateVerificationRequest(id: string, formData: FormData):
 
     // Log audit
     await logAudit({
-      action: `VERIFICATION_${status}`,
+      action: `VERIFICATION_${status}` as AuditAction,
       entity: "VerificationRequest",
       entityId: id,
       meta: { type: "VERIFICATION", listingId: request.listingId },

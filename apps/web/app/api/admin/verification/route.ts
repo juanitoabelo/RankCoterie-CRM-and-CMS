@@ -1,8 +1,10 @@
+import { Prisma, VerificationStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/directory/prismaCatalog";
-import { logAudit } from "@/lib/audit";
+import { logAudit, type AuditAction } from "@/lib/audit";
 import { TENANT_ID } from "@/lib/tenant";
 import { getApiUser, canAccessSectionForUser } from "@/modules/auth";
+import { attachVerificationUsers } from "@/lib/verification-users";
 
 async function authed(): Promise<boolean> {
   const user = await getApiUser();
@@ -15,20 +17,18 @@ export async function GET(request: NextRequest) {
   }
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
-  const where: { tenantId: string; status?: string } = { tenantId: TENANT_ID };
-  if (status && status !== "ALL") where.status = status;
+  const where: Prisma.VerificationRequestWhereInput = { tenantId: TENANT_ID };
+  if (status && status !== "ALL") where.status = status as VerificationStatus;
 
   const requests = await prisma.verificationRequest.findMany({
     where,
     include: {
       listing: { select: { title: true, slug: true, companyName: true } },
-      requestedBy: { select: { email: true, firstName: true, lastName: true } },
-      reviewedBy: { select: { email: true, firstName: true, lastName: true } },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(requests);
+  return NextResponse.json(await attachVerificationUsers(requests));
 }
 
 export async function PATCH(
@@ -42,22 +42,17 @@ export async function PATCH(
     const { id } = await params;
     const data = await request.json();
 
-    const request = await prisma.verificationRequest.findUnique({
+    const verificationRequest = await prisma.verificationRequest.findUnique({
       where: { id, tenantId: TENANT_ID },
       include: { listing: true },
     });
 
-    if (!request) {
+    if (!verificationRequest) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const updateData: {
-      status: string;
-      reviewedById: string;
-      reviewedAt: Date;
-      rejectionReason?: string;
-    } = {
-      status: data.status,
+    const updateData: Prisma.VerificationRequestUncheckedUpdateInput = {
+      status: data.status as VerificationStatus,
       reviewedById: "admin-user-id", // TODO: get from session
       reviewedAt: new Date(),
     };
@@ -69,14 +64,14 @@ export async function PATCH(
     if (data.status === "APPROVED") {
       // Update listing badges
       const listing = await prisma.listing.findUnique({
-        where: { id: request.listingId },
+        where: { id: verificationRequest.listingId },
         select: { badges: true },
       });
 
       const badges = (listing?.badges as string[]) || [];
       if (!badges.includes("verified")) {
         await prisma.listing.update({
-          where: { id: request.listingId },
+          where: { id: verificationRequest.listingId },
           data: {
             badges: [...badges, "verified"],
             verifiedAt: new Date(),
@@ -92,10 +87,10 @@ export async function PATCH(
     });
 
     await logAudit({
-      action: `VERIFICATION_${data.status}`,
+      action: `VERIFICATION_${data.status}` as AuditAction,
       entity: "VerificationRequest",
       entityId: id,
-      meta: { type: "VERIFICATION", listingId: request.listingId },
+      meta: { type: "VERIFICATION", listingId: verificationRequest.listingId },
     });
 
     return NextResponse.json(updated);
