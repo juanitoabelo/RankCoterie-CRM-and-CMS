@@ -27,6 +27,12 @@ describe("admin tool registry", () => {
     expect(ALL_ADMIN_TOOLS.find((tool) => tool.href === "/admin/cache")?.key).toBe("general.cache");
     expect(toolForPath("/admin/cache")?.key).toBe("general.cache");
   });
+
+  it("registers AI provider settings under System Tools", () => {
+    const systemTools = ADMIN_TOOL_GROUPS.find((group) => group.title === "System Tools");
+    expect(systemTools?.items.some((item) => item.href === "/admin/ai-settings")).toBe(true);
+    expect(toolForPath("/admin/ai-settings")?.key).toBe("ai.settings");
+  });
 });
 
 describe("toolForPath", () => {

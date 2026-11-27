@@ -7,9 +7,8 @@ import {
   validateAiAlternateIntroInput,
   type AiAlternateIntroResult,
 } from "@/lib/admin/geo-category-alt-intro-ai";
+import { generateAiText } from "@/modules/ai/client";
 
-const API_URL = "https://api.anthropic.com/v1/messages";
-const DEFAULT_MODEL = "claude-sonnet-4-0";
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX = 12;
 const recentRequests = new Map<string, number[]>();
@@ -50,73 +49,42 @@ export async function generateAlternateIntroWithAi(
   const inputValidation = validateAiAlternateIntroInput(input);
   if (!inputValidation.ok) return { ok: false, error: inputValidation.error };
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return { ok: false, error: "AI generation is not configured. Add ANTHROPIC_API_KEY to the web app environment." };
-  }
-
   const prompt = buildAiAlternateIntroPrompt(inputValidation.input);
 
   const request = async (revisionRequest?: string) => {
-    const response = await fetch(API_URL, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: process.env.ANTHROPIC_MODEL || DEFAULT_MODEL,
-        max_tokens: 1200,
-        system: prompt.system,
-        messages: [
-          {
-            role: "user",
-            content: revisionRequest
-              ? `${prompt.user}\n\nRevision request: ${revisionRequest}`
-              : prompt.user,
-          },
-        ],
-      }),
-      signal: AbortSignal.timeout(60000),
-      cache: "no-store",
+    const result = await generateAiText({
+      system: prompt.system,
+      user: revisionRequest
+        ? `${prompt.user}\n\nRevision request: ${revisionRequest}`
+        : prompt.user,
+      maxTokens: 1200,
+      timeoutMs: 60000,
     });
-
-    if (!response.ok) {
-      return { ok: false as const, error: `Anthropic API request failed (${response.status}).` };
-    }
-
-    const data = (await response.json()) as {
-      content?: Array<{ type: string; text?: string }>;
-    };
-    const text = (data.content ?? [])
-      .filter((block) => block.type === "text")
-      .map((block) => block.text ?? "")
-      .join("\n")
-      .trim();
-
-    if (!text) return { ok: false as const, error: "AI returned no text." };
-    return { ok: true as const, text };
+    return result.text;
   };
 
-  let generated;
+  let generatedText: string;
   try {
-    generated = await request();
-  } catch {
-    return { ok: false, error: "AI generation failed. Check the API configuration and try again." };
+    generatedText = await request();
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "AI generation failed. Check the provider configuration and try again.",
+    };
   }
-  if (!generated.ok) return { ok: false, error: generated.error };
 
-  let outputValidation = validateAiAlternateIntro(generated.text);
+  let outputValidation = validateAiAlternateIntro(generatedText);
   if (!outputValidation.ok) {
-    let revised;
+    let revisedText: string;
     try {
-      revised = await request(outputValidation.error);
+      revisedText = await request(outputValidation.error);
     } catch {
       return { ok: false, error: "AI revision failed. Try again." };
     }
-    if (!revised.ok) return { ok: false, error: revised.error };
-    outputValidation = validateAiAlternateIntro(revised.text);
+    outputValidation = validateAiAlternateIntro(revisedText);
   }
   if (!outputValidation.ok) return { ok: false, error: outputValidation.error };
 

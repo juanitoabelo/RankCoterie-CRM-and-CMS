@@ -156,6 +156,7 @@ export const ADMIN_TOOL_GROUPS: AdminToolGroup[] = [
       { key: "general.email", section: "general", href: "/admin/email-settings", label: "Email Settings" },
       { key: "general.customForm", section: "general", href: "/admin/custom-advance-form", label: "Custom Advance Form" },
       { key: "general.customFields", section: "general", href: "/admin/custom-fields", label: "Custom Fields & Post Types", paths: ["/admin/custom-post-types"] },
+      { key: "ai.settings", section: "ai", href: "/admin/ai-settings", label: "AI Providers" },
       { key: "reading.list", section: "reading", href: "/admin/reading", label: "Reading" },
       { key: "sitemap.list", section: "sitemap", href: "/admin/sitemap", label: "Sitemap" },
       { key: "themeSettings.list", section: "themeSettings", href: "/admin/theme-settings", label: "Theme Settings" },
@@ -208,6 +209,7 @@ export const SECTION_LABELS: Record<string, string> = {
   themeSettings: "Theme Settings",
   styleGuide: "Style Guide",
   customCssJs: "Custom CSS & JS",
+  ai: "AI Providers",
   toolsPermission: "Tools Permission",
 };
 
@@ -238,6 +240,7 @@ export const DEFAULT_SECTION_ROLES: Record<string, string[]> = {
   reports: ["SUPER_ADMIN", "ADMIN", "MARKETING"],
   sitemap: ["SUPER_ADMIN", "ADMIN", "MARKETING"],
   myCompany: ["SUPER_ADMIN", "ADMIN"],
+  ai: ["SUPER_ADMIN", "ADMIN"],
   users: ["SUPER_ADMIN"],
   crm: ["SUPER_ADMIN", "ADMIN", "SALES_REP"],
   leads: ["SUPER_ADMIN", "ADMIN", "SALES_REP"],

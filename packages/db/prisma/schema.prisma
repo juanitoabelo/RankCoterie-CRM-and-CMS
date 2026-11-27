@@ -28,6 +28,19 @@ model Tenant {
   companyProfile Company? @relation("CompanyTenant")
 }
 
+model AiProviderSetting {
+  id              String   @id @default(cuid())
+  tenantId        String
+  provider        String
+  apiKeyEncrypted String?
+  model           String?
+  enabled         Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([tenantId, provider])
+}
+
 model User {
   id                       String               @id @default(cuid())
   tenantId                 String
